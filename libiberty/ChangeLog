@@ -1,3 +1,43 @@
+Mon Jul  1 13:40:44 1996  Ken Raeburn  <raeburn@cygnus.com>
+
+	Tue May 28 15:29:03 1996  Pat Rankin  <rankin@eql.caltech.edu>
+
+	* vmsbuild.com (REQUIRD_OFILES): Add choose-temp.o and xstrdup.o.
+
+	Thu Jan 25 18:20:04 1996  Pat Rankin  <rankin@eql.caltech.edu>
+
+	* vmsbuild.com: Changes to handle DEFFUNC(on_exit).
+	(do_ofiles): Allow nonexistent source file in pass 3.
+	(chk_deffunc): New routine.
+
+Tue Jun 25 19:24:43 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* pexecute.c (PEXECUTE_VERBOSE): Define.
+	(MPW pexecute): Check flags & PEXECUTE_VERBOSE instead of verbose_flag.
+
+Tue Jun 25 23:11:48 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* Makefile.in (docdir): Removed.
+
+Tue Jun 25 23:01:07 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* Makefile.in (oldincludedir): Removed.
+
+Tue Jun 25 22:50:07 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+        * Makefile.in (datadir): Set to $(prefix)/share.
+
+Thu Jun 20 21:17:52 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* cplus-dem.c (demangle_arm_pt): Reindent.  Avoid endless loop by
+	checking for errors from do_type.
+
+Tue Jun 18 14:36:19 1996  Klaus Kaempf  <kkaempf@progis.de>
+
+	* makefile.vms: New file.
+	* xmalloc.c: If VMS, include <stdlib.h> and <unixlib.h> rather
+	than declaring malloc, realloc, and sbrk.
+
 Mon Jun 10 13:17:17 1996  Doug Evans  <dje@canuck.cygnus.com>
 
 	* pexecute.c: New file.

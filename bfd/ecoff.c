@@ -2914,6 +2914,8 @@ ecoff_armap_hash (s, rehash, size, hlog)
 {
   unsigned int hash;
 
+  if (hlog == 0)
+    return 0;
   hash = *s++;
   while (*s != '\0')
     hash = ((hash >> 27) | (hash << 5)) + *s++;
@@ -3258,14 +3260,22 @@ const bfd_target *
 _bfd_ecoff_archive_p (abfd)
      bfd *abfd;
 {
+  struct artdata *tdata_hold;
   char armag[SARMAG + 1];
 
-  if (bfd_read ((PTR) armag, 1, SARMAG, abfd) != SARMAG
-      || strncmp (armag, ARMAG, SARMAG) != 0)
+  tdata_hold = abfd->tdata.aout_ar_data;
+
+  if (bfd_read ((PTR) armag, 1, SARMAG, abfd) != SARMAG)
     {
       if (bfd_get_error () != bfd_error_system_call)
 	bfd_set_error (bfd_error_wrong_format);
       return (const bfd_target *) NULL;
+    }
+
+  if (strncmp (armag, ARMAG, SARMAG) != 0)
+    {
+      bfd_set_error (bfd_error_wrong_format);
+      return NULL;
     }
 
   /* We are setting bfd_ardata(abfd) here, but since bfd_ardata
@@ -3275,7 +3285,10 @@ _bfd_ecoff_archive_p (abfd)
     (struct artdata *) bfd_zalloc (abfd, sizeof (struct artdata));
 
   if (bfd_ardata (abfd) == (struct artdata *) NULL)
-    return (const bfd_target *) NULL;
+    {
+      abfd->tdata.aout_ar_data = tdata_hold;
+      return (const bfd_target *) NULL;
+    }
 
   bfd_ardata (abfd)->first_file_filepos = SARMAG;
   bfd_ardata (abfd)->cache = NULL;
@@ -3288,10 +3301,43 @@ _bfd_ecoff_archive_p (abfd)
       || _bfd_ecoff_slurp_extended_name_table (abfd) == false)
     {
       bfd_release (abfd, bfd_ardata (abfd));
-      abfd->tdata.aout_ar_data = (struct artdata *) NULL;
+      abfd->tdata.aout_ar_data = tdata_hold;
       return (const bfd_target *) NULL;
     }
   
+  if (bfd_has_map (abfd))
+    {
+      bfd *first;
+
+      /* This archive has a map, so we may presume that the contents
+	 are object files.  Make sure that if the first file in the
+	 archive can be recognized as an object file, it is for this
+	 target.  If not, assume that this is the wrong format.  If
+	 the first file is not an object file, somebody is doing
+	 something weird, and we permit it so that ar -t will work.  */
+
+      first = bfd_openr_next_archived_file (abfd, (bfd *) NULL);
+      if (first != NULL)
+	{
+	  boolean fail;
+
+	  first->target_defaulted = false;
+	  fail = false;
+	  if (bfd_check_format (first, bfd_object)
+	      && first->xvec != abfd->xvec)
+	    {
+	      (void) bfd_close (first);
+	      bfd_release (abfd, bfd_ardata (abfd));
+	      abfd->tdata.aout_ar_data = tdata_hold;
+	      bfd_set_error (bfd_error_wrong_format);
+	      return NULL;
+	    }
+
+	  /* We ought to close first here, but we can't, because we
+             have no way to remove it from the archive cache.  FIXME.  */
+	}
+    }
+
   return abfd->xvec;
 }
 

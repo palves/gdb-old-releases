@@ -44,8 +44,6 @@ typedef short int int16;	/* 16-bit signed int */
 typedef unsigned short int uint16;	/* 16-bit unsigned int */
 typedef int     int32;		/* 32-bit signed int */
 typedef unsigned int uint32;	/* 32-bit unsigned int */
-typedef long long int64;	/* 64-bit signed int */
-typedef unsigned long long uint64;	/* 64-bit unsigned int */
 typedef float   float32;	/* 32-bit float */
 typedef double  float64;	/* 64-bit float */
 

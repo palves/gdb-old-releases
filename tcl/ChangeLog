@@ -1,3 +1,8 @@
+Wed Jun 26 12:36:57 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* configure.in (AC_PREREQ): autoconf 2.5 or higher.
+	* configure: Rebuilt.
+
 Thu Jun  6 15:04:44 1996  Gordon Irlam  <gordoni@snuffle.cygnus.com>
 
 	* doc/usenix.ps, doc/usenix.text: Removed because copyright status

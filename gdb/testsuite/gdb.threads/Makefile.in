@@ -40,7 +40,6 @@ man9dir = $(mandir)/man9
 infodir = $(prefix)/info
 includedir = $(prefix)/include
 gxx_includedir = $(tooldir)/g++-include
-docdir = $(datadir)/doc
 targetdir = $(datadir)/$(target_alias)
 
 SHELL = /bin/sh

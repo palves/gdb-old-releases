@@ -139,6 +139,7 @@ proc gdb_run_cmd { } {
 
     set otimeout $timeout
     set timeout 60
+    verbose "Timeout is now $timeout seconds" 2
     send "target remote $serialport\n"
     expect {
 	-re "Couldn't establish connection to remote target" {
@@ -147,11 +148,14 @@ proc gdb_run_cmd { } {
 	}
 	-re "$prompt" {}
 	timeout {
+	    set timeout $otimeout
+	    verbose "Timeout restored to $timeout seconds" 2
 	    perror "Couldn't set remote target"
 	    return
 	}
     }
     set timeout $otimeout
+    verbose "Timeout restored to $timeout seconds" 2
 
     send "continue\n"
     expect {

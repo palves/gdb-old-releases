@@ -109,6 +109,13 @@ struct sym_fns {
 
 };
 
+/* The default version of sym_fns.sym_offsets for readers that don't
+   do anything special.  */
+
+extern struct section_offsets *
+default_symfile_offsets PARAMS ((struct objfile *objfile, CORE_ADDR addr));
+
+
 extern void
 extend_psymbol_list PARAMS ((struct psymbol_allocation_list *,
 			     struct objfile *));

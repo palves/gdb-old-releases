@@ -482,15 +482,6 @@ void	bfd_assert PARAMS ((const char*,int));
 FILE *	bfd_cache_lookup_worker PARAMS ((bfd *));
 
 extern bfd *bfd_last_cache;
-    
-/* Now Steve, what's the story here? */
-#ifdef lint
-#define itos(x) "l"
-#define stoi(x) 1
-#else
-#define itos(x) ((char*)(x))
-#define stoi(x) ((int)(x))
-#endif
 
 /* List of supported target vectors, and the default vector (if
    bfd_default_vector[0] is NULL, there is no default).  */

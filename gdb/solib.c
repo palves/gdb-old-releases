@@ -350,7 +350,6 @@ solib_add_common_symbols (rtc_symp)
   struct nlist inferior_rtc_nlist;
   int len;
   char *name;
-  char *origname;
 
   /* Remove any runtime common symbols from previous runs.  */
 
@@ -381,18 +380,16 @@ solib_add_common_symbols (rtc_symp)
 	     behind the name of the symbol. */
 	  len = inferior_rtc_nlist.n_value - inferior_rtc_nlist.n_un.n_strx;
 
-	  origname = name = xmalloc (len);
+	  name = xmalloc (len);
 	  read_memory ((CORE_ADDR) inferior_rtc_nlist.n_un.n_name, name, len);
 
 	  /* Allocate the runtime common objfile if necessary. */
 	  if (rt_common_objfile == NULL)
 	    allocate_rt_common_objfile ();
 
-	  name = obsavestring (name, strlen (name),
-			       &rt_common_objfile -> symbol_obstack);
 	  prim_record_minimal_symbol (name, inferior_rtc_nlist.n_value,
 				      mst_bss, rt_common_objfile);
-	  free (origname);
+	  free (name);
 	}
       rtc_symp = inferior_rtc_symb.rtc_next;
     }

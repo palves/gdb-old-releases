@@ -716,14 +716,19 @@ struct sparc_opcode sparc_opcodes[] = {
 
 { "wr",	F3(2, 0x30, 0),		F3(~2, ~0x30, ~0)|ASI(~0),		"1,2,m", 0, v8 }, /* wr r,r,%asrX */
 { "wr",	F3(2, 0x30, 1),		F3(~2, ~0x30, ~1),			"1,i,m", 0, v8 }, /* wr r,i,%asrX */
+{ "wr",	F3(2, 0x30, 0),		F3(~2, ~0x30, ~0)|ASI_RS2(~0),		"1,m", F_ALIAS, v8 }, /* wr rs1,%g0,%asrX */
 { "wr",	F3(2, 0x30, 0),		F3(~2, ~0x30, ~0)|RD_G0|ASI(~0),	"1,2,y", 0, v6 }, /* wr r,r,%y */
 { "wr",	F3(2, 0x30, 1),		F3(~2, ~0x30, ~1)|RD_G0,		"1,i,y", 0, v6 }, /* wr r,i,%y */
+{ "wr",	F3(2, 0x30, 0),		F3(~2, ~0x30, ~0)|RD_G0|ASI_RS2(~0),	"1,y", F_ALIAS, v6 }, /* wr rs1,%g0,%y */
 { "wr",	F3(2, 0x31, 0),		F3(~2, ~0x31, ~0)|RD_G0|ASI(~0),	"1,2,p", 0, v6notv9 }, /* wr r,r,%psr */
 { "wr",	F3(2, 0x31, 1),		F3(~2, ~0x31, ~1)|RD_G0,		"1,i,p", 0, v6notv9 }, /* wr r,i,%psr */
+{ "wr",	F3(2, 0x31, 0),		F3(~2, ~0x31, ~0)|RD_G0|ASI_RS2(~0),	"1,p", F_ALIAS, v6notv9 }, /* wr rs1,%g0,%psr */
 { "wr",	F3(2, 0x32, 0),		F3(~2, ~0x32, ~0)|RD_G0|ASI(~0),	"1,2,w", 0, v6notv9 }, /* wr r,r,%wim */
 { "wr",	F3(2, 0x32, 1),		F3(~2, ~0x32, ~1)|RD_G0,		"1,i,w", 0, v6notv9 }, /* wr r,i,%wim */
+{ "wr",	F3(2, 0x32, 0),		F3(~2, ~0x32, ~0)|RD_G0|ASI_RS2(~0),	"1,w", F_ALIAS, v6notv9 }, /* wr rs1,%g0,%wim */
 { "wr",	F3(2, 0x33, 0),		F3(~2, ~0x33, ~0)|RD_G0|ASI(~0),	"1,2,t", 0, v6notv9 }, /* wr r,r,%tbr */
 { "wr",	F3(2, 0x33, 1),		F3(~2, ~0x33, ~1)|RD_G0,		"1,i,t", 0, v6notv9 }, /* wr r,i,%tbr */
+{ "wr",	F3(2, 0x33, 0),		F3(~2, ~0x33, ~0)|RD_G0|ASI_RS2(~0),	"1,t", F_ALIAS, v6notv9 }, /* wr rs1,%g0,%tbr */
 
 { "wr", F3(2, 0x30, 0)|RD(2),	F3(~2, ~0x30, ~0)|RD(~2)|ASI(~0),	"1,2,E", 0, v9 }, /* wr r,r,%ccr */
 { "wr", F3(2, 0x30, 1)|RD(2),	F3(~2, ~0x30, ~1)|RD(~2),		"1,i,E", 0, v9 }, /* wr r,i,%ccr */
@@ -981,6 +986,7 @@ cond ("ba",	"t",    CONDA, F_UNBR|F_ALIAS),
 cond ("bcc",	"tcc",  CONDCC, F_CONDBR),
 cond ("bcs",	"tcs",  CONDCS, F_CONDBR),
 cond ("be",	"te",   CONDE, F_CONDBR),
+cond ("beq",	"teq",  CONDE, F_CONDBR|F_ALIAS),
 cond ("bg",	"tg",   CONDG, F_CONDBR),
 cond ("bgt",	"tgt",  CONDG, F_CONDBR|F_ALIAS),
 cond ("bge",	"tge",  CONDGE, F_CONDBR),
@@ -1734,6 +1740,12 @@ lookup_value (table, value)
 
 static arg asi_table[] =
 {
+  /* These are in the v9 architecture manual.  */
+  /* The shorter versions appear first, they're here because Sun's as has them.
+     Sun's as uses #ASI_P_L instead of #ASI_PL (which appears in the
+     UltraSPARC architecture manual).  */
+  { 0x04, "#ASI_N" },
+  { 0x0c, "#ASI_N_L" },
   { 0x10, "#ASI_AIUP" },
   { 0x11, "#ASI_AIUS" },
   { 0x18, "#ASI_AIUP_L" },
@@ -1746,10 +1758,12 @@ static arg asi_table[] =
   { 0x89, "#ASI_S_L" },
   { 0x8a, "#ASI_PNF_L" },
   { 0x8b, "#ASI_SNF_L" },
+  { 0x04, "#ASI_NUCLEUS" },
+  { 0x0c, "#ASI_NUCLEUS_LITTLE" },
   { 0x10, "#ASI_AS_IF_USER_PRIMARY" },
   { 0x11, "#ASI_AS_IF_USER_SECONDARY" },
-  { 0x18, "#ASI_AS_IF_USER_PRIMARY_L" },
-  { 0x19, "#ASI_AS_IF_USER_SECONDARY_L" },
+  { 0x18, "#ASI_AS_IF_USER_PRIMARY_LITTLE" },
+  { 0x19, "#ASI_AS_IF_USER_SECONDARY_LITTLE" },
   { 0x80, "#ASI_PRIMARY" },
   { 0x81, "#ASI_SECONDARY" },
   { 0x82, "#ASI_PRIMARY_NOFAULT" },
@@ -1758,6 +1772,9 @@ static arg asi_table[] =
   { 0x89, "#ASI_SECONDARY_LITTLE" },
   { 0x8a, "#ASI_PRIMARY_NOFAULT_LITTLE" },
   { 0x8b, "#ASI_SECONDARY_NOFAULT_LITTLE" },
+  /* These are UltraSPARC extensions.  */
+  /* FIXME: There are dozens of them.  Not sure we want them all.
+     Most are for kernel building but some are for vis type stuff.  */
   { 0, 0 }
 };
 

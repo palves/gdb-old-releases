@@ -34,10 +34,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "complaints.h"
 #include "demangle.h"
 #include "inferior.h" /* for write_pc */
-
+#include "gdb-stabs.h"
 #include "obstack.h"
-#include <assert.h>
 
+#include <assert.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include "gdb_string.h"
@@ -224,9 +224,10 @@ sort_symtab_syms (s)
     }
 }
 
-/* Make a copy of the string at PTR with SIZE characters in the symbol obstack
-   (and add a null character at the end in the copy).
-   Returns the address of the copy.  */
+/* Make a null terminated copy of the string at PTR with SIZE characters in
+   the obstack pointed to by OBSTACKP .  Returns the address of the copy.
+   Note that the string at PTR does not have to be null terminated, I.E. it
+   may be part of a larger string and we are only saving a substring. */
 
 char *
 obsavestring (ptr, size, obstackp)
@@ -235,8 +236,9 @@ obsavestring (ptr, size, obstackp)
      struct obstack *obstackp;
 {
   register char *p = (char *) obstack_alloc (obstackp, size + 1);
-  /* Open-coded memcpy--saves function call time.
-     These strings are usually short.  */
+  /* Open-coded memcpy--saves function call time.  These strings are usually
+     short.  FIXME: Is this really still true with a compiler that can
+     inline memcpy? */
   {
     register char *p1 = ptr;
     register char *p2 = p;
@@ -248,8 +250,8 @@ obsavestring (ptr, size, obstackp)
   return p;
 }
 
-/* Concatenate strings S1, S2 and S3; return the new string.
-   Space is found in the symbol_obstack.  */
+/* Concatenate strings S1, S2 and S3; return the new string.  Space is found
+   in the obstack pointed to by OBSTACKP.  */
 
 char *
 obconcat (obstackp, s1, s2, s3)
@@ -364,6 +366,31 @@ find_lowest_section (abfd, sect, obj)
 	       <= bfd_section_size (abfd, sect)))
     *lowest = sect;
 }
+
+/* Parse the user's idea of an offset for dynamic linking, into our idea
+   of how to represent it for fast symbol reading.  This is the default 
+   version of the sym_fns.sym_offsets function for symbol readers that
+   don't need to do anything special.  It allocates a section_offsets table
+   for the objectfile OBJFILE and stuffs ADDR into all of the offsets.  */
+
+struct section_offsets *
+default_symfile_offsets (objfile, addr)
+     struct objfile *objfile;
+     CORE_ADDR addr;
+{
+  struct section_offsets *section_offsets;
+  int i;
+
+  objfile->num_sections = SECT_OFF_MAX;
+  section_offsets = (struct section_offsets *)
+    obstack_alloc (&objfile -> psymbol_obstack, SIZEOF_SECTION_OFFSETS);
+
+  for (i = 0; i < SECT_OFF_MAX; i++)
+    ANOFFSET (section_offsets, i) = addr;
+  
+  return section_offsets;
+}
+
 
 /* Process a symbol file, as either the main file or as a dynamically
    loaded file.
@@ -922,6 +949,16 @@ generic_load (filename, from_tty)
   bfd *loadfile_bfd;
   time_t start_time, end_time;	/* Start and end times of download */
   unsigned long data_count = 0;	/* Number of bytes transferred to memory */
+  int n; 
+  unsigned long load_offset = 0; 	/* offset to add to vma for each section */
+  char buf[128];
+
+  /* enable user to specify address for downloading as 2nd arg to load */
+  n = sscanf(filename, "%s 0x%x", buf, &load_offset);
+  if (n > 1 ) 
+    filename = buf;
+  else
+    load_offset = 0;
 
   loadfile_bfd = bfd_openr (filename, gnutarget);
   if (loadfile_bfd == NULL)
@@ -961,6 +998,7 @@ generic_load (filename, from_tty)
 	      old_chain = make_cleanup (free, buffer);
 
 	      vma = bfd_get_section_vma (loadfile_bfd, s);
+		  vma += load_offset;
 
 	      /* Is this really necessary?  I guess it gives the user something
 		 to look at during a long download.  */

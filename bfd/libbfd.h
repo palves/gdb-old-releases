@@ -482,15 +482,6 @@ void	bfd_assert PARAMS ((const char*,int));
 FILE *	bfd_cache_lookup_worker PARAMS ((bfd *));
 
 extern bfd *bfd_last_cache;
-    
-/* Now Steve, what's the story here? */
-#ifdef lint
-#define itos(x) "l"
-#define stoi(x) 1
-#else
-#define itos(x) ((char*)(x))
-#define stoi(x) ((int)(x))
-#endif
 
 /* List of supported target vectors, and the default vector (if
    bfd_default_vector[0] is NULL, there is no default).  */
@@ -595,6 +586,8 @@ static const char *const bfd_reloc_code_real_names[] = { "@@uninitialized@@",
   "BFD_RELOC_LO10",
   "BFD_RELOC_GPREL16",
   "BFD_RELOC_GPREL32",
+  "BFD_RELOC_SWREL32",
+  "BFD_RELOC_SWREL64",
   "BFD_RELOC_I960_CALLJ",
   "BFD_RELOC_NONE",
   "BFD_RELOC_SPARC_WDISP22",
@@ -630,9 +623,12 @@ static const char *const bfd_reloc_code_real_names[] = { "@@uninitialized@@",
   "BFD_RELOC_SPARC_5",
   "BFD_RELOC_ALPHA_GPDISP_HI16",
   "BFD_RELOC_ALPHA_GPDISP_LO16",
+  "BFD_RELOC_ALPHA_GPDISP",
   "BFD_RELOC_ALPHA_LITERAL",
   "BFD_RELOC_ALPHA_LITUSE",
   "BFD_RELOC_ALPHA_HINT",
+  "BFD_RELOC_ALPHA_LINKAGE",
+  "BFD_RELOC_ALPHA_BASEREG",
   "BFD_RELOC_MIPS_JMP",
   "BFD_RELOC_HI16",
   "BFD_RELOC_HI16_S",

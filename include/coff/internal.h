@@ -265,7 +265,13 @@ struct internal_aouthdr
 struct internal_scnhdr
 {
   char s_name[SCNNMLEN];	/* section name			*/
-  bfd_vma s_paddr;		/* physical address, aliased s_nlib */
+
+  /* Physical address, aliased s_nlib.
+     In the pei format, this field is the virtual section size
+     (the size of the section after being loaded int memory),
+     NOT the physical address.  */
+  bfd_vma s_paddr;
+
   bfd_vma s_vaddr;		/* virtual address		*/
   bfd_vma s_size;		/* section size			*/
   bfd_vma s_scnptr;		/* file ptr to raw data for section */

@@ -36,8 +36,8 @@ prefix = /usr/local
 exec_prefix = $(prefix)
 
 bindir = $(exec_prefix)/bin
-datadir = $(prefix)/lib
-libdir = $(prefix)/lib
+datadir = $(prefix)/share
+libdir = $(exec_prefix)/lib
 infodir = $(prefix)/info
 
 # Where to install the manual pages.

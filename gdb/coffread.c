@@ -537,10 +537,7 @@ record_minimal_symbol (name, address, type, objfile)
   /* We don't want TDESC entry points in the minimal symbol table */
   if (name[0] == '@') return;
 
-  prim_record_minimal_symbol
-    (obsavestring (name, strlen (name), &objfile->symbol_obstack),
-     address, type,
-     objfile);
+  prim_record_minimal_symbol (name, address, type, objfile);
 }
 
 /* coff_symfile_init ()
@@ -995,13 +992,7 @@ coff_symtab_read (symtab_offset, nsyms, section_offsets, objfile)
 
 	      if (cs->c_name[0] != '@' /* Skip tdesc symbols */)
 		prim_record_minimal_symbol_and_info
-		  (obsavestring (cs->c_name, strlen (cs->c_name),
-				 &objfile->symbol_obstack),
-		   tmpaddr,
-		   ms_type,
-		   NULL,
-		   sec,
-		   objfile);
+		  (cs->c_name, tmpaddr, ms_type, NULL, sec, objfile);
 
 	      if (SDB_TYPE (cs->c_type))
 		{
@@ -1485,8 +1476,8 @@ process_coff_symbol (cs, aux, section_offsets, objfile)
   memset (sym, 0, sizeof (struct symbol));
   name = cs->c_name;
   name = EXTERNAL_NAME (name, objfile->obfd);
-  SYMBOL_NAME (sym) = obstack_copy0 (&objfile->symbol_obstack, name,
-				     strlen (name));
+  SYMBOL_NAME (sym) = obsavestring (name, strlen (name),
+				    &objfile->symbol_obstack);
 
   /* default assumptions */
   SYMBOL_VALUE (sym) = cs->c_value;
@@ -2128,26 +2119,6 @@ coff_read_enum_type (index, length, lastsym)
   return type;
 }
 
-struct section_offsets *
-coff_symfile_offsets (objfile, addr)
-     struct objfile *objfile;
-     CORE_ADDR addr;
-{
-  struct section_offsets *section_offsets;
-  int i;
-
-  objfile->num_sections = SECT_OFF_MAX;
-  section_offsets = (struct section_offsets *)
-    obstack_alloc (&objfile -> psymbol_obstack,
-		   sizeof (struct section_offsets)
-		   + sizeof (section_offsets->offsets) * SECT_OFF_MAX);
-
-  for (i = 0; i < SECT_OFF_MAX; i++)
-    ANOFFSET (section_offsets, i) = addr;
-  
-  return section_offsets;
-}
-
 /* Register our ability to parse symbols for coff BFD files. */
 
 static struct sym_fns coff_sym_fns =
@@ -2157,7 +2128,8 @@ static struct sym_fns coff_sym_fns =
   coff_symfile_init,	/* sym_init: read initial info, setup for sym_read() */
   coff_symfile_read,	/* sym_read: read a symbol file into symtab */
   coff_symfile_finish,	/* sym_finish: finished with file, cleanup */
-  coff_symfile_offsets, /* sym_offsets:  xlate external to internal form */
+  default_symfile_offsets,
+			/* sym_offsets:  xlate external to internal form */
   NULL			/* next: pointer to next struct sym_fns */
 };
 

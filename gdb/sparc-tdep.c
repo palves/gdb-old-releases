@@ -612,6 +612,22 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
     *optimized = 0;
 
   addr = 0;
+
+  /* FIXME This code extracted from infcmd.c; should put elsewhere! */
+  if (frame == NULL)
+    {
+      /* error ("No selected frame."); */
+      if (!target_has_registers)
+        error ("The program has no registers now.");
+      if (selected_frame == NULL) 
+        error ("No selected frame.");
+      /* Try to use selected frame */
+      frame = get_prev_frame (selected_frame);  
+      if (frame == 0)
+        error ("Cmd not meaningful in the outermost frame."); 
+    }
+
+
   frame1 = frame->next;
   while (frame1 != NULL)
     {
@@ -636,6 +652,7 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
 	  else if (regnum >= O0_REGNUM && regnum < O0_REGNUM + 8)
 	    addr = frame1->frame + (regnum - O0_REGNUM) * SPARC_INTREG_SIZE
 	      - (FP_REGISTER_BYTES + 16 * SPARC_INTREG_SIZE);
+#ifdef FP0_REGNUM
 	  else if (regnum >= FP0_REGNUM && regnum < FP0_REGNUM + 32)
 	    addr = frame1->frame + (regnum - FP0_REGNUM) * 4
 	      - (FP_REGISTER_BYTES);
@@ -644,6 +661,7 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
 	    addr = frame1->frame + 32 * 4 + (regnum - FP0_REGNUM - 32) * 8
 	      - (FP_REGISTER_BYTES);
 #endif
+#endif /* FP0_REGNUM */
 	  else if (regnum >= Y_REGNUM && regnum < NUM_REGS)
 	    addr = frame1->frame + (regnum - Y_REGNUM) * SPARC_INTREG_SIZE
 	      - (FP_REGISTER_BYTES + 24 * SPARC_INTREG_SIZE);
@@ -734,8 +752,13 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
 #endif
 
 /* See tm-sparc.h for how this is calculated.  */
+#ifdef FP0_REGNUM
 #define DUMMY_STACK_REG_BUF_SIZE \
 (((8+8+8) * SPARC_INTREG_SIZE) + (32 * REGISTER_RAW_SIZE (FP0_REGNUM)))
+#else
+#define DUMMY_STACK_REG_BUF_SIZE \
+(((8+8+8) * SPARC_INTREG_SIZE) )
+#endif /* FP0_REGNUM */
 #define DUMMY_STACK_SIZE (DUMMY_STACK_REG_BUF_SIZE + DUMMY_REG_SAVE_OFFSET)
 
 void
@@ -762,9 +785,11 @@ sparc_push_dummy_frame ()
 		       &register_temp[16 * SPARC_INTREG_SIZE],
 		       SPARC_INTREG_SIZE * 8);
 
+#ifdef FP0_REGNUM
   read_register_bytes (REGISTER_BYTE (FP0_REGNUM),
 		       &register_temp[24 * SPARC_INTREG_SIZE],
 		       FP_REGISTER_BYTES);
+#endif /* FP0_REGNUM */
 
   sp -= DUMMY_STACK_SIZE;
 
@@ -842,6 +867,7 @@ sparc_frame_find_saved_regs (fi, saved_regs_addr)
 	saved_regs_addr->regs[regnum] =
 	  frame_addr + (regnum - I0_REGNUM) * SPARC_INTREG_SIZE
 	    - (FP_REGISTER_BYTES + 16 * SPARC_INTREG_SIZE);
+#ifdef FP0_REGNUM
       for (regnum = FP0_REGNUM; regnum < FP0_REGNUM + 32; regnum++)
 	saved_regs_addr->regs[regnum] =
 	  frame_addr + (regnum - FP0_REGNUM) * 4
@@ -852,6 +878,7 @@ sparc_frame_find_saved_regs (fi, saved_regs_addr)
 	  frame_addr + 32 * 4 + (regnum - FP0_REGNUM - 32) * 8
 	    - (FP_REGISTER_BYTES);
 #endif
+#endif /* FP0_REGNUM */
       for (regnum = Y_REGNUM; regnum < NUM_REGS; regnum++)
 	saved_regs_addr->regs[regnum] =
 	  frame_addr + (regnum - Y_REGNUM) * SPARC_INTREG_SIZE - 0xe0;
@@ -931,6 +958,7 @@ sparc_pop_frame ()
   int regnum;
 
   sparc_frame_find_saved_regs (frame, &fsr);
+#ifdef FP0_REGNUM
   if (fsr.regs[FP0_REGNUM])
     {
       read_memory (fsr.regs[FP0_REGNUM], raw_buffer, FP_REGISTER_BYTES);
@@ -949,6 +977,7 @@ sparc_pop_frame ()
       write_register_bytes (REGISTER_BYTE (CPS_REGNUM), raw_buffer, 4);
     }
 #endif
+#endif /* FP0_REGNUM */
   if (fsr.regs[G1_REGNUM])
     {
       read_memory (fsr.regs[G1_REGNUM], raw_buffer, 7 * SPARC_INTREG_SIZE);
@@ -1519,5 +1548,5 @@ sparc_print_register_hook (regno)
 void
 _initialize_sparc_tdep ()
 {
-  tm_print_insn = print_insn_sparc;
+  tm_print_insn = TM_PRINT_INSN; /* Selects sparc/sparclite */
 }

@@ -55,6 +55,7 @@ send "run\n"
 expect -re "run\[\r\n\]+" {}
 if [istarget "*-*-vxworks*"] then {
     set timeout 120
+    verbose "Timeout is now $timeout seconds" 2
     expect {
 	-i $shell_id "Program exited normally" {
 	    unresolved "run \"$testfile\" with no args"
@@ -67,6 +68,7 @@ if [istarget "*-*-vxworks*"] then {
 	}
     }
     set timeout 10
+    verbose "Timeout is now $timeout seconds" 2
     expect -re "$prompt $" {}
 } else {
     expect {
@@ -87,6 +89,7 @@ if [istarget "*-*-vxworks*"] then {
     send "run vxmain \"5\"\n"
     expect -re "run vxmain \"5\"\r\n" {}
     set timeout 120
+    verbose "Timeout is now $timeout seconds" 2
     expect {
 	-i $shell_id "Program exited normally" {
 	    unresolved "run \"$testfile\" with arg"
@@ -99,6 +102,7 @@ if [istarget "*-*-vxworks*"] then {
 	}
     }
     set timeout 10
+    verbose "Timeout is now $timeout seconds" 2
     expect -re "$prompt $" {}
 } else {
 	setup_xfail "mips-idt-*"
@@ -117,6 +121,7 @@ send "run\n"
 expect -re "run\[\r\n\]+" {}
 if [istarget "*-*-vxworks*"] then {
     set timeout 120
+    verbose "Timeout is now $timeout seconds" 2
     expect {
 	-i $shell_id "Program exited normally" {
 	    unresolved "run \"$testfile\" again with same args"
@@ -125,6 +130,7 @@ if [istarget "*-*-vxworks*"] then {
 	timeout { fail "(timeout) run \"$testfile\" again with same args" }
     }
     set timeout 10
+    verbose "Timeout is now $timeout seconds" 2
     expect -re "$prompt $" {}
 } else {
     expect {
@@ -147,6 +153,7 @@ send "run\n"
 expect -re "run\[\r\n\]+" {}
 if [istarget "*-*-vxworks*"] then {
     set timeout 120
+    verbose "Timeout is now $timeout seconds" 2
     expect {
 	-i $shell_id "Program exited normally" {
 	    unresolved "run after setting args to nil"
@@ -159,6 +166,7 @@ if [istarget "*-*-vxworks*"] then {
 	}
     }
     set timeout 10
+    verbose "Timeout is now $timeout seconds" 2
     expect -re "$prompt $" {}
 } else {
     expect {
@@ -186,6 +194,7 @@ send "run\n"
 expect -re "run\[\r\n\]+" {}
 if [istarget "*-*-vxworks*"] then {
     set timeout 120
+    verbose "Timeout is now $timeout seconds" 2
     expect {
 	-i $shell_id "Program exited normally" {
 	    unresolved "run \"$testfile\" again after setting args"
@@ -198,6 +207,7 @@ if [istarget "*-*-vxworks*"] then {
 	}
     }
     set timeout 10
+    verbose "Timeout is now $timeout seconds" 2
     expect -re "$prompt $" {}
 } else {
     expect {

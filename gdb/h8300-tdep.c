@@ -121,7 +121,9 @@ gdb_print_insn_h8300 (memaddr, info)
      bfd_vma memaddr;
      disassemble_info *info;
 {
-  if (h8300hmode)
+  if (h8300smode)
+    return print_insn_h8300s (memaddr, info);
+  else if (h8300hmode)
     return print_insn_h8300h (memaddr, info);
   else
     return print_insn_h8300 (memaddr, info);
@@ -427,6 +429,7 @@ h8300_command(args, from_tty)
 {
   extern int h8300hmode;
   h8300hmode = 0;
+  h8300smode = 0;
 }
 
 static void
@@ -434,14 +437,25 @@ h8300h_command(args, from_tty)
 {
   extern int h8300hmode;
   h8300hmode = 1;
+  h8300smode = 0;
 }
+static void
+h8300s_command(args, from_tty)
+{
+  extern int h8300smode;
+  extern int h8300hmode;
+  h8300smode = 1;
+  h8300hmode = 1;
+}
+
 
 static void 
 set_machine (args, from_tty)
      char *args;
      int from_tty;
 {
-  printf_unfiltered ("\"set machine\" must be followed by h8300 or h8300h.\n");
+  printf_unfiltered ("\"set machine\" must be followed by h8300, h8300h");
+  printf_unfiltered ("or h8300s");
   help_list (setmemorylist, "set memory ", -1, gdb_stdout);
 }
 
@@ -455,7 +469,22 @@ static void
 set_machine_hook (filename)
      char *filename;
 {
-  h8300hmode = (bfd_get_mach (exec_bfd) == bfd_mach_h8300h);
+  if (bfd_get_mach (exec_bfd) == bfd_mach_h8300s)
+    {
+      h8300smode = 1;
+      h8300hmode = 1;
+    }
+  else 
+    if (bfd_get_mach (exec_bfd) == bfd_mach_h8300h)
+    {
+      h8300smode = 0;
+      h8300hmode = 1;
+    }
+  else
+    {
+      h8300smode = 0;
+      h8300hmode = 0;
+    }
 }
 
 void
@@ -470,6 +499,9 @@ _initialize_h8300m ()
 
   add_cmd ("h8300h", class_support, h8300h_command,
 	   "Set machine to be H8/300H.", &setmemorylist);
+
+  add_cmd ("h8300s", class_support, h8300s_command,
+	   "Set machine to be H8/300S.", &setmemorylist);
 
   /* Add a hook to set the machine type when we're loading a file. */
 

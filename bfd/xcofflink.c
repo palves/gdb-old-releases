@@ -1202,7 +1202,10 @@ xcoff_link_check_ar_symbols (abfd, info, pneeded)
 	     defines it.  We also don't bring in symbols to satisfy
 	     undefined references in shared objects.  */
 	  if (h != (struct bfd_link_hash_entry *) NULL
-	      && h->type == bfd_link_hash_undefined)
+	      && h->type == bfd_link_hash_undefined
+	      && (info->hash->creator != abfd->xvec
+		  || (((struct xcoff_link_hash_entry *) h)->flags
+		      & XCOFF_DEF_DYNAMIC) == 0))
 	    {
 	      if (! (*info->callbacks->add_archive_element) (info, abfd, name))
 		return false;
@@ -1278,8 +1281,12 @@ xcoff_link_check_dynamic_ar_symbols (abfd, info, pneeded)
       h = bfd_link_hash_lookup (info->hash, name, false, false, true);
 
       /* We are only interested in symbols that are currently
-         undefined.  */
-      if (h != NULL && h->type == bfd_link_hash_undefined)
+         undefined.  At this point we know that we are using an XCOFF
+         hash table.  */
+      if (h != NULL
+	  && h->type == bfd_link_hash_undefined
+	  && (((struct xcoff_link_hash_entry *) h)->flags
+	      & XCOFF_DEF_DYNAMIC) == 0)
 	{
 	  if (! (*info->callbacks->add_archive_element) (info, abfd, name))
 	    return false;
@@ -1402,65 +1409,71 @@ xcoff_link_add_symbols (abfd, info)
 	return false;
     }
 
-  /* We need to build a .loader section, so we do it here.  This won't
-     work if we're producing an XCOFF output file with no XCOFF input
-     files.  FIXME.  */
-  if (xcoff_hash_table (info)->loader_section == NULL)
+  if (info->hash->creator == abfd->xvec)
     {
-      asection *lsec;
+      /* We need to build a .loader section, so we do it here.  This
+	 won't work if we're producing an XCOFF output file with no
+	 XCOFF input files.  FIXME.  */
+      if (xcoff_hash_table (info)->loader_section == NULL)
+	{
+	  asection *lsec;
 
-      lsec = bfd_make_section_anyway (abfd, ".loader");
-      if (lsec == NULL)
-	goto error_return;
-      xcoff_hash_table (info)->loader_section = lsec;
-      lsec->flags |= SEC_HAS_CONTENTS | SEC_IN_MEMORY;
-    }
-  /* Likewise for the linkage section.  */
-  if (xcoff_hash_table (info)->linkage_section == NULL)
-    {
-      asection *lsec;
+	  lsec = bfd_make_section_anyway (abfd, ".loader");
+	  if (lsec == NULL)
+	    goto error_return;
+	  xcoff_hash_table (info)->loader_section = lsec;
+	  lsec->flags |= SEC_HAS_CONTENTS | SEC_IN_MEMORY;
+	}
+      /* Likewise for the linkage section.  */
+      if (xcoff_hash_table (info)->linkage_section == NULL)
+	{
+	  asection *lsec;
 
-      lsec = bfd_make_section_anyway (abfd, ".gl");
-      if (lsec == NULL)
-	goto error_return;
-      xcoff_hash_table (info)->linkage_section = lsec;
-      lsec->flags |= SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS | SEC_IN_MEMORY;
-      lsec->alignment_power = 2;
-    }
-  /* Likewise for the TOC section.  */
-  if (xcoff_hash_table (info)->toc_section == NULL)
-    {
-      asection *tsec;
+	  lsec = bfd_make_section_anyway (abfd, ".gl");
+	  if (lsec == NULL)
+	    goto error_return;
+	  xcoff_hash_table (info)->linkage_section = lsec;
+	  lsec->flags |= (SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS
+			  | SEC_IN_MEMORY);
+	  lsec->alignment_power = 2;
+	}
+      /* Likewise for the TOC section.  */
+      if (xcoff_hash_table (info)->toc_section == NULL)
+	{
+	  asection *tsec;
 
-      tsec = bfd_make_section_anyway (abfd, ".tc");
-      if (tsec == NULL)
-	goto error_return;
-      xcoff_hash_table (info)->toc_section = tsec;
-      tsec->flags |= SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS | SEC_IN_MEMORY;
-      tsec->alignment_power = 2;
-    }
-  /* Likewise for the descriptor section.  */
-  if (xcoff_hash_table (info)->descriptor_section == NULL)
-    {
-      asection *dsec;
+	  tsec = bfd_make_section_anyway (abfd, ".tc");
+	  if (tsec == NULL)
+	    goto error_return;
+	  xcoff_hash_table (info)->toc_section = tsec;
+	  tsec->flags |= (SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS
+			  | SEC_IN_MEMORY);
+	  tsec->alignment_power = 2;
+	}
+      /* Likewise for the descriptor section.  */
+      if (xcoff_hash_table (info)->descriptor_section == NULL)
+	{
+	  asection *dsec;
 
-      dsec = bfd_make_section_anyway (abfd, ".ds");
-      if (dsec == NULL)
-	goto error_return;
-      xcoff_hash_table (info)->descriptor_section = dsec;
-      dsec->flags |= SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS | SEC_IN_MEMORY;
-      dsec->alignment_power = 2;
-    }
-  /* Likewise for the .debug section.  */
-  if (xcoff_hash_table (info)->debug_section == NULL)
-    {
-      asection *dsec;
+	  dsec = bfd_make_section_anyway (abfd, ".ds");
+	  if (dsec == NULL)
+	    goto error_return;
+	  xcoff_hash_table (info)->descriptor_section = dsec;
+	  dsec->flags |= (SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS
+			  | SEC_IN_MEMORY);
+	  dsec->alignment_power = 2;
+	}
+      /* Likewise for the .debug section.  */
+      if (xcoff_hash_table (info)->debug_section == NULL)
+	{
+	  asection *dsec;
 
-      dsec = bfd_make_section_anyway (abfd, ".debug");
-      if (dsec == NULL)
-	goto error_return;
-      xcoff_hash_table (info)->debug_section = dsec;
-      dsec->flags |= SEC_HAS_CONTENTS | SEC_IN_MEMORY;
+	  dsec = bfd_make_section_anyway (abfd, ".debug");
+	  if (dsec == NULL)
+	    goto error_return;
+	  xcoff_hash_table (info)->debug_section = dsec;
+	  dsec->flags |= SEC_HAS_CONTENTS | SEC_IN_MEMORY;
+	}
     }
 
   if ((abfd->flags & DYNAMIC) != 0

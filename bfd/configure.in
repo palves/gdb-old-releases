@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 dnl
-AC_PREREQ(2.3)
+AC_PREREQ(2.5)
 AC_INIT(libbfd.c)
 
 AC_ARG_ENABLE(64-bit-bfd,
@@ -74,6 +74,8 @@ fi
 
 AC_PROG_CC
 
+AC_ISC_POSIX
+
 # Permit host specific settings.
 . ${srcdir}/configure.host
 
@@ -119,7 +121,7 @@ BFD_CC_FOR_BUILD
 AC_CHECK_HEADERS(stddef.h string.h strings.h stdlib.h time.h unistd.h)
 AC_CHECK_HEADERS(fcntl.h sys/file.h sys/time.h)
 AC_HEADER_TIME
-AC_CHECK_FUNCS(fcntl getpagesize)
+AC_CHECK_FUNCS(fcntl getpagesize setitimer sysconf)
 
 BFD_BINARY_FOPEN
 
@@ -413,6 +415,8 @@ do
     apollocoff_vec)		tb="$tb coff-apollo.o" ;;
     b_out_vec_big_host)		tb="$tb bout.o aout32.o" ;;
     b_out_vec_little_host)	tb="$tb bout.o aout32.o" ;;
+    bfd_elf64_alpha_vec)	tb="$tb elf64-alpha.o elf64.o $elf"
+				target64=true ;;
     bfd_elf32_big_generic_vec) 	tb="$tb elf32-gen.o elf32.o $elf" ;;
     bfd_elf32_bigmips_vec) 	tb="$tb elf32-mips.o elf32.o $elf ecofflink.o" ;;
     bfd_elf64_bigmips_vec) 	tb="$tb elf64-mips.o elf64.o elf32-mips.o elf32.o $elf ecofflink.o"
@@ -442,6 +446,8 @@ do
     ecoff_little_vec)		tb="$tb coff-mips.o ecoff.o ecofflink.o" ;;
     ecoffalpha_little_vec)	tb="$tb coff-alpha.o ecoff.o ecofflink.o"
 				target64=true ;;
+    evax_alpha_vec)		tb="$tb evax-alpha.o evax-emh.o evax-egsd.o evax-etir.o evax-misc.o"
+ 				target64=true ;;
     h8300coff_vec)		tb="$tb coff-h8300.o reloc16.o" ;;
     h8500coff_vec)		tb="$tb coff-h8500.o reloc16.o" ;;
     host_aout_vec)		tb="$tb host-aout.o aout32.o" ;;

@@ -1,3 +1,70 @@
+Mon Jul  8 17:33:14 1996  Jim Wilson  <wilson@cygnus.com>
+
+	* configure.in (mips-sgi-irix6*): Use mh-irix6 instead of mh-irix5.
+
+
+Fri Jun 28 12:14:35 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* mpw-configure: Add support for --bindir.
+	* mpw-build.in: Use a GCC-specific build script for GCC actions.
+
+Wed Jun 26 17:20:12 1996  Geoffrey Noer  <noer@cygnus.com>
+
+	* configure.in: add bash, time, gawk to list of hosttools and things
+	to only build for native toolchains
+
+Tue Jun 25 23:09:03 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* Makefile.in (docdir): Remove.
+
+Tue Jun 25 19:00:08 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* Makefile.in (datadir): Set to $(prefix)/share.
+
+Mon Jun 24 23:26:07 1996  Geoffrey Noer  <noer@cygnus.com>
+
+	* configure.in: build diff and patch for cygwin32-hosted
+	toolchains.
+
+Mon Jun 24 15:01:12 1996  Joel Sherrill  <joel@merlin.gcs.redstone.army.mil>
+
+	* config.sub: Accept -rtems*.
+
+Sun Jun 23 22:41:54 1996  Geoffrey Noer  <noer@cygnus.com>
+
+        * configure.in: enable dosrel for cygwin32-hosted builds,
+                remove diff from the list of things not buildable
+                via Canadian Cross
+
+Sat Jun 22 11:39:01 1996  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* Makefile.in (TARGET_SUBDIR): Move comment to previous line so we
+ 	don't get ". ".
+
+Fri Jun 21 17:24:48 1996  Jim Wilson  <wilson@cygnus.com>
+
+	* configure.in (mips*-sgi-irix6*): Set noconfigdirs appropriately.
+
+Thu Jun 20 16:57:40 1996  Ken Raeburn  <raeburn@cygnus.com>
+
+	* Makefile.in (taz): Handle case where tex3patch didn't even get
+	checked out.  Also, if it was found, put the symlink in a new util
+	subdirectory.
+
+Thu Jun 20 12:20:33 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* config.guess (*:Linux:*:*): Add support for PowerPC Linux.
+
+Tue Jun 18 14:24:12 1996  Klaus Kaempf  (kkaempf@progis.de)
+
+	* config.sub: Recognize -openvms.
+	* configure.in (alpha*-*-*vms*): Set noconfigdirs.
+	* make-all.com, setup.com: New files.
+
+Mon Jun 17 16:34:46 1996  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* Makefile.in (taz): tex3patch moved to texinfo/util.
+
 Sat Jun 15 17:13:25 1996  Geoffrey Noer <noer@cygnus.com>
 
 	* configure: enable_gdbtk=no for cygwin32-hosted toolchains

@@ -1,5 +1,6 @@
 #### host, target, and site specific Makefile frags come in here.
 
+VPATH = @srcdir@
 srcdir = @srcdir@
 
 .PHONY: all clean mostlyclean distclean realclean

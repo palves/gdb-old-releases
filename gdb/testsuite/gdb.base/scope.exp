@@ -1021,6 +1021,7 @@ gdb_load ${binfile}
 
 if [istarget "*-*-vxworks*"] {
     set timeout 120
+    verbose "Timeout is now $timeout seconds" 2
 }
 
 # Test that variables in various segments print out correctly before
@@ -1096,4 +1097,5 @@ if [runto autovars] then { test_at_autovars }
 
 if [istarget "*-*-vxworks*"] {
     set timeout 120
+    verbose "Timeout is now $timeout seconds" 2
 }

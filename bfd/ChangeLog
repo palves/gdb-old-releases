@@ -1,3 +1,290 @@
+Mon Jul  8 16:18:03 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* elf32-mips.c (mips_reloc_map): Remove BFD_RELOC_32_PCREL entry.
+
+	* elf32-ppc.c (ppc_elf_howto_raw): For R_PPC_ADDR16_HA, use
+	ppc_elf_addr16_ha_reloc.
+	(ppc_elf_addr16_ha_reloc): New static function.
+
+	* coff-mips.c (struct mips_hi): Define.
+	(mips_refhi_list): New static variable.
+ 	(mips_refhi_addr, mips_refhi_addend): Remove.
+	(mips_refhi_reloc): Maintain a list of unmatched REFHI relocs.
+	(mips_reflo_reloc): Process mips_refhi_list.
+	(mips_relhi_list): New static variable.
+	(mips_relhi_addr, mips_relhi_addend): Remove.
+	(mips_relhi_reloc): Maintain a list of unmatched RELHI relocs.
+	(mips_rello_reloc): Process mips_relhi_list.
+	(mips_relocate_section): Permit an arbitrary number of REFHI or
+	RELHI relocs before the associated REFLO or RELLO reloc.
+
+Fri Jul  5 19:27:49 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* aout-target.h (MY(callback)): Set reloc_count fields.
+
+Thu Jul  4 12:00:37 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* sunos.c (sunos_add_dynamic_symbols): Don't create dynamic
+	sections unless this is a SunOS link.
+
+	* VERSION: Set to 2.7.1.
+
+	* Released binutils 2.7.
+
+Wed Jul  3 14:59:47 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* i386aout.c: Include "aout/aout64.h".
+ 	(i386aout_write_object_contents): New static function.
+	(MY_write_object_contents): Define.
+
+	* netbsd.h (MY(write_object_contents)): Make sure that
+	adjust_sizes_and_vmas is called before fiddling with the magic
+	number.
+
+Tue Jul  2 23:30:39 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* stabs.c (_bfd_link_section_stabs): Fix casts of psinfo.
+
+Sun Jun 30 13:34:33 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* libbfd-in.h (itos, stoi): Don't define.
+	* libbfd.h: Rebuild.
+	* i386lynx.c (KEEPIT): Define as udata.i.
+	(NAME(lynx,swap_std_reloc_out)): Don't use stoi.
+	(NAME(lynx,swap_ext_reloc_out)): Likewise.
+	* riscix.c (riscix_swap_std_reloc_out): Use udata.i rather than
+	flags.  Don't use stoi.
+
+	* elf32-mips.c (ELF_MAGPAGESIZE): Change definition to 0x1000.
+
+	* elf.c (map_sections_to_segments): Don't start a new segment for
+ 	a writable section if it's on the same page as the previous
+ 	segment.  Reset the writable variable for a readonly section.
+
+Sat Jun 29 16:18:51 1996  Kim Knuttila  <krk@cygnus.com>
+
+	* peicode.h (coff_swap_aouthdr_in): Missing initializations of
+	first_thunk_address, thunk_size, and import_table_size.
+	* peicode.h: Improved some diagnostics regarding edata sections.
+
+	* coff-ppc.c (coff_ppc_relocate_section): Earlier error check
+	on IMGLUE relocs.
+	(coff_ppc_relocate_section): Improved diagnostic for large TOCDEFN's.
+	(TARGET_LITTLE_SYM): Added missing D_PAGED.
+
+Fri Jun 28 13:48:45 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* xcofflink.c (xcoff_link_check_ar_symbols): An undefined symbol
+	with XCOFF_DEF_DYNAMIC set is really defined.
+	(xcoff_link_check_dynamic_ar_symbols): Likewise.
+	(xcoff_link_add_symbols): Only create special sections if using an
+	XCOFF hash table.
+
+	* reloc.c (bfd_perform_relocation): Handle xcoff-powermac like
+	aixcoff-rs6000.
+	(bfd_install_relocation): Likewise.
+
+Fri Jun 28 11:17:00 1996  Richard Henderson  <rth@tamu.edu>
+
+	* elf64-alpha.c (struct alpha_elf_link_hash_entry): Add flags
+	field.
+	(ALPHA_ELF_LINK_HASH_LU_ADDR): Define.
+	(ALPHA_ELF_LINK_HASH_LU_MEM): Define.
+	(ALPHA_ELF_LINK_HASH_LU_FUNC): Define.
+	(elf64_alpha_link_hash_newfunc): Initialize flags field.
+	(elf64_alpha_check_relocs): Record types of LITUSE entries that
+	are found for LITERAL relocs.
+	(elf64_alpha_adjust_dynamic_symbol): If a symbol has its address
+	taken, we cannot generate a .plt entry for the symbol.
+
+Thu Jun 27 11:24:29 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: Add AC_ISC_POSIX, and check for setitimer and
+	sysconf functions (for gprof).
+	* configure, config.in: Rebuild.
+
+Wed Jun 26 16:29:02 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* ecoff.c (_bfd_ecoff_archive_p): Check the first object file in
+	an archive if it has a map.  If the object file has the wrong
+	xvec, reject it.
+
+	* coff-alpha.c (alpha_adjust_reloc_in): Set the addend for a
+	BRADDR, SREL16, SREL32, or SREL64 reloc against an external
+	symbol.
+	(alpha_relocate_section): Likewise.
+
+	* coffswap.h (coff_swap_reloc_out): Use RELSZ, not sizeof.
+	(coff_swap_filehdr_out): Use FILHSZ, not sizeof.
+	(coff_swap_sym_out): Use SYMESZ, not sizeof.
+	(coff_swap_aux_out): Use AUXESZ, not sizeof.
+	(coff_swap_lineno_out): Use LINESZ, not sizeof.
+	(coff_swap_aouthdr_out): Use AOUTSZ, not sizeof.
+	(coff_swap_scnhdr_out): Use SCNHSZ, not sizeof.
+	* peicode.h: Corresponding changes.
+
+Tue Jun 25 15:28:34 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* elflink.h (elf_create_pointer_linker_section): Comment out code
+	dealing with making GOT pointers negative of the GOT symbol for
+	now.
+
+Tue Jun 25 11:41:24 1996  Richard Henderson  <rth@tamu.edu>
+
+	* elf64-alpha.c (elf64_alpha_adjust_dynamic_symbol): Don't
+	increment the .rela.plt size until after we're done creating the
+	.plt entry.
+	(elf64_alpha_finish_dynamic_symbol): Change .plt entry to load the
+	.rela.plt offset directly rather than calculating it.
+
+Mon Jun 24 17:15:10 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+ 
+        * Makefile.in, (bindir, libdir, datadir, mandir, infodir, includedir): 
+	Use autoconf-set values.
+        * doc/Makefile.in (bindir, libdir, datadir, mandir, infodir, 
+	includedir, INSTALL, INSTALL_PROGRAM, INSTALL_DATA): Use autoconf-set 
+	values.
+        (docdir): Deleted.
+        * configure.in (AC_PREREQ): autoconf v2.5 or higher.
+        * configure: Rebuilt.
+ 
+Mon Jun 24 22:50:35 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* som.c (som_write_fixups): Fix typo in R_END_TRY for exception
+	handling code > 1k away.
+
+Mon Jun 24 18:41:06 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* elflink.h (elf_create_pointer_linker_section): If DEBUG is
+	defined, output whenever the symbol is updated.
+
+Mon Jun 24 17:58:12 1996  Jouke Numan  <jnuman@bazis.nl>
+
+	* elf.c (elf_fake_sections): Don't set sh_addr of a non SEC_ALLOC
+	section to 0 if user_set_vma is set.
+	* elflink.h (elf_bfd_final_link): Likewise.
+
+Sun Jun 23 20:42:51 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	Partially undo patch of Jun 20.
+	* coffcode.h (coff_set_alignment_hook): Use COFF_IMAGE_WITH_PE.
+	(coff_compute_section_file_positions): Likewise.
+	(coff_write_object_contents): Likewise.  Re-add deleted code, but
+	use #ifdef COFF_WITH_PE, not COFF_OBJ_WITH_PE.
+	* peicode.h (pe_bfd_copy_private_bfd_data): Re-add #ifdef.
+
+Fri Jun 21 17:38:15 1996  Joel Sherrill  <joel@merlin.gcs.redstone.army.mil>
+
+	* config.bfd: Add support for *-*-rtems* configurations.
+	
+Fri Jun 21 15:19:59 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* elf.c (prep_headers): Add bfd_arch_alpha case.
+
+Fri Jun 21 12:35:27 1996  Richard Henderson  <rth@tamu.edu>
+
+	* elf64-alpha.c: New file.
+	* config.bfd (alpha-*-linuxecoff*): New target.
+	(alpha-*-linux*, alpha-*-elf*): New targets.
+	* configure.in (bfd_elf64_alpha_vec): New vector.
+	* configure: Rebuild.
+	* targets.c (bfd_elf64_alpha_vec): Declare.
+	(bfd_target_vector): Add bfd_elf64_alpha_vec if BFD64.
+	* reloc.c (BFD_RELOC_ALPHA_GPDISP): Define.
+	* bfd-in2.h, libbfd.h: Rebuild.
+	* Makefile.in: Rebuild dependencies.
+ 	(BFD64_BACKENDS): Add elf64-alpha.o.
+	(BFD64_BACKENDS_CFILES): Add elf64-alpha.c.
+
+Thu Jun 20 18:14:25 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* ecoff.c (ecoff_armap_hash): If hlog is 0, just return 0, rather
+	than relying on a right shift of 32.
+
+Thu Jun 20 11:00:57 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* coffcode.h (coff_set_alignment_hook): Change COFF_IMAGE_WITH_PE
+	ifdef to COFF_WITH_PE.
+	(coff_compute_section_file_positions): Likewise.
+	(coff_write_object_contents): Likewise.  Delete COFF_OBJ_WITH_PE.
+	* pe-{arm,i386,ppc}.c (COFF_OBJ_WITH_PE): Delete.
+	* peicode.h (pe_bfd_copy_private_bfd_data): Delete ifdef
+	COFF_IMAGE_WITH_PE, always include.
+
+	* peicode.h (coff_swap_scnhdr_out): ".drectve" doesn't have trailing 0.
+
+Wed Jun 19 11:37:52 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* elf.c (map_sections_to_segments): Fix up the test for -Ttext to
+	approximate the correct answer if SIZEOF_HEADERS was not used.
+
+	* binary.c (binary_set_section_contents): Set section file
+	position based on LMA rather than VMA.
+
+Wed Jun 19 11:19:25 1996  Manfred Hollstein KS/EIC5 60/3/142 #40283  <manfred@lts.sel.alcatel.de>
+
+	* linker.c (_bfd_generic_link_output_symbols): Don't output any
+	symbols if info->strip == strip_all.
+
+Tue Jun 18 15:17:36 1996  Jeffrey A. Law  <law@rtl.cygnus.com>
+
+	* coff-h8300.c: Remove #if 0 code.
+	(compatable): Don't allow mixing/matching of different architectures.
+	
+	* archures.c (bfd_mach_h8300s): Add.
+	* bfd-in2.h: Rebuilt.
+	* coff-h8300.c (funcvec_hash_newfunc): Handle H8/S too.
+	(BADMAG): Likewise.
+	(h8300_reloc16_estimate): Likewise.
+	(h8300_reloc16_extra_cases): Likewise.
+	(h8300_bfd_link_add_symbols): Likewise.
+	* coffcode.h (coff_set_arch_mach_hook): Likewise.
+	(coff_set_flags): Likewise.
+	* cpu-h8300.c (h8300_scan): Likewise.
+	Add H8/S to bfd_h8300_arch list.
+
+Tue Jun 18 14:42:58 1996  Klaus Kaempf  <kkaempf@progis.de>
+
+	Added support for Alpha OpenVMS:
+	* evax.h, evax-alpha.c, evax-egsd.c, evax-emh.c: New files.
+	* evax-etir.c, evax-misc.c, hosts/alphavms.h: New files.
+	* config.h-vms, makefile.vms: New files.
+	* config.bfd (alpha-*-*vms*): New target.
+	* configure.in (evax_alpha_vec): New target vector.
+	* configure: Rebuild.
+	* reloc.c (BFD_RELOC_SWREL32, BFD_RELOC_SWREL64): Define.
+	(BFD_RELOC_ALPHA_LINKAGE, BFD_RELOC_ALPHA_BASEREG): Define.
+	* targets.c (bfd_target_evax_flavour): Define.
+	(evax_alpha_vec): Declare.
+	(bfd_target_vector): Add ecoffalpha_little_vec and evax_alpha_vec
+	if BFD64 is defined.
+	* bfd-in2.h, libbfd.h: Rebuild.
+	* Makefile.in: Rebuild dependencies.
+	(BFD64_BACKENDS): Add evax-alpha.o, evax-egsd.o, evax-etir.o,
+	evax-emh.o, and evax-misc.o.
+	(BFD64_BACKENDS_CFILES): Add evax-alpha.c, evax-egsd.c,
+	evax-etir.c, evax-emh.c, and evax-misc.c.
+	(HFILES): Add evax.h.
+
+Tue Jun 18 13:54:18 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* coff-h8300.c (h8300_reloc16_extra_cases): Make name a const
+	pointer.
+	(h8300_bfd_link_add_symbols): Likewise.
+
+Mon Jun 17 10:06:50 1996  Jeffrey A. Law  <law@rtl.cygnus.com>
+
+	* som.h (R_HPPA_BEGIN_TRY, R_HPPA_END_TRY): Define.
+	* som.c (som_write_fixups): Handle R_BEGIN_TRY and R_END_TRY.
+
+Mon Jun 17 12:49:11 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* elf32-mips.c (mips_elf_relocate_section): Don't create a reloc
+	for R_MIPS_REL32 and R_MIPS_32 relocs if no dynamic sections were
+	created.
+	(mips_elf_check_relocs): Only create .rel.dyn for R_MIPS_REL32 and
+	R_MIPS_32 relocs if creating a shared library.
+
 Thu Jun 13 20:14:51 1996  Doug Evans  <dje@canuck.cygnus.com>
 
 	* peicode.h (add_data_entry): Use pei_section_data rather than

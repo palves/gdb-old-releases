@@ -753,6 +753,8 @@ extern int remote_debug;
 
 /* Speed in bits per second, or -1 which means don't mess with the speed.  */
 extern int baud_rate;
+/* Timeout limit for response from target. */
+extern int remote_timeout;
 
 /* Functions for helping to write a native target.  */
 

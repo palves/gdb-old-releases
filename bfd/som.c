@@ -2631,8 +2631,6 @@ som_write_fixups (abfd, current_offset, total_reloc_sizep)
 		 later relocation.  */
 	      switch (bfd_reloc->howto->type)
 		{
-		/* This only needs to handle relocations that may be
-		   made by hppa_som_gen_reloc.  */
 		case R_ENTRY:
 		case R_ALT_ENTRY:
 		case R_EXIT:
@@ -2647,6 +2645,8 @@ som_write_fixups (abfd, current_offset, total_reloc_sizep)
 		case R_COMP2:
 		case R_BEGIN_BRTAB:
 		case R_END_BRTAB:
+		case R_BEGIN_TRY:
+		case R_END_TRY:
 		case R_N0SEL:
 		case R_N1SEL:
 		  reloc_offset = bfd_reloc->address;
@@ -2780,6 +2780,7 @@ som_write_fixups (abfd, current_offset, total_reloc_sizep)
 		case R_RSEL:
 		case R_BEGIN_BRTAB:
 		case R_END_BRTAB:
+		case R_BEGIN_TRY:
 		case R_N0SEL:
 		case R_N1SEL:
 		  bfd_put_8 (abfd, bfd_reloc->howto->type, p);
@@ -2787,6 +2788,29 @@ som_write_fixups (abfd, current_offset, total_reloc_sizep)
 		  p += 1;
 		  break;
 
+		case R_END_TRY:
+		  /* The end of a exception handling region.  The reloc's
+		     addend contains the offset of the exception handling
+		     code.  */
+		  if (bfd_reloc->addend == 0)
+		    bfd_put_8 (abfd, bfd_reloc->howto->type, p);
+		  else if (bfd_reloc->addend < 1024)
+		    {
+		      bfd_put_8 (abfd, bfd_reloc->howto->type + 1, p);
+		      bfd_put_8 (abfd, bfd_reloc->addend / 4, p + 1);
+		      p = try_prev_fixup (abfd, &subspace_reloc_size,
+					  p, 2, reloc_queue);
+		    }
+		  else
+		    {
+		      bfd_put_8 (abfd, bfd_reloc->howto->type + 2, p);
+		      bfd_put_8 (abfd, (bfd_reloc->addend / 4) >> 16, p + 1);
+		      bfd_put_16 (abfd, bfd_reloc->addend / 4, p + 2);
+		      p = try_prev_fixup (abfd, &subspace_reloc_size,
+					  p, 4, reloc_queue);
+		    }
+		  break;
+		      
 		case R_COMP1:
 		  /* The only time we generate R_COMP1, R_COMP2 and 
 		     R_CODE_EXPR relocs is for the difference of two

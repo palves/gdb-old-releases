@@ -64,10 +64,10 @@ bfd_h8_disassemble_init ()
 
 
 unsigned int
-bfd_h8_disassemble (addr, info, hmode)
+bfd_h8_disassemble (addr, info, mode)
      bfd_vma addr;
      disassemble_info *info;
-     int hmode;
+     int mode;
 {
   /* Find the first entry in the table for this opcode */
   static CONST char *regnames[] =
@@ -96,7 +96,7 @@ bfd_h8_disassemble (addr, info, hmode)
   int plen = 0;
   static boolean init = 0;
   struct h8_opcode *q = h8_opcodes;
-  char CONST **pregnames = hmode ? lregnames : wregnames;
+  char CONST **pregnames = mode != 0 ? lregnames : wregnames;
   int status;
   int l;
   
@@ -400,7 +400,7 @@ disassemble_info *info;
   return bfd_h8_disassemble (addr, info , 0);
 }
 
- int 
+int 
 print_insn_h8300h (addr, info)
 bfd_vma addr;
 disassemble_info *info;
@@ -408,3 +408,10 @@ disassemble_info *info;
   return bfd_h8_disassemble (addr, info , 1);
 }
 
+int 
+print_insn_h8300s (addr, info)
+bfd_vma addr;
+disassemble_info *info;
+{
+  return bfd_h8_disassemble (addr, info , 2);
+}

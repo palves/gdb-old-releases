@@ -621,6 +621,7 @@ bfd_perform_relocation (abfd, reloc_entry, data, input_section, output_bfd,
 	  /* WTF?? */
 	  if (abfd->xvec->flavour == bfd_target_coff_flavour
 	      && strcmp (abfd->xvec->name, "aixcoff-rs6000") != 0
+	      && strcmp (abfd->xvec->name, "xcoff-powermac") != 0
 	      && strcmp (abfd->xvec->name, "coff-Intel-little") != 0
 	      && strcmp (abfd->xvec->name, "coff-Intel-big") != 0)
 	    {
@@ -1083,6 +1084,7 @@ bfd_install_relocation (abfd, reloc_entry, data_start, data_start_offset,
       /* WTF?? */
       if (abfd->xvec->flavour == bfd_target_coff_flavour
 	  && strcmp (abfd->xvec->name, "aixcoff-rs6000") != 0
+	  && strcmp (abfd->xvec->name, "xcoff-powermac") != 0
 	  && strcmp (abfd->xvec->name, "coff-Intel-little") != 0
 	  && strcmp (abfd->xvec->name, "coff-Intel-big") != 0)
 	{
@@ -1799,6 +1801,15 @@ decided relatively late.
 
 
 ENUM
+  BFD_RELOC_SWREL32
+ENUMX
+  BFD_RELOC_SWREL64
+ENUMDOC
+  For openVMS/Alpha systems, these are displacements for switch
+tables.
+
+
+ENUM
   BFD_RELOC_I960_CALLJ
 ENUMDOC
   Reloc types used for i960/b.out.
@@ -1883,8 +1894,8 @@ ENUMDOC
 ENUM
   BFD_RELOC_ALPHA_GPDISP_HI16
 ENUMDOC
-  Alpha ECOFF relocations.  Some of these treat the symbol or "addend"
-     in some special way.
+  Alpha ECOFF and ELF relocations.  Some of these treat the symbol or
+     "addend" in some special way.
   For GPDISP_HI16 ("gpdisp") relocations, the symbol is ignored when
      writing; when reading, it will be the absolute section symbol.  The
      addend is the displacement in bytes of the "lda" instruction from
@@ -1896,6 +1907,13 @@ ENUMDOC
      with GPDISP_HI16 relocs.  The addend is ignored when writing the
      relocations out, and is filled in with the file's GP value on
      reading, for convenience.
+
+ENUM
+  BFD_RELOC_ALPHA_GPDISP
+ENUMDOC
+  The ELF GPDISP relocation is exactly the same as the GPDISP_HI16
+     relocation except that there is no accompanying GPDISP_LO16
+     relocation.
 
 ENUM
   BFD_RELOC_ALPHA_LITERAL
@@ -1928,6 +1946,17 @@ ENUMDOC
   The HINT relocation indicates a value that should be filled into the
      "hint" field of a jmp/jsr/ret instruction, for possible branch-
      prediction logic which may be provided on some processors.
+
+ENUM
+  BFD_RELOC_ALPHA_LINKAGE
+ENUMDOC
+  The LINKAGE relocation outputs a special code in the object file,
+     the rest is handled by the linker.
+
+ENUM
+  BFD_RELOC_ALPHA_BASEREG
+ENUMDOC
+  The BASEREG relocation calculates differences to basereg.
 
 ENUM
   BFD_RELOC_MIPS_JMP

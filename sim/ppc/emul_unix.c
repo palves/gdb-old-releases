@@ -65,11 +65,35 @@
 #include <sys/time.h>
 #endif
 
-#ifdef HAVE_SYS_TERMIOS_H
-#include <sys/termios.h>
+#ifndef HAVE_TERMIOS_STRUCTURE
+#undef HAVE_SYS_TERMIOS_H
+#else
+#ifndef HAVE_SYS_TERMIOS_H
+#undef HAVE_TERMIOS_STRUCTURE
+#endif
 #endif
 
-#ifdef HAVE_SYS_TERMIO_H
+#ifdef HAVE_TERMIOS_STRUCTURE
+#include <sys/termios.h>
+
+/* If we have TERMIOS, use that for the termio structure, since some systems
+   don't like including both sys/termios.h and sys/termio.h at the same
+   time.  */
+#undef	HAVE_TERMIO_STRUCTURE
+#undef	TCGETA
+#undef	termio
+#define termio termios
+#endif
+
+#ifndef HAVE_TERMIO_STRUCTURE
+#undef HAVE_SYS_TERMIO_H
+#else
+#ifndef HAVE_SYS_TERMIO_H
+#undef HAVE_TERMIO_STRUCTURE
+#endif
+#endif
+
+#ifdef HAVE_TERMIO_STRUCTURE
 #include <sys/termio.h>
 #endif
 
@@ -82,10 +106,6 @@
 #ifdef HAVE_GETRUSAGE
 #include <sys/resource.h>
 int getrusage();
-#endif
-
-#if HAVE_SYS_IOCTL_H
-#include <sys/ioctl.h>
 #endif
 
 #if HAVE_SYS_MOUNT_H
@@ -1122,7 +1142,7 @@ do_solaris_fstat(os_emul_data *emul,
 }
 #endif
 
-#if defined(HAVE_SYS_TERMIO_H) || defined(HAVE_SYS_TERMIOS_H)
+#if defined(HAVE_TERMIO_STRUCTURE) || defined(HAVE_TERMIOS_STRUCTURE)
 #define	SOLARIS_TIOC	  ('T'<<8)
 #define SOLARIS_NCC	  8
 #define SOLARIS_NCCS	  19
@@ -1145,7 +1165,7 @@ do_solaris_fstat(os_emul_data *emul,
 #define	SOLARIS_VLNEXT	 15
 #endif
 
-#ifdef HAVE_SYS_TERMIO_H
+#if defined(HAVE_TERMIO_STRUCTURE) || defined(HAVE_TERMIOS_STRUCTURE)
 /* Convert to/from host termio structure */
 
 struct solaris_termio {
@@ -1170,7 +1190,12 @@ convert_to_solaris_termio(unsigned_word addr,
   target.c_oflag = H2T_2 (host->c_oflag);
   target.c_cflag = H2T_2 (host->c_cflag);
   target.c_lflag = H2T_2 (host->c_lflag);
+
+#if defined(HAVE_TERMIO_CLINE) || defined(HAVE_TERMIOS_CLINE)
   target.c_line  = host->c_line;
+#else
+  target.c_line  = 0;
+#endif
 
   for (i = 0; i < SOLARIS_NCC; i++)
     target.c_cc[i] = 0;
@@ -1214,9 +1239,9 @@ convert_to_solaris_termio(unsigned_word addr,
 
   emul_write_buffer(&target, addr, sizeof(target), processor, cia);
 }
-#endif /* HAVE_SYS_TERMIO_H */
+#endif /* HAVE_TERMIO_STRUCTURE || HAVE_TERMIOS_STRUCTURE */
 
-#ifdef HAVE_SYS_TERMIOS_H
+#ifdef HAVE_TERMIOS_STRUCTURE
 /* Convert to/from host termios structure */
 
 typedef unsigned32 solaris_tcflag_t;
@@ -1319,7 +1344,7 @@ convert_to_solaris_termios(unsigned_word addr,
 
   emul_write_buffer(&target, addr, sizeof(target), processor, cia);
 }
-#endif /* HAVE_SYS_TERMIOS_H */
+#endif /* HAVE_TERMIOS_STRUCTURE */
 
 #ifndef HAVE_IOCTL
 #define do_solaris_ioctl 0
@@ -1337,12 +1362,13 @@ do_solaris_ioctl(os_emul_data *emul,
   int status = 0;
   const char *name = "<unknown>";
 
-#ifdef HAVE_SYS_TERMIO_H
+#ifdef HAVE_TERMIOS_STRUCTURE
+  struct termios host_termio;
+
+#else
+#ifdef HAVE_TERMIO_STRUCTURE
   struct termio host_termio;
 #endif
-
-#ifdef HAVE_SYS_TERMIOS_H
-  struct termios host_termios;
 #endif
 
   switch (request)
@@ -1353,31 +1379,37 @@ do_solaris_ioctl(os_emul_data *emul,
       errno = EINVAL;
       break;
 
-#ifdef HAVE_SYS_TERMIO_H
-#ifdef TCGETA
+#if defined(HAVE_TERMIO_STRUCTURE) || defined(HAVE_TERMIOS_STRUCTURE)
+#if defined(TCGETA) || defined(TCGETS) || defined(HAVE_TCGETATTR)
     case SOLARIS_TIOC | 1:			/* TCGETA */
       name = "TCGETA";
+#ifdef HAVE_TCGETATTR
+      status = tcgetattr(fildes, &host_termio);
+#elif defined(TCGETS)
+      status = ioctl (fildes, TCGETS, &host_termio);
+#else
       status = ioctl (fildes, TCGETA, &host_termio);
+#endif
       if (status == 0)
 	convert_to_solaris_termio (argp_addr, &host_termio, processor, cia);
       break;
 #endif /* TCGETA */
-#endif /* HAVE_SYS_TERMIO_H */
+#endif /* HAVE_TERMIO_STRUCTURE */
 
-#ifdef HAVE_SYS_TERMIOS_H
+#ifdef HAVE_TERMIOS_STRUCTURE
 #if defined(TCGETS) || defined(HAVE_TCGETATTR)
     case SOLARIS_TIOC | 13:			/* TCGETS */
       name = "TCGETS";
 #ifdef HAVE_TCGETATTR
-      status = tcgetattr(fildes, &host_termios);
+      status = tcgetattr(fildes, &host_termio);
 #else
-      status = ioctl (fildes, TCGETS, &host_termios);
+      status = ioctl (fildes, TCGETS, &host_termio);
 #endif
       if (status == 0)
-	convert_to_solaris_termios (argp_addr, &host_termios, processor, cia);
+	convert_to_solaris_termios (argp_addr, &host_termio, processor, cia);
       break;
 #endif /* TCGETS */
-#endif /* HAVE_SYS_TERMIOS_H */
+#endif /* HAVE_TERMIOS_STRUCTURE */
     }
 
   emul_write_status(processor, status, errno);
@@ -2029,7 +2061,7 @@ do_linux_fstat(os_emul_data *emul,
 }
 #endif
 
-#if defined(HAVE_SYS_TERMIO_H) || defined(HAVE_SYS_TERMIOS_H)
+#if defined(HAVE_TERMIO_STRUCTURE) || defined(HAVE_TERMIOS_STRUCTURE)
 #define LINUX_NCC		10
 #define LINUX_NCCS		19
 	
@@ -2088,7 +2120,7 @@ do_linux_fstat(os_emul_data *emul,
 #define LINUX_IOWR(type,nr,size) LINUX_IOC(LINUX_IOC_READ|LINUX_IOC_WRITE,(type),(nr),sizeof(size))
 #endif
 
-#ifdef HAVE_SYS_TERMIO_H
+#if defined(HAVE_TERMIO_STRUCTURE) || defined(HAVE_TERMIOS_STRUCTURE)
 /* Convert to/from host termio structure */
 
 struct linux_termio {
@@ -2113,7 +2145,12 @@ convert_to_linux_termio(unsigned_word addr,
   target.c_oflag = H2T_2 (host->c_oflag);
   target.c_cflag = H2T_2 (host->c_cflag);
   target.c_lflag = H2T_2 (host->c_lflag);
+
+#if defined(HAVE_TERMIO_CLINE) || defined(HAVE_TERMIOS_CLINE)
   target.c_line  = host->c_line;
+#else
+  target.c_line  = 0;
+#endif
 
   for (i = 0; i < LINUX_NCC; i++)
     target.c_cc[i] = 0;
@@ -2164,9 +2201,9 @@ convert_to_linux_termio(unsigned_word addr,
 
   emul_write_buffer(&target, addr, sizeof(target), processor, cia);
 }
-#endif /* HAVE_SYS_TERMIO_H */
+#endif /* HAVE_TERMIO_STRUCTURE */
 
-#ifdef HAVE_SYS_TERMIOS_H
+#ifdef HAVE_TERMIOS_STRUCTURE
 /* Convert to/from host termios structure */
 
 typedef unsigned32 linux_tcflag_t;
@@ -2233,7 +2270,11 @@ convert_to_linux_termios(unsigned_word addr,
   target.c_cc[LINUX_VSWTC] = host->c_cc[VSWTCH];
 #endif
 
+#ifdef HAVE_TERMIOS_CLINE
+  target.c_line   = host->c_line;
+#else
   target.c_line   = 0;
+#endif
 
 #ifdef HAVE_CFGETISPEED
   target.c_ispeed = cfgetispeed (host);
@@ -2249,7 +2290,7 @@ convert_to_linux_termios(unsigned_word addr,
 
   emul_write_buffer(&target, addr, sizeof(target), processor, cia);
 }
-#endif /* HAVE_SYS_TERMIOS_H */
+#endif /* HAVE_TERMIOS_STRUCTURE */
 
 #ifndef HAVE_IOCTL
 #define do_linux_ioctl 0
@@ -2267,12 +2308,13 @@ do_linux_ioctl(os_emul_data *emul,
   int status = 0;
   const char *name = "<unknown>";
 
-#ifdef HAVE_SYS_TERMIO_H
+#ifdef HAVE_TERMIOS_STRUCTURE
+  struct termios host_termio;
+
+#else
+#ifdef HAVE_TERMIO_STRUCTURE
   struct termio host_termio;
 #endif
-
-#ifdef HAVE_SYS_TERMIOS_H
-  struct termios host_termios;
 #endif
 
   switch (request)
@@ -2283,31 +2325,37 @@ do_linux_ioctl(os_emul_data *emul,
       errno = EINVAL;
       break;
 
-#ifdef HAVE_SYS_TERMIO_H
-#ifdef TCGETA
+#if defined(HAVE_TERMIO_STRUCTURE) || defined(HAVE_TERMIOS_STRUCTURE)
+#if defined(TCGETA) || defined(TCGETS) || defined(HAVE_TCGETATTR)
     case LINUX_IOR('t', 23, struct linux_termio):	/* TCGETA */
       name = "TCGETA";
+#ifdef HAVE_TCGETATTR
+      status = tcgetattr(fildes, &host_termio);
+#elif defined(TCGETS)
+      status = ioctl (fildes, TCGETS, &host_termio);
+#else
       status = ioctl (fildes, TCGETA, &host_termio);
+#endif
       if (status == 0)
 	convert_to_linux_termio (argp_addr, &host_termio, processor, cia);
       break;
 #endif /* TCGETA */
-#endif /* HAVE_SYS_TERMIO_H */
+#endif /* HAVE_TERMIO_STRUCTURE */
 
-#ifdef HAVE_SYS_TERMIOS_H
+#ifdef HAVE_TERMIOS_STRUCTURE
 #if defined(TCGETS) || defined(HAVE_TCGETATTR)
     case LINUX_IOR('t', 19, struct linux_termios):	/* TCGETS */
       name = "TCGETS";
 #ifdef HAVE_TCGETATTR
-      status = tcgetattr(fildes, &host_termios);
+      status = tcgetattr(fildes, &host_termio);
 #else
-      status = ioctl (fildes, TCGETS, &host_termios);
+      status = ioctl (fildes, TCGETS, &host_termio);
 #endif
       if (status == 0)
-	convert_to_linux_termios (argp_addr, &host_termios, processor, cia);
+	convert_to_linux_termios (argp_addr, &host_termio, processor, cia);
       break;
 #endif /* TCGETS */
-#endif /* HAVE_SYS_TERMIOS_H */
+#endif /* HAVE_TERMIOS_STRUCTURE */
     }
 
   emul_write_status(processor, status, errno);

@@ -1,3 +1,4 @@
+VPATH = @srcdir@
 srcdir = @srcdir@
 
 EXECUTABLES = bitfields interrupt mips_pro return twice-tmp break langs \

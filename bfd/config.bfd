@@ -47,10 +47,20 @@ case "${targ}" in
     targ_defvec=ecoffalpha_little_vec
     targ_selvecs=nlm32_alpha_vec
     ;;
+  alpha-*-linuxecoff*)
+    targ_defvec=ecoffalpha_little_vec
+    targ_selvecs=bfd_elf64_alpha_vec
+    ;;
+  alpha-*-linux* | alpha-*-elf*)
+    targ_defvec=bfd_elf64_alpha_vec
+    targ_selvecs=ecoffalpha_little_vec
+    ;;
+  alpha-*-*vms*)
+    targ_defvec=evax_alpha_vec
+    ;;
   alpha-*-*)
     targ_defvec=ecoffalpha_little_vec
     ;;
-
 
   arm-*-riscix*)
     targ_defvec=riscix_vec
@@ -122,7 +132,7 @@ case "${targ}" in
     targ_selvecs=i386coff_vec
     ;;
   i[345]86-*-sysv* | i[345]86-*-isc* | i[345]86-*-sco* | i[345]86-*-coff | \
-  i[345]86-*-aix* | i[345]86-*-go32*)
+  i[345]86-*-aix* | i[345]86-*-go32* | i[345]86*-*-rtems*)
     targ_defvec=i386coff_vec
     ;;
   i[345]86-sequent-bsd*)
@@ -206,7 +216,7 @@ case "${targ}" in
     targ_selvecs="b_out_vec_big_host icoff_little_vec icoff_big_vec ieee_vec"
     targ_underscore=yes
     ;;
-  i960-*-vxworks5.* | i960-*-coff* | i960-*-sysv*)
+  i960-*-vxworks5.* | i960-*-coff* | i960-*-sysv* | i960-*-rtems*)
     targ_defvec=icoff_little_vec
     targ_selvecs="icoff_big_vec b_out_vec_little_host b_out_vec_big_host ieee_vec"
     targ_underscore=yes
@@ -240,7 +250,7 @@ case "${targ}" in
     targ_defvec=bfd_elf32_m68k_vec
     targ_selvecs="m68kcoff_vec ieee_vec"
     ;;
-  m68*-*-coff* | m68*-*-sysv*)
+  m68*-*-coff* | m68*-*-sysv* | m68*-*-rtems*)
     targ_defvec=m68kcoff_vec
     targ_selvecs="m68kcoff_vec versados_vec ieee_vec"
     ;;
@@ -373,7 +383,7 @@ case "${targ}" in
     targ_defvec=rs6000coff_vec
     ;;
   powerpc-*-elf* | powerpc-*-sysv4* | powerpc-*-eabi* | \
-  powerpc-*-solaris2* | powerpc-*-linux*)
+  powerpc-*-solaris2* | powerpc-*-linux* | powerpc-*-rtems*)
     targ_defvec=bfd_elf32_powerpc_vec
     targ_selvecs="rs6000coff_vec bfd_elf32_powerpcle_vec bfd_powerpcle_pei_vec bfd_powerpc_pei_vec bfd_powerpcle_pe_vec bfd_powerpc_pe_vec ppcboot_vec"
     ;;
@@ -426,7 +436,7 @@ case "${targ}" in
   sparc*-*-coff*)
     targ_defvec=sparccoff_vec
     ;;
-  sparc*-*-*)
+  sparc*-*-* | sparc*-*-rtems*)
     targ_defvec=sunos_big_vec
     targ_underscore=yes
     ;;

@@ -898,6 +898,7 @@ proc test_forward_search {} {
 	# being searched is extremely long.
 
 	set timeout 30
+	verbose "Timeout is now $timeout seconds" 2
 	gdb_test "search 1234" ""
 }
 

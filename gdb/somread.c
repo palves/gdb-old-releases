@@ -55,22 +55,6 @@ som_symtab_read PARAMS ((bfd *, struct objfile *,
 static struct section_offsets *
 som_symfile_offsets PARAMS ((struct objfile *, CORE_ADDR));
 
-static void
-record_minimal_symbol PARAMS ((char *, CORE_ADDR,
-			       enum minimal_symbol_type,
-			       struct objfile *));
-
-static void
-record_minimal_symbol (name, address, ms_type, objfile)
-     char *name;
-     CORE_ADDR address;
-     enum minimal_symbol_type ms_type;
-     struct objfile *objfile;
-{
-  name = obsavestring (name, strlen (name), &objfile -> symbol_obstack);
-  prim_record_minimal_symbol (name, address, ms_type, objfile);
-}
-
 /*
 
 LOCAL FUNCTION
@@ -311,9 +295,8 @@ som_symtab_read (abfd, objfile, section_offsets)
 	error ("Invalid symbol data; bad HP string table offset: %d",
 	       bufp->name.n_strx);
 
-      record_minimal_symbol (symname,
-			     bufp->symbol_value, ms_type, 
-			     objfile);
+      prim_record_minimal_symbol (symname, bufp->symbol_value, ms_type, 
+				  objfile);
     }
 }
 
@@ -435,9 +418,7 @@ som_symfile_offsets (objfile, addr)
 
   objfile->num_sections = SECT_OFF_MAX;
   section_offsets = (struct section_offsets *)
-    obstack_alloc (&objfile -> psymbol_obstack,
-		   sizeof (struct section_offsets)
-		   + sizeof (section_offsets->offsets) * (SECT_OFF_MAX-1));
+    obstack_alloc (&objfile -> psymbol_obstack, SIZEOF_SECTION_OFFSETS);
 
   /* First see if we're a shared library.  If so, get the section
      offsets from the library, else get them from addr.  */

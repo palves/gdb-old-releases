@@ -28,7 +28,7 @@ tooldir = $(exec_prefix)/$(target)
 
 program_transform_name =
 
-datadir = $(prefix)/lib
+datadir = $(prefix)/share
 mandir = $(prefix)/man
 man1dir = $(mandir)/man1
 man2dir = $(mandir)/man2
@@ -41,7 +41,6 @@ man8dir = $(mandir)/man8
 man9dir = $(mandir)/man9
 infodir = $(prefix)/info
 includedir = $(prefix)/include
-docdir = $(datadir)/doc
 GDB_NLM_DEPS = 
 
 SHELL = /bin/sh
@@ -138,7 +137,8 @@ OTHERS =
 TARGET_CONFIGDIRS = libiberty libgloss newlib libio librx libstdc++ libg++ winsup
 
 # Target libraries are put under this directory:
-TARGET_SUBDIR = . # Changed by configure to $(target_alias) if cross.
+# Changed by configure to $(target_alias) if cross.
+TARGET_SUBDIR = .
 
 # This is set by the configure script to the arguments passed to configure.
 CONFIG_ARGUMENTS = 
@@ -1420,10 +1420,13 @@ taz: $(DEVO_SUPPORT) $(SUPPORT_FILES) \
 	    <configure.in >proto-toplev/configure.in
 	#
 	mkdir proto-toplev/texinfo
-	ln -s ../../texinfo/texinfo.tex proto-toplev/texinfo/
-	ln -s ../../texinfo/gpl.texinfo proto-toplev/texinfo/
-	ln -s ../../texinfo/lgpl.texinfo proto-toplev/texinfo/
-	ln -s ../../texinfo/tex3patch   proto-toplev/texinfo/
+	ln -s ../../texinfo/texinfo.tex		proto-toplev/texinfo/
+	ln -s ../../texinfo/gpl.texinfo		proto-toplev/texinfo/
+	ln -s ../../texinfo/lgpl.texinfo	proto-toplev/texinfo/
+	if test -r texinfo/util/tex3patch ; then \
+	  mkdir proto-toplev/texinfo/util && \
+	  ln -s ../../../texinfo/util/tex3patch	proto-toplev/texinfo/util ; \
+	else true; fi
 	chmod og=u `find . -print`
 	(VER=`sed <$(TOOL)/Makefile.in -n 's/^VERSION *= *//p'`; \
 		echo "==> Making $(TOOL)-$$VER.tar.gz"; \

@@ -184,6 +184,16 @@ static int compare_opcodes ();
 static unsigned int current_arch_mask;
 static int compute_arch_mask ();
 
+int
+print_insn_sparclite (memaddr, info)
+     bfd_vma memaddr;
+     disassemble_info *info;
+{
+  info->mach = bfd_mach_sparc_sparclite;
+
+  return print_insn_sparc (memaddr, info);
+}
+
 /* Print one instruction from MEMADDR on INFO->STREAM.
 
    We suffix the instruction with a comment that gives the absolute
@@ -200,7 +210,6 @@ print_insn_sparc (memaddr, info)
   FILE *stream = info->stream;
   bfd_byte buffer[4];
   unsigned long insn;
-  register unsigned int i;
   register struct opcode_hash *op;
   /* Nonzero of opcode table has been initialized.  */
   static int opcodes_initialized = 0;
@@ -257,11 +266,10 @@ print_insn_sparc (memaddr, info)
 	  /* Nonzero means we have an annulled branch.  */
 	  int is_annulled = 0;
 
-	  /* Do we have an `add' or `or' instruction where rs1 is the same
-	     as rsd, and which has the i bit set?  */
-	  if ((opcode->match == 0x80102000 || opcode->match == 0x80002000)
+	  /* Do we have an `add' or `or' instruction combining an
+             immediate with rs1?  */
+	  if (opcode->match == 0x80102000 || opcode->match == 0x80002000)
 	  /*			  (or)				 (add)  */
-	      && X_RS1 (insn) == X_RD (insn))
 	    imm_added_to_rs1 = 1;
 
 	  if (X_RS1 (insn) != X_RD (insn)

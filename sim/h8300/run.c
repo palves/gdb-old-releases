@@ -89,14 +89,22 @@ main (ac, av)
       exit (1);
     }
 
-  if (abfd->arch_info->mach == bfd_mach_h8300h)
+  if (abfd->arch_info->mach == bfd_mach_h8300h
+      || abfd->arch_info->mach == bfd_mach_h8300s)
     set_h8300h (1);
 
   for (s = abfd->sections; s; s=s->next) 
     {
-      char *buffer = malloc(bfd_section_size(abfd,s));
-      bfd_get_section_contents(abfd, s, buffer, 0, bfd_section_size(abfd,s));
-      sim_write(s->vma, buffer, bfd_section_size(abfd,s));
+      char *buffer;
+
+      if (s->flags & SEC_LOAD)
+	{
+
+	  buffer = malloc(bfd_section_size(abfd,s));
+	  bfd_get_section_contents(abfd, s, buffer, 0,
+				   bfd_section_size (abfd, s));
+	  sim_write(s->vma, buffer, bfd_section_size (abfd, s));
+	}
     }
 
   start_address = bfd_get_start_address(abfd);

@@ -30,12 +30,12 @@ exec_prefix = @exec_prefix@
 host_alias = @host_alias@
 target_alias = @target_alias@
 program_transform_name = @program_transform_name@
-bindir = $(exec_prefix)/bin
-libdir = $(exec_prefix)/lib
+bindir = @bindir@
+libdir = @libdir@
 tooldir = $(libdir)/$(target_alias)
 
-datadir = $(prefix)/lib
-mandir = $(prefix)/man
+datadir = @datadir@
+mandir = @mandir@
 man1dir = $(mandir)/man1
 man2dir = $(mandir)/man2
 man3dir = $(mandir)/man3
@@ -45,15 +45,14 @@ man6dir = $(mandir)/man6
 man7dir = $(mandir)/man7
 man8dir = $(mandir)/man8
 man9dir = $(mandir)/man9
-infodir = $(prefix)/info
-includedir = $(prefix)/include
-docdir = $(datadir)/doc
+infodir = @infodir@
+includedir = @includedir@
 
 SHELL = /bin/sh
 
 INSTALL = $(srcroot)/install.sh -c
-INSTALL_PROGRAM = $(INSTALL)
-INSTALL_DATA = $(INSTALL)
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
 INSTALL_XFORM = $(INSTALL) -t='$(program_transform_name)'
 INSTALL_XFORM1= $(INSTALL_XFORM) -b=.1
 
@@ -85,6 +84,7 @@ RESERVED_CFLAGS = @sim_reserved@
 MONITOR_CFLAGS = @sim_monitor@
 MODEL_CFLAGS = @sim_model@ @sim_default_model@ @sim_model_issue@
 STDIO_CFLAGS = @sim_stdio@
+TERMIO_CFLAGS = @sim_termio@
 WARNING_CFLAGS = @sim_warnings@
 CONFIG_CFLAGS = $(BSWAP_CFLAGS) \
   $(ENDIAN_CFLAGS) \
@@ -102,7 +102,8 @@ CONFIG_CFLAGS = $(BSWAP_CFLAGS) \
   $(RESERVED_CFLAGS) \
   $(MONITOR_CFLAGS) \
   $(MODEL_CFLAGS) \
-  $(STDIO_CFLAGS)
+  $(STDIO_CFLAGS) \
+  $(TERMIO_CFLAGS)
 
 STD_CFLAGS	= $(CFLAGS) $(INLINE_CFLAGS) $(CONFIG_CFLAGS) $(WARNING_CFLAGS) $(SIM_CFLAGS) $(HDEFINES) $(TDEFINES) $(INCLUDES)
 NOWARN_CFLAGS	= $(CFLAGS) $(INLINE_CFLAGS) $(CONFIG_CFLAGS) $(SIM_CFLAGS) $(HDEFINES) $(TDEFINES) $(INCLUDES)

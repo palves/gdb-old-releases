@@ -51,15 +51,15 @@ LDFLAGS = @LDFLAGS@
 
 prefix = @prefix@
 exec_prefix = @exec_prefix@
-bindir = $(exec_prefix)/bin
+bindir = @bindir@
 # Prefix for each installed program, normally empty or `g'.
 binprefix = 
-libdir = $(prefix)/lib
+libdir = @libdir@
 # Prefix for each installed man page, normally empty or `g'.
 manprefix = 
-mandir = $(prefix)/man/man1
+mandir = @mandir@/man1
 manext = 1
-infodir = $(prefix)/info
+infodir = @infodir@
 DEFAULT_INFOPATH= $(infodir):.
 
 #### End of system configuration section. ####

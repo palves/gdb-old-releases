@@ -128,7 +128,8 @@ static uint32   mec_ifr = 0;
 static uint32   mec_mcr;	/* MEC control register */
 static uint32   mec_memcfg;	/* Memory control register */
 static uint32   mec_wcr;	/* MEC waitstate register */
-static uint64   mec_mar;	/* MEC access registers (2) */
+static uint32   mec_mar0;	/* MEC access registers (2) */
+static uint32   mec_mar1;	/* MEC access registers (2) */
 static uint32   mec_regs[64];
 static uint32   posted_irq;
 static uint32   mec_ersr = 0;	/* MEC error and status register */
@@ -190,7 +191,7 @@ static int32    bnum, bind = 0;
 static char     wbufa[UARTBUF], wbufb[UARTBUF];
 static unsigned wnuma;
 static unsigned wnumb;
-static FILE    *f1, *f2;
+static FILE    *f1 = NULL, *f2 = NULL;
 
 static char     uarta_sreg, uarta_hreg, uartb_sreg, uartb_hreg;
 static uint32   uart_stat_reg;
@@ -297,7 +298,9 @@ sim_stop()
 void
 close_port()
 {
+  if (f1)
     fclose(f1);
+  if (f2)
     fclose(f2);
 }
 
@@ -324,7 +327,8 @@ mec_reset()
     mec_memcfg = 0x10000;
     mec_mcr = 0x01b50014;
     mec_wcr = -1;
-    mec_mar = -1;
+    mec_mar0 = -1;
+    mec_mar1 = -1;
     mec_ersr = 0;		/* MEC error and status register */
     mec_emr = 0x60;		/* MEC error mask register */
     mec_tcr = 0;		/* MEC test comtrol register */
@@ -562,11 +566,11 @@ mec_read(addr, asi, data)
 	break;
 
     case MEC_MAR0:
-	*data = mec_mar & (uint64) 0x0ffffffff;
+	*data = mec_mar0;
 	break;
 
     case MEC_MAR1:
-	*data = mec_mar >> 32;
+	*data = mec_mar1;
 	break;
 
     case MEC_PWDR:
@@ -673,12 +677,11 @@ mec_write(addr, data)
 	break;
 
     case MEC_MAR0:
-	mec_mar = (mec_mar & ~((uint64) 0x0ffffffff)) | (uint64) data;
+	mec_mar0 = data;
 	break;
 
     case MEC_MAR1:
-	mec_mar = (mec_mar & (uint64) 0x00000000ffffffff) |
-	    (((uint64) data) << 32);
+	mec_mar1 = data;
 	break;
 
     case MEC_WDOG:
@@ -760,7 +763,10 @@ read_uart(addr)
 		mec_irq(4);
 	    return (0x700 | (uint32) aq[aind++]);
 	} else {
+	  if (f1)
 	    anum = fread(aq, 1, UARTBUF, f1);
+	  else
+	    anum = 0;
 	    if (anum > 0) {
 		aind = 0;
 		if ((aind + 1) < anum)
@@ -786,7 +792,10 @@ read_uart(addr)
 		mec_irq(5);
 	    return (0x700 | (uint32) bq[bind++]);
 	} else {
+	  if (f2)
 	    bnum = fread(bq, 1, UARTBUF, f2);
+	  else
+	    bnum = 0;
 	    if (bnum > 0) {
 		bind = 0;
 		if ((bind + 1) < bnum)
@@ -811,7 +820,10 @@ read_uart(addr)
 	if (aind < anum) {
 	    Ucontrol |= 0x00000001;
 	} else {
+	  if (f1)
 	    anum = fread(aq, 1, UARTBUF, f1);
+	  else
+	    anum = 0;
 	    if (anum > 0) {
 		Ucontrol |= 0x00000001;
 		aind = 0;
@@ -821,7 +833,10 @@ read_uart(addr)
 	if (bind < bnum) {
 	    Ucontrol |= 0x00010000;
 	} else {
+	  if (f2)
 	    bnum = fread(bq, 1, UARTBUF, f2);
+	  else
+	    bnum = 0;
 	    if (bnum > 0) {
 		Ucontrol |= 0x00010000;
 		bind = 0;
@@ -861,7 +876,10 @@ write_uart(addr, data)
 	    wbufa[wnuma++] = c;
 	else {
 	    while (wnuma)
+	      if (f1)
 		wnuma -= fwrite(wbufa, 1, wnuma, f1);
+	      else
+		wnuma--;
 	    wbufa[wnuma++] = c;
 	}
 	mec_irq(4);
@@ -883,7 +901,10 @@ write_uart(addr, data)
 	    wbufb[wnumb++] = c;
 	else {
 	    while (wnumb)
+	      if (f2)
 		wnumb -= fwrite(wbufb, 1, wnumb, f2);
+	      else
+		wnumb--;
 	    wbufb[wnumb++] = c;
 	}
 	mec_irq(5);
@@ -920,9 +941,15 @@ write_uart(addr, data)
 flush_uart()
 {
     while (wnuma)
+      if (f1)
 	wnuma -= fwrite(wbufa, 1, wnuma, f1);
+      else
+	wnuma = 0;
     while (wnumb)
+      if (f2)
 	wnumb -= fwrite(wbufb, 1, wnumb, f2);
+      else
+	wnumb = 0;
 }
 
 
@@ -931,7 +958,7 @@ void
 uarta_tx()
 {
 
-    while (fwrite(&uarta_sreg, 1, 1, f1) != 1);
+    while ((f1 ? fwrite(&uarta_sreg, 1, 1, f1) : 1) != 1);
     if (uart_stat_reg & UARTA_HRE) {
 	uart_stat_reg |= UARTA_SRE;
     } else {
@@ -1273,8 +1300,8 @@ timer_ctrl(val)
 
 extern int32    sis_verbose;
 
-static uint64   romb[ROM_SZ / 8];
-static uint64   ramb[(RAM_END - RAM_START) / 8];
+static uint32   romb[ROM_SZ / 4];
+static uint32   ramb[(RAM_END - RAM_START) / 4];
 
 int
 memory_read(asi, addr, data, ws)
@@ -1303,13 +1330,11 @@ memory_read(asi, addr, data, ws)
 #endif
 
     if (addr < mem_romsz) {
-	mem = (uint32 *) romb;
-	*data = mem[addr >> 2];
+	*data = romb[addr >> 2];
 	*ws = mem_romr_ws;
 	return (0);
     } else if ((addr >= RAM_START) && (addr < (RAM_START + mem_ramsz))) {
-	mem = (uint32 *) ramb;
-	*data = mem[(addr & RAM_MASK) >> 2];
+	*data = ramb[(addr & RAM_MASK) >> 2];
 	*ws = mem_ramr_ws;
 	return (0);
     } else if ((addr >= MEC_START) && (addr < MEC_END)) {
@@ -1339,9 +1364,7 @@ memory_write(asi, addr, data, sz, ws)
     uint32          byte_addr;
     uint32          byte_mask;
     uint32          waddr;
-    uint32         *ram;
     uint32          bank;
-    uint64          bmap;
     int32           mexc;
 
 #ifdef MECBRK
@@ -1356,8 +1379,9 @@ memory_write(asi, addr, data, sz, ws)
     if ((addr >= RAM_START) && (addr < (RAM_START + mem_ramsz))) {
 	if (mem_accprot) {
 	    bank = (addr & RAM_MASK) >> mem_banksz;
-	    bmap = ((uint64) 1) << bank;
-	    if (!(bmap & mec_mar)) {
+	    if (bank < 32
+		? !((1 << bank) & mec_mar0)
+		: !((1 << (bank - 32) & mec_mar1))) {
 		printf("Memory access protection error at %x\n", addr);
 		set_sfsr(PROT_EXC, addr, asi, 0);
 		*ws = MEM_EX_WS;
@@ -1366,26 +1390,25 @@ memory_write(asi, addr, data, sz, ws)
 	}
 	*ws = mem_ramw_ws;
 	waddr = (addr & RAM_MASK) >> 2;
-	ram = (uint32 *) ramb;
 	switch (sz) {
 	case 0:
 	    byte_addr = addr & 3;
 	    byte_mask = 0x0ff << (24 - (8 * byte_addr));
-	    ram[waddr] = (ram[waddr] & ~byte_mask)
+	    ramb[waddr] = (ramb[waddr] & ~byte_mask)
 		| ((*data & 0x0ff) << (24 - (8 * byte_addr)));
 	    break;
 	case 1:
 	    byte_addr = (addr & 2) >> 1;
 	    byte_mask = 0x0ffff << (16 - (16 * byte_addr));
-	    ram[waddr] = (ram[waddr] & ~byte_mask)
+	    ramb[waddr] = (ramb[waddr] & ~byte_mask)
 		| ((*data & 0x0ffff) << (16 - (16 * byte_addr)));
 	    break;
 	case 2:
-	    ram[waddr] = *data;
+	    ramb[waddr] = *data;
 	    break;
 	case 3:
-	    ram[waddr] = data[0];
-	    ram[waddr + 1] = data[1];
+	    ramb[waddr] = data[0];
+	    ramb[waddr + 1] = data[1];
 	    *ws += mem_ramw_ws + STD_WS;
 	    break;
 	}

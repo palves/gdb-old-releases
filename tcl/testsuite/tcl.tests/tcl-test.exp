@@ -80,13 +80,13 @@ expect {
 	perror "You need to set the TCL_LIBRARY environment variable"
 	return -1
     }
-    -re "\[\r\n\]*\\+\\+\\+\\+ \[a-z\]*-\[.0-9\]* PASSED\[\r\n\]*" {
-	pass [lindex $expect_out(0,string) 1]
+    -re "\[\r\n\]*\\+\\+\\+\\+ (\[a-z\]*-\[.0-9\]*) PASSED\[\r\n\]*" {
+	pass $expect_out(1,string)
 	set timetol 0
 	exp_continue
     }
-    -re "\[\r\n\]*\\+* \[a-z\]*-\[.0-9\]* FAILED\[\r\n\]*" {
-	fail [lindex $expect_out(0,string) 0]
+    -re "\[\r\n\]*\\+* (\[a-z\]*-\[.0-9\]*) FAILED\[\r\n\]*" {
+	fail $expect_out(1,string)
 	exp_continue
     }
     -re "\[x\]+ \[a-i\]+ \[A-K\]+ \[0-9\]+ " {

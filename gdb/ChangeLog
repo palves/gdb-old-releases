@@ -1,3 +1,240 @@
+Mon Jul 08 08:50:39 1996  Mark Alexander  <marka@cygnus.com>
+
+	* mon960-rom.c (mon960_open): Add floating point detection to
+	prevent hang on non-FPU processors (PR 9775).
+	(mon960_cmds): Swap setmem.cmdw and setmem.cmdl to fix problem
+	setting breakpoints and improve loading speed.
+
+Sun Jul  7 14:57:34 1996  Fred Fish  <fnf@cygnus.com>
+
+	* coffread.c (record_minimal_symbol): Don't presave name string
+	on symbol_obstack before passing to prim_record_minimal_symbol.
+	It now handles saving the string itself.
+	* dbxread.c (read_dbx_dynamic_symtab): Ditto.
+	* mipsread.c (read_alphacoff_dynamic_symtab): Ditto.
+	* os9kread.c (record_minimal_symbol): Ditto.
+	* solib.c (solib_add_common_symbols): Ditto.
+
+	* coffread.c (coff_symtab_read): Don't presave name string on
+	symbol_obstack before passing to prim_record_minimal_symbol_and_info.
+	It now handles saving the string itself.
+	* dbxread.c (record_minimal_symbol): Ditto.
+	* elfread.c (record_minimal_symbol_and_info): Ditto.
+	
+	* dstread.c (record_minimal_symbol): Remove static function that just
+	called prim_record_minimal_symbol with the same args (after change to
+ 	prim_record_minimal_symbol to do it's own name string saves).
+	* nlmread.c (record_minimal_symbol): Ditto.
+	* somread.c (record_minimal_symbol): Ditto.
+
+	* hpread.c (hpread_read_enum_type): Save symbol name on symbol obstack.
+	(hpread_read_function_type): Ditto.
+	(hpread_process_one_debug_symbol): Ditto.
+	* mdebugread.c (parse_symbol): Ditto.
+	(new_symbol): Ditto.
+	* minsyms.c (prim_record_minimal_symbol_and_info): Ditto.
+
+	* coffread.c (process_coff_symbol): Use obsavestring to save
+	SYMBOL_NAME, rather than obstack_copy0.
+	* dstread.c (create_new_symbol): Ditto
+	* symfile.c (obconcat): Ditto.
+	* stabsread.c (patch_block_stabs): Ditto.
+	* xcoffread.c (SYMNAME_ALLOC): Ditto.
+
+	* symfile.c (obsavestring): Update comments
+	* solib.c (solib_add_common_symbols): Remove local var origname.
+
+Wed Jul  3 15:56:08 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* configure:  Re-build with autoconf-2.10.
+
+	* sparcl-tdep.c (_initialize_sparc_tdep) config/sparc/tm-sparc.h,
+	config/sparc/tm-sparclite.h:  Initialize tm_print_insn from
+	TM_PRINT_INSN, which comes from the tm file.
+
+Tue Jul 02 21:41:20 1996  Mark Alexander  <marka@cygnus.com>
+
+	* coffread.c, dbxread.c, elfread.c, mipsread.c, nlmread.c, 
+	os9kread.c: Replace identical sym_offsets functions with
+	default_symfile_offsets.
+	* somread.c (som_symfile_offsets): Use new SIZEOF_SECTION_OFFSETS
+	macro to allocate section_offsets.
+	* symfile.c (default_symfile_offsets): New function.
+	* symfile.h: Declare default_symfile_offsets.
+	* symtab.h: Define SIZEOF_SECTION_OFFSETS macro to
+	simplify allocation of section_offsets.
+
+Tue Jun 11 12:02:55 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* Makefile.in (INTERNAL_LDFLAGS):  Add in flags from configure.
+	* configure configure.in:  Only make sol-thread.o for native.
+	Also, switch to dlopened libthread_db.so.1.
+	* sol-thread.c:  Switch to using dlopen to get the thread_db
+	library.
+
+Thu Jun 13 16:53:25 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* configure, configure.in:  Change test for libthread_db to only
+	work for configs where build/host/target are the same.
+
+Tue Jul  2 15:04:20 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* config/powerpc/{linux.mh,xm-linux.h}: New files, for Linux on
+	PowerPC.
+
+	* configure.in (powerpc-*-linux): Add Linux, System V, and ELF
+	support.
+	* configure: Regenerate.
+
+Mon Jul  1 13:00:43 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	From Raymond Jou  <rjou@mexican.cygnus.com>:
+        * mpw-make.sed: Add lines to whack out autoconf hook
+        @CONFIG_LDFLAGS@.
+
+Mon Jul 01 11:07:15 1996  Mark Alexander  <marka@cygnus.com>
+
+	* remote-e7000.c (e7000_stop): New function.
+
+Fri Jun 28 06:34:19 1996  Dawn Perchik  <dawn@cygnus.com>
+
+	* configure, configure.in: Add target sparclet.
+	* monitor.h, monitor.c: Added monitor flags MO_NO_ECHO_ON_SETMEM
+ 	(don't expect echo on setmem command), MO_RUN_FIRST_TIME (if
+ 	command to start process running on target is different from one
+ 	to continue execution), MO_HEX_PREFIX (if addresses from monitor
+ 	have a "0x" prefix).
+	* monitor.c, parse.c, sparc-tdep.c: Don't require strings in the
+ 	registers array.  This is to allow NULLs to be place holders in
+ 	the tm-*.h file so that only minor changes are needed when a new
+ 	processor is introduced (eg, one without floating point).
+	* sparc-tdep.c: Conditionally remove dependancies on floating
+ 	point.
+  	* sparclet-rom.c, config/sparc/sparclet.mt,
+ 	config/sparc/tm-sparclet.h: New files for target sparclet.
+	* symfile.c (load_command): Add option for 2nd parameter; a load
+ 	offset added to the vma of each section.
+
+Fri Jun 28 05:39:19 1996  Dawn Perchik  <dawn@cygnus.com>
+
+        * main.c (main): Add option "l" for setting remote_timeout.
+
+Fri Jun 28 05:25:18 1996  Dawn Perchik  <dawn@cygnus.com>
+
+        * remote-e7000.c, remote.c, target.h, top.c: Add set option
+ 	"remote_timeout" for setting remote_timeout.  Add set option
+ 	"use_hard_breakpoints" for setting hardware .vs. memory
+ 	breakpoints.
+
+Fri Jun 28 04:32:18 1996  Dawn Perchik  <dawn@cygnus.com>
+
+        * remote-e7000.c (e7000_parse_device): New function.
+	Add option "tcp_remote" to target command if using 
+	tcp to connect to a remote host which is then connected 
+	via serial port to the e7000 (for exampole, a port master).
+	(e7000_open): Change to call e7000_parse_device.
+
+Fri Jun 28 03:47:17 1996  Dawn Perchik  <dawn@cygnus.com>
+
+	* monitor.c (monitor_debug): Fix remotedebug buffering.
+
+Thu Jun 27 18:24:17 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* config/i386/cygwin32.mh, config/powerpc/cygwin32.mh
+	(NATDEPFILES): Add a space.
+
+Wed Jun 26 06:05:39 1996  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* gdbtypes.c (create_array_type): If TYPE_LENGTH (result_type)
+	is zero, set TYPE_FLAG_TARGET_STUB to force reevaluation of the type.
+
+	* ch-exp.c (calculate_array_length): Function removed.
+
+Tue Jun 25 17:41:06 1996  Martin M. Hunt  <hunt@pizza.cygnus.com>
+
+	* remote-e7000.c (e7000_read_inferior_memory_large): New function.
+	(e7000_xfer_inferior_memory): Call it.
+
+Tue Jun 25 23:14:07 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* gdb/gdbserver/Makefile.in (docdir): Removed.
+
+Tue Jun 25 22:05:38 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* Makefile.in (bindir, libdir, datadir, mandir, infodir, includedir):
+	Use autoconf set values.
+	(docdir): Removed.
+	* configure.in (AC_PREREQ): autoconf 2.5 or higher.
+	* nlm/Makefile.in (bindir, libdir, datadir, mandir, infodir, 
+	includedir): Use autoconf set values.
+	(docdir): Removed.
+	* nlm/configure.in (AC_PREREQ): autoconf 2.5 or higher.
+	* nlm/configure: Rebuilt.
+        * gdb/gdbserver/Makefile.in (datadir): Set to $(prefix)/share.
+
+Mon Jun 24 09:56:14 1996  Angela Marie Thomas (angela@cygnus.com)
+
+	* stabsread.c (read_cfront_member_functions): add type
+
+Sun Jun 23 23:40:48 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* win32-nat.c: #include <unistd.h>.
+	(unix_paths_to_dos_paths, dos_paths_to_unix_paths): Delete.
+	(child_create_inferior): Convert only env var PATH to win32 style.
+	(set_pathstyle_dos): Delete.
+	(_initialize_inftarg): Delete dos-path-style command.
+
+Fri Jun 21 11:04:47 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdbtk.tcl (create_register_windows): Include missing '$'s.
+	Add global declarations for various reg_format_* variables.
+	* gdbtk.tcl (populate_register_window): Make initial window one
+	line taller to account for new column header line.
+
+Fri Jun 21 09:46:47 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdbtk.c (get_register): Support for printing raw formats.
+	* gdbtk.tcl: Add hint for using debug_interface.
+	(center_window, add_breakpoint_frame, delete_breakpoint_frame):
+	Enclose arg in braces for consistency.
+	(create_registers_window, populate_reg_window, update_registers):
+	Major rewrite to support displaying multiple formats in the register
+ 	window.
+	(init_reg_info): New function.
+	(recompute_reg_display_list):  Reset reg_display_list, start
+	register display lines at line 2.
+
+Thu Jun 20 13:42:23 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* configure.in: Revise sol-thread.o test.
+	* configure: Regenerated.
+
+	* source.c (find_source_lines): Reassign size to result of read.
+
+Thu Jun 20 08:18:59 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdbtk.tcl (gdbtk_tcl_readline_begin): Handle backspace to
+	avoid backing up over prompt.  At every input, make sure insert
+	point is at least after command start, handle control-u to delete
+	current input line.
+	(tclsh): Handle backspace to avoid backing up over prompt.  Handle
+	control-u to delete current input line.
+
+Wed Jun 19 17:23:38 1996  Geoffrey Noer  <noer@cygnus.com>
+
+	* configure.in: disable gdbtk for *cygwin32* hosted compiles
+	* configure: regenerated with autoconf 2.8
+
+Tue Jun 18 16:25:54 1996  Jeffrey A. Law  <law@rtl.cygnus.com>
+
+	* h8300-dep.c (gdb_print_insn_h8300): Handle the H8/S.
+	(h8300_command): Likewise.
+	(set_machine): Likewise.
+	(set_machine_hook): Likewise.
+	(_initialize_h8300m): Likewise.
+
+	* config/h8300/tm-h8300.h (h8300smode): Declare.
+
 Sun Jun 16 15:21:51 1996  Jeffrey A. Law  <law@rtl.cygnus.com>
 
 	* somsolib.c (som_solib_create_inferior_hook): Handle tracking

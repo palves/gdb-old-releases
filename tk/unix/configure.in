@@ -1,6 +1,10 @@
 dnl	This file is an input file used by the GNU "autoconf" program to
 dnl	generate the file "configure", which is run during Tk installation
 dnl	to configure the system for the local environment.
+
+# CYGNUS LOCAL, autoconf 2.5 or higher to get --bindir et al
+AC_PREREQ(2.5)
+
 AC_INIT(../generic/tk.h)
 
 # CYGNUS LOCAL tromey - find config.guess/config.sub in our tree

@@ -101,6 +101,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define EM_PPC_OLD	17
 
 
+/* Alpha backend magic number.  Written in the absence of an ABI.  */
+#define EM_ALPHA	0x9026
+
 /* Values for e_version */
 
 #define EV_NONE		0		/* Invalid ELF version */

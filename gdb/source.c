@@ -772,7 +772,9 @@ find_source_lines (s, desc)
     data = (char *) xmalloc (size);
     old_cleanups = make_cleanup (free, data);
 
-    if (myread (desc, data, size) < 0)
+    /* Reassign `size' to result of read for systems where \r\n -> \n.  */
+    size = myread (desc, data, size);
+    if (size < 0)
       perror_with_name (s->filename);
     end = data + size;
     p = data;

@@ -338,7 +338,7 @@ riscix_swap_std_reloc_out (abfd, g, natptr)
 	{
 	  /* Fill in symbol */
 	  r_extern = 1;
-	  r_index =  stoi((*(g->sym_ptr_ptr))->flags);
+	  r_index = (*g->sym_ptr_ptr)->udata.i;
 	}
     }
   else

@@ -50,10 +50,10 @@ fi
 # these tools are built for the host environment
 #
 host_tools="texinfo byacc flex bison binutils ld gas gcc gdb make patch
-	    prms send-pr gprof gdbtest tgas etc expect dejagnu sim
-            m4 autoconf ispell grep diff rcs cvs fileutils shellutils
+	    prms send-pr gprof gdbtest tgas etc expect dejagnu sim bash
+            m4 autoconf ispell grep diff rcs cvs fileutils shellutils time
 	    textutils wdiff find emacs emacs19 uudecode hello tar gzip indent
-	    recode release sed utils guile perl apache inet"
+	    recode release sed utils guile perl apache inet gawk"
 
 
 # these libraries are built for the target environment, and are built after
@@ -81,9 +81,10 @@ target_tools="target-examples target-groff"
 
 # directories to be built in the native environment only
 #
-native_only="autoconf cvs emacs emacs19 fileutils find grep gzip hello
+native_only="autoconf cvs emacs emacs19 fileutils find gawk grep gzip hello
 	     indent ispell m4 rcs recode sed shellutils tar textutils gash
-	     uudecode wdiff gprof target-groff guile perl apache inet"
+	     uudecode wdiff gprof target-groff guile perl apache inet time
+	     bash"
 
 # directories to be built in a cross environment only
 #
@@ -120,7 +121,8 @@ case "${host}" in
   m88k-motorola-sysv*)    host_makefile_frag=config/mh-delta88;;
   mips*-dec-ultrix*)      host_makefile_frag=config/mh-decstation ;;
   mips*-nec-sysv4*)	  host_makefile_frag=config/mh-necv4 ;;
-  mips*-sgi-irix[56]*)    host_makefile_frag=config/mh-irix5 ;;
+  mips*-sgi-irix6*)	  host_makefile_frag=config/mh-irix6 ;;
+  mips*-sgi-irix5*)	  host_makefile_frag=config/mh-irix5 ;;
   mips*-sgi-irix4*)       host_makefile_frag=config/mh-irix4 ;;
   mips*-sgi-irix3*)       host_makefile_frag=config/mh-sysv ;;
   mips*-*-sysv4*)	  host_makefile_frag=config/mh-sysv4 ;;
@@ -134,6 +136,7 @@ case "${host}" in
   i[345]86-*-solaris2*)   host_makefile_frag=config/mh-sysv4 ;;
   i[345]86-*-aix*)	  host_makefile_frag=config/mh-aix386 ;;
   i[345]86-*-go32*)	  host_makefile_frag=config/mh-go32 ;;
+  *-cygwin32*)	  	  host_makefile_frag=config/mh-cygwin32 ;;
   vax-*-ultrix2*)         host_makefile_frag=config/mh-vaxult2 ;;
   *-*-solaris2*)          host_makefile_frag=config/mh-solaris ;;
   m68k-sun-sunos*)	  host_makefile_frag=config/mh-sun3 ;;
@@ -355,6 +358,8 @@ done
 case "${host}" in
 	i[345]86-*-go32*)
 	  configdirs="$configdirs dosrel" ;;
+	*-cygwin32*)
+	  configdirs="$configdirs dosrel" ;;
 esac
 
 # Remove more programs from consideration, based on the host or 
@@ -371,7 +376,7 @@ case "${host}" in
     noconfigdirs="tcl tk expect dejagnu make texinfo bison patch flex byacc send-pr gprof uudecode dejagnu diff guile perl apache inet"
 	;;
   *-*-cygwin32)
-     noconfigdirs="patch diff tk tcl expect dejagnu cvs autoconf texinfo bison send-pr gprof rcs guile perl apache inet"
+     noconfigdirs="tk tcl expect dejagnu cvs autoconf bison send-pr gprof rcs guile perl texinfo apache inet"
     ;;
   ppc*-*-pe)
      noconfigdirs="patch diff make tk tcl expect dejagnu cvs autoconf texinfo bison send-pr gprof rcs guile perl apache inet"
@@ -394,6 +399,9 @@ case "${target}" in
     # work.  newlib is not 64 bit ready.  I'm not sure about fileutils or grep.
     # gas doesn't generate exception information.
     noconfigdirs="$noconfigdirs gas ld emacs fileutils grep target-newlib target-libgloss"
+    ;;
+  alpha*-*-*vms*)
+    noconfigdirs="$noconfigdirs gdb ld target-newlib target-libgloss"
     ;;
   alpha*-*-*)
     # newlib is not 64 bit ready
@@ -502,6 +510,12 @@ case "${target}" in
     # emacs is emacs 18, which does not work on Irix 5 (emacs19 does work)
     noconfigdirs="$noconfigdirs ld gprof emacs target-libgloss"
     ;;
+  mips*-*-irix6*)
+    # The GNU linker does not support shared libraries.
+    # emacs is emacs 18, which does not work on Irix 5 (emacs19 does work)
+    # BFD does not have Irix 6 support yet.
+    noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb readline mmalloc sim gprof emacs target-libgloss"
+    ;;
   mips*-dec-bsd*)
     noconfigdirs="$noconfigdirs gprof target-libgloss"
     ;;
@@ -566,7 +580,7 @@ esac
 # If we are building a Canadian Cross, discard tools that can not be built
 # using a cross compiler.  FIXME: These tools should be fixed.
 if [ "${build}" != "${host}" ]; then
-  noconfigdirs="$noconfigdirs expect dejagnu texinfo diff"
+  noconfigdirs="$noconfigdirs tcl tk expect dejagnu"
 fi
 
 # Make sure we don't let GNU ld be added if we didn't want it.

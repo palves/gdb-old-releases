@@ -284,6 +284,23 @@ main (argc, argv)
 	      else
 		baud_rate = i;
 	    }
+	  case 'l':
+	    {
+	      int i;
+	      char *p;
+
+	      i = strtol (optarg, &p, 0);
+	      if (i == 0 && p == optarg)
+
+		/* Don't use *_filtered or warning() (which relies on
+                   current_target) until after initialize_all_files(). */
+
+		fprintf_unfiltered
+		  (gdb_stderr,
+		   "warning: could not set timeout limit to `%s'.\n", optarg);
+	      else
+		remote_timeout = i;
+	    }
 	    break;
 
 #ifdef ADDITIONAL_OPTION_CASES

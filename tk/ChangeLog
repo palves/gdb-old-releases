@@ -1,3 +1,8 @@
+Wed Jun 26 12:51:43 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* configure.in (AC_PREREQ): autoconf 2.5 or higher.
+	* configure: Rebuilt.
+
 Mon May  6 09:45:20 1996  Tom Tromey  <tromey@lisa.cygnus.com>
 
 	* generic/tkMain.c (Tk_Main): Exit after printing version number.

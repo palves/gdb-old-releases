@@ -146,6 +146,7 @@ if !$usestubs then {
   if [istarget "*-*-vxworks*"] then {
     send "run vxmain \"2\"\n"
     set timeout 120
+    verbose "Timeout is now $timeout seconds" 2
   } else {
 	send "run\n"
   }
@@ -363,6 +364,7 @@ test_next_with_recursion
 # Reset the default arguments for VxWorks
 if [istarget "*-*-vxworks*"] then {
     set timeout 10
+    verbose "Timeout is now $timeout seconds" 2
     send "set args main\n"
     expect -re ".*$prompt $" {}
 }

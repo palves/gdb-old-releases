@@ -58,6 +58,7 @@ proc gdb_target_monitor { } {
     global baud
 
     set timeout 60
+    verbose "Timeout is now $timeout seconds" 2
     for {set i 1} {$i <= 3} {incr i} {
 	send "target $targetname $serialport\n"
 	expect {

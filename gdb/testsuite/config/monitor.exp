@@ -37,6 +37,7 @@ proc gdb_target_monitor { } {
     global target_info
 
     set timeout 60
+    verbose "Timeout is now $timeout seconds" 2
     if {$baud != ""} then {
 	send "set remotebaud $baud\n"
     }
@@ -87,6 +88,7 @@ proc gdb_load { arg } {
     verbose "Loading $arg"
     send "load $arg\n"
     set timeout 600
+    verbose "Timeout is now $timeout seconds" 2
     expect {
 	-re ".*$prompt $" {
 	    if { $verbose > 1 } {

@@ -1,6 +1,10 @@
 dnl	This file is an input file used by the GNU "autoconf" program to
 dnl	generate the file "configure", which is run during Tcl installation
 dnl	to configure the system for the local environment.
+
+dnl CYGNUS LOCAL, need 2.5 or higher for --bindir et al
+AC_PREREQ(2.5)
+
 AC_INIT(../generic/tcl.h)
 
 AC_PROG_RANLIB
@@ -10,6 +14,8 @@ AC_PREFIX_PROGRAM(tclsh)
 CY_AC_C_WORKS
 # END CYGNUS LOCAL
 AC_PROG_CC
+# CYGNUS LOCAL, set @INSTALL_PROGRAM@ et al in Makefile.in
+AC_PROG_INSTALL
 
 # CYGNUS LOCAL dje/win32
 AR=${AR-ar}

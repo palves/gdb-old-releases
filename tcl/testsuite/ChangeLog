@@ -1,3 +1,8 @@
+Thu Jun 20 15:56:04 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* tcl.tests/tcl-test.exp: Don't use lindex to extract name of
+	test.
+
 Thu Feb 29 13:57:58 1996  Tom Tromey  <tromey@creche.cygnus.com>
 
 	* tcl.tests/tcl-test.exp: Don't cd to srcdir when testing; instead

@@ -118,6 +118,9 @@ extern int32    ext_irl, irqpend, iurev0, sis_verbose;
 #define IANDN 	0x05
 #define IANDNCC	0x15
 #define MULScc 	0x24
+#define DIVScc 	0x1D
+#define SMUL	0x0B
+#define SMULCC	0x1B
 #define IOR 	0x02
 #define IORCC 	0x12
 #define IORN 	0x06
@@ -487,6 +490,76 @@ dispatch_instruction(sregs)
 		*rdd = operand1 + operand2;
 		sregs->y = (rs1 << 31) | (sregs->y >> 1);
 		add_cc(operand1, operand2, *rdd, &sregs->psr);
+		break;
+	    case DIVScc:
+		{
+		  int sign;
+		  uint32 result, remainder;
+		  int c0, ov, y31;
+
+		  sign = ((sregs->psr & PSR_V) != 0) ^ ((sregs->psr & PSR_N) != 0);
+
+		  remainder = (sregs->y << 1) | (rs1 >> 31);
+
+		  if (sign == 0)
+		    {
+		      result = remainder - operand2;
+		      c0 = (sregs->y & ~operand2 & 0x80000000) != 0;
+		    }
+		  else
+		    {
+		      result = remainder + operand2;
+		      c0 = (sregs->y & operand2 & 0x80000000) != 0;
+		    }
+
+		  if (result & 0x80000000)
+		    sregs->psr |= PSR_N;
+		  else
+		    sregs->psr &= ~PSR_N;
+
+		  y31 = (sregs->y & 0x80000000) == 0x80000000;
+
+		  if (result == 0 && sign == y31)
+		    sregs->psr |= PSR_Z;
+		  else
+		    sregs->psr &= ~PSR_Z;
+
+		  sign = (sign && !y31) || (!c0 && (sign || !y31));
+
+		  if (sign ^ (result >> 31))
+		    sregs->psr != PSR_V;
+		  else
+		    sregs->psr &= ~PSR_V;
+
+		  if (!sign)
+		    sregs->psr != PSR_C;
+		  else
+		    sregs->psr &= ~PSR_C;
+
+		  sregs->y = result;
+
+		  if (rd != 0)
+		    *rdd = (rs1 << 1) | !sign;
+		}
+		break;
+	    case SMUL:
+		{
+		  unsigned short ul, vl;
+		  short uh, vh;
+		  unsigned int pp1, pp2, pp4;
+
+		  ul = rs1;
+		  uh = rs1 >> 16;
+		  vl = operand2;
+		  vh = operand2 >> 16;
+
+		  pp1 = ul * vl;
+		  pp2 = uh * vl + vh * ul;
+		  pp4 = uh * vh;
+
+		  *rdd = (pp2 << 16) + pp1;
+		  sregs->y = pp4 + ((int)(pp2 + (pp1 >> 16)) >> 16);
+		}
 		break;
 	    case IXNOR:
 		*rdd = rs1 ^ ~operand2;

@@ -149,7 +149,8 @@ DESCRIPTION
 .  bfd_target_som_flavour,
 .  bfd_target_os9k_flavour,
 .  bfd_target_versados_flavour,
-.  bfd_target_msdos_flavour
+.  bfd_target_msdos_flavour,
+.  bfd_target_evax_flavour
 .};
 .
 .enum bfd_endian { BFD_ENDIAN_BIG, BFD_ENDIAN_LITTLE, BFD_ENDIAN_UNKNOWN };
@@ -480,6 +481,7 @@ extern const bfd_target armpei_little_vec;
 extern const bfd_target armpei_big_vec;
 extern const bfd_target b_out_vec_big_host;
 extern const bfd_target b_out_vec_little_host;
+extern const bfd_target bfd_elf64_alpha_vec;
 extern const bfd_target bfd_elf32_big_generic_vec;
 extern const bfd_target bfd_elf32_bigmips_vec;
 extern const bfd_target bfd_elf64_bigmips_vec;
@@ -501,6 +503,7 @@ extern const bfd_target demo_64_vec;
 extern const bfd_target ecoff_big_vec;
 extern const bfd_target ecoff_little_vec;
 extern const bfd_target ecoffalpha_little_vec;
+extern const bfd_target evax_alpha_vec;
 extern const bfd_target h8300coff_vec;
 extern const bfd_target h8500coff_vec;
 extern const bfd_target host_aout_vec;
@@ -617,6 +620,9 @@ const bfd_target * const bfd_target_vector[] = {
 	   --enable-targets=all, objdump or gdb should be able to examine
 	   the file even if we don't recognize the machine type.  */
 	&bfd_elf32_big_generic_vec,
+#ifdef BFD64
+	&bfd_elf64_alpha_vec,
+#endif
 	&bfd_elf32_bigmips_vec,
 #ifdef BFD64
 	&bfd_elf64_bigmips_vec,
@@ -648,8 +654,9 @@ const bfd_target * const bfd_target_vector[] = {
 #endif
 	&ecoff_big_vec,
 	&ecoff_little_vec,
-#if 0
+#ifdef BFD64
 	&ecoffalpha_little_vec,
+	&evax_alpha_vec,
 #endif
 	&h8300coff_vec,
 	&h8500coff_vec,

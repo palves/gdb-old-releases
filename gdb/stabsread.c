@@ -455,7 +455,7 @@ patch_block_stabs (symbols, stabs, objfile)
 	      SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
 	      SYMBOL_CLASS (sym) = LOC_OPTIMIZED_OUT;
 	      SYMBOL_NAME (sym) =
-		obstack_copy0 (&objfile->symbol_obstack, name, pp - name);
+		obsavestring (name, pp - name, &objfile->symbol_obstack);
 	      pp += 2;
 	      if (*(pp-1) == 'F' || *(pp-1) == 'f')
 		{
@@ -747,6 +747,7 @@ read_cfront_baseclasses(fip, pp, type, objfile)
               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 
 */
 
+static int
 read_cfront_member_functions(fip, pp, type, objfile)
      struct field_info *fip;
      char **pp;
@@ -4327,6 +4328,7 @@ common_block_end (objfile)
   sym = (struct symbol *) 
     obstack_alloc (&objfile -> symbol_obstack, sizeof (struct symbol));
   memset (sym, 0, sizeof (struct symbol));
+  /* Note: common_block_name already saved on symbol_obstack */
   SYMBOL_NAME (sym) = common_block_name;
   SYMBOL_CLASS (sym) = LOC_BLOCK;
 

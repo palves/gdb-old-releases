@@ -115,6 +115,7 @@ DESCRIPTION
 .  bfd_arch_h8300,     {* Hitachi H8/300 *}
 .#define bfd_mach_h8300   1
 .#define bfd_mach_h8300h  2
+.#define bfd_mach_h8300s  3
 .  bfd_arch_powerpc,   {* PowerPC *}
 .  bfd_arch_rs6000,    {* IBM RS/6000 *}
 .  bfd_arch_hppa,      {* HP PA RISC *}
