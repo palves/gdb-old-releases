@@ -39,10 +39,10 @@ another BFD and then closing the parent BFD.
    o - all arch headers are the same size (across architectures).
 */
 
-/* $Id: archive.c,v 1.29 1991/09/20 03:44:13 gnu Exp $ */
+/* $Id: archive.c,v 1.32 1991/10/16 19:50:01 bothner Exp $ */
 
-#include <sysdep.h>
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
 #include "ar.h"
 #include "ranlib.h"
@@ -566,12 +566,15 @@ bfd_slurp_coff_armap (abfd)
   }
 
   /* The coff armap must be read sequentially.  So we construct a bsd-style
-     one in core all at once, for simplicity. */
+     one in core all at once, for simplicity. 
 
-  stringsize = mapdata->parsed_size - (4 * (bfd_h_get_32(abfd, (PTR)raw_armap))) - 4;
+     It seems that all numeric information in a coff archive is always
+     in big endian format, nomatter the host or target. */
+
+  stringsize = mapdata->parsed_size - (4 * (_do_getb32((PTR)raw_armap))) - 4;
 
   {
-    unsigned int nsymz = bfd_h_get_32(abfd, (PTR)raw_armap);
+    unsigned int nsymz = _do_getb32( (PTR)raw_armap);
     unsigned int carsym_size = (nsymz * sizeof (carsym));
     unsigned int ptrsize = (4 * nsymz);
     unsigned int i;
@@ -590,14 +593,14 @@ bfd_slurp_coff_armap (abfd)
     for (i = 0; i < nsymz; i++) 
       {
 	rawptr = raw_armap + i + 1;
-	carsyms->file_offset = bfd_h_get_32(abfd, (PTR)rawptr);
+	carsyms->file_offset = _do_getb32((PTR)rawptr);
 	carsyms->name = stringbase;
 	for (; *(stringbase++););
 	carsyms++;
       }
     *stringbase = 0;
   }
-  ardata->symdef_count = bfd_h_get_32(abfd, (PTR)raw_armap);
+  ardata->symdef_count = _do_getb32((PTR)raw_armap);
   ardata->first_file_filepos = bfd_tell (abfd);
   /* Pad to an even boundary if you have to */
   ardata->first_file_filepos += (ardata->first_file_filepos) %2;
@@ -1157,9 +1160,9 @@ bsd_write_armap (arch, elength, map, orl_count, stridx)
      int orl_count;
      int stridx;
 {
-  unsigned int ranlibsize = (orl_count * sizeof (struct ranlib)) + 4;
+  unsigned int ranlibsize = orl_count * sizeof (struct ranlib);
   unsigned int stringsize = stridx + 4;
-  unsigned int mapsize = stringsize + ranlibsize;
+  unsigned int mapsize = stringsize + ranlibsize + 4;
   file_ptr firstreal;
   bfd *current = arch->archive_head;
   bfd *last_elt = current;		/* last element arch seen */

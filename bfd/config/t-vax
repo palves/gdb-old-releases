@@ -1,2 +1,4 @@
-TDEFINES = -DDEFAULT_VECTOR=host_aout_little_vec -DPAGE_SIZE=1024
+# Target: Vax running BSD Unix
+# ONLY works native.
+TDEFINES = -DDEFAULT_VECTOR=host_aout_little_vec
 TDEPFILES= host-aout.o

@@ -66,10 +66,9 @@ futher details on specific languages.
 checker:
 
 `set check type auto'
-     Set type checking on or off based on the current working
-     language.   *Note Supported Languages: Support, for the default
-    
-     settings for  each language.
+     Set type checking on or off based on the current working language.
+     *Note Supported Languages: Support, for the default settings
+     for each language.
 
 `set check type on'
 `set check type off'
@@ -87,7 +86,7 @@ checker:
 
 `show type'
      Show the current setting of the type checker, and whether or not
-     GDB is  setting it automatically.
+     GDB is setting it automatically.
 
 
 File: gdb.info,  Node: Range Checking,  Prev: Type Checking,  Up: Checks
@@ -124,9 +123,9 @@ checker:
 
 `set check range auto'
      Set range checking on or off based on the current working
-    
-     language.   *Note Supported Languages: Support, for the default
-     settings for  each language.
+     language.
+     *Note Supported Languages: Support, for the default settings
+     for each language.
 
 `set check range on'
 `set check range off'
@@ -145,7 +144,7 @@ checker:
 
 `show range'
      Show the current setting of the range checker, and whether or
-     not it is  being set automatically by GDB.
+     not it is being set automatically by GDB.
 
 
 File: gdb.info,  Node: Support,  Prev: Checks,  Up: Languages
@@ -153,7 +152,7 @@ File: gdb.info,  Node: Support,  Prev: Checks,  Up: Languages
 Supported Languages
 ===================
 
-   GDB 4.1 supports C, C++, and Modula-2.  The syntax for C and C++
+   GDB 4.2 supports C, C++, and Modula-2.  The syntax for C and C++
 is so closely related that GDB does not distinguish the two.  Some
 GDB features may be used in expressions regardless of the language
 you use: the GDB `@' and `::' operators, and the `{type}addr'
@@ -309,7 +308,7 @@ of increasing precedence:
      Structure member, and pointer-to-structure member.  For
      convenience, GDB regards the two as equivalent, choosing
      whether to dereference a pointer based on the stored type
-     information.   Defined on `struct's and `union's.
+     information.  Defined on `struct's and `union's.
 
 `[]'
      Array indexing.  `A[I]' is defined as `*(A+I)'.  Same precedence
@@ -413,16 +412,15 @@ File: gdb.info,  Node: C Defaults,  Next: C Checks,  Prev: Cplusplus expressions
 C and C++ Defaults
 ..................
 
-   If you allow GDB to set type and range checking automatically, they
-both default to `off' whenever the working language changes to 
+   If you allow GDB to set type and range checking automatically,
+they both default to `off' whenever the working language changes to
 C/C++.  This happens regardless of whether you, or GDB, selected the
 working language.
 
    If you allow GDB to set the language automatically, it sets the
 working language to C/C++ on entering code compiled from a source
 file whose name ends with `.c' or `.cc'.  *Note Having GDB infer the
-source
-language: Automatically, for further details.
+source language: Automatically, for further details.
 
 
 File: gdb.info,  Node: C Checks,  Next: Debugging C,  Prev: C Defaults,  Up: C
@@ -795,15 +793,17 @@ File: gdb.info,  Node: M2 Defaults,  Next: Deviations,  Prev: M2 Constants,  Up:
 Modula-2 Defaults
 .................
 
-   If type and range checking are set automatically by GDB, they 
-both default to `on' whenever the working language changes to 
-Modula-2.  This happens regardless of whether you, or GDB, selected
-the working language.
+   If type and range checking are set automatically by GDB, they both
+default to `on' whenever the working language changes to Modula-2. 
+This happens regardless of whether you, or GDB, selected the working
+language.
 
    If you allow GDB to set the language automatically, then entering
 code compiled from a file whose name ends with `.mod' will set the
 working language to Modula-2. *Note Having GDB set the language
-automatically: Automatically, for further details.
+automatically:
+Automatically,
+for further details.
 
 
 File: gdb.info,  Node: Deviations,  Next: M2 Checks,  Prev: M2 Defaults,  Up: Modula-2
@@ -920,7 +920,7 @@ your program.  This information is inherent in the text of your
 program and does not change as the program executes.  GDB finds it
 in
 your program's symbol table, in the file indicated when you started
-GDB  (*note File Options::.), or by one of the file-management
+GDB (*note File Options::.), or by one of the file-management
 commands (*note Files::.).
 
 `info address SYMBOL'
@@ -950,6 +950,7 @@ commands (*note Files::.).
      STRUCT-TAG', `union UNION-TAG' or `enum ENUM-TAG'.
 
 `ptype EXP'
+`ptype'
      Print a description of the type of expression EXP.  `ptype'
      differs from `whatis' by printing a detailed description,
      instead of just the name of the type.  For example, if your
@@ -966,6 +967,9 @@ commands (*note Files::.).
               double real;
               double imag;
           }
+
+     As with `whatis', using `ptype' without an argument refers to
+     the type of `$', the last value in the value history.
 
 `info types REGEXP'
 `info types'
@@ -1011,13 +1015,20 @@ commands (*note Files::.).
      expression REGEXP.
 
 `printsyms FILENAME'
+`printpsyms FILENAME'
      Write a dump of debugging symbol data into the file FILENAME. 
-     Only symbols with debugging data are included.  GDB includes
-     all the symbols it already knows about: that is, FILENAME
-     reflects symbols for only those files whose symbols GDB has read.
-     You can find out which files these are using the command `info
-     files'.  The description of `symbol-file' describes how GDB
-     reads symbols; both commands are described under *Note Files::.
+     These commands are used to debug the GDB symbol-reading code. 
+     Only symbols with debugging data are included.  If you use
+     `printsyms', GDB includes all the symbols for which it has
+     already collected full details: that is, FILENAME reflects
+     symbols for only those files whose symbols GDB has read.  You
+     can use the command `info sources' to find out which files
+     these are.  If you use `printpsyms', the dump also shows
+     information about symbols that GDB only knows partially--that
+     is, symbols defined in files that GDB has skimmed, but not yet
+     read completely.  The description of `symbol-file' describes
+     how GDB reads symbols; both commands are described under *Note
+     Files::.
 
 
 File: gdb.info,  Node: Altering,  Next: GDB Files,  Prev: Symbols,  Up: Top
@@ -1194,8 +1205,8 @@ is stored in the registers used for returning values of functions.
 
    The `return' command does not resume execution; it leaves the
 program stopped in the state that would exist if the function had
-just returned.  In contrast, the `finish' command  (*note Continuing
-and Stepping::.)  resumes execution until the selected stack frame
+just returned.  In contrast, the `finish' command (*note Continuing
+and Stepping::.) resumes execution until the selected stack frame
 returns naturally.
 
 

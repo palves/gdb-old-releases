@@ -36,8 +36,8 @@ Index
 * $_:                                   Convenience Vars.
 * $__:                                  Convenience Vars.
 * .:                                    M2 Scope.
-* :::                                   Variables.
 * :::                                   M2 Scope.
+* :::                                   Variables.
 * @:                                    Arrays.
 * # in Modula-2:                        GDB/M2.
 * $$:                                   Value History.
@@ -237,8 +237,8 @@ Index
 * info share:                           Files.
 * info sharedlibrary:                   Files.
 * info signals:                         Signals.
-* info source:                          Symbols.
 * info source:                          Show.
+* info source:                          Symbols.
 * info sources:                         Symbols.
 * info stack:                           Backtrace.
 * info target:                          Files.
@@ -282,6 +282,7 @@ Index
 * output formats:                       Output formats.
 * overloading:                          Breakpoint Menus.
 * overloading in C++:                   Debugging C plus plus.
+* partial symbol dump:                  Symbols.
 * patching binaries:                    Patching.
 * path:                                 Environment.
 * pauses in output:                     Screen Size.
@@ -290,6 +291,7 @@ Index
 * print settings:                       Print Settings.
 * printf:                               Output.
 * printing data:                        Data.
+* printsyms:                            Symbols.
 * printsyms:                            Symbols.
 * prompt:                               Prompt.
 * ptype:                                Symbols.
@@ -437,6 +439,7 @@ Index
 * stepi:                                Continuing and Stepping.
 * stepping:                             Continuing and Stepping.
 * stupid questions:                     Messages/Warnings.
+* symbol dump:                          Symbols.
 * symbol overloading:                   Breakpoint Menus.
 * symbol table:                         Files.
 * symbol-file:                          Files.
@@ -470,7 +473,6 @@ Index
 * watchpoints:                          Breakpoints.
 * whatis:                               Symbols.
 * where:                                Backtrace.
-* word:                                 Memory.
 * working directory (of your program):  Working Directory.
 * working language:                     Languages.
 * writing into corefiles:               Patching.

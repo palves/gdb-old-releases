@@ -18,15 +18,20 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* This file does not define a particular back-end, but it defines routines
-   that can be used by other back-ends.  */
-#include <sysdep.h>
-#include "bfd.h"
-#include <stdio.h>
-#include "libbfd.h"
+/* To use this file on a particular host, configure the host with these
+   parameters in the config/h-HOST file:
 
+	HDEFINES=-DTRAD_CORE
+	HDEPFILES=trad-core.o
+
+ */
+
+#include "bfd.h"
+#include "sysdep.h"
+#include "libbfd.h"
 #include "libaout.h"           /* BFD a.out internal data structures */
 
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/dir.h>
@@ -38,13 +43,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <errno.h>
 
-/* need this cast b/c ptr is really void * */
-#define core_hdr(bfd) (((struct core_data *) (bfd->tdata))->hdr)
-#define core_datasec(bfd) (((struct core_data *) ((bfd)->tdata))->data_section)
-#define core_stacksec(bfd) (((struct core_data*)((bfd)->tdata))->stack_section)
-#define core_regsec(bfd) (((struct core_data *) ((bfd)->tdata))->reg_section)
-#define core_upage(bfd) (((struct core_data *) ((bfd)->tdata))->upage)
-
 /* These are stored in the bfd's tdata */
 struct core_data {
   struct user *upage;             /* core file header */
@@ -53,20 +51,28 @@ struct core_data {
   asection *reg_section;
 };
 
+#define core_hdr(bfd) (((struct core_data *) (bfd->tdata))->hdr)
+#define core_upage(bfd) (((struct core_data *) ((bfd)->tdata))->upage)
+#define core_datasec(bfd) (((struct core_data *) ((bfd)->tdata))->data_section)
+#define core_stacksec(bfd) (((struct core_data*)((bfd)->tdata))->stack_section)
+#define core_regsec(bfd) (((struct core_data *) ((bfd)->tdata))->reg_section)
+
+/* Handle 4.2-style (and perhaps also sysV-style) core dump file.  */
+
 /* ARGSUSED */
 bfd_target *
 trad_unix_core_file_p (abfd)
      bfd *abfd;
 {
-#if HOST_SYS == SUN4_SYS
-  return 0;
-#else
   int val;
-  char *rawptr;
   struct user u;
   unsigned int reg_offset, fp_reg_offset;
-
-  /* 4.2-style (and perhaps also sysV-style) core dump file.  */
+  /* This struct is just for allocating two things with one zalloc, so
+     they will be freed together, without violating alignment constraints. */
+  struct core_user {
+	struct core_data	coredata;
+	struct user		u;
+  } *rawptr;
 
   val = bfd_read ((void *)&u, 1, sizeof u, abfd);
   if (val != sizeof u)
@@ -83,18 +89,18 @@ trad_unix_core_file_p (abfd)
 
   /* Allocate both the upage and the struct core_data at once, so
      a single free() will free them both.  */
-  rawptr = (char *)zalloc (sizeof (u) + sizeof (struct core_data));
+  rawptr = (struct core_user *)bfd_zalloc (abfd, sizeof (struct core_user));
   if (rawptr == NULL) {
     bfd_error = no_memory;
     return 0;
   }
   
-  set_tdata (abfd, (struct core_data *)rawptr);
-  core_upage (abfd) = (struct user *)(rawptr + sizeof (struct core_data));
+  set_tdata (abfd, &rawptr->coredata);
+  core_upage (abfd) = &rawptr->u;
   *core_upage (abfd) = u;		/* Save that upage! */
 
-  /* create the sections.  This is raunchy, but bfd_close wants to reclaim
-     them */
+  /* Create the sections.  This is raunchy, but bfd_close wants to free
+     them separately.  */
   core_stacksec (abfd) = (asection *) zalloc (sizeof (asection));
   if (core_stacksec (abfd) == NULL) {
 loser:
@@ -135,7 +141,21 @@ loser2:
   core_datasec (abfd)->vma = HOST_TEXT_START_ADDR + (NBPG * u.u_tsize);
 #endif
   core_stacksec (abfd)->vma = HOST_STACK_END_ADDR - (NBPG * u.u_ssize);
-  core_regsec (abfd)->vma = -1;
+  /* This is tricky.  As the "register section", we give them the entire
+     upage and stack.  u.u_ar0 points to where "register 0" is stored.
+     There are two tricks with this, though.  One is that the rest of the
+     registers might be at positive or negative (or both) displacements
+     from *u_ar0.  The other is that u_ar0 is sometimes an absolute address
+     in kernel memory, and on other systems it is an offset from the beginning
+     of the `struct user'.
+
+     As a practical matter, we don't know where the registers actually are,
+     so we have to pass the whole area to GDB.  We encode the value of u_ar0
+     by setting the .regs section up so that its virtual memory address
+     0 is at the place pointed to by u_ar0 (by setting the vma of the start
+     of the section to -u_ar0).  GDB uses this info to locate the regs,
+     using minor trickery to get around the offset-or-absolute-addr problem. */
+  core_regsec (abfd)->vma = 0 - (int) u.u_ar0;
 
   core_datasec (abfd)->filepos = NBPG * UPAGES;
   core_stacksec (abfd)->filepos = (NBPG * UPAGES) + NBPG * u.u_dsize;
@@ -152,16 +172,17 @@ loser2:
   abfd->section_count = 3;
 
   return abfd->xvec;
-#endif
 }
 
 char *
 trad_unix_core_file_failing_command (abfd)
      bfd *abfd;
 {
+#ifndef NO_CORE_COMMAND
   if (*core_upage (abfd)->u_comm)
     return core_upage (abfd)->u_comm;
   else
+#endif
     return 0;
 }
 
@@ -180,3 +201,84 @@ trad_unix_core_file_matches_executable_p  (core_bfd, exec_bfd)
 {
   return true;		/* FIXME, We have no way of telling at this point */
 }
+
+/* No archive file support via this BFD */
+#define	trad_unix_openr_next_archived_file	bfd_generic_openr_next_archived_file
+#define	trad_unix_generic_stat_arch_elt		bfd_generic_stat_arch_elt
+#define	trad_unix_slurp_armap			bfd_false
+#define	trad_unix_slurp_extended_name_table	bfd_true
+#define	trad_unix_write_armap			(PROTO (boolean, (*),	\
+     (bfd *arch, unsigned int elength, struct orl *map, int orl_count,	\
+      int stridx))) bfd_false
+#define	trad_unix_truncate_arname		bfd_dont_truncate_arname
+#define	aout_32_openr_next_archived_file	bfd_generic_openr_next_archived_file
+
+#define	trad_unix_close_and_cleanup		bfd_generic_close_and_cleanup
+#define	trad_unix_set_section_contents		(PROTO(boolean, (*),	\
+         (bfd *abfd, asection *section, PTR data, file_ptr offset,	\
+         bfd_size_type count))) bfd_false
+#define	trad_unix_get_section_contents		bfd_generic_get_section_contents
+#define	trad_unix_new_section_hook		(PROTO (boolean, (*),	\
+	(bfd *, sec_ptr))) bfd_true
+#define	trad_unix_get_symtab_upper_bound	bfd_0u
+#define	trad_unix_get_symtab			(PROTO (unsigned int, (*), \
+        (bfd *, struct symbol_cache_entry **))) bfd_0u
+#define	trad_unix_get_reloc_upper_bound		(PROTO (unsigned int, (*), \
+	(bfd *, sec_ptr))) bfd_0u
+#define	trad_unix_canonicalize_reloc		(PROTO (unsigned int, (*), \
+	(bfd *, sec_ptr, arelent **, struct symbol_cache_entry**))) bfd_0u
+#define	trad_unix_make_empty_symbol		(PROTO (		\
+	struct symbol_cache_entry *, (*), (bfd *))) bfd_false
+#define	trad_unix_print_symbol			(PROTO (void, (*),	\
+	(bfd *, PTR, struct symbol_cache_entry  *,			\
+	 bfd_print_symbol_type))) bfd_false
+#define	trad_unix_get_lineno			(PROTO (alent *, (*),	\
+	(bfd *, struct symbol_cache_entry *))) bfd_nullvoidptr
+#define	trad_unix_set_arch_mach			(PROTO (boolean, (*),	\
+	(bfd *, enum bfd_architecture, unsigned long))) bfd_false
+#define	trad_unix_find_nearest_line		(PROTO (boolean, (*),	\
+        (bfd *abfd, struct sec  *section,				\
+         struct symbol_cache_entry  **symbols,bfd_vma offset,		\
+         CONST char **file, CONST char **func, unsigned int *line))) bfd_false
+#define	trad_unix_sizeof_headers		(PROTO (int, (*),	\
+	(bfd *, boolean))) bfd_0
+
+#define trad_unix_bfd_debug_info_start		bfd_void
+#define trad_unix_bfd_debug_info_end		bfd_void
+#define trad_unix_bfd_debug_info_accumulate	(PROTO (void, (*),	\
+	(bfd *, struct sec *))) bfd_void
+
+/* If somebody calls any byte-swapping routines, shoot them.  */
+void
+swap_abort()
+{
+  abort(); /* This way doesn't require any declaration for ANSI to fuck up */
+}
+#define	NO_GET	((PROTO(bfd_vma, (*), (         bfd_byte *))) swap_abort )
+#define	NO_PUT	((PROTO(void,    (*), (bfd_vma, bfd_byte *))) swap_abort )
+
+bfd_target trad_core_vec =
+  {
+    "trad-core",
+    bfd_target_unknown_flavour,
+    true,			/* target byte order */
+    true,			/* target headers byte order */
+    (HAS_RELOC | EXEC_P |	/* object flags */
+     HAS_LINENO | HAS_DEBUG |
+     HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
+    (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+    ' ',						   /* ar_pad_char */
+    16,							   /* ar_max_namelen */
+    3,							   /* minimum alignment power */
+    NO_GET, NO_PUT, NO_GET, NO_PUT, NO_GET, NO_PUT, /* data */
+    NO_GET, NO_PUT, NO_GET, NO_PUT, NO_GET, NO_PUT, /* hdrs */
+
+    {_bfd_dummy_target, _bfd_dummy_target,
+     _bfd_dummy_target, trad_unix_core_file_p},
+    {bfd_false, bfd_false,	/* bfd_create_object */
+     bfd_false, bfd_false},
+    {bfd_false, bfd_false,	/* bfd_write_contents */
+     bfd_false, bfd_false},
+    
+    JUMP_TABLE(trad_unix)
+};

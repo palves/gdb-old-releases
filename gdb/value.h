@@ -310,6 +310,7 @@ void print_floating ();
 int value_print ();
 int val_print ();
 void print_variable_value ();
+void typedef_print ();
 char *internalvar_name ();
 void clear_value_history ();
 void clear_internalvars ();

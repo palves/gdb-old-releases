@@ -132,7 +132,7 @@ CDEPS = ${XM_CDEPS} ${TM_CDEPS} ${BFD_LIB} ${LIBIBERTY} ${RL_LIB}
 ADD_FILES = ${REGEX} ${ALLOCA}  ${GNU_MALLOC} ${XM_ADD_FILES} ${TM_ADD_FILES}
 ADD_DEPS = ${REGEX1} ${ALLOCA1} ${GNU_MALLOC} ${XM_ADD_FILES} ${TM_ADD_FILES}
 
-VERSION = 4.1
+VERSION = 4.2
 DIST=gdb
 
 LINT=/usr/5bin/lint
@@ -224,8 +224,7 @@ TESTS = testbpt.c testfun.c testrec.c testreg.c testregs.c
 # tdesc-lib cannot be named simply tdesc, because if it were, GNU make
 # would try to make it from tdesc.c.
 # tdesc-lib removed from the list due to Motorola copyrights...gnu@cygnus.com
-OTHERS = Makefile.in depend alldeps.mak \
-	 createtags munch configure configure.in config.sub \
+OTHERS = Makefile.in depend alldeps.mak createtags munch configure.in \
 	 ChangeLog ChangeLog-3.x refcard.ps \
 	 README TODO TAGS WHATS.NEW Projects \
 	 .gdbinit COPYING $(YYFILES) \
@@ -235,7 +234,7 @@ OTHERS = Makefile.in depend alldeps.mak \
 
 # Subdirectories of gdb, which should be included in their entirety in
 # gdb-xxx.tar.Z:
-TARDIRS = doc hp-include # tests
+TARDIRS = doc # tests
 
 # GDB "info" files, which should be included in their entirety
 INFOFILES = gdb.info*
@@ -462,14 +461,13 @@ gdb.tar.Z: force_update
 # Set up the GDB directory for distribution, by building all files that
 # are products of other files.
 setup-to-dist: force_update
-	./configure -template=./configure
-	./configure none
+	../configure none
 	rm -f alldeps.mak
 	$(MAKE) $(MFLAGS) alldeps.mak
-	./configure none
+	../configure none
 	rm -f depend
 	$(MAKE) $(MFLAGS) depend
-	./configure none
+	../configure none
 	(cd doc; $(MAKE) $(MFLAGS) rdl-apps.texi gdbVN.m4)
 	$(MAKE) $(MFLAGS) gdb.info
 	$(MAKE) $(MFLAGS) refcard.ps
@@ -553,12 +551,8 @@ de-stage3: force
 	- (cd stage3 ; mv -f * ..)
 	- rmdir stage3
 
-Makefile: $(srcdir)/Makefile.in $(srcdir)/configure
-	(cd $(srcdir) ; \
-		./configure +destdir=$(destdir) \
-		+norecurse \
-		`if [ "$(srcdir)" != "." ] ; then echo +subdirs; fi` \
-		$(host) +target=$(target))
+Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
+	$(SHELL) ./config.status
 
 force:
 

@@ -18,12 +18,10 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: i386coff.c,v 1.6 1991/09/20 03:44:19 gnu Exp $ */
+/* $Id: i386coff.c,v 1.9 1991/10/11 10:08:25 gnu Exp $ */
 
-#define I386 1
-#include <ansidecl.h>
-#include <sysdep.h>
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
 #include "obstack.h"
 #include "i386coff.h"
@@ -60,6 +58,7 @@ static reloc_howto_type howto_table[] =
 
 #define SELECT_RELOC(x,howto) { x = howto->type; }
 #define BADMAG(x) I386BADMAG(x)
+#define I386 1			/* Customize coffcode.h */
 #include "coffcode.h"
 
 #define coff_write_armap bsd_write_armap
@@ -71,7 +70,7 @@ bfd *a ;
 bfd_target i386coff_vec =
 {
   "i386coff",			/* name */
-  bfd_target_coff_flavour_enum,
+  bfd_target_coff_flavour,
   false,			/* data byte order is little */
   false,			/* header byte order is little */
 
@@ -87,8 +86,9 @@ bfd_target i386coff_vec =
   _do_getl64, _do_putl64,  _do_getl32, _do_putl32, _do_getl16, _do_putl16, /* data */
   _do_getl64, _do_putl64,  _do_getl32, _do_putl32, _do_getl16, _do_putl16, /* hdrs */
 
+/* Note that we allow an object file to be treated as a core file as well. */
     {_bfd_dummy_target, i3coff_object_p, /* bfd_check_format */
-       bfd_generic_archive_p, _bfd_dummy_target},
+       bfd_generic_archive_p, i3coff_object_p},
     {bfd_false, coff_mkobject, _bfd_generic_mkarchive, /* bfd_set_format */
        bfd_false},
     {bfd_false, coff_write_object_contents, /* bfd_write_contents */

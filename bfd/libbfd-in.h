@@ -1,3 +1,4 @@
+
 /* libbfd.h -- Declarations used by bfd library *implementation*.
    (This include file is not for users of the library.)
    Copyright (C) 1990-1991 Free Software Foundation, Inc.
@@ -19,7 +20,11 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: libbfd-in.h,v 1.1 1991/08/21 21:37:27 pesch Exp $ */
+
+/* Align an address upward to a boundary, expressed as a number of bytes.
+   E.g. align to an 8-byte boundary with argument of 8.  */
+#define ALIGN(this, boundary) \
+  ((( (this) + ((boundary) -1)) & (~((boundary)-1))))
 
 /* If you want to read and write large blocks, you might want to do it
    in quanta of this amount */
@@ -72,7 +77,7 @@ PROTO(PTR, bfd_alloc_finish,(bfd *abfd));
 
 
 PROTO (bfd_size_type, bfd_read, (PTR ptr, bfd_size_type size, bfd_size_type nitems, bfd *abfd));
-PROTO (bfd_size_type, bfd_write, (PTR ptr, bfd_size_type size, bfd_size_type nitems, bfd *abfd));
+PROTO (bfd_size_type, bfd_write, (CONST PTR ptr, bfd_size_type size, bfd_size_type nitems, bfd *abfd));
 
 
 
@@ -140,7 +145,12 @@ PROTO (bfd *, bfd_generic_openr_next_archived_file, (bfd *archive,
 PROTO(int, bfd_generic_stat_arch_elt, (bfd *, struct stat *));
 
 PROTO(boolean, bfd_generic_get_section_contents,
-      (bfd *abfd, sec_ptr section, PTR location, file_ptr offset, bfd_size_type count));
+      (bfd *abfd, sec_ptr section, PTR location, file_ptr offset,
+       bfd_size_type count));
+
+PROTO(boolean, bfd_generic_set_section_contents,
+      (bfd *abfd, sec_ptr section, PTR location, file_ptr offset,
+       bfd_size_type count));
 
 /* Macros to tell if bfds are read or write enabled.
 
@@ -179,9 +189,19 @@ extern bfd *bfd_last_cache;
 
 /* THE FOLLOWING IS EXTRACTED FROM THE SOURCE*/
 
+/*:init.c*/
+
 /*:libbfd.c*/
 
 /*:cache.c*/
 
 /*:reloc.c*/
+
+/*:cpu-h8300.c*/
+
+/*:cpu-i960.c*/
+
+/*:cpu-empty.c*/
+
+/*:archures.c*/
 

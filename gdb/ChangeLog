@@ -1,3 +1,228 @@
+Wed Oct 16 22:49:58 1991  John Gilmore  (gnu at cygnus.com)
+
+	GDB-4.2 release!
+
+	* Makefile.in:  Roll VERSION to 4.2.
+	* README, TODO, WHATS.NEW:  Update.
+
+	* core.c (core_open):  Improve error message for bad file.
+	Pass .reg virtual memory address to fetch_core_registers to help
+	it find the registers in the core-file header.
+	* coredep.c (fetch_core_registers):  Take new argument, use it,
+	and pass it to register_addr to locate the block of registers.
+	* xm-mips.h:  Update KERNEL_U_ADDR for new scheme.  Cleanup a bit.
+
+	* dbxread.c (read_dbx_symtab, process_one_symbol):  Handle
+	Sequent N_FN_SEQ like everybody else's N_FN.
+
+	* main.c:  Circumvent SCO cc bug with #if !!defined(USG).
+	* tm-i386v.h:  #endif guck.
+	* xconfig/i386*:  Remove -Dgetpagesize()=4096 kludge.
+	* xconfig/i386sco:  Add HAVE_STRSTR to avoid ANSI bdeath.
+	* xconfig/tahoe:  Add REGEX, which seems to be missing.
+
+	* coredep.c:  Add <sys/types.h> for SCOnix.
+	* dbxread.c (read_dbx_symntab):  Avoid coredump on malformed file.
+	* printcmd.c (print_formatted):  Flush output before disassembly.
+
+Tue Oct 15 20:12:32 1991  Roland H. Pesch  (pesch at fowanton.cygnus.com)
+
+	* doc/refcard.tex (sec "Working Files"): consistent metavars and
+	other improvements, due to comments by François Pinard
+	(pinard@iro.umontreal.ca) 
+
+	* doc/gdb.texinfo (appendix "Installing GDB"): changes in
+	configure, and improvenets related to Pinard's refcard comments
+
+Tue Oct 15 08:45:12 1991  John Gilmore  (gnu at cygnus.com)
+
+	Changes from Fred Fish:
+	* tm-68k.h (FPI_REGNUM):  Add.
+	* infrun.c (child_create_inferior):  flush stdout and stderr
+	before forking.
+	* configure.in:  Handle amigados, amix hosts and targets.
+	* inflow.c:  Handle TIOCGLTC_BROKEN for Amiga.
+
+	From Andreas Schwab:
+	* values.c (show_convenience):  Use printf_filtered.
+	* main.c (define_command):  Check result of lookup_command for
+	exact match.
+	(echo_command):  Use printf_filtered, and force output out.
+
+	* dbxread.c (read_enum_type):  Avoid Modula-2 kludge that breaks C
+	programs.
+	* i387-tdep.c (double_to_i387):  Fix typo for double_to_ieee_extended.
+	* utils.c (_initialize_utils):  If !ISATTY, don't paginate.
+	* configure.in, tconfig/decstation, xconfig/decstation:  Rename
+	dec3100 to decstation.
+
+Mon Oct 14 13:37:50 1991  Roland H. Pesch  (pesch at cygnus.com)
+
+	* doc/gdb.texinfo: Catch up to changes recorded here in ChangeLog
+	(nodes Continuing and Stepping; Memory; Targets) clarifications
+	due to Larry Breed
+
+Fri Oct 11 23:27:06 1991  John Gilmore  (gnu at cygnus.com)
+
+	* tm-{irix3,mips,nindy960,pn,symmetry,vx960}.h:  Move
+	REGISTER_U_ADDR to corresponding xm- file.  Sugg. by Peter Schauer.
+
+	* symmisc.c (print_partial_symtabs):  Add printpsyms debug cmd.
+
+	* m68k-tdep.c (m68k_push_dummy_frame, m68k_pop_frame):  Add
+	generic routines for calling inferior functions.
+
+	* blockframe.c (inside_main_scope, inside_entry_scope):  New.
+
+	* copying.awk:  Filter formfeeds out of copying & warrantee.
+	Make them available as `show copying' and `show warrantee' also.
+	* main.c (print_gnu_advertisement):  Advt `show' commands.
+
+Thu Oct 10 17:25:47 1991  John Gilmore  (gnu at cygnus.com)
+
+	* mach386-xdep.c:  Even when cross-compiling, leave in the
+	core-file reading code.
+	* core.c (get_core_registers):  Avoid coredump if no .reg section.
+
+Wed Oct  9 17:03:34 1991  John Gilmore  (gnu at cygnus.com)
+
+	* mipsread.c, coffread.c:  initialise TYPE_VPTR_FIELDNO to -1.
+	This avoids coredumps under `set print object on' in value_headof
+	(called erroneously by value_from_vtable_info) for `p &struct'
+	or `p *struct'.  From Peter Schauer.
+
+Mon Oct  7 00:06:52 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  Roll version to 4.1.2.
+	* dbxread.c:  Use aout64.h, not a.out.gnu.h.  Get external symbol entry
+	size from BFD (but, FIXME, we don't yet read external nlists's and
+	convert them to internal nlists's before handling them -- we still
+	assume they have the same size and alignment.)  Use SET_NAMESTRING
+	everywhere useful.
+	* exec.c (exec_file_command):  Move dead coff-encapsulation code
+	to BFD.
+	* m88k-tdep.c, m88k-xdep.c:  Remove encap test and #inc <a.out.h>.
+
+Fri Oct  4 22:30:06 1991  John Gilmore  (gnu at cygnus.com)
+
+	* configure.in, tm-i386v.h, xm-i386v.h: Intel 386 Mach host port.
+	* xm-i386mach.h, mach386-xdep.c, xconfig/i386mach:  New files.
+
+Fri Oct  4 17:04:31 1991  Per Bothner  (bothner at cygnus.com)
+
+	More patches from Peter Schauer <pes@regent.e-technik.tu-muenchen.de>:
+	* mips-xdep.c (store_inferior_registers):  Don't try to
+	write the (pseudo) FP.
+	* mipsread.c (parse_partial_symbols):  Improved algorithm for
+	setting pst->texthigh.
+
+Fri Oct  4 16:47:32 1991  Roland H. Pesch  (pesch at cygnus.com)
+
+	* doc/Makefile: make TEXINPUTS include . everywhere
+
+Fri Oct  4 00:35:56 1991  John Gilmore  (gnu at cygnus.com)
+
+	* coffread.c, dbxread.c, symfile.c, symmisc.c, symtab.h:  Remove
+	vestiges of typevectors, which were for symsegs and are no longer
+	used.  (From a question by Eliot Dresselhaus
+	<dresselh@RFT30.nas.nasa.gov>).
+
+Thu Oct  3 09:33:26 1991  John Gilmore  (gnu at cygnus.com)
+
+    	* dbxread.c, coffread.c:  static-ize functions that were
+	gratuitiously external.  (From Fred Fish.)
+
+	* c-exp.y:  sym->class to SYMBOL_CLASS (sym).
+
+	* dbxread.c (dbx_lookup_type):  Keep doubling size of typevector
+	until it is large enough.    
+
+	* dbxread.c (read_type):  Handle error case slightly better.
+	Make complaint message not C++-specific.
+
+Wed Oct  2 17:21:07 1991  Stu Grossman  (grossman at cygnus.com)
+
+	* infrun.c (wait_for_inferior):  Fix step/next so that you only
+	stop at the beginning of a new line.  This fixes various problems
+	with for loops, nested if-else's and switch statements.
+
+Tue Oct  1 06:33:55 1991  John Gilmore  (gnu at cygnus.com)
+
+	* symtab.c (lookup_symtab_1, lookup_symbol):  "fatal" errors
+	between symtabs and psymtabs become ordinary error()s.
+
+	* dbxread.c (read_dbx_symtab):  Relocate end_of_text_addr
+	properly, making "end pc" correct in shared lib psymtabs.
+	(From Guy Harris <guy@auspex.com>.)
+
+Mon Sep 30 13:15:31 1991  John Gilmore  (gnu at cygnus.com)
+
+	* dbxread.c:  Enable, but soften, const_vol_complaint.
+	(read_dbx_symtab):  N_STSYM and N_LCSYM define static vars.
+	Ditto Gould N_NBSTS and N_NBLCS.  Also, all types in the psymtab
+	should be file-scope, not global.
+	(read_struct_type):  Remove ancient multiple-inheritance warning.
+	(read_range_type):  Check base type, complain & patch if undefined.
+	* stack.c (frame_info):  Demangle the function name in `info stack'.
+	(From Peter Schauer)
+
+Sat Sep 28 10:02:33 1991  John Gilmore  (gnu at cygnus.com)
+
+	* eval.c (evaluate_subexp_for_address):  Don't use
+	TYPE_POINTER_TYPE directly (it might be zero if this type has
+	never had a pointer created before); use lookup_pointer_type.
+	* symtab.c (lookup_method_type):  Arguments were swapped in all
+	callers, so fix it here.  I'm amazed this worked at all!
+
+Fri Sep 27 18:09:31 1991  John Gilmore  (gnu at cygnus.com)
+
+	* c-exp.y, m2-exp.y:  Define more yysymbols that happen to be
+	"bss" rather than "data" symbols, but which still conflict.
+	* m2-exp.y:  Lint.
+
+	* coffread.c (coff_symfile_read):  Use xmalloc, not malloc.
+	* core.c (core_files_info):  Shorten output.
+	* exec.c (exec_files_info):  Ditto.
+	(build_section_table):  Ignore zero-length sections.
+	* language.c, printcmd.c:  Lint.
+	* language.h (get_frame_language):  Declare.
+	* saber.suppress:  update.
+	* stack.c (find_relative_frame):  Remove complex code that was
+	#if 0'd, stick with simple code.  Lint.
+        * saber.suppress:  Update a bit.
+	* symfile.c (add_symbol_file_command):  Add "?" to question.
+	* utils.c (parse_escape):  Avoid \a due to bdead compilers.
+	* value.h:  Declare typedef_print.
+
+	* valprint.c (val_print, type_print_base):  TYPE_CODE_RANGE less
+	kludgey.
+
+	* nindy-tdep.c (nindy_frame_chain_valid):  Use lookup_misc_func.
+	(Reported by Mark Peek <mark@imagen.com>.)
+
+	* solib.c (solib_map_sections):  Relocate all sections, even
+	though only the text section's size is tracked.  Mark ld_text
+	for eventual elimination as we generalize to N sections.
+
+	* infrun.c (wait_for_inferior):  Don't check if the PC is in a
+	call_dummy if we were stopped by a random signal that is being
+	passed to the program.  This produced wierd results when calling
+	functions in the inferior and signals (e.g. SIGALRM) were in use.
+
+Tue Sep 24 18:05:30 1991  John Gilmore  (gnu at cygnus.com)
+
+	* infrun.c (IN_SIGTRAMP):  Not parenthesized properly.
+	Bugfix from Paul Eggert <eggert@twinsun.com>.
+	* tm-ultra3.h (IN_SIGTRAMP):  Ditto.
+	* valprint.c (print_floating):  Print 9 digits for IEEE floats.
+	From Paul Eggert.
+
+Mon Sep 23 15:50:07 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  Roll VERSION to 4.1.1.
+	* source.c (line_info):  Peter Schauer fixes a bug I introduced in
+	hex conversion.
+
 Fri Sep 20 16:10:52 1991  John Gilmore  (gnu at cygnus.com)
 
 	GDB-4.1 release!

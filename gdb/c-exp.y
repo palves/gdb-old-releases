@@ -57,6 +57,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	yyexca	c_exca
 #define yyerrflag c_errflag
 #define yynerrs	c_nerrs
+#define	yyps	c_ps
+#define	yypv	c_pv
+#define	yys	c_s
+#define	yystate	c_state
+#define	yytmp	c_tmp
+#define	yyv	c_v
+#define	yyval	c_val
+#define	yylloc	c_lloc
 
 /* Forward decls */
 void yyerror ();
@@ -600,7 +608,7 @@ variable:	name_not_typename
 
 			  if (sym)
 			    {
-			      switch (sym->class)
+			      switch (SYMBOL_CLASS (sym))
 				{
 				case LOC_REGISTER:
 				case LOC_ARG:

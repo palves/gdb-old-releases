@@ -103,7 +103,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    do this unless we *know* we aren't cross-debugging.  FIXME.
  */
 #define FLOAT_INFO { i386_float_info (); }
-#endif 0
+#endif /*0*/
 
 /* Say how long (ordinary) registers are.  */
 
@@ -138,9 +138,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define PC_REGNUM 8
 #define PS_REGNUM 9
-
-#define REGISTER_U_ADDR(addr, blockend, regno) \
-	(addr) = i386_register_u_addr ((blockend),(regno));
 
 /* Total amount of space needed to store our copies of the machine's
    register state, the array `registers'.  */

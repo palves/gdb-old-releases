@@ -18,14 +18,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: icoff.c,v 1.19 1991/09/11 04:49:58 gnu Exp $ */
+/* $Id: icoff.c,v 1.21 1991/10/11 10:08:26 gnu Exp $ */
 
 #define I960 1
 #define BADMAG(x) I960BADMAG(x)
 
-#include <ansidecl.h>
-#include <sysdep.h>
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
 #include "obstack.h"
 #include "intel-coff.h"
@@ -37,7 +36,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define BAL	 0x0b000000	/* Template for 'bal' instruction	*/
 #define BAL_MASK 0x00ffffff
 
-static bfd_reloc_status_enum_type 
+static bfd_reloc_status_type 
 optcall_callback(abfd, reloc_entry, symbol_in, data, ignore_input_section)
 bfd *abfd;
 arelent *reloc_entry;
@@ -48,12 +47,12 @@ asection *ignore_input_section;
   /* This item has already been relocated correctly, but we may be
    * able to patch in yet better code - done by digging out the
    * correct info on this symbol */
-  bfd_reloc_status_enum_type result;
+  bfd_reloc_status_type result;
   coff_symbol_type *cs = coffsymbol(symbol_in);
 
   /* So the target symbol has to be of coff type, and the symbol 
      has to have the correct native information within it */
-  if ((cs->symbol.the_bfd->xvec->flavour != bfd_target_coff_flavour_enum)
+  if ((cs->symbol.the_bfd->xvec->flavour != bfd_target_coff_flavour)
       || (cs->native == (combined_entry_type *)NULL)) {
      /* This is interesting, consider the case where we're outputting */
      /* coff from a mix n match input, linking from coff to a symbol */
@@ -146,7 +145,7 @@ static reloc_howto_type howto_table[] =
 bfd_target icoff_little_vec =
 {
   "coff-Intel-little",		/* name */
-  bfd_target_coff_flavour_enum,
+  bfd_target_coff_flavour,
   false,			/* data byte order is little */
   false,			/* header byte order is little */
 
@@ -175,7 +174,7 @@ bfd_target icoff_little_vec =
 bfd_target icoff_big_vec =
 {
   "coff-Intel-big",		/* name */
-  bfd_target_coff_flavour_enum,
+  bfd_target_coff_flavour,
   false,			/* data byte order is little */
   true,				/* header byte order is big */
 

@@ -1,3 +1,2 @@
-HDEFINES=-DHOST_SYS=IRIX3_SYS \
-	 -lmalloc
+LDFLAGS = -lmalloc
 RANLIB=echo

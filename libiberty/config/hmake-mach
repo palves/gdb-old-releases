@@ -1,0 +1,9 @@
+# Host makefile fragment for Mach OS
+# We need to add strtol (and its subroutine strtoul) since Mach does not
+# provide them, and BFD uses them.
+HOST_CFILES = strtol.c strtoul.c
+HOST_OFILES = strtol.o strtoul.o
+
+# Mach already provides strerror(), so we don't supply it.
+STRERROR_C =
+STRERROR_O =

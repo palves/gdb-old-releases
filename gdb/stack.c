@@ -360,7 +360,10 @@ frame_info (addr_exp)
 
   wrap_here ("   ");
   if (funname)
-    printf_filtered (" in %s", funname);
+    {
+      printf_filtered (" in ");
+      fputs_demangled (funname, stdout, 1);
+    }
   wrap_here ("   ");
   if (sal.symtab)
     printf_filtered (" (%s:%d)", sal.symtab->filename, sal.line);
@@ -899,7 +902,7 @@ find_relative_frame (frame, level_offset_ptr)
      register int* level_offset_ptr;
 {
   register FRAME prev;
-  register FRAME frame1, frame2;
+  register FRAME frame1;
 
   /* Going up is simple: just do get_prev_frame enough times
      or until initial frame is reached.  */
@@ -911,36 +914,9 @@ find_relative_frame (frame, level_offset_ptr)
       (*level_offset_ptr)--;
       frame = prev;
     }
-  /* Going down could be done by iterating get_frame_info to
-     find the next frame, but that would be quadratic
-     since get_frame_info must scan all the way from the current frame.
-     The following algorithm is linear.  */
+  /* Going down is just as simple.  */
   if (*level_offset_ptr < 0)
     {
-#if 0
-/* This is ancient and unnecessary? 			-- gnu@cygnus.com 
-   It also loops forever if frame #0 is not current_frame (e.g. when we have
-   used the "frame" command after the stack was invalid).  */
-
-      /* First put frame1 at innermost frame
-	 and frame2 N levels up from there.  */
-      frame1 = get_current_frame ();
-      frame2 = frame1;
-      while (*level_offset_ptr < 0 && frame2 != frame)
-	{
-	  frame2 = get_prev_frame (frame2);
-	  (*level_offset_ptr) ++;
-	}
-      /* Then slide frame1 and frame2 up in synchrony
-	 and when frame2 reaches our starting point
-	 frame1 must be N levels down from there.  */
-      while (frame2 != frame)
-	{
-	  frame1 = get_prev_frame (frame1);
-	  frame2 = get_prev_frame (frame2);
-	}
-      return frame1;
-#else
       while (*level_offset_ptr < 0) {
 	frame1 = get_next_frame (frame);
 	if (!frame1)
@@ -948,7 +924,6 @@ find_relative_frame (frame, level_offset_ptr)
 	frame = frame1;
 	(*level_offset_ptr)++;
       }
-#endif
     }
   return frame;
 }

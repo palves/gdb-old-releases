@@ -5,7 +5,7 @@
 
 configdirs=
 srctrigger=getopt1.c
-srcname="getopt library"
+srcname="-liberty library"
 commontargets=true
 
 # per-host:
@@ -14,6 +14,11 @@ case "${host_os}" in
 sysv | dgux | irix)	
 	host_makefile_frag=config/hmake-sysv
 	;;
+
+mach)
+	host_makefile_frag=config/hmake-mach
+	;;
+
 esac
 
 # per-target:

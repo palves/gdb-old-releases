@@ -48,7 +48,7 @@ the file you want to print.
      `list' command, this prints lines following the last lines
      printed; however, if the last line printed was a solitary line
      printed as part of displaying a stack frame (*note Stack::.),
-     this prints  lines centered around that line.
+     this prints lines centered around that line.
 
 `list -'
      Print lines just before the lines last printed.
@@ -272,7 +272,7 @@ the last `info line' example:
      0x63f4 builtin_init+5356:     ld [%o0+4], %o0
      0x63f8 builtin_init+5360:     or %o0, 0x1a4, %o0
      0x63fc builtin_init+5364:     call 0x9288 path_search
-     0x6400 builtin_init+5368:     nop 
+     0x6400 builtin_init+5368:     nop
      End of assembler dump.
      (gdb)
 
@@ -285,12 +285,21 @@ Examining Data
    The usual way to examine data in your program is with the `print'
 command (abbreviated `p'), or its synonym `inspect'.  It evaluates
 and prints the value of an expression of the language your program
-is written in (*note Languages::.).  You type
+is written in (*note Languages::.).
 
-     print EXP
+`print EXP'
+`print /F EXP'
+     EXP is an expression (in the source language).  By default the
+     value of EXP is printed in a format appropriate to its data
+     type; you can choose a different format by specifying `/F',
+     where F is a letter specifying the format; *note Output
+     formats::..
 
-where EXP is an expression (in the source language), and the value of
-EXP is printed in a format appropriate to its data type.
+`print'
+`print /F'
+     If you omit EXP, GDB displays the last value again (from the
+     "value history"; *note Value History::.).  This allows you to
+     conveniently inspect the same value in an alternative format.
 
    A more low-level way of examining data is with the `x' command. 
 It examines data in memory at a specified address and prints it in a
@@ -411,6 +420,7 @@ scope resolution operator in GDB expressions.
      set up a stack frame (including local variable definitions); if
      you're stepping by machine instructions, variables may appear
      to have the wrong values until the stack frame is completely
+    
      built.  On function exit, it usually also takes more than one
      machine instruction to destroy a stack frame; after you begin
      stepping through that group of instructions, local variable
@@ -534,117 +544,84 @@ File: gdb.info,  Node: Memory,  Next: Auto Display,  Prev: Output formats,  Up: 
 Examining Memory
 ================
 
-`x/NFU EXPR'
-     The command `x' (for `examine') can be used to examine memory
-     without being constrained by your program's data types.  You
-     can specify the unit size U of memory to inspect, and a repeat
-     count N of how many of those units to display.  `x' understands
-     the formats F used by `print'; two additional formats, `s'
-     (string) and `i' (machine instruction) can be used without
-     specifying a unit size.
+`x/NFU ADDR'
+`x ADDR'
+`x'
+     You can use the command `x' (for `examine') to examine memory in
+     any of several formats, independently of your program's data
+     types.  N, F, and U are all optional parameters to specify how
+     much memory to display, and how to format it; ADDR is an
+     expression giving the address where you want to start
+     displaying memory.  If you use defaults for NFU, you need not
+     type the slash `/'.  Several commands set convenient defaults
+     for ADDR.
+
+   N, the repeat count, is a decimal integer; the default is 1.  It
+specifies how much memory (counting by units U) to display.
+
+   F, the display format, is one of the formats used by `print', or
+`s' (null-terminated string) or `i' (machine instruction).  The
+default is `x' (hexadecimal) initially, or the format from the last
+time you used either `x' or `print'.
+
+   U, the unit size, is any of
+
+`b'
+     Bytes.
+
+`h'
+     Halfwords (two bytes).
+
+`w'
+     Words (four bytes).  This is the initial default.
+
+`g'
+     Giant words (eight bytes).
+
+Each time you specify a unit size with `x', that size becomes the
+default unit the next time you use `x'.  (For the `s' and `i'
+formats, the unit size is ignored and is normally not written.)
+
+   ADDR is the address where you want GDB to begin displaying memory.
+The expression need not have a pointer value (though it may); it is
+always interpreted as an integer address of a byte of memory.  *Note
+Expressions:: for more information on expressions.  The default for
+ADDR is usually just after the last address examined--but several
+other commands also set the default address: `info breakpoints' (to
+the address of the last breakpoint listed), `info line' (to the
+starting address of a line), and `print' (if you use it to display a
+value from memory).
 
    For example, `x/3uh 0x54320' is a request to display three
 halfwords (`h') of memory, formatted as unsigned decimal integers
-(`u'),
-starting at address `0x54320'.  `x/4xw $sp' prints the four words
-(`w') of memory above the stack pointer (here, `$sp'; *note
+(`u'), starting at address `0x54320'.  `x/4xw $sp' prints the four
+words (`w') of memory above the stack pointer (here, `$sp'; *note
 Registers::.) in hexadecimal (`x').
 
    Since the letters indicating unit sizes are all distinct from the
 letters specifying output formats, you don't have to remember
 whether unit size or format comes first; either order will work. 
 The output specifications `4xw' and `4wx' mean exactly the same thing.
+(However, the count N must come first; `wx4' will not work.)
 
-   After the format specification, you supply an expression for the
-address where GDB is to begin reading from memory.  The expression
-need not have a pointer value (though it may); it is always
-interpreted as an integer address of a byte of memory.  *Note
-Expressions:: for more information on expressions.
+   Even though the unit size U is ignored for the formats `s' and
+`i', you might still want to use a count N; for example, `3i'
+specifies that you want to see three machine instructions, including
+any operands.  The command `disassemble' gives an alternative way of
+inspecting
+machine instructions; *note Machine Code::..
 
-   These are the memory units U you can specify with the `x' command:
+   All the defaults for the arguments to `x' are designed to make it
+easy to continue scanning memory with minimal specifications each
+time you use `x'.  For example, after you've inspected three machine
+instructions with `x/3i ADDR', you can inspect the next seven with
+just `x/7'.  If you use RET to repeat the `x' command, the repeat
+count N is used again; the other arguments default as for successive
+uses of `x'.
 
-`b'
-     Examine individual bytes.
-
-`h'
-     Examine halfwords (two bytes each).
-
-`w'
-     Examine words (four bytes each).
-
-     Many assemblers and cpu designers still use `word' for a 16-bit
-     quantity, as a holdover from specific predecessor machines of
-     the 1970's that really did use two-byte words.  But more
-     generally the term `word' has always referred to the size of
-     quantity that a machine normally operates on and stores in its
-     registers.  This is 32 bits for all the machines that GDB runs
-     on.
-
-`g'
-     Examine giant words (8 bytes).
-
-   You can combine these unit specifications with any of the formats
-described for `print'.  *Note Output formats::.
-
-   `x' has two additional output specifications which derive the unit
-size from the data inspected:
-
-`s'
-     Print a null-terminated string of characters.  Any explicitly
-     specified unit size is ignored; instead, the unit is however
-     many bytes it takes to reach a null character (including the
-     null character).
-
-`i'
-     Print a machine instruction in assembler syntax (or nearly). 
-     Any specified unit size is ignored; the number of bytes in an
-     instruction varies depending on the type of machine, the opcode
-     and the addressing modes used.  The command `disassemble' gives
-     an alternative way of inspecting machine instructions.  *Note
-     Machine Code::.
-
-   If you omit either the format F or the unit size U, `x' will use
-the same one that was used last.  If you don't use any letters or
-digits after the slash, you can omit the slash as well.
-
-   You can also omit the address to examine.  Then the address used
-is just after the last unit examined.  This is why string and
-instruction formats actually compute a unit-size based on the data:
-so that the next string or instruction examined will start in the
-right place.
-
-   When the `print' command shows a value that resides in memory,
-`print' also sets the default address for the `x' command.  `info
-line' also sets the default for `x', to the address of the start of
-the machine code for the specified line  (*note Machine Code::.), 
-and `info breakpoints' sets it to the address of the last breakpoint
-listed (*note Set Breaks::.).
-
-   When you use RET to repeat an `x' command, the address specified
-previously (if any) is ignored, so that the repeated command
-examines the successive locations in memory rather than the same ones.
-
-   You can examine several consecutive units of memory with one
-command by writing a repeat-count after the slash (before the format
-letters, if any).  Omitting the repeat count N displays one unit of
-the appropriate size.  The repeat count must be a decimal integer. 
-It has the same effect as repeating the `x' command N times except
-that the output may be more compact, with several units per line. 
-For example,
-
-     x/10i $pc
-
-prints ten instructions starting with the one to be executed next in
-the selected frame.  After doing this, you could print a further
-seven instructions with
-
-     x/7
-
---where the format and address are allowed to default.
-
-   The addresses and contents printed by the `x' command are not put
-in the value history because there is often too much of them and
-they would get in the way.  Instead, GDB makes these values
+   The addresses and contents printed by the `x' command are not
+saved in the value history because there is often too much of them
+and they would get in the way.  Instead, GDB makes these values
 available for subsequent use in expressions as values of the
 convenience variables `$_' and `$__'.  After an `x' command, the
 last address examined is available for use in expressions in the
@@ -764,7 +741,7 @@ These settings are useful for debugging programs in any language:
      stack frame display looks like, with `set print address on':
 
           (gdb) f
-          #0  set_quotes (lq=0x34c78 "<<", rq=0x34c88 ">>") 
+          #0  set_quotes (lq=0x34c78 "<<", rq=0x34c88 ">>")
               at input.c:530
           530         if (lquote != def_lquote)
 
@@ -828,7 +805,7 @@ These settings are useful for debugging programs in any language:
      Show which format GDB will use to print structures.
 
 `set print sevenbit-strings on'
-     Print using only seven-bit characters; if this option is set, 
+     Print using only seven-bit characters; if this option is set,
      GDB will display any eight-bit characters (in strings or
      character values) using the notation `\'NNN.  For example,
      `M-a' is displayed as `\341'.
@@ -1078,9 +1055,15 @@ on your machine.
      any register name valid on the machine you are using, with or
      without the initial `$'.
 
-   The register names `$pc' and `$sp' are used on most machines for
-the program counter register and the stack pointer.  For example,
-you could print the program counter in hex with
+   GDB has four "standard" register names that are available (in
+expressions) on most machines--whenever they don't conflict with an
+architecture's canonical mnemonics for registers.  The register
+names `$pc' and `$sp' are used for the program counter register and
+the stack pointer.  `$fp' is used for a register that contains a
+pointer
+to the current stack frame, and `$ps' is used for a register that
+contains the processor status.  For example, you could print the
+program counter in hex with
 
      p/x $pc
 
@@ -1088,25 +1071,16 @@ or print the instruction to be executed next with
 
      x/i $pc
 
-or add four to the stack pointer with
+or add four to the stack pointer (1) with
 
      set $sp += 4
 
-The last is a way of removing one word from the stack, on machines
-where stacks grow downward in memory (most machines, nowadays). 
-This assumes that the innermost stack frame is selected; setting
-`$sp' is not allowed when other stack frames are selected.  (To pop
-entire frames off the stack, regardless of machine architecture, use
-`return';
-*note Returning::..)
-
-   Often `$fp' is used for a register that contains a pointer to the
-current stack frame, and `$ps' is sometimes used for a register that
-contains the processor status.  These standard register names may be
-available on your machine even though the `info registers' command
-shows other names.  For example, on the SPARC, `info registers'
-displays the processor status register as `$psr' but you can also
-refer to it as `$ps'.
+   Whenever possible, these four standard register names are
+available on your machine even though the machine has different
+canonical mnemonics, so long as there is no conflict.  The `info
+registers' command shows the canonical names.  For example, on the
+SPARC, `info registers' displays the processor status register as
+`$psr' but you can also refer to it as `$ps'.
 
    GDB always considers the contents of an ordinary register as an
 integer when the register is examined in this way.  Some machines
@@ -1137,6 +1111,16 @@ contents of hardware registers, you must select the innermost frame
 machine code generated by your compiler.  If some registers are not
 saved, or if GDB is unable to locate the saved registers, the
 selected stack frame will make no difference.
+
+   ---------- Footnotes ----------
+
+   (1)  This is a way of removing one word from the stack, on
+machines where stacks grow downward in memory (most machines,
+nowadays).  This assumes that the innermost stack frame is selected;
+setting `$sp' is not allowed when other stack frames are selected. 
+To
+pop entire frames off the stack, regardless of machine architecture,
+use `return'; *note Returning::..
 
 
 File: gdb.info,  Node: Floating Point Hardware,  Prev: Registers,  Up: Data

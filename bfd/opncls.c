@@ -18,10 +18,10 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: opncls.c,v 1.25 1991/09/13 01:40:18 gnu Exp $ */
+/* $Id: opncls.c,v 1.30 1991/10/17 06:05:20 gnu Exp $ */
 
-#include <sysdep.h>
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
 #include "obstack.h"
 extern void bfd_cache_init();
@@ -44,8 +44,11 @@ bfd *new_bfd()
   if (!nbfd)
     return 0;
 
+  bfd_check_init();
   obstack_begin((PTR)&nbfd->memory, 128);
-  
+
+  nbfd->arch_info = &bfd_default_arch_struct;
+
   nbfd->direction = no_direction;
   nbfd->iostream = NULL;
   nbfd->where = 0;
@@ -172,8 +175,12 @@ DEFUN(bfd_fdopenr,(filename, target, fd),
     return NULL;
   }
 
+#ifdef FASCIST_FDOPEN
+  nbfd->iostream = (char *) fdopen (fd, "r"); 
+#else
   /* if the fd were open for read only, this still would not hurt: */
   nbfd->iostream = (char *) fdopen (fd, "r+"); 
+#endif
   if (nbfd->iostream == NULL) {
     (void) obstack_free (&nbfd->memory, (PTR)0);
     return NULL;
@@ -186,7 +193,8 @@ DEFUN(bfd_fdopenr,(filename, target, fd),
   /* As a special case we allow a FD open for read/write to
      be written through, although doing so requires that we end
      the previous clause with a preposition.  */
-  switch (fdflags & O_ACCMODE) {
+  /* (O_ACCMODE) parens are to avoid Ultrix header file bug */
+  switch (fdflags & (O_ACCMODE)) {
   case O_RDONLY: nbfd->direction = read_direction; break;
   case O_WRONLY: nbfd->direction = write_direction; break;  
   case O_RDWR: nbfd->direction = both_direction; break;

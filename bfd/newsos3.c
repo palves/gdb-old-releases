@@ -17,36 +17,23 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#define TARGET_BYTE_ORDER_BIG_P 1
-
 #define	PAGE_SIZE	4096
 #define	SEGMENT_SIZE	PAGE_SIZE
 #define TEXT_START_ADDR 0
 #define ARCH 32
 #define BYTES_IN_WORD 4
 
-#include <ansidecl.h>
-#include <sysdep.h>
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
 #include "aout64.h"
 
-/**From: bothner@cs.wisc.edu***********************************************/
 #undef N_TXTOFF
 #define N_TXTOFF(x)   ( (N_MAGIC((x)) == ZMAGIC) ? PAGE_SIZE : EXEC_BYTES_SIZE)
-/**************************************************************************/
 
 #include "stab.gnu.h"
 #include "ar.h"
 #include "libaout.h"           /* BFD a.out internal data structures */
-#if 0
-int vfprintf(file, format, args) /* Temporary crock! */
-     FILE *file; char *format; char *args;
-{
-    return _doprnt (format, args, file);
-}
-#endif
-
 
 bfd_target *newsos3_callback ();
 
@@ -54,19 +41,21 @@ bfd_target *
 DEFUN(newsos3_object_p,(abfd),
      bfd *abfd)
 {
-  unsigned char magicbuf[4]; /* Raw bytes of magic number from file */
-  unsigned long magic;		/* Swapped magic number */
+  struct external_exec exec_bytes;
+  struct internal_exec exec;
 
-  bfd_error = system_call_error;
-
-  if (bfd_read ((PTR)magicbuf, 1, sizeof (magicbuf), abfd) !=
-      sizeof (magicbuf))
+  if (bfd_read ((PTR) &exec_bytes, 1, EXEC_BYTES_SIZE, abfd)
+      != EXEC_BYTES_SIZE) {
+    bfd_error = wrong_format;
     return 0;
-  magic = bfd_h_get_32 (abfd, magicbuf);
+  }
 
-  if (N_BADMAG (*((struct internal_exec *) &magic))) return 0;
+  exec.a_info = bfd_h_get_32 (abfd, exec_bytes.e_info);
 
-  return aout_32_some_aout_object_p (abfd, newsos3_callback);
+  if (N_BADMAG (exec)) return 0;
+
+  NAME(aout,swap_exec_header_in)(abfd, &exec_bytes, &exec);
+  return aout_32_some_aout_object_p (abfd, &exec, newsos3_callback);
 }
 
 /* Finish up the reading of a NEWS-OS a.out file header */
@@ -78,11 +67,27 @@ DEFUN(newsos3_callback,(abfd),
   
   WORK_OUT_FILE_POSITIONS(abfd, execp) ;
   
-  /* Determine the architecture and machine type of the object file.  */
-  abfd->obj_arch = bfd_arch_m68k;
-  abfd->obj_machine = 0;
+  /* Determine the architecture and machine type of the object file.
+   */
+  bfd_default_set_arch_mach(abfd, bfd_arch_m68k, 0);
+
+  adata(abfd)->page_size = PAGE_SIZE;
+  adata(abfd)->segment_size = SEGMENT_SIZE;
+  adata(abfd)->exec_bytes_size = EXEC_BYTES_SIZE;
 
   return abfd->xvec;
+}
+
+static boolean
+DEFUN(newsos_mkobject,(abfd),
+      bfd *abfd)
+{
+    if (aout_32_mkobject(abfd) == false)
+	return false;
+    adata(abfd)->page_size = PAGE_SIZE;
+    adata(abfd)->segment_size = SEGMENT_SIZE;
+    adata(abfd)->exec_bytes_size = EXEC_BYTES_SIZE;
+    return true;
 }
 
 /* Write an object file in NEWS-OS format.
@@ -100,6 +105,7 @@ DEFUN(newsos3_write_object_contents,(abfd),
   WRITE_HEADERS(abfd, execp);
   return true;
 }
+
 
 /* Transfer vectors for NEWS-OS version 3 */
 
@@ -122,7 +128,6 @@ DEFUN(newsos3_write_object_contents,(abfd),
 #define newsos_bfd_debug_info_end		bfd_void
 #define newsos_bfd_debug_info_accumulate	(PROTO(void,(*),(bfd*, struct sec *))) bfd_void
 
-#define newsos_mkobject aout_32_mkobject 
 #define newsos_close_and_cleanup aout_32_close_and_cleanup 
 #define newsos_set_section_contents aout_32_set_section_contents 
 #define newsos_get_section_contents aout_32_get_section_contents 
@@ -142,10 +147,10 @@ DEFUN(newsos3_write_object_contents,(abfd),
 /* We define our own versions of these routines.  */
 
 
-bfd_target newsos3_vec = /* Sony 68k-based machines running newos3 */
+bfd_target newsos3_vec = /* Sony 68k-based machines running newsos3 */
 {
-  "a.out-newos3",		/* name */
-  bfd_target_aout_flavour_enum,
+  "a.out-newsos3",		/* name */
+  bfd_target_aout_flavour,
   true,				/* target byte order */
   true,				/* target headers byte order */
   (HAS_RELOC | EXEC_P |		/* object flags */

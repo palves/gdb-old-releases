@@ -18,10 +18,10 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: libbfd.c,v 1.20 1991/09/11 04:50:00 gnu Exp $ */
+/* $Id: libbfd.c,v 1.23 1991/10/11 10:08:30 gnu Exp $ */
 
-#include <sysdep.h>
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
 
 /** Dummies for targets that don't want or need to implement
@@ -156,7 +156,7 @@ DEFUN(bfd_read,(ptr, size, nitems, abfd),
 
 bfd_size_type
 DEFUN(bfd_write,(ptr, size, nitems, abfd),
-      PTR ptr AND
+      CONST PTR ptr AND
       bfd_size_type size AND
       bfd_size_type nitems AND
       bfd *abfd)
@@ -493,9 +493,30 @@ DEFUN(bfd_generic_get_section_contents, (abfd, section, location, offset, count)
 {
     if (count == 0)
         return true;
-    if ((bfd_size_type)offset >= section->size
+    if ((bfd_size_type)(offset+count) > section->size
         || bfd_seek(abfd,(file_ptr)( section->filepos + offset), SEEK_SET) == -1
         || bfd_read(location, (bfd_size_type)1, count, abfd) != count)
+        return (false); /* on error */
+    return (true);
+}
+
+/* This generic function can only be used in implementations where creating
+   NEW sections is disallowed.  It is useful in patching existing sections
+   in read-write files, though.  See other set_section_contents functions
+   to see why it doesn't work for new sections.  */
+boolean
+DEFUN(bfd_generic_set_section_contents, (abfd, section, location, offset, count),
+      bfd *abfd AND
+      sec_ptr section AND
+      PTR location AND
+      file_ptr offset AND
+      bfd_size_type count)
+{
+    if (count == 0)
+        return true;
+    if ((bfd_size_type)(offset+count) > section->size
+        || bfd_seek(abfd, (file_ptr)(section->filepos + offset), SEEK_SET) == -1
+        || bfd_write(location, (bfd_size_type)1, count, abfd) != count)
         return (false); /* on error */
     return (true);
 }

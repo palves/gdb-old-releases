@@ -5,6 +5,7 @@ BEGIN	{
 	  print "#include <stdio.h>"
 	  print "#include \"defs.h\""
 	  print "#include \"command.h\""
+	  print "#include \"gdbcmd.h\""
 	  print "extern int immediate_quit;";
 	  print "static void";
 	  print "copying_info ()";
@@ -12,7 +13,11 @@ BEGIN	{
 	  print "  immediate_quit++;";
 	}
 NR == 1,/^[ 	]*NO WARRANTY[ 	]*$/	{
-	  if (! ($0 ~ /^[ 	]*NO WARRANTY[ 	]*$/)) 
+	  if ($0 ~ //)
+	    {
+	      printf "  printf_filtered (\"\\n\");\n";
+	    }
+	  else if ($0 !~ /^[ 	]*NO WARRANTY[ 	]*$/) 
 	    {
 	      printf "  printf_filtered (\"";
 	      for (i = 1; i < NF; i++)
@@ -48,9 +53,12 @@ END	{
 	  print "  add_info (\"copying\", copying_info,";
 	  print "	    \"Conditions for redistributing copies of GDB.\");";
 	  print "  add_info (\"warranty\", warranty_info,";
-	  print "	  \"Various kinds of warranty you do not have.\");";
+	  print "	    \"Various kinds of warranty you do not have.\");";
+	  print "  add_cmd (\"copying\", no_class, copying_info,";
+	  print "	   \"Conditions for redistributing copies of GDB.\",";
+	  print "	   &showlist);";
+	  print "  add_cmd (\"warranty\", no_class, warranty_info,";
+	  print "	   \"Various kinds of warranty you do not have.\",";
+	  print "	   &showlist);";
 	  print "}";
 	}
-
-
-	    

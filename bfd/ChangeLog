@@ -1,3 +1,368 @@
+Wed Oct 16 22:58:45 1991  John Gilmore  (gnu at cygnus.com)
+
+	* bfd.c:  Make sure we don't get a macro strerror().
+	* opncls.c (bfd_fdopenr):  If FASCIST_FDOPEN, use "r", not "r+".
+	* trad-core.c (trad_unix_core_file_failing_command):  Suppress
+	attempt to recover command, ifdef NO_CORE_COMMAND.
+	* hosts/h-tahoe.h:  Add FASCIST_FDOPEN and NO_CORE_COMMAND;
+	revamp HOST_*, etc.
+	* hosts/h-i386v.h:  Use <utime.h>, not <sys/utime.h>, unlike POSIX.
+
+Wed Oct 16 12:43:49 1991  Per Bothner  (bothner at cygnus.com)
+
+	* archive.c (bsd_write_argmap): The size of the ranlib structures
+	should not include the size field itself.
+	* aoutx.h, libaout.h (NAME(aout, sizeof_headers)):  Use
+	adata(abfd)->exec_bytes_size field instead of constant macro,
+	because aoutx.h compiles to a simple .o file shared by
+	all 32-bits a.out targets.
+
+Wed Oct 16 11:11:05 1991  John Gilmore  (gnu at cygnus.com)
+
+	* configure.in:  Allow i386-sco-sysv.
+	* bout.c:  Remove unused i960_align; lint dummy core file handlers.
+	* cpu-h8300.c:  lint.
+
+	* host-aout.c:  New strategy.  We use common code, include files,
+	and data structures to handle the file, but set a few parameters
+	from the host's config file (page size, text start addr, etc).
+	* libaout.h:  Define HP BSD machine types.
+	* aoutf1.h:  Handle reading a.outs with these types.
+
+	* trad-core.c:  Pass the u.u_ar0 value as the negative of the
+	virtual-memory-address of the .reg section.  We can't just make a
+	section for "all the regs and nothing else" because only GDB knows
+	exactly where the regs are (scattered around the upage and stack).
+	Clean up memory allocation.  Remove big- and little-endian
+	vectors, replace with single vector; this only runs on the host,
+	in host byte order.  Replace byteswap routines with aborts in case
+	anyone calls them.
+	* targets.c:  There's only one trad_core_vec now.
+	* aoutf1.h (sunos_core_file_p):  VMA of .reg* now needs to be 0.
+
+Tue Oct 15 08:29:03 1991  John Gilmore  (gnu at cygnus.com)
+
+	* hosts/h-amix.h (free):  Fix prototype.
+
+	* aoutx.h:  Don't use NULL as an integer, for braindead systems
+	that declare it as (void *)0.  (From Peter Schauer.)
+
+Mon Oct 14 17:20:47 1991  Per Bothner  (bothner at cygnus.com)
+
+	* opncls.c (bfd_fdopenr):  Add parentheses to avoid reported
+	problem with bad Ultrix system headers.
+	* aoutx.h (NAME(aout,set_section_contents)):  Try to handle the
+	various kinds of alignments for the various kinds of
+	magic numbers.
+
+Mon Oct 14 14:23:10 1991  John Gilmore  (gnu at cygnus.com)
+
+	* doc/Makefile:  Don't assume . is on the path (from James Clark).
+
+Fri Oct 11 22:45:14 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  Avoid Sun Make VPATH bugs.
+	* targets.c:  Declare trad_core vectors extern.
+
+Fri Oct 11 13:03:02 1991  Per Bothner  (bothner at cygnus.com)
+
+	* coffcode.h: Moved ALIGN macro to libbfd.h. Removed i960_align.
+	* libbfd.h: Moved ALIGN macro here.
+	* bout.c (b_out_callback): Replace i960_align by align_power.
+
+	* libaout.h (struct aoutdata):  Added fields page_size,
+	segment_size and exec_bytes_size.  These help generic code
+	(in aoutx.h and libaout.h) to figure out where to align
+	the various segments in a demand paged file.
+	* libaout.h (WRITE_HEADER):  Use new (struct aoutdata) fields
+	to decide if the exec header counts in a_text (text segment size).
+	Also, assume D_PAGED flag is set; don't set it here.
+	* bout.c (b_out_callback): Add initialization of
+	adata fields page_size, segment_size, and exec_bytes_size.
+	* host-aout.c (NAME(host_aout, callback) and
+	NAME(host_aout,mkobject): Ditto.
+	* i386aout.c (aout386_callback) and new aout386_mkobject): Ditto.
+	* newos3.c (newsos3_callback) and new newsos_mkobject): Ditto.
+	* aoutf1.c (sunos4_callback) and new sunos_mkobject): Ditto.
+	* aoutx.h (NAME(aout,some_aout_object_p)): Don't subtract
+	EXEC_BYTES_SIZE from the a_test size; this is only appropriate
+	for some systems (mainly sunos), so do it in the callback instead.
+	Same routine: Add stuff to the THIS_IS_ONLY_DOCUMENTATION comment.
+	* aoutx.h (NAME(aout,set_section_contents): Change the way
+	filepos and size of sections are carried out to support
+	older styles of demand paged executables.
+	
+
+Fri Oct 11 12:33:36 1991  Steve Chamberlain  (steve at cygnus.com)
+
+	* bfd-in.h: Added more macros to COFF_SWAP_TABLE.
+	* bfd.c: Added macros to enable gas to swap coff records.
+	* coffcode.h: Make the coff_swap_*_out routines return the number
+	of bytes swapped, and cleaned up their prototypes.
+	* configure.in: Added ebmon/coff support
+	* ecoff.c: Changed null definitions of coff_swap_*_out to conform
+	to new prototypes
+	* targets.c: Added new entry points for coff swapping
+
+Fri Oct 11 03:01:52 1991  John Gilmore  (gnu at cygnus.com)
+
+	Restructure configuration scheme for bfd, binutils, ld.
+
+	* include/sys/h-*.h:  Move to bfd/hosts/h-*.h.
+	* configure.in:  Revise to symlink sysdep.h to hosts/h-xxx.h.
+	Change some config names to match other dirs.
+	* *.c:  Include bfd.h before sysdep.h, so ansidecl and PROTO()
+	get defined first.
+	* Makefile.in:  Use -I. to get sysdep.h.  Remove refs to
+	../include/sysdep.h.
+	* cpu-i960.c:  Strncmp needed a length arg.
+	* ecoff.c:  Don't ever call trad_unix_core_file_p from here.
+	* i386aout.c:  Remove dead N_TXTOFF override.
+	* trad-core.c:  Don't disable the whole file if SUN4_SYS.
+	* config/:  Rename some config files to match up h-*.h names.
+	Remove all the HOST_SYS definitions from the config files.
+	* hosts/h-amix.h, h-i386v.h:  Define POSIX_UTIME, not USG.
+	* hosts/h-hp9000.h:  Remove USG comment.
+	* hosts/h-rs6000.h:  Include <stdlib.h> for malloc.
+	* hosts/h-news.h, h-sparc-64.h:  New config files that had
+	previously been kludged in the <sysdep.h> file.
+
+Thu Oct 10 17:54:08 1991  John Gilmore  (gnu at cygnus.com)
+
+	* config/*:  trad-core support is HOST dependent, not target
+	dependent.  Target config files only set DEFAULT_VECTOR and/or
+	other vector elements.  Exception:  when host-aout.c is in use,
+	in which case we're forced to assume we're native (hp, vax,
+	tahoe).  Rename XDEPFILES to HDEPFILES.
+	* Makefile.in:  Rename XDEPFILES.
+	* config/h-sun*:  Don't force static linking.
+	* trad-core.c:  Document how to use it nowadays.
+	* i386aout.c, newsos3.c:  Clean up.
+	* i386coff.c:  Allow 386 coff files to be used as core files too
+	(for reading core files from embedded systems).
+
+Tue Oct  8 15:30:39 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Add i386aout.c for a.out support on the i386.
+
+Tue Oct  8 12:18:54 1991  Roland H. Pesch  (pesch at cygnus.com)
+
+	* reloc.c, section.c, syms.c, targets.c: correct info-node
+	structure in *doc* comments.
+	doc/Makefile: stop hiding complaints from makeinfo.
+
+Sun Oct  6 19:10:06 1991  John Gilmore  (gnu at cygnus.com)
+
+	* aoutx.h (...some_aout_object_p):  Take a third parameter,
+	the internal_exec struct, and avoid ever looking at an
+	external_exec.  All callers changed to read the entire
+	external_exec struct, swap and check its magic number, 
+	swap in the whole structure, and pass the swapped-in version to
+	some_aout_object_p.
+	* bout.c:  Bring into modern era.  Use single _object_p routine
+	for big- aand little-endian.  Provide internal and external
+	exec header structs.  Use separate swap-in and swap-out routines.
+
+	* libaout.h:  Move struct internal_exec from ../include/aout64.h
+	to here.  Add obj_symbol_entry_size to struct aoutdata.
+	* aoutx.h (...some_aout_object_p):  Set obj_symbol_entry_size.
+
+	* ../include/aout64.h:  Change EXTERNAL_LIST_SIZE to
+	EXTERNAL_NLIST_SIZE.  Callers changed.
+	
+Fri Oct  4 18:18:46 1991  John Gilmore  (gnu at cygnus.com)
+
+	* bfd.c:  Remove strerror() to libiberty.
+
+	* elf.c:  Remove elf_set_section_contents, use generic one.  Lint.
+	* libbfd-in.h, libbfd.c:  Add bfd_generic_set_section_contents.
+	* libbfd.c (bfd_generic_{get,set}_section_contents):  Check that
+	last byte of transfer, not first byte, is within the section.
+
+	* host-aout.c:  Remove `BSD' archive support.  Lint.
+
+	* archures.c: Rename `struct bfd_arch_info_struct' to `struct
+	bfd_arch_info'.  Rename `typedef bfd_arch_info_struct_type' to
+	`bfd_arch_info_type'.  All uses changed.
+	* reloc.c:  Rename `bfd_reloc_status_enum_type' to
+	`bfd_reloc_status_type'.  Rename `bfd_reloc_code_enum_real_type'
+	to `bfd_reloc_code_real_type'.  (This seems to be a misnomer,
+	it needs a better name.)  All uses changed.
+	* targets.c:  Rename `enum target_flavour_enum' to `enum
+	target_flavour', and remove the `_enum' from all of the enum
+	values themselves.  All uses changed.
+
+	* configure.in, config/h-i386mach:  i386 mach host.
+	* config/t-i386-aout:  Use host-aout.c.
+
+	* trad-core.c:  Give it its own xvec's to make it independent
+	of other file formats.
+	* ecoff.c, host-aout.c:  Remove refs to trad-core.
+	* config/t-dec3100, t-hp300bsd, t-tahoe, t-vax:  Define TRAD_CORE.
+	* targets.c:  #ifdef TRAD_CORE, include it in the vector.
+
+Fri Oct  4 17:38:03 1991  Steve Chamberlain  (steve at cygnus.com)
+
+	* reloc.c: Extended NEWHOWTO macro
+	* ieee.c: Changed the way 8bit pcrel is done
+	* cpu-h8300.c: got the registers in the right order
+
+Thu Oct  3 19:39:55 1991  John Gilmore  (gnu at cygnus.com)
+
+	* bfd-in.h:  enum boolean => enum bfd_boolean for SVR4.  Gumby's
+	prediction is vindicated!
+
+	* bfd-in.h, libbfd-in.h, doc/Makefile, doc/tolibbfd, doc/intobfd:
+	Remove refs to howto.c, since Steve forgot.
+
+Thu Oct  3 07:49:21 1991  Steve Chamberlain  (steve at cygnus.com)
+
+	* elf.c: took the abort out of set_arch_mach so that objdump -i will
+	still work. Now allows any architecture/machine to be set.
+
+Wed Oct  2 13:50:35 1991  Steve Chamberlain  (steve at cygnus.com)
+
+	* howto.c deleted and moved code to reloc.c
+
+	* libbfd.h, libbfd-in.h removed $id stuff for real
+
+	* cpu-h8300.c Made it match various different spellings of h8300.
+
+	* archures.c: Took out the first char filter which made it only
+	look for a cpu/arch match when the first chars of supplied and
+	tested names were the same.
+	
+	* targets.c removed oasys stuff, pending someone to fix the bugs
+	in it.
+
+
+Tue Oct  1 12:29:44 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in, configure.in, targets.c, elf.c:  Add preliminary
+	ELF support good enough for GDB.
+	* configure.in, config/h-amix, config/t-m68k-elf:  Handle
+	m68k-cbm-svr4 host and target.
+	* config/t-m68k-coff, t-m88k-coff, t-m88k-aout:  Make files nonempty
+	so `diff' and `patch' can cope.
+
+Tue Oct  1 11:24:31 1991  Steve Chamberlain  (steve at cygnus.com)
+
+	* archures.c: removed texinfo error
+
+	* init.c: added texinfo hooks, and removed initialization error
+	message.
+
+	* libcoff-in.h, libbfd-in.h removed $id field so cvs can merge
+	without complaints.
+
+Tue Oct  1 05:02:53 1991  John Gilmore  (gnu at cygnus.com)
+
+	* cpu-i960.c:  Avoid numerical count of initializers.
+
+	Vax Ultrix changes from David Taylor <taylor@think.com>:
+	* host-aout.c:  Make little-endian vector really little-endian.
+	* configure.in:  Separate vax and tahoe cases, handle ultrix.
+	* config/t-vax:  Add trad-core.o.
+	* config/h-vaxult:  New host system.
+
+Mon Sep 30 15:13:46 1991  Steve Chamberlain  (steve at cygnus.com)
+
+	* bfd-in.h VERSION, change version number to 0.18, this makes a
+	gap, but now is the same as the linker version number.
+
+	* cpu-a29k.c, cpu-i386.c, cpu-m68k.c, cpu-mips.c, cpu-vax.c,
+	cpu-h8300.c, cpu-i960.c, cpu-m88k.c, cpu-sparc.c: added. These
+	files will eventually contain processor specific bits for bfd,
+	like strange relocation information and dis/assembly.  So far only
+	the H8 has been even partially done.  This work also ties in with
+	the change in handling architectures.
+
+	* amdcoff.c: (a29k_reloc) fix error message.
+
+	* aout-f1.h: (choose_reloc_size) now calls bfd_get_arch to
+	discover the architecture of the bfd. (sunos4_callback) calls the
+	function bfd_set_arch_mach rather than stuffing stuff directly
+	into the bfd. (sunos4_write_object_contents), changed names of
+	accessor functions.
+
+	* aoutx.h: (set_arch_mach) now calls bfd_default_set_arch_mach to
+	setup the environment.
+
+	* archive.c: (bfd_slurp_coff_armap) coff archives always have the
+	headers in big endian format, regardless of the endianess of the
+	host or target.
+
+	* archures.c: totally changed. Now an architecture is represented
+	with a pointer to an info structure rather than an enumerated type
+	and a long. The old info is available as two elements in the
+	structure.  Future enhancements to architecure support will
+	involve pointers to methods being placed into the info structure.
+
+	* bfd.c: changed the definition of the bfd structure for the new
+	architecture stuff.
+
+	* bout.c: (b_out_set_arch_mach) changed to use the new
+	architecture mechanism.
+
+	* coffcode.h: (coff_set_arch_mach, coff_set_flags) changed to use
+	the new architecture mechanism.
+
+	* configure.in: added h8 stuff.
+
+	* ieee.c: too many changes to note.  Now ieee files written with
+	bfd gas and ld can be read by gld and ieee only linkers and
+	simulators.
+
+	* libbfd.c, libbfd.h: changed prototype of bfd_write.
+	
+	* newsos3.c: (newos3_callback) now calls bfd_set_arch_mach rather
+	than fixing the structure directly.
+
+	* oasys.c: (oasys_object_p) now calls bfd_default_set_arch_mach rather
+	than fixing the structure directly.
+
+	* opncls.c: (new_bfd) makes sure that bfd_init has been called
+	before opening a bfd.
+
+	* srec.c: (srec_set_arch_mach) now calls bfd_default_set_arch_mach
+	rather than fixing the structure directly.
+
+	* targets.c: (target_vector) now by defining SELECT_VECS (perhaps
+	in the t/hmake file) a user can select which backends they want
+	linked with bfd without changing the source.
+
+	* init.c: new, looks after initializing modules.
+
+	* howto.c: for future use, will allow an application to work out
+	what cookie to use as a handle on a relcoatio howto.
+	
+Mon Sep 30 13:31:15 1991  John Gilmore  (gnu at cygnus.com)
+
+	* srec.c:  Better error checking, partly from Peter Schauer.
+	(srec_object_p):  Avoid assuming any file that starts with 'S' is
+	an S-record file!  (Check for 3 uppercase-hex digits after it.)
+	(ISHEX):  Define new macro for checking supposedly hex characters.
+	(pass_over):  Treat as EOF any S-record line that:
+	    *  doesn't have hex in either size character
+	    *  produces a size larger than 0x7F
+	    *  has an unrecognized type number
+
+Thu Sep 26 15:27:29 1991  John Gilmore  (gnu at cygnus.com)
+
+	* aoutf1.h, aoutx.h, bout.c, coffcode.h, host-aout.c, oasys.c,
+	opncls.c:  Lint (saber actually).
+
+Thu Sep 26 11:24:24 1991  Per Bothner  (bothner at cygnus.com)
+
+	* libaout.h (WRITE_HEADERS): Set header's a_text field always.
+	* newsos3.c: Fixed two types: newos3 -> newsos3.
+	* reloc.c (bfd_perform_relocation): Fix pc-relative relocation
+	to use correct segment.
+
+Mon Sep 23 18:24:34 1991  Per Bothner  (bothner at cygnus.com)
+
+	* aoutx.h (print_symbol):  Handle missing symbol->name.
+
 Fri Sep 20 12:26:01 1991  Stu Grossman  (grossman at cygnus.com)
 
 	* aoutf1.h (swapcore_sparc):  Change name of USRSTACK, fix comment

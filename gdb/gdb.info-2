@@ -236,7 +236,7 @@ Setting Watchpoints
 -------------------
 
    You can use a watchpoint to stop execution whenever the value of
-an expression changes, without having to predict a particular place 
+an expression changes, without having to predict a particular place
 where this may happen.
 
    Watchpoints currently execute two orders of magnitude more slowly
@@ -433,7 +433,7 @@ and the program stops only if the condition is *true*.
 in that situation, you want to stop when the assertion is
 violated--that is, when the condition is false.  In C, if you want
 to test an assertion expressed by the condition ASSERT, you should
-set the condition  `! ASSERT' on the appropriate breakpoint.
+set the condition `! ASSERT' on the appropriate breakpoint.
 
    Conditions are also accepted for watchpoints; you may not need
 them, since a watchpoint is inspecting the value of an expression
@@ -451,7 +451,7 @@ address.  (In that case, GDB might see the other breakpoint first
 and stop the program without checking the condition of this one.) 
 Note that breakpoint commands are usually more convenient and
 flexible for the purpose of performing side effects when a
-breakpoint is reached  (*note Break Commands::.).
+breakpoint is reached (*note Break Commands::.).
 
    Break conditions can be specified when a breakpoint is set, by
 using `if' in the arguments to the `break' command.  *Note Set
@@ -556,7 +556,7 @@ about stopping at a breakpoint is not printed.  This may be
 desirable for breakpoints that are to print a specific message and
 then continue.  If the remaining commands too print nothing, you
 will see no sign that the breakpoint was reached at all.  `silent'
-is meaningful only  at the beginning of a breakpoint command list.
+is meaningful only at the beginning of a breakpoint command list.
 
    The commands `echo' and `output' that allow you to print precisely
 controlled output are often useful in silent breakpoints.  *Note
@@ -628,7 +628,7 @@ FUNCTION, and typing `0' aborts the `break' command without setting
 any new breakpoints.
 
    For example, the following session excerpt shows an attempt to set
-a breakpoint at the overloaded symbol `String::after'.   We choose
+a breakpoint at the overloaded symbol `String::after'.  We choose
 three particular definitions of that function name:
 
      (gdb) b String::after
@@ -679,12 +679,13 @@ Continuing and Stepping
 =======================
 
    "Continuing" means resuming program execution until your program
-completes normally.  In contrast, "stepping" means resuming program
-execution for a very limited time: one line of source code, or one
-machine instruction.  Either when continuing or when stepping, the
-program may stop even sooner, due to a breakpoint or to a signal. 
-(If due to a signal, you may want to use `handle', or use `signal 0'
-to resume execution; *note Signals::..)
+completes normally.  In contrast, "stepping" means executing just
+one more "step" of your program, where "step" may mean either one
+line of source code, or one machine instruction (depending on what
+particular command you use).  Either when continuing or when
+stepping, the program may stop even sooner, due to a breakpoint or
+to a signal.  (If due to a signal, you may want to use `handle', or
+use `signal 0' to resume execution; *note Signals::..)
 
 `continue [IGNORE-COUNT]'
      Resume program execution, at the address where the program last
@@ -789,7 +790,7 @@ until you see the problem happen.
 `u LOCATION'
      Continue running the program until either the specified location
      is reached, or the current stack frame returns.  LOCATION is
-     any of the forms of argument acceptable to `break'  (*note Set
+     any of the forms of argument acceptable to `break' (*note Set
      Breaks::.).  This form of the command uses breakpoints, and
      hence is quicker than `until' without an argument.
 

@@ -31,10 +31,10 @@ The BFD contains other BFDs and an optional index.
 The BFD contains the result of an executable core dump.
 @end table
 */
-#include "sysdep.h"
-#include "bfd.h"
-#include "libbfd.h"
 
+#include "bfd.h"
+#include "sysdep.h"
+#include "libbfd.h"
 
 extern bfd_target *target_vector[];
 extern bfd_target *default_vector[];

@@ -32,19 +32,19 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    Any number of sections may be created for output, we just output them
    in the order provided to bfd_set_section_contents.  */
 
-#include <sysdep.h>
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
-
 
 static char digs[] = "0123456789ABCDEF";
 
 /* Macros for converting between hex and binary */
 
-#define NIBBLE(x) ((x >= '0' && x <= '9') ? (x - '0') : (x - 'A' + 10))
+#define NIBBLE(x) (((x) >= '0' && (x) <= '9') ? ((x) - '0') : ((x) - 'A' + 10))
 #define HEX(buffer) ((NIBBLE((buffer)->high) <<4) + NIBBLE((buffer)->low))
 #define TOHEX(d,x) \
-  ((d)->low = digs[(x) & 0xf], (d)->high = digs[((x)>>4)&0xf], x)
+  ((d)->low = digs[(x) & 0xf], (d)->high = digs[((x)>>4)&0xf], (x))
+#define	ISHEX(x)  (((x) >= '0' && (x) <= '9') || ((x) >= 'A' && (x) <= 'F'))
 
 typedef struct {
   char high;
@@ -137,15 +137,14 @@ unsigned int length;
   }
 }
 
-/*
- pass over an s-record file calling one of the above functions on each
- record
- */
+/* Pass over an s-record file, calling one of the above functions on each
+   record.  */
+
 static void
 pass_over(abfd, func, section)
-bfd *abfd;
-void (*func)();
-asection *section;
+     bfd *abfd;
+     void (*func)();
+     asection *section;
 {
   unsigned int bytes_on_line;
   boolean eof = false;
@@ -157,15 +156,19 @@ asection *section;
       srec_type buffer;
 
       /* Find first 'S' */
-      eof =  bfd_read(&buffer.S, 1, 1, abfd) != 1;
+      eof =  (boolean)(bfd_read(&buffer.S, 1, 1, abfd) != 1);
       while (buffer.S != 'S' && !eof) {
-	eof =  bfd_read(&buffer.S, 1, 1, abfd) != 1;
+	eof = (boolean)(bfd_read(&buffer.S, 1, 1, abfd) != 1);
       }
       if (eof) break;
 
       bfd_read(&buffer.type, 1, 3, abfd);
 
+      if (!ISHEX (buffer.size.high) || !ISHEX (buffer.size.low))
+	break;
       bytes_on_line = HEX(&buffer.size);
+      if (bytes_on_line > MAXCHUNK/2)
+	break;
     
       bfd_read((PTR)buffer.u.data, 1 , bytes_on_line * 2, abfd);
 
@@ -173,31 +176,33 @@ asection *section;
       case '6':
 	/* Prologue - ignore */
 	break;
+
       case '3':
 	address = (HEX(buffer.u.type_3.address+0) << 24)
-	  + (HEX(buffer.u.type_3.address+1) << 16)
-	    + (HEX(buffer.u.type_3.address+2) << 8) 
-	      + (HEX(buffer.u.type_3.address+3));
+		+ (HEX(buffer.u.type_3.address+1) << 16)
+		+ (HEX(buffer.u.type_3.address+2) << 8) 
+		+ (HEX(buffer.u.type_3.address+3));
         func(abfd,section, address, buffer.u.type_3.data, bytes_on_line -1);
-
 	break;
 
       case '2':
-	address = (HEX(buffer.u.type_2.address+0) << 16)+
-	  (HEX(buffer.u.type_2.address+1) << 8) +
-	(HEX(buffer.u.type_2.address+2));
+	address = (HEX(buffer.u.type_2.address+0) << 16)
+		+ (HEX(buffer.u.type_2.address+1) << 8)
+		+ (HEX(buffer.u.type_2.address+2));
         func(abfd,section, address, buffer.u.type_2.data, bytes_on_line -1);
-
 	break;
+
       case '1':
-	address =
-	  (HEX(buffer.u.type_1.address+0) << 8) 
-	    + (HEX(buffer.u.type_1.address+1));
+	address = (HEX(buffer.u.type_1.address+0) << 8) 
+	        + (HEX(buffer.u.type_1.address+1));
         func(abfd, section, address, buffer.u.type_1.data, bytes_on_line -1);
 	break;
 
+      default:
+	goto end_of_file;
       }
     }
+  end_of_file: ;
 }
 
 
@@ -205,17 +210,15 @@ bfd_target *
 srec_object_p (abfd)
 bfd *abfd;
 {
-  char b;
+  char b[4];
   asection *section;
   bfd_seek(abfd, (file_ptr)0, SEEK_SET);
-  bfd_read(&b, 1,1,abfd);
-  if (b != 'S') return (bfd_target*)NULL;
-
-  /* 
-     We create one section called data for all the contents, 
-     and allocate enough room for the entire file
-     */
-
+  bfd_read(b, 1, 4, abfd);
+  if (b[0] != 'S' || !ISHEX(b[1]) || !ISHEX(b[2]) || !ISHEX(b[3]))
+    return (bfd_target*) NULL;
+  
+  /* We create one section called .text for all the contents, 
+     and allocate enough room for the entire file.  */
 
   section =  bfd_make_section(abfd, ".text");
   section->size = 0;
@@ -227,12 +230,6 @@ bfd *abfd;
   section->vma = low;
   return abfd->xvec;
 }
-
-
-
-
-
-
 
 
 static boolean
@@ -259,9 +256,7 @@ bfd *abfd;
 enum bfd_architecture arch;
 unsigned long machine;
 {
-  abfd->obj_arch = arch;
-  abfd->obj_machine = machine;
-  return true;
+  return bfd_default_set_arch_mach(abfd, arch, machine);
 }
 
 
@@ -379,7 +374,7 @@ DEFUN(srec_make_empty_symbol, (abfd),
 #define srec_get_reloc_upper_bound (FOO(unsigned int, (*),(bfd*, asection *)))bfd_false
 #define srec_canonicalize_reloc (FOO(unsigned int, (*),(bfd*,asection *, arelent **, asymbol **))) bfd_0
 
-#define srec_print_symbol (FOO(void,(*),(bfd *, PTR, asymbol *, bfd_print_symbol_enum_type))) bfd_void
+#define srec_print_symbol (FOO(void,(*),(bfd *, PTR, asymbol *, bfd_print_symbol_type))) bfd_void
 
 #define srec_openr_next_archived_file (FOO(bfd *, (*), (bfd*,bfd*))) bfd_nullvoidptr
 #define srec_find_nearest_line (FOO(boolean, (*),(bfd*,asection*,asymbol**,bfd_vma, CONST char**, CONST char**, unsigned int *))) bfd_false
@@ -403,7 +398,7 @@ DEFUN(srec_make_empty_symbol, (abfd),
 bfd_target srec_vec =
 {
   "srec",			/* name */
-  bfd_target_srec_flavour_enum,
+  bfd_target_srec_flavour,
   true,				/* target byte order */
   true,				/* target headers byte order */
   (HAS_RELOC | EXEC_P |		/* object flags */

@@ -5,6 +5,11 @@
 #CC = gcc -b$(target) -g -nostdinc
 #CFLAGS= -I- -I/usr/local/lib/gcc/$(target)/1.92/include -I$(srcdir) -I$(srcdir)/../include
 
+# Most hosts want strerror, but one or two don't, and they override these
+# definitions in the host-dependent makefile fragment.
+STRERROR_C = strerror.c
+STRERROR_O = strerror.o
+
 # Host and target-dependent makefile fragments come in here.
 ####
 # End of host and target-dependent makefile fragments.
@@ -12,10 +17,10 @@
 srcdir = .
 destdir = /usr/local
 
-libdir = $(destdir)/lib
+libdir = $(destdir)/H-$(host_alias)/T-independent/lib
 
-CFILES = getopt.c getopt1.c obstack.c
-OFILES = getopt.o getopt1.o obstack.o
+CFILES = getopt.c getopt1.c obstack.c $(STRERROR_C) $(HOST_CFILES)
+OFILES = getopt.o getopt1.o obstack.o $(STRERROR_O) $(HOST_OFILES)
 
 TARGETLIB = libiberty.a
 RANLIB = ranlib
@@ -28,8 +33,9 @@ STAGESTUFF = $(TARGETLIB) $(OFILES)
 all:	$(TARGETLIB)
 
 install: all
-	install -c $(TARGETLIB) $(libdir)/$(TARGETLIB)
-	$(RANLIB) $(libdir)/$(TARGETLIB)
+	cp $(TARGETLIB) $(libdir)/$(TARGETLIB).new
+	$(RANLIB) $(libdir)/$(TARGETLIB).new
+	mv -f $(libdir)/$(TARGETLIB).new $(libdir)/$(TARGETLIB)
 
 $(TARGETLIB): $(OFILES)
 	rm -rf $(TARGETLIB)
@@ -90,10 +96,5 @@ clean:
 
 force:
 
-Makefile: $(srcdir)/Makefile.in $(srcdir)/configure
-	(cd $(srcdir) ; \
-		./configure +norecurse \
-		+destdir=$(destdir) \
-		`if [ "$(srcdir)" != "." ] ; then echo +subdirs; fi` \
-		$(host) +target=$(target))
-
+Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
+	$(SHELL) ./config.status

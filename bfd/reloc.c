@@ -36,15 +36,15 @@ particuar section, and fill in the right bits:
 
 @menu
 * typedef arelent::
-* reloc handling functions::
+* howto manager::
 @end menu
 
 */
-#include "sysdep.h"
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
-/*doc
-@node typedef arelent, Relocations, reloc handling functions, Relocations
+/*doc*
+@node typedef arelent, howto manager, Relocations, Relocations
 @section typedef arelent
 
 
@@ -89,7 +89,7 @@ only when linking i960 coff files with i960 b.out symbols.
 
 $  bfd_reloc_dangerous
 $   }
-$ bfd_reloc_status_enum_type;
+$ bfd_reloc_status_type;
 
 *---
 
@@ -130,11 +130,11 @@ $} arelent;
 /*doc*
 @table @code
 @item sym_ptr_ptr
-The symbol table pointer points to a pointer to the symbol ascociated with the
-relocation request. This would naturaly be the pointer into the table
+The symbol table pointer points to a pointer to the symbol associated with the
+relocation request. This would naturally be the pointer into the table
 returned by the back end's get_symtab action. @xref{Symbols}. The
 symbol is referenced through a pointer to a pointer so that tools like
-the linker can fixup all the symbols of the same name by modifying
+the linker can fix up all the symbols of the same name by modifying
 only one pointer. The relocation routine looks in the symbol and uses
 the base of the section the symbol is attached to and the value of
 the symbol as the initial relocation offset. If the symbol pointer is
@@ -148,7 +148,7 @@ two bytes of a four byte word would not touch the first byte pointed
 to in a big endian world.
 @item addend
 The addend is a value provided by the back end to be added (!) to the
-relocation offset. It's interpretation is dependent upon the howto.
+relocation offset. Its interpretation is dependent upon the howto.
 For example, on the 68k the code:
 
 *+
@@ -315,7 +315,7 @@ If this field is non null, then the supplied function is called rather
 than the normal function. This allows really strange relocation
 methods to be accomodated (eg, i960 callj instructions).
 
-$  bfd_reloc_status_enum_type (*special_function)();
+$  bfd_reloc_status_type (*special_function)();
 
 The textual name of the relocation type.
 
@@ -361,6 +361,34 @@ The HOWTO define is horrible and will go away.
   {(unsigned)C,R,S,B, P, BI, ABS,O,SF,NAME,INPLACE,MASKSRC,MASKDST,PC}
 *-
 
+And will be replaced with the totally magic way. But for the moment,
+we are compatible, so do it this way..
+
+*+
+#define NEWHOWTO( FUNCTION, NAME,SIZE,REL,IN) HOWTO(0,0,SIZE,0,REL,0,false,false,FUNCTION, NAME,false,0,0,IN)
+*-
+
+Helper routine to turn a symbol into a relocation value.
+
+*+
+
+
+#define HOWTO_PREPARE(relocation, symbol) 	\
+  {						\
+  if (symbol != (asymbol *)NULL) {		\
+    if (symbol->flags & BSF_FORT_COMM) {	\
+      relocation = 0;				\
+    }						\
+    else {					\
+      relocation = symbol->value;		\
+    }						\
+  }						\
+  if (symbol->section != (asection *)NULL) {	\
+    relocation += symbol->section->output_section->vma +	\
+      symbol->section->output_offset;		\
+  }						\
+}			
+*-
 */
 
 /*proto* reloc_chain
@@ -390,7 +418,7 @@ the addend has to go in the output data.  This is no big deal since in
 these formats the output data slot will always be big enough for the
 addend. Complex reloc types with addends were invented to solve just
 this problem.
-*; PROTO(bfd_reloc_status_enum_type,
+*; PROTO(bfd_reloc_status_type,
                 bfd_perform_relocation,
                         (bfd * abfd,
                         arelent *reloc_entry,
@@ -400,7 +428,7 @@ this problem.
 */
 
 
-bfd_reloc_status_enum_type
+bfd_reloc_status_type
 DEFUN(bfd_perform_relocation,(abfd,
                               reloc_entry,
                               data,
@@ -413,7 +441,7 @@ DEFUN(bfd_perform_relocation,(abfd,
       bfd *output_bfd)
 {
   bfd_vma relocation;
-  bfd_reloc_status_enum_type flag = bfd_reloc_ok;
+  bfd_reloc_status_type flag = bfd_reloc_ok;
   bfd_vma addr = reloc_entry->address ;
   bfd_vma output_base = 0;
   reloc_howto_type *howto = reloc_entry->howto;
@@ -432,7 +460,7 @@ DEFUN(bfd_perform_relocation,(abfd,
   }
 
   if (howto->special_function){
-    bfd_reloc_status_enum_type cont;
+    bfd_reloc_status_type cont;
     cont = howto->special_function(abfd,
                                    reloc_entry,
                                    symbol,
@@ -513,7 +541,7 @@ DEFUN(bfd_perform_relocation,(abfd,
 
         
         relocation -= 
-          output_base +   input_section->output_offset;
+          input_section->output_section->vma + input_section->output_offset;
 
         if (howto->pcrel_offset == true) {
           relocation -= reloc_entry->address;
@@ -642,3 +670,64 @@ DEFUN(bfd_perform_relocation,(abfd,
 }
 
 
+
+/*doc*
+@node howto manager,  , typedef arelent, Relocations
+@section The howto manager 
+
+
+When an application wants to create a relocation, but doesn't know
+what the target machine might call it, it can find out by using this
+bit of code.
+
+*/
+
+/*proto* bfd_reloc_code_type
+
+*+++
+
+$typedef enum bfd_reloc_code_real {
+
+16 bits wide, simple reloc 
+
+$  BFD_RELOC_16,	
+
+8 bits wide, but used to form an address like 0xffnn
+
+$  BFD_RELOC_8_FFnn,
+
+8 bits wide, simple
+
+$  BFD_RELOC_8,
+
+8 bits wide, pc relative
+
+$  BFD_RELOC_8_PCREL
+$ } bfd_reloc_code_real_type;
+
+*---
+
+*/
+
+
+
+/*proto* bfd_reloc_type_lookup
+This routine returns a pointer to a howto struct which when invoked,
+will perform the supplied relocation on data from the architecture
+noted.
+
+[Note] This function will go away.
+
+*; PROTO(CONST struct reloc_howto_struct *,
+	bfd_reloc_type_lookup,
+	(CONST bfd_arch_info_type *arch, bfd_reloc_code_type code));
+*/
+
+
+CONST struct reloc_howto_struct *
+DEFUN(bfd_reloc_type_lookup,(arch, code),
+	CONST bfd_arch_info_type *arch  AND
+	bfd_reloc_code_type code)
+{
+  return arch->reloc_type_lookup(arch, code);
+}

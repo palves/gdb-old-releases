@@ -32,13 +32,11 @@ it and opens the one wanted, returning its file handle.
 
 */
 
+/* $Id: cache.c,v 1.11 1991/10/11 10:05:24 gnu Exp $ */
 
-
-/* $Id: cache.c,v 1.10 1991/08/19 23:02:59 pesch Exp $ */
-#include <sysdep.h>
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
-
 
 /*proto-internal* BFD_CACHE_MAX_OPEN
 The maxiumum number of files which the cache will keep open at one

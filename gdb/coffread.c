@@ -106,7 +106,7 @@ static int symnum;
 
 /* Vector of types defined so far, indexed by their coff symnum.  */
 
-static struct typevector *type_vector;
+static struct type **type_vector;
 
 /* Number of elements allocated for type_vector currently.  */
 
@@ -267,13 +267,12 @@ coff_lookup_type (index)
       if (type_vector_length < index) {
 	type_vector_length = index * 2;
       }
-      type_vector = (struct typevector *)
-	xrealloc (type_vector, sizeof (struct typevector)
-				+ type_vector_length * sizeof (struct type *));
-      bzero (&type_vector->type[ old_vector_length ],
+      type_vector = (struct type **)
+	xrealloc (type_vector, type_vector_length * sizeof (struct type *));
+      bzero (&type_vector[old_vector_length],
 	     (type_vector_length - old_vector_length) * sizeof(struct type *));
     }
-  return &type_vector->type[index];
+  return &type_vector[index];
 }
 
 /* Make sure there is a type allocated for type number index
@@ -295,6 +294,7 @@ coff_alloc_type (index)
       type = (struct type *) obstack_alloc (symbol_obstack,
 					    sizeof (struct type));
       bzero (type, sizeof (struct type));
+      TYPE_VPTR_FIELDNO (type) = -1;
       *type_addr = type;
     }
   return type;
@@ -627,7 +627,7 @@ struct coff_symfile_info {
 
 static int text_bfd_scnum;
 
-void
+static void
 coff_symfile_init (sf)
      struct sym_fns *sf;
 {
@@ -728,7 +728,7 @@ static bfd *symfile_bfd;
    shared libraries or add_file!  */
 
 /* ARGSUSED */
-void
+static void
 coff_symfile_read (sf, addr, mainline)
      struct sym_fns *sf;
      CORE_ADDR addr;
@@ -766,7 +766,7 @@ coff_symfile_read (sf, addr, mainline)
 
   /* Allocate space for raw symbol and aux entries, based on their
      space requirements as reported by BFD.  */
-  temp_sym = (char *) malloc
+  temp_sym = (char *) xmalloc
 	 (cdata->local_symesz + cdata->local_auxesz);
   temp_aux = temp_sym + cdata->local_symesz;
   make_cleanup (free_current_contents, &temp_sym);
@@ -822,7 +822,7 @@ coff_symfile_read (sf, addr, mainline)
   select_source_symtab (0);	/* FIXME, this might be too slow, see dbxread */
 }
 
-void
+static void
 coff_new_init ()
 {
   /* There seems to be nothing to do except free_all_symtabs and set
@@ -892,10 +892,9 @@ read_coff_symtab (desc, nsyms)
   if (type_vector)			/* Get rid of previous one */
     free (type_vector);
   type_vector_length = 160;
-  type_vector = (struct typevector *)
-		xmalloc (sizeof (struct typevector)
-				+ type_vector_length * sizeof (struct type *));
-  bzero (type_vector->type, type_vector_length * sizeof (struct type *));
+  type_vector = (struct type **)
+		xmalloc (type_vector_length * sizeof (struct type *));
+  bzero (type_vector, type_vector_length * sizeof (struct type *));
 
   start_symtab ();
 

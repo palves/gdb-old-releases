@@ -50,28 +50,32 @@
  *		'n' indicates the corresponding segment must begin at an
  *		address that is a multiple of (2**n).
  */
-struct internal_exec {
+struct external_exec {
 	/* Standard stuff */
-	unsigned long a_magic;	/* Identifies this as a b.out file	*/
-	unsigned long a_text;	/* Length of text			*/
-	unsigned long a_data;	/* Length of data			*/
-	unsigned long a_bss;	/* Length of runtime uninitialized data area */
-	unsigned long a_syms;	/* Length of symbol table		*/
-	unsigned long a_entry;	/* Runtime start address		*/
-	unsigned long a_trsize;	/* Length of text relocation info	*/
-	unsigned long a_drsize;	/* Length of data relocation info	*/
+	unsigned char e_info[4];	/* Identifies this as a b.out file */
+	unsigned char e_text[4];	/* Length of text */
+	unsigned char e_data[4];	/* Length of data */
+	unsigned char e_bss[4];		/* Length of uninitialized data area */
+	unsigned char e_syms[4];	/* Length of symbol table */
+	unsigned char e_entry[4];	/* Runtime start address */
+	unsigned char e_trsize[4];	/* Length of text relocation info */
+	unsigned char e_drsize[4];	/* Length of data relocation info */
 
 	/* Added for i960 */
-	unsigned long a_tload;	/* Text runtime load address		*/
-	unsigned long a_dload;	/* Data runtime load address		*/
-	unsigned char a_talign;	/* Alignment of text segment		*/
-	unsigned char a_dalign;	/* Alignment of data segment		*/
-	unsigned char a_balign;	/* Alignment of bss segment		*/
-	unsigned char unused;	/* (Just to make struct size a multiple of 4) */
+	unsigned char e_tload[4];	/* Text runtime load address */
+	unsigned char e_dload[4];	/* Data runtime load address */
+	unsigned char e_talign[1];	/* Alignment of text segment */
+	unsigned char e_dalign[1];	/* Alignment of data segment */
+	unsigned char e_balign[1];	/* Alignment of bss segment */
+	unsigned char e_unused[1];	/* (make struct size a multiple of 4) */
 };
 
-#define N_BADMAG(x)	(((x).a_magic)!=BMAGIC)
-#define N_TXTOFF(x)	( sizeof(struct internal_exec) )
+#define	EXEC_BYTES_SIZE	(sizeof (struct external_exec))
+
+/* These macros use the a_xxx field names, since they operate on the exec
+   structure after it's been byte-swapped and realigned on the host machine. */
+#define N_BADMAG(x)	(((x).a_info)!=BMAGIC)
+#define N_TXTOFF(x)	EXEC_BYTES_SIZE
 #define N_DATOFF(x)	( N_TXTOFF(x) + (x).a_text )
 #define N_TROFF(x)	( N_DATOFF(x) + (x).a_data )
 #define N_TRELOFF	N_TROFF

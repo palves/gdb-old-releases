@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "defs.h"
 #include "command.h"
+#include "gdbcmd.h"
 extern int immediate_quit;
 static void
 copying_info ()
@@ -65,7 +66,7 @@ copying_info ()
   printf_filtered ("\n");
   printf_filtered ("  The precise terms and conditions for copying, distribution and\n");
   printf_filtered ("modification follow.\n");
-  printf_filtered ("\n");
+  printf_filtered ("\n");
   printf_filtered ("		    GNU GENERAL PUBLIC LICENSE\n");
   printf_filtered ("   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION\n");
   printf_filtered ("\n");
@@ -120,7 +121,7 @@ copying_info ()
   printf_filtered ("    License.  (Exception: if the Program itself is interactive but\n");
   printf_filtered ("    does not normally print such an announcement, your work based on\n");
   printf_filtered ("    the Program is not required to print an announcement.)\n");
-  printf_filtered ("\n");
+  printf_filtered ("\n");
   printf_filtered ("These requirements apply to the modified work as a whole.  If\n");
   printf_filtered ("identifiable sections of that work are not derived from the Program,\n");
   printf_filtered ("and can be reasonably considered independent and separate works in\n");
@@ -178,7 +179,7 @@ copying_info ()
   printf_filtered ("access to copy the source code from the same place counts as\n");
   printf_filtered ("distribution of the source code, even though third parties are not\n");
   printf_filtered ("compelled to copy the source along with the object code.\n");
-  printf_filtered ("\n");
+  printf_filtered ("\n");
   printf_filtered ("  4. You may not copy, modify, sublicense, or distribute the Program\n");
   printf_filtered ("except as expressly provided under this License.  Any attempt\n");
   printf_filtered ("otherwise to copy, modify, sublicense or distribute the Program is\n");
@@ -235,7 +236,7 @@ copying_info ()
   printf_filtered ("\n");
   printf_filtered ("This section is intended to make thoroughly clear what is believed to\n");
   printf_filtered ("be a consequence of the rest of this License.\n");
-  printf_filtered ("\n");
+  printf_filtered ("\n");
   printf_filtered ("  8. If the distribution and/or use of the Program is restricted in\n");
   printf_filtered ("certain countries either by patents or by copyrighted interfaces, the\n");
   printf_filtered ("original copyright holder who places the Program under this License\n");
@@ -303,5 +304,11 @@ _initialize_copying ()
   add_info ("copying", copying_info,
 	    "Conditions for redistributing copies of GDB.");
   add_info ("warranty", warranty_info,
-	  "Various kinds of warranty you do not have.");
+	    "Various kinds of warranty you do not have.");
+  add_cmd ("copying", no_class, copying_info,
+	   "Conditions for redistributing copies of GDB.",
+	   &showlist);
+  add_cmd ("warranty", no_class, warranty_info,
+	   "Various kinds of warranty you do not have.",
+	   &showlist);
 }

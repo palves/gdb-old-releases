@@ -57,15 +57,17 @@ new files are useful.
      program to run.  You can change the value of this variable, for
      both GDB and your program, using the `path' command.
 
+`file'
      `file' with no argument makes GDB discard any information it has
      on both executable file and the symbol table.
 
-`exec-file FILENAME'
+`exec-file [ FILENAME ]'
      Specify that the program to be run (but not the symbol table) is
      found in FILENAME.  GDB will search the environment variable
-     `PATH' if necessary to locate the program.
+     `PATH' if necessary to locate the program.  Omitting FILENAME
+     means to discard information on the executable file.
 
-`symbol-file FILENAME'
+`symbol-file [ FILENAME ]'
      Read symbol table information from file FILENAME.  `PATH' is
      searched when necessary.  Use the `file' command to get both
      symbol table and program to run from the same file.
@@ -109,8 +111,7 @@ new files are useful.
      compilers; for example, using `gcc' you can generate debugging
      information for optimized code.
 
-`core-file FILENAME'
-`core FILENAME'
+`core-file [ FILENAME ]'
      Specify the whereabouts of a core dump file to be used as the
      "contents of memory".  Traditionally, core files contain only
      some parts of the address space of the process that generated
@@ -225,7 +226,7 @@ the `set complaints' command (*Note Messages/Warnings::).
      not a function.
 
 `block at ADDRESS out of order'
-     The symbol information for symbol scope blocks should occur in 
+     The symbol information for symbol scope blocks should occur in
      order of increasing addresses.  This error indicates that it
      does not do so.
 
@@ -266,9 +267,13 @@ the `set complaints' command (*Note Messages/Warnings::).
 `stub type has NULL name'
      GDB could not find the full definition for a struct or class.
 
-`C++ type mismatch between compiler and debugger'
-     GDB could not parse a type specification output by the compiler
-     for some C++ object.
+`const/volatile indicator missing (ok if using g++ v1.x), got...'
+     The symbol information for a C++ member function is missing some
+     information that recent versions of the compiler should have
+     output for it.
+
+`info mismatch between compiler and debugger'
+     GDB could not parse a type specification output by the compiler.
 
 
 File: gdb.info,  Node: Targets,  Next: Controlling GDB,  Prev: GDB Files,  Up: Top
@@ -276,16 +281,15 @@ File: gdb.info,  Node: Targets,  Next: Controlling GDB,  Prev: GDB Files,  Up: T
 Specifying a Debugging Target
 *****************************
 
-   A "target" is an interface between the debugger and a particular 
-kind of file or process.
-
-   Often, you will be able to run GDB in the same host environment as
-the program you are debugging; in that case, the debugging target
-can just be specified as a side effect of the `file' or `core'
-commands.  When you need more flexibility--for example, running GDB
-on a physically separate host, controlling standalone systems over a
-serial port, or realtime systems over a TCP/IP connection--you can
-use the `target' command.
+   A "target" is the execution environment occupied by your program. 
+Often, GDB runs in the same host environment as the program you are
+debugging; in that case, the debugging target is specified as a side
+effect when you use the `file' or `core' commands.  When you need
+more flexibility--for example, running GDB on a physically separate
+host, or controlling a standalone system over a serial port or a
+realtime system over a TCP/IP connection--you can use the `target'
+command to specify one of the target types configured for GDB (*note
+Target Commands::.).
 
 * Menu:
 
@@ -299,25 +303,34 @@ File: gdb.info,  Node: Active Targets,  Next: Target Commands,  Prev: Targets,  
 Active Targets
 ==============
 
-   Targets are managed in three "strata" that correspond to different
-classes of target: processes, core files, and executable files. 
-This allows you to (for example) start a process and inspect its
-activity without abandoning your work on a core file.
+   There are three classes of targets: processes, core files, and
+executable files.  GDB can work concurrently on up to three active
+targets, one in each class.  This allows you to (for example) start
+a process and inspect its activity without abandoning your work on a
+core file.
 
-   More than one target can potentially respond to a request.  In
-particular, when you access memory GDB will examine the three strata
-of targets until it finds a target that can handle that particular
-address.  Strata are always examined in a fixed order: first a
-process if there is one, then a core file if there is one, and
-finally
-an executable file if there is one of those.
+   If, for example, you execute `gdb a.out', then the executable file
+`a.out' is the only active target.  If you designate a core file as
+well--presumably from a prior run that crashed and coredumped--then
+GDB has two active targets and will use them in tandem, looking
+first in the corefile target, then in the executable file, to
+satisfy
+requests for memory addresses.  (Typically, these two classes of
+target are complementary, since core files contain only the
+program's read-write memory--variables and so on--plus machine
+status, while executable files contain only the program text and
+initialized data.)
 
-   When you specify a new target in a given stratum, it replaces any
-target previously in that stratum.
+   When you type `run', your executable file becomes an active
+process target as well.  When a process target is active, all GDB
+commands requesting memory addresses refer to that target; addresses
+in an active core file or executable file target are obscured while
+the process target is active.
 
-   To get rid of a target without replacing it, use the `detach'
-command.  The related command `attach' provides you with a way of
-choosing a particular running process as a new target. *Note Attach::.
+   Use the `core-file', and `exec-file' commands to select a new core
+file or executable target (*note Files::.).  To specify as a target
+a process that's already running, use the `attach' command (*note
+Attach::.).
 
 
 File: gdb.info,  Node: Target Commands,  Next: Remote,  Prev: Active Targets,  Up: Targets
@@ -328,6 +341,7 @@ Commands for Managing Targets
 `target TYPE PARAMETERS'
      Connects the GDB host environment to a target machine or
      process.  A target is typically a protocol for talking to
+    
      debugging facilities.  You use the argument TYPE to specify the
      type or protocol of the target machine.
 
@@ -400,7 +414,8 @@ can't run GDB in the usual way, it is often useful to use remote
 debugging.  For example, you might use remote debugging on an
 operating system kernel, or on a small system which does not have a
 general purpose operating system powerful enough to run a
-full-featured debugger.
+full-featured
+debugger.
 
    Some configurations of GDB have special serial or TCP/IP
 interfaces to make this work with particular debugging targets.  In
@@ -409,8 +424,7 @@ GDB comes with a generic serial protocol (specific to GDB, but not
 specific to any particular target system) which you can use if you
 write the remote stubs--the code that will run on the remote system
 to
-communicate
-with GDB.
+communicate with GDB.
 
    To use the GDB remote serial protocol, the program to be debugged
 on the remote machine needs to contain a debugging stub which talks

@@ -112,6 +112,7 @@ typedef enum ieee_record
   ieee_assign_value_to_variable_enum = 0xe2d7,
   ieee_set_current_pc_enum = 0xe2d0,
   ieee_value_record_enum = 0xe2c9,
+ieee_nn_record = 0xf0,
   ieee_weak_external_reference_enum= 0xf4,
   ieee_repeat_data_enum = 0xf7,
 } ieee_record_enum_type;

@@ -44,7 +44,7 @@ extern char *getenv();
 struct so_list {
     struct link_map inferior_lm;		/* inferior link map */
     struct link_map *inferior_lm_add;
-    long   ld_text;
+    long   ld_text;			/* FIXME: eliminate, handle arb. sect */
     char inferior_so_name[MAX_PATH_SIZE];	/* Shared Object Library Name */
     struct so_list *next;			/* Next Structure */
     char	symbols_loaded;			/* Flag: loaded? */
@@ -93,16 +93,13 @@ struct so_list *so;
 
   for (p = so->sections; p < so->sections_end; p++)
     {
+      p->addr += (CORE_ADDR)so->inferior_lm.lm_addr;
+      p->endaddr += (CORE_ADDR)so->inferior_lm.lm_addr;
       if (strcmp (bfd_section_name (so->so_bfd, p->sec_ptr), ".text") == 0)
 	{
-	  /* Determine length of text section and relocate it. */
+	  /* Determine length of text section */
 	  so->ld_text = p->endaddr - p->addr;
-	  p->addr += (CORE_ADDR)so->inferior_lm.lm_addr;
-	  p->endaddr += (CORE_ADDR)so->inferior_lm.lm_addr;
 	}
-      else
-	/* All other sections are ignored for now. */
-	p->addr = p->endaddr = 0;
     }
 }
 

@@ -83,17 +83,6 @@ struct misc_function
 struct misc_function *misc_function_vector;
 int misc_function_count;
 
-/* All data types of symbols in the compiled program
-   are represented by `struct type' objects.
-   All of these objects are pointed to by the typevector.
-   The type vector may have empty slots that contain zero.  */
-
-struct typevector
-{
-  int length;			/* Number of types described */
-  struct type *type[1];
-};
-
 /* Different kinds of data types are distinguished by the `code' field.  */
 
 enum type_code
@@ -525,8 +514,6 @@ struct symtab
     struct blockvector *blockvector;
     /* Table mapping core addresses to line numbers for this file.  */
     struct linetable *linetable;
-    /* Vector containing all types defined for this symtab.  */
-    struct typevector *typevector;
     /* Name of this source file.  */
     char *filename;
     /* Directory in which it was compiled, or NULL if we don't know.  */
@@ -659,8 +646,6 @@ int current_source_line;
 #define BLOCKLIST(symtab) (symtab)->blockvector
 #define BLOCKVECTOR(symtab) (symtab)->blockvector
 
-#define TYPEVECTOR(symtab) (symtab)->typevector
-
 #define LINELIST(symtab) (symtab)->linetable
 #define LINETABLE(symtab) (symtab)->linetable
 
@@ -670,9 +655,6 @@ int current_source_line;
 #define BLOCKLIST_BLOCK(blocklist,n) (blocklist)->block[n]
 #define BLOCKVECTOR_NBLOCKS(blocklist) (blocklist)->nblocks
 #define BLOCKVECTOR_BLOCK(blocklist,n) (blocklist)->block[n]
-
-#define TYPEVECTOR_NTYPES(typelist) (typelist)->length
-#define TYPEVECTOR_TYPE(typelist,n) (typelist)->type[n]
 
 #define BLOCK_START(bl) (bl)->startaddr
 #define BLOCK_END(bl) (bl)->endaddr

@@ -131,8 +131,8 @@ core_open (filename, from_tty)
 
   if (!bfd_check_format (temp_bfd, bfd_core))
     {
-      bfd_close (temp_bfd);
-      error ("\"%s\" does not appear to be a core dump", filename);
+      make_cleanup (bfd_close, temp_bfd);	/* Do it after the err msg */
+      error ("\"%s\" is not a core dump: %s", filename, bfd_errmsg(bfd_error));
     }
 
   /* Looks semi-reasonable.  Toss the old core file and work on the new.  */
@@ -282,13 +282,11 @@ core_files_info (t)
   printf ("\tCore file `%s'.\n", bfd_get_filename(core_bfd));
 
   for (p = t->sections; p < t->sections_end; p++) {
-    printf(p->bfd == core_bfd? "\tcore file  ": "\tshared lib ");
-    printf("from %s", local_hex_string_custom (p->addr, "08"));
-    printf(" to %s", local_hex_string_custom (p->endaddr, "08"));
+    printf("\t%s", local_hex_string_custom (p->addr, "08"));
+    printf(" - %s is %s", local_hex_string_custom (p->endaddr, "08"),
+	   bfd_section_name (p->bfd, p->sec_ptr));
     if (p->bfd != core_bfd) {
-      printf(" is %s in %s",
-	     bfd_section_name (p->bfd, p->sec_ptr),
-	     bfd_get_filename (p->bfd));
+      printf(" in %s", bfd_get_filename (p->bfd));
     }
     printf ("\n");
   }
@@ -398,15 +396,17 @@ get_core_registers (regno)
   char *the_regs;
 
   reg_sec = bfd_get_section_by_name (core_bfd, ".reg");
+  if (!reg_sec) goto cant;
   size = bfd_section_size (core_bfd, reg_sec);
   the_regs = alloca (size);
-  if (bfd_get_section_contents (core_bfd, reg_sec, the_regs,
-				(unsigned)0, size))
+  if (bfd_get_section_contents (core_bfd, reg_sec, the_regs, (file_ptr)0, size))
     {
-      fetch_core_registers (the_regs, size, 0);
+      fetch_core_registers (the_regs, size, 0,
+			    (unsigned) bfd_section_vma (abfd,reg_sec));
     }
   else
     {
+cant:
       fprintf (stderr, "Couldn't fetch registers from core file: %s\n",
 	       bfd_errmsg (bfd_error));
     }
@@ -416,10 +416,11 @@ get_core_registers (regno)
   if (reg_sec) {
     size = bfd_section_size (core_bfd, reg_sec);
     the_regs = alloca (size);
-    if (bfd_get_section_contents (core_bfd, reg_sec, the_regs,
-				  (unsigned)0, size))
+    if (bfd_get_section_contents (core_bfd, reg_sec, the_regs, (file_ptr)0,
+				  size))
       {
-	fetch_core_registers (the_regs, size, 2);
+	fetch_core_registers (the_regs, size, 2,
+			      (unsigned) bfd_section_vma (abfd,reg_sec));
       }
     else
       {

@@ -1,0 +1,2 @@
+HDEFINES=-Daix
+ALLOCA = alloca.o

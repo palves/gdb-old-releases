@@ -52,7 +52,7 @@ here.  */
 #	endif
 #endif
 
-#define BFD_VERSION "1.15"
+#define BFD_VERSION "0.18"
 
 /* forward declaration */
 typedef struct _bfd bfd;
@@ -61,7 +61,9 @@ typedef struct _bfd bfd;
    and false on failure (unless they're a predicate).   -- bfd.doc */
 /* I'm sure this is going to break something and someone is going to
    force me to change it. */
-typedef enum boolean {false, true} boolean;
+/* typedef enum boolean {false, true} boolean; */
+/* Yup, SVR4 has a "typedef enum boolean" in <sys/types.h>  -fnf */
+typedef enum bfd_boolean {false, true} boolean;
 
 /* Try to avoid breaking stuff */
 typedef  long int file_ptr;
@@ -218,10 +220,10 @@ PROTO (void, bfd_perror, (CONST char *message));
 
 typedef enum bfd_print_symbol
 { 
-  bfd_print_symbol_name_enum,
-  bfd_print_symbol_type_enum,
-  bfd_print_symbol_all_enum
-} bfd_print_symbol_enum_type;
+  bfd_print_symbol_name,
+  bfd_print_symbol_more,
+  bfd_print_symbol_all
+} bfd_print_symbol_type;
     
 
 
@@ -267,7 +269,14 @@ CAT(NAME,_bfd_debug_info_start),\
 CAT(NAME,_bfd_debug_info_end),\
 CAT(NAME,_bfd_debug_info_accumulate)
 
-#define COFF_SWAP_TABLE coff_swap_aux_in, coff_swap_sym_in, coff_swap_lineno_in,
+#define COFF_SWAP_TABLE \
+ coff_swap_aux_in, coff_swap_sym_in, coff_swap_lineno_in, \
+ coff_swap_aux_out, coff_swap_sym_out, \
+ coff_swap_lineno_out, coff_swap_reloc_out, \
+ coff_swap_filehdr_out, coff_swap_aouthdr_out, \
+ coff_swap_scnhdr_out
+
+
 
 /* User program access to BFD facilities */
 
@@ -310,13 +319,20 @@ extern CONST short _bfd_host_big_endian;
 
 /*THE FOLLOWING IS EXTRACTED FROM THE SOURCE */
 
+
+/*:init.c*/
+
 /*:opncls.c*/
 
-/*:archures.c*/
 
 /*:libbfd.c*/
 
 /*:section.c*/
+
+
+/*:archures.c*/
+
+/*:reloc.c*/
 
 /*:syms.c*/
 
@@ -326,10 +342,13 @@ extern CONST short _bfd_host_big_endian;
 
 /*:core.c*/
 
-/*:reloc.c*/
-
 /*:targets.c*/
 
 /*:format.c*/
 
 #endif
+
+
+
+
+

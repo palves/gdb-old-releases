@@ -18,10 +18,10 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: targets.c,v 1.27 1991/09/20 03:44:21 gnu Exp $ */
+/* $Id: targets.c,v 1.37 1991/10/16 18:56:05 gnu Exp $ */
 
-#include <sysdep.h>
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
 
 /*doc*
@@ -34,7 +34,7 @@ through a pointer into calls to the back end routines.
 
 When a file is opened with @code{bfd_openr}, its format and target are
 unknown. BFD uses various mechanisms to determine how to interpret the
-file. The operatios performed are:
+file. The operations performed are:
 @itemize @bullet
 @item
 First a BFD is created by calling the internal routine
@@ -63,11 +63,15 @@ Once the BFD has been opened and the target selected, the file format
 may be determined. This is done by calling @code{bfd_check_format} on
 the BFD with a suggested format. The routine returns @code{true} when
 the application guesses right.
+
+@menu
+* bfd_target::
+@end menu
 */
 
 
 /*proto* bfd_target
-@node bfd_target
+@node bfd_target,  , Targets, Targets
 @subsection bfd_target
 This structure contains everything that BFD knows about a target.
 It includes things like its byte order, name, what routines to call
@@ -119,12 +123,14 @@ $  char *name;
 The "flavour" of a back end is a general indication about the contents
 of a file.
 
-$  enum target_flavour_enum {
-$    bfd_target_aout_flavour_enum,
-$    bfd_target_coff_flavour_enum,
-$    bfd_target_ieee_flavour_enum,
-$    bfd_target_oasys_flavour_enum,
-$    bfd_target_srec_flavour_enum} flavour;
+$  enum target_flavour {
+$    bfd_target_unknown_flavour,
+$    bfd_target_aout_flavour,
+$    bfd_target_coff_flavour,
+$    bfd_target_elf_flavour,
+$    bfd_target_ieee_flavour,
+$    bfd_target_oasys_flavour,
+$    bfd_target_srec_flavour} flavour;
 
 The order of bytes within the data area of a file.
 
@@ -232,7 +238,7 @@ $  SDEF (unsigned int, _bfd_canonicalize_reloc, (bfd *, sec_ptr, arelent **,
 $                                               struct symbol_cache_entry**));
 $  SDEF (struct symbol_cache_entry  *, _bfd_make_empty_symbol, (bfd *));
 $  SDEF (void,     _bfd_print_symbol, (bfd *, PTR, struct symbol_cache_entry  *,
-$                                      bfd_print_symbol_enum_type));
+$                                      bfd_print_symbol_type));
 $#define bfd_print_symbol(b,p,s,e) BFD_SEND(b, _bfd_print_symbol, (b,p,s,e))
 $  SDEF (alent *,   _get_lineno, (bfd *, struct symbol_cache_entry  *));
 $
@@ -271,6 +277,46 @@ $       bfd            *abfd,
 $       PTR            ext,
 $       PTR             in));
 $
+
+Special entry points for gas to swap coff parts
+
+$ SDEF(unsigned int, _bfd_coff_swap_aux_out,(
+$       bfd   	*abfd,
+$       PTR	in,
+$       int    	type,
+$       int    	class,
+$       PTR    	ext));
+$
+$ SDEF(unsigned int, _bfd_coff_swap_sym_out,(
+$      bfd      *abfd,
+$      PTR	in,
+$      PTR	ext));
+$
+$ SDEF(unsigned int, _bfd_coff_swap_lineno_out,(
+$      	bfd   	*abfd,
+$      	PTR	in,
+$	PTR	ext));
+$
+$ SDEF(unsigned int, _bfd_coff_swap_reloc_out,(
+$      	bfd     *abfd,
+$     	PTR	src,
+$	PTR	dst));
+$
+$ SDEF(unsigned int, _bfd_coff_swap_filehdr_out,(
+$      	bfd  	*abfd,
+$	PTR 	in,
+$	PTR 	out));
+$
+$ SDEF(unsigned int, _bfd_coff_swap_aouthdr_out,(
+$      	bfd 	*abfd,
+$	PTR 	in,
+$	PTR	out));
+$
+$ SDEF(unsigned int, _bfd_coff_swap_scnhdr_out,(
+$      	bfd  	*abfd,
+$      	PTR	in,
+$	PTR	out));
+$
 $} bfd_target;
 
 *---
@@ -285,12 +331,25 @@ extern bfd_target b_out_vec_little_host;
 extern bfd_target b_out_vec_big_host;
 extern bfd_target icoff_little_vec;
 extern bfd_target icoff_big_vec;
+extern bfd_target elf_little_vec;
+extern bfd_target elf_big_vec;
 extern bfd_target ieee_vec;
 extern bfd_target oasys_vec;
 extern bfd_target m88k_bcs_vec;
 extern bfd_target m68kcoff_vec;
 extern bfd_target i386coff_vec;
+extern bfd_target i386aout_vec;
 extern bfd_target a29kcoff_big_vec;
+extern bfd_target trad_core_vec;
+
+#ifdef SELECT_VECS
+
+bfd_target *target_vector[] = {
+SELECT_VECS,
+0
+
+};
+#else
 #ifdef DEFAULT_VECTOR
 extern bfd_target DEFAULT_VECTOR;
 #endif
@@ -307,16 +366,26 @@ extern bfd_target DEFAULT_VECTOR;
 #define ECOFF_BIG_VEC           ecoff_big_vec
 #define ICOFF_LITTLE_VEC        icoff_little_vec
 #define ICOFF_BIG_VEC           icoff_big_vec
+#define ELF_LITTLE_VEC		elf_little_vec
+#define ELF_BIG_VEC		elf_big_vec
 #define ZB_OUT_VEC_LITTLE_HOST  b_out_vec_little_host
 #define ZB_OUT_VEC_BIG_HOST     b_out_vec_big_host
 #define SUNOS_VEC_BIG_HOST      sunos_big_vec
 #define DEMO_64_VEC             demo_64_vec
+
+/* We have no oasys tools anymore, so we can't test any of this
+   anymore. If you want to test the stuff yourself, go ahead...
+   steve@cygnus.com */
+#if 0
 #define OASYS_VEC               oasys_vec
+#endif
+
 #define IEEE_VEC                ieee_vec
 #define M88K_BCS_VEC            m88k_bcs_vec
 #define SREC_VEC                srec_vec
 #define M68KCOFF_VEC            m68kcoff_vec
 #define I386COFF_VEC            i386coff_vec
+#define	I386AOUT_VEC		i386aout_vec
 #define A29KCOFF_BIG_VEC	a29kcoff_big_vec
 #endif
 
@@ -324,11 +393,15 @@ bfd_target *target_vector[] = {
 
 #ifdef DEFAULT_VECTOR
         &DEFAULT_VECTOR,
-#endif /* DEFAULT_VECTOR */
+#endif
 
 #ifdef  I386COFF_VEC
         &I386COFF_VEC,
-#endif  /* I386COFF_VEC */
+#endif
+
+#ifdef	I386AOUT_VEC
+	&I386AOUT_VEC,
+#endif
 
 #ifdef ECOFF_LITTLE_VEC
         &ECOFF_LITTLE_VEC,
@@ -337,18 +410,18 @@ bfd_target *target_vector[] = {
 #ifdef ECOFF_BIG_VEC
         &ECOFF_BIG_VEC,
 #endif
+
 #ifdef IEEE_VEC
         &IEEE_VEC,
-#endif /* IEEE_VEC */
+#endif
 
 #ifdef OASYS_VEC
         &OASYS_VEC,
-#endif /* OASYS_VEC */
+#endif
 
 #ifdef SUNOS_VEC_BIG_HOST
         &SUNOS_VEC_BIG_HOST,
-#endif /* SUNOS_BIG_VEC */
-
+#endif
 
 #ifdef HOST_64_BIT
 #ifdef DEMO_64_VEC
@@ -358,39 +431,52 @@ bfd_target *target_vector[] = {
 
 #ifdef M88K_BCS_VEC
         &M88K_BCS_VEC,
-#endif /* M88K_BCS_VEC */
+#endif
 
 #ifdef SREC_VEC
         &SREC_VEC,
-#endif /* SREC_VEC */
+#endif
         
 #ifdef ICOFF_LITTLE_VEC
         &ICOFF_LITTLE_VEC,
-#endif /* ICOFF_LITTLE_VEC */
+#endif
 
 #ifdef ICOFF_BIG_VEC
         &ICOFF_BIG_VEC,
-#endif /* ICOFF_BIG_VEC */
+#endif
+
+#ifdef ELF_LITTLE_VEC
+        &ELF_LITTLE_VEC,
+#endif
+
+#ifdef ELF_BIG_VEC
+        &ELF_BIG_VEC,
+#endif
 
 #ifdef B_OUT_VEC_LITTLE_HOST
         &B_OUT_VEC_LITTLE_HOST,
-#endif /* B_OUT_VEC_LITTLE_HOST */
+#endif
 
 #ifdef B_OUT_VEC_BIG_HOST
         &B_OUT_VEC_BIG_HOST,
-#endif /* B_OUT_VEC_BIG_HOST */
+#endif
 
 #ifdef  M68KCOFF_VEC
         &M68KCOFF_VEC,
-#endif  /* M68KCOFF_VEC */
+#endif
 
 #ifdef	A29KCOFF_BIG_VEC
 	&A29KCOFF_BIG_VEC,
-#endif	/* A29KCOFF_BIG_VEC */
+#endif
+
+#ifdef	TRAD_CORE
+	&trad_core_vec,
+#endif
 
         NULL, /* end of list marker */
 };
 
+#endif
 
 /* default_vector[0] contains either the address of the default vector,
    if there is one, or zero if there isn't.  */
@@ -459,7 +545,7 @@ DEFUN_VOID(bfd_target_list)
 {
   int vec_length= 0;
   bfd_target **target;
-CONST  char **name_list, **name_ptr;
+  CONST  char **name_list, **name_ptr;
 
   for (target = &target_vector[0]; *target != NULL; target++)
     vec_length++;
@@ -471,8 +557,6 @@ CONST  char **name_list, **name_ptr;
     bfd_error = no_memory;
     return NULL;
   }
-
-
 
   for (target = &target_vector[0]; *target != NULL; target++)
     *(name_ptr++) = (*target)->name;

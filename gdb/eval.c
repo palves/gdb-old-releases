@@ -966,7 +966,7 @@ evaluate_subexp_for_address (exp, pos, noside)
 	{
 	  value x = evaluate_subexp (NULL_TYPE, exp, pos, noside);
 	  if (VALUE_LVAL (x) == lval_memory)
-	    return value_zero (TYPE_POINTER_TYPE (VALUE_TYPE (x)),
+	    return value_zero (lookup_pointer_type (VALUE_TYPE (x)),
 			       not_lval);
 	  else
 	    error ("Attempt to take address of non-lval");

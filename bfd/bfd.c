@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: bfd.c,v 1.25 1991/09/20 03:44:14 gnu Exp $ */
+/* $Id: bfd.c,v 1.30 1991/10/17 06:05:18 gnu Exp $ */
 
 /*proto*
 @section @code{typedef bfd}
@@ -130,13 +130,9 @@ Symbol table for output BFD
 
 $  struct symbol_cache_entry  **outsymbols;             
 
-Architecture of object machine, eg m68k 
+Pointer to structure which contains architecture information
 
-$  enum bfd_architecture obj_arch;
-
-Particular machine within arch, e.g. 68010
-
-$  unsigned long obj_machine;
+$  struct bfd_arch_info *arch_info;
 
 Stuff only useful for archives:
 
@@ -162,9 +158,12 @@ $};
 *---
 
 */
-#include <sysdep.h>
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
+
+#undef strerror
+extern char *strerror();
 
 
 short _bfd_host_big_endian = 0x0100;
@@ -218,20 +217,6 @@ bfd_error_vector_type bfd_error_vector =
   {
   bfd_nonrepresentable_section 
   };
-
-#if 1 || !defined(ANSI_LIBRARIES) && !defined(__STDC__)
-char *
-strerror (code)
-     int code;
-{
-  extern int sys_nerr;
-  extern char *sys_errlist[];
-
-  return (((code < 0) || (code >= sys_nerr)) ? "(unknown error)" :
-          sys_errlist [code]);
-}
-#endif /* not ANSI_LIBRARIES */
-
 
 char *
 bfd_errmsg (error_tag)
@@ -430,6 +415,31 @@ bfd_get_mtime (abfd)
 
 #define bfd_coff_swap_lineno_in(a,e,i) \
         BFD_SEND ( a, _bfd_coff_swap_lineno_in, (a,e,i))
+
+#define bfd_set_arch_mach(abfd, arch, mach)\
+        BFD_SEND ( abfd, _bfd_set_arch_mach, (abfd, arch, mach))
+
+#define bfd_coff_swap_reloc_out(abfd, i, o) \
+        BFD_SEND (abfd, _bfd_coff_swap_reloc_out, (abfd, i, o))
+
+#define bfd_coff_swap_lineno_out(abfd, i, o) \
+        BFD_SEND (abfd, _bfd_coff_swap_lineno_out, (abfd, i, o))
+
+#define bfd_coff_swap_aux_out(abfd, i, t,c,o) \
+        BFD_SEND (abfd, _bfd_coff_swap_aux_out, (abfd, i,t,c, o))
+
+#define bfd_coff_swap_sym_out(abfd, i,o) \
+        BFD_SEND (abfd, _bfd_coff_swap_sym_out, (abfd, i, o))
+
+#define bfd_coff_swap_scnhdr_out(abfd, i,o) \
+        BFD_SEND (abfd, _bfd_coff_swap_scnhdr_out, (abfd, i, o))
+
+#define bfd_coff_swap_filehdr_out(abfd, i,o) \
+        BFD_SEND (abfd, _bfd_coff_swap_filehdr_out, (abfd, i, o))
+
+#define bfd_coff_swap_aouthdr_out(abfd, i,o) \
+        BFD_SEND (abfd, _bfd_coff_swap_aouthdr_out, (abfd, i, o))
+
 *-
 
 */

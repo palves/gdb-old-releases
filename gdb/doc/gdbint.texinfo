@@ -1,6 +1,6 @@
 \input texinfo
 @setfilename gdbint.info
-@c $Id: gdbint.texinfo,v 1.21 1991/09/21 04:26:28 pesch Exp $
+@c $Id: gdbint.texinfo,v 1.22 1991/10/11 11:50:55 gnu Exp $
 @ifinfo
 This file documents the internals of the GNU debugger GDB.
 
@@ -33,7 +33,7 @@ regarded as a program in the language TeX).
 @page
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.21 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.22 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill \manvers\par
@@ -148,34 +148,25 @@ and
 which should both respond with @code{@var{xarch}-@var{xvend}-@var{xos}}
 and no error messages.
 
-Then edit @file{include/sysdep.h}.  Add a new @code{#define} for
-@samp{@var{xxx}_SYS}, with a numeric value not already in use.  Add a
-new section that says
-
-@example
-#if HOST_SYS==@var{xxx}_SYS
-#include <sys/h-@var{xxx}.h>
-#endif
-@end example
-
-Now create a new file @file{include/sys/h-@var{xxx}.h}.  Examine the
+Now, go to the @file{bfd} directory and 
+create a new file @file{bfd/hosts/h-@var{xxx}.h}.  Examine the
 other @file{h-*.h} files as templates, and create one that brings in the
 right include files for your system, and defines any host-specific
 macros needed by GDB.
 
-Now, go to the @file{bfd} directory and edit @file{bfd/configure.in}.
-Add shell script code to recognize your
+Then edit @file{bfd/configure.in}.  Add shell script code to recognize your
 @code{@var{xarch}-@var{xvend}-@var{xos}} configuration, and set
-@code{bfd_host} to @var{xxx} when you recognize it.  Now create a file
-@file{bfd/config/hmake-@var{xxx}}, which includes the line:
+@code{my_host} to @var{xxx} when you recognize it.  This will cause your
+file @file{h-@var{xxx}.h} to be linked to @file{sysdep.h} at configuration
+time.
 
-@example
-HDEFINES=-DHOST_SYS=@var{xxx}_SYS
-@end example
+Also, if this host requires any changes to the Makefile, create a file
+@file{bfd/config/hmake-@var{xxx}}, which includes the required lines.
 
-(If you have the binary utilities in the same tree, you'll have to do
-the same thing to in the @file{binutils} directory as you've done in the
-@file{bfd} directory.)
+(If you have the binary utilities and/or GNU ld in the same tree,
+you'll also have to edit @file{binutils/configure.in} or
+@file{ld/configure.in} to match what you've done in the @file{bfd}
+directory.)
 
 It's likely that the @file{libiberty} and @file{readline} directories
 won't need any changes for your configuration, but if they do, you can
@@ -184,9 +175,7 @@ map to an @file{hmake-@var{xxx}} file.  Then add @file{hmake-@var{xxx}}
 to the @file{config/} subdirectory, to set any makefile variables you
 need.  The only current options in there are things like @samp{-DSYSV}.
 
-Aha!  Now to configure GDB itself!  You shouldn't edit the
-@code{configure} script itself to add hosts or targets; instead, edit
-the script fragments in the file @code{configure.in}.  Modify
+Aha!  Now to configure GDB itself!  Edit
 @file{gdb/configure.in} to recognize your system and set @code{gdb_host}
 to @var{xxx}, and (unless your desired target is already available) also
 set @code{gdb_target} to something appropriate (for instance,
@@ -196,17 +185,7 @@ per-target}.
 @c Would it be simpler to just use different per-host and per-target
 @c *scripts*, and call them from {configure} ?
 
-Then fold your changes into the @code{configure} script by using the
-@code{+template} option, and specifying @code{configure} itself as the
-template:
-@example
-configure +template=configure
-@end example
-@c If "configure" is the only workable option value for +template, it's
-@c kind of silly to insist that it be provided.  If it isn't, somebody
-@c please fill in here what are others... (then delete this comment!)
-
-Finally, you'll need to specify and define the host- and
+Finally, you'll need to specify and define GDB's host- and
 target-dependent files used for your configuration; the next two
 chapters discuss those.
 
@@ -298,16 +277,8 @@ as the value of @samp{TM_FILE} in @file{tconfig/@var{xxx}}.  You can
 also define @samp{TM_CFLAGS}, @samp{TM_CLIBS}, and @samp{TM_CDEPS} in
 there; see @file{Makefile.in}.
 
-Now, from the top level (above @file{bfd}, @file{gdb}, etc), run:
-
-@example
-./configure -template=./configure
-@end example
-
-This will rebuild all your configure scripts, using the new
-@file{configure.in} files that you modified.  (You can also run this command
-at any subdirectory level.)  You are now ready to try configuring
-GDB to compile for your system.  Do:
+Now, you are now ready to try configuring GDB to compile for your system.
+From the top level (above @file{bfd}, @file{gdb}, etc), do:
 
 @example
 ./configure @var{xxx} +target=vxworks960

@@ -1,7 +1,7 @@
 _dnl__								-*- Texinfo -*-
 _dnl__ Copyright (c) 1991 Free Software Foundation, Inc.
 _dnl__ This file is part of the source for the GDB manual.
-_dnl__ M4 FRAGMENT: $Id: gdbinv-m.m4,v 2.1 1991/09/20 21:43:19 pesch Exp $
+_dnl__ M4 FRAGMENT: $Id: gdbinv-m.m4,v 2.3 1991/10/09 00:17:25 pesch Exp $
 _if__(_I960__)
 * i960-Nindy Remote::		_GDBN__ with a Remote i960 (Nindy)
 _fi__(_I960__)

@@ -90,6 +90,17 @@ Three of the bit twiddling routines are exported to @code{gdb};
 @code{coff_swap_linno_in}. @code{GDB} reads the symbol table on its
 own, but uses BFD to fix things up.
 
+More of the bit twiddlers are exported for @code{gas};
+@code{coff_swap_aux_out}, @code{coff_swap_sym_out},
+@code{coff_swap_lineno_out}, @code{coff_swap_reloc_out},
+@code{coff_swap_filehdr_out}, @code{coff_swap_aouthdr_out},
+@code{coff_swap_scnhdr_out}. @code{Gas} currently keeps track of all
+the symbol table and reloc drudgery itself, thereby saving the
+internal BFD overhead, but uses BFD to swap things on the way out,
+making cross ports much safer.  This also allows BFD (and thus the
+linker) to use the same header files as @code{gas}, which makes one
+avenue to disaster disappear.
+
 @subsubsection Symbol Reading
 The simple canonical form for symbols used by BFD is not rich enough
 to keep all the information available in a coff symbol table. The back
@@ -235,18 +246,8 @@ $ } coff_symbol_type;
 
 */
 
-/* $Id: coffcode.h,v 1.21 1991/09/20 03:44:15 gnu Exp $ */
+/* $Id: coffcode.h,v 1.27 1991/10/11 20:45:17 bothner Exp $ */
 /* Most of this hacked by Steve Chamberlain, steve@cygnus.com */
-
-/* Align an address upward to a boundary, expressed as a number of bytes.
-   E.g. align to an 8-byte boundary with argument of 8.  */
-#define ALIGN(this, boundary) \
-  ((( (this) + ((boundary) -1)) & (~((boundary)-1))))
-
-/* Align an address upward to a power of two.  Argument is the power
-   of two, e.g. 8-byte alignment uses argument of 3 (8 == 2^3).  */
-#define	i960_align(addr, align)	\
-	( ((addr) + ((1<<(align))-1)) & (-1 << (align)))
 
 
 #define PUTWORD bfd_h_put_32
@@ -363,21 +364,8 @@ DEFUN(styp_to_sec_flags, (styp_flags),
     return(sec_flags);
 }
 
-static int
-DEFUN(get_index,(symbol),
-      asymbol        *symbol)
-{
-    return (int) symbol->value;
-}
-
-static void
-DEFUN(set_index,(symbol, idx),
-      asymbol        *symbol AND
-      unsigned int    idx)
-{
-    symbol->value = idx;
-}
-
+#define	get_index(symbol)	((int) (symbol)->value)
+#define	set_index(symbol, idx)	((symbol)->value = (idx))
 
 /*  **********************************************************************
 Here are all the routines for swapping the structures seen in the
@@ -400,19 +388,21 @@ DEFUN(bfd_swap_reloc_in,(abfd, reloc_src, reloc_dst),
 }
 
 
-static void
-DEFUN(bfd_swap_reloc_out,(abfd, reloc_src, reloc_dst),
-      bfd            *abfd AND
-      struct internal_reloc *reloc_src AND
-      struct external_reloc *reloc_dst)
+static unsigned int
+DEFUN(coff_swap_reloc_out,(abfd, src, dst),
+      bfd       *abfd AND
+      PTR	src AND
+      PTR	dst)
 {
+  struct internal_reloc *reloc_src = (struct internal_reloc *)src;
+  struct external_reloc *reloc_dst = (struct external_reloc *)dst;
   bfd_h_put_32(abfd, reloc_src->r_vaddr, (bfd_byte *) reloc_dst->r_vaddr);
   bfd_h_put_32(abfd, reloc_src->r_symndx, (bfd_byte *) reloc_dst->r_symndx);
   bfd_h_put_16(abfd, reloc_src->r_type, (bfd_byte *) reloc_dst->r_type);
 #if M88
   bfd_h_put_16(abfd, reloc_src->r_offset, (bfd_byte *) reloc_dst->r_offset);
 #endif
-
+  return sizeof(struct external_reloc);
 }
 
 static void
@@ -430,12 +420,14 @@ DEFUN(bfd_swap_filehdr_in,(abfd, filehdr_src, filehdr_dst),
   filehdr_dst->f_flags = bfd_h_get_16(abfd, (bfd_byte *)filehdr_src-> f_flags);
 }
 
-static  void 
-DEFUN(bfd_swap_filehdr_out,(abfd, filehdr_in, filehdr_out),
-      bfd            *abfd AND
-      struct internal_filehdr *filehdr_in AND
-      FILHDR         *filehdr_out)
+static  unsigned int
+DEFUN(coff_swap_filehdr_out,(abfd, in, out),
+      bfd       *abfd AND
+      PTR	in AND
+      PTR	out)
 {
+  struct internal_filehdr *filehdr_in = (struct internal_filehdr *)in;
+  FILHDR *filehdr_out = (FILHDR *)out;
   bfd_h_put_16(abfd, filehdr_in->f_magic, (bfd_byte *) filehdr_out->f_magic);
   bfd_h_put_16(abfd, filehdr_in->f_nscns, (bfd_byte *) filehdr_out->f_nscns);
   bfd_h_put_32(abfd, filehdr_in->f_timdat, (bfd_byte *) filehdr_out->f_timdat);
@@ -443,6 +435,7 @@ DEFUN(bfd_swap_filehdr_out,(abfd, filehdr_in, filehdr_out),
   bfd_h_put_32(abfd, filehdr_in->f_nsyms, (bfd_byte *) filehdr_out->f_nsyms);
   bfd_h_put_16(abfd, filehdr_in->f_opthdr, (bfd_byte *) filehdr_out->f_opthdr);
   bfd_h_put_16(abfd, filehdr_in->f_flags, (bfd_byte *) filehdr_out->f_flags);
+  return sizeof(FILHDR);
 }
 
 
@@ -480,19 +473,21 @@ DEFUN(coff_swap_sym_in,(abfd, ext1, in1),
   in->n_numaux = bfd_h_get_8(abfd, ext->e_numaux);
 }
 
-static void 
-DEFUN(coff_swap_sym_out,(abfd,in,  ext),
-      bfd            *abfd AND
-      struct internal_syment      *in AND
-      SYMENT *ext)
+static unsigned int
+DEFUN(coff_swap_sym_out,(abfd, inp, extp),
+      bfd       *abfd AND
+      PTR	inp AND
+      PTR	extp)
 {
+  struct internal_syment *in = (struct internal_syment *)inp;
+  SYMENT *ext =(SYMENT *)extp;
   if(in->_n._n_name[0] == 0) {
     bfd_h_put_32(abfd, 0, (bfd_byte *) ext->e.e.e_zeroes);
     bfd_h_put_32(abfd, in->_n._n_n._n_offset, (bfd_byte *)  ext->e.e.e_offset);
   }
   else {
 #if SYMNMLEN != E_SYMNMLEN
-   -> Error, we need to cope with truncating or extending SYMNMLEN!;
+    -> Error, we need to cope with truncating or extending SYMNMLEN!;
 #else
     memcpy(ext->e.e_name, in->_n._n_name, SYMNMLEN);
 #endif
@@ -509,15 +504,16 @@ DEFUN(coff_swap_sym_out,(abfd,in,  ext),
       }
   bfd_h_put_8(abfd,  in->n_sclass , ext->e_sclass);
   bfd_h_put_8(abfd,  in->n_numaux , ext->e_numaux);
+  return sizeof(SYMENT);
 }
 
 static void
 DEFUN(coff_swap_aux_in,(abfd, ext1, type, class, in1),
       bfd            *abfd AND
-      PTR ext1 AND
+      PTR 	      ext1 AND
       int             type AND
       int             class AND
-      PTR in1)
+      PTR 	      in1)
 {
   AUXENT    *ext = (AUXENT *)ext1;
   union internal_auxent  *in = (union internal_auxent *)in1;
@@ -575,23 +571,27 @@ DEFUN(coff_swap_aux_in,(abfd, ext1, type, class, in1),
   }
 }
 
-static void
-DEFUN(coff_swap_aux_out,(abfd, in, type, class, ext),
+static unsigned int
+DEFUN(coff_swap_aux_out,(abfd, inp, type, class, extp),
   bfd   *abfd AND
-  union internal_auxent *in AND
-  int    type AND
-  int    class AND
-  AUXENT *ext)
+  PTR 	inp AND
+  int   type AND
+  int   class AND
+  PTR	extp)
 {
+  union internal_auxent *in = (union internal_auxent *)inp;
+  AUXENT *ext = (AUXENT *)extp;
   switch (class) {
   case C_FILE:
     if (in->x_file.x_fname[0] == 0) {
       PUTWORD(abfd, 0, (bfd_byte *) ext->x_file.x_n.x_zeroes );
-      PUTWORD(abfd, in->x_file.x_n.x_offset, (bfd_byte *) ext->x_file.x_n.x_offset);
+      PUTWORD(abfd,
+	      in->x_file.x_n.x_offset,
+	      (bfd_byte *) ext->x_file.x_n.x_offset);
     }
     else {
 #if FILNMLEN != E_FILNMLEN
-   -> Error, we need to cope with truncating or extending FILNMLEN!;
+      -> Error, we need to cope with truncating or extending FILNMLEN!;
 #else
       memcpy (ext->x_file.x_fname, in->x_file.x_fname, FILNMLEN);
 #endif
@@ -624,7 +624,7 @@ DEFUN(coff_swap_aux_out,(abfd, in, type, class, ext),
 
       if (ISARY(type) || class == C_BLOCK) {
 #if DIMNUM != E_DIMNUM
-   -> Error, we need to cope with truncating or extending DIMNUM!;
+	-> Error, we need to cope with truncating or extending DIMNUM!;
 #else
 	bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[0], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[0]);
 	bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[1], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[1]);
@@ -632,8 +632,8 @@ DEFUN(coff_swap_aux_out,(abfd, in, type, class, ext),
 	bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[3], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[3]);
 #endif
       }
-	PUT_LNSZ_LNNO(abfd, in->x_sym.x_misc.x_lnsz.x_lnno, ext);
-	PUT_LNSZ_SIZE(abfd, in->x_sym.x_misc.x_lnsz.x_size, ext);
+      PUT_LNSZ_LNNO(abfd, in->x_sym.x_misc.x_lnsz.x_lnno, ext);
+      PUT_LNSZ_SIZE(abfd, in->x_sym.x_misc.x_lnsz.x_size, ext);
 
       PUT_FCN_LNNOPTR(abfd,  in->x_sym.x_fcnary.x_fcn.x_lnnoptr, ext);
       PUT_FCN_ENDNDX(abfd,  in->x_sym.x_fcnary.x_fcn.x_endndx.l, ext);
@@ -641,6 +641,7 @@ DEFUN(coff_swap_aux_out,(abfd, in, type, class, ext),
 
     }
   }
+return sizeof(AUXENT);
 }
 
 #endif /* NO_COFF_SYMBOLS */
@@ -664,18 +665,21 @@ DEFUN(coff_swap_lineno_in,(abfd, ext1, in1),
 #endif
 }
 
-static void
-DEFUN(coff_swap_lineno_out,(abfd, in, ext),
-      bfd            *abfd AND
-      struct internal_lineno      *in AND
-      struct external_lineno *ext)
+static unsigned int
+DEFUN(coff_swap_lineno_out,(abfd, inp, outp),
+      bfd       *abfd AND
+      PTR	inp AND
+      PTR	outp)
 {
+  struct internal_lineno *in = (struct internal_lineno *)inp;
+  struct external_lineno *ext = (struct external_lineno *)outp;
   PUTWORD(abfd, in->l_addr.l_symndx, (bfd_byte *) ext->l_addr.l_symndx);
 #if defined(M88)
   PUTWORD(abfd, in->l_lnno, (bfd_byte *) ext->l_lnno);
 #else
   PUTHALF(abfd, in->l_lnno, (bfd_byte *) ext->l_lnno);
 #endif
+  return sizeof(struct external_lineno);
 }
 
 #endif /* NO_COFF_LINENOS */
@@ -703,23 +707,27 @@ DEFUN(bfd_swap_aouthdr_in,(abfd, aouthdr_ext1, aouthdr_int1),
 #endif
 }
 
-static void 
-DEFUN(bfd_swap_aouthdr_out,(abfd, aouthdr_in, aouthdr_out),
-      bfd            *abfd AND
-      struct internal_aouthdr *aouthdr_in AND
-      AOUTHDR        *aouthdr_out)
+static unsigned int
+DEFUN(coff_swap_aouthdr_out,(abfd, in, out),
+      bfd       *abfd AND
+      PTR	in AND
+      PTR	out)
 {
+  struct internal_aouthdr *aouthdr_in = (struct internal_aouthdr *)in;
+  AOUTHDR *aouthdr_out = (AOUTHDR *)out;
   bfd_h_put_16(abfd, aouthdr_in->magic, (bfd_byte *) aouthdr_out->magic);
   bfd_h_put_16(abfd, aouthdr_in->vstamp, (bfd_byte *) aouthdr_out->vstamp);
   bfd_h_put_32(abfd, aouthdr_in->tsize, (bfd_byte *) aouthdr_out->tsize);
   bfd_h_put_32(abfd, aouthdr_in->dsize, (bfd_byte *) aouthdr_out->dsize);
   bfd_h_put_32(abfd, aouthdr_in->bsize, (bfd_byte *) aouthdr_out->bsize);
   bfd_h_put_32(abfd, aouthdr_in->entry, (bfd_byte *) aouthdr_out->entry);
-  bfd_h_put_32(abfd, aouthdr_in->text_start, (bfd_byte *) aouthdr_out->text_start);
+  bfd_h_put_32(abfd, aouthdr_in->text_start,
+	       (bfd_byte *) aouthdr_out->text_start);
   bfd_h_put_32(abfd, aouthdr_in->data_start, (bfd_byte *) aouthdr_out->data_start);
 #ifdef I960
   bfd_h_put_32(abfd, aouthdr_in->tagentries, (bfd_byte *) aouthdr_out->tagentries);
 #endif
+  return sizeof(AOUTHDR);
 }
 
 static void 
@@ -748,12 +756,14 @@ DEFUN(coff_swap_scnhdr_in,(abfd, scnhdr_ext, scnhdr_int),
 #endif
 }
 
-static void 
-DEFUN(swap_scnhdr_out,(abfd, scnhdr_int, scnhdr_ext),
-      bfd            *abfd AND
-      struct internal_scnhdr *scnhdr_int AND
-      SCNHDR         *scnhdr_ext)
+static unsigned int 
+DEFUN(coff_swap_scnhdr_out,(abfd, in, out),
+      bfd       *abfd AND
+      PTR	in AND
+      PTR	out)
 {
+  struct internal_scnhdr *scnhdr_int = (struct internal_scnhdr *)in;
+  SCNHDR *scnhdr_ext = (SCNHDR *)out;
   memcpy(scnhdr_ext->s_name, scnhdr_int->s_name, sizeof(scnhdr_int->s_name));
   PUTWORD(abfd, scnhdr_int->s_vaddr, (bfd_byte *) scnhdr_ext->s_vaddr);
   PUTWORD(abfd, scnhdr_int->s_paddr, (bfd_byte *) scnhdr_ext->s_paddr);
@@ -773,37 +783,9 @@ DEFUN(swap_scnhdr_out,(abfd, scnhdr_int, scnhdr_ext),
 #if defined(I960) 
   PUTWORD(abfd, scnhdr_int->s_align, (bfd_byte *) scnhdr_ext->s_align);
 #endif
+  return sizeof(SCNHDR);
 }
 
-
-/* **********************************************************************/
-/* Return a pointer to a malloc'd copy of 'name'.  'name' may not be
- \0-terminated, but will not exceed 'maxlen' characters.  The copy *will*
- be \0-terminated.
- */
-static char *
-DEFUN(copy_name,(abfd, name, maxlen),
-      bfd *abfd AND
-      char *name AND
-      int maxlen)
-{
-  int  len;
-  char *newname;
- 
-  for (len = 0; len < maxlen; ++len) {
-    if (name[len] == '\0') {
-      break;
-    }
-  }
- 
-  if ((newname = (PTR) bfd_alloc(abfd, len+1)) == NULL) {
-    bfd_error = no_memory;
-    return (NULL);
-  }
-  strncpy(newname, name, len);
-  newname[len] = '\0';
-  return newname;
-}
 
 /*
    initialize a section structure with information peculiar to this
@@ -904,23 +886,24 @@ DEFUN(coff_real_object_p,(abfd, nscns, internal_f, internal_a),
   struct internal_aouthdr *internal_a)
 {
   coff_data_type *coff;
-    
+  enum bfd_architecture arch;
+  long machine;
   size_t          readsize;	/* length of file_info */
   SCNHDR *external_sections;
-    
+  
   /* Build a play area */
   if (coff_mkobject(abfd) != true)
     return 0;
   coff = coff_data(abfd);
-    
-    
+  
+  
   external_sections = (SCNHDR *)bfd_alloc(abfd, readsize = (nscns * SCNHSZ));
-
+  
   if (bfd_read((PTR)external_sections, 1, readsize, abfd) != readsize) {
     goto fail;
   }
-    
-    
+  
+  
   /* Now copy data as required; construct all asections etc */
   coff->symbol_index_slew = 0;
   coff->relocbase =0;
@@ -938,72 +921,72 @@ DEFUN(coff_real_object_p,(abfd, nscns, internal_f, internal_a),
     }
   }
   /* Determine the machine architecture and type.  */
-  abfd->obj_machine = 0;
+machine = 0;
   switch (internal_f->f_magic) {
 #ifdef I386MAGIC
   case I386MAGIC:
-    abfd->obj_arch = bfd_arch_i386;
-    abfd->obj_machine = 0;
+    arch = bfd_arch_i386;
+    machine = 0;
     break;
 #endif
-
+    
 #ifdef A29K_MAGIC_BIG 
   case  A29K_MAGIC_BIG:
   case  A29K_MAGIC_LITTLE:
-    abfd->obj_arch = bfd_arch_a29k;
-    abfd->obj_machine = 0;
+    arch = bfd_arch_a29k;
+    machine = 0;
     break;
 #endif
-
+    
 #ifdef MIPS
   case  MIPS_MAGIC_1:
   case  MIPS_MAGIC_2:
   case  MIPS_MAGIC_3:
-    abfd->obj_arch = bfd_arch_mips;
-    abfd->obj_machine = 0;
+    arch = bfd_arch_mips;
+    machine = 0;
     break;
 #endif
-
+    
 #ifdef MC68MAGIC
   case MC68MAGIC:
   case M68MAGIC:
-    abfd->obj_arch = bfd_arch_m68k;
-    abfd->obj_machine = 68020;
+    arch = bfd_arch_m68k;
+    machine = 68020;
     break;
 #endif
 #ifdef MC88MAGIC
   case MC88MAGIC:
   case MC88DMAGIC:
   case MC88OMAGIC:
-    abfd->obj_arch = bfd_arch_m88k;
-    abfd->obj_machine = 88100;
+    arch = bfd_arch_m88k;
+    machine = 88100;
     break;
 #endif
 #ifdef I960
 #ifdef I960ROMAGIC
   case I960ROMAGIC:
   case I960RWMAGIC:
-    abfd->obj_arch = bfd_arch_i960;
+    arch = bfd_arch_i960;
     switch (F_I960TYPE & internal_f->f_flags) 
 	{
 	default:
 	case F_I960CORE:
-	  abfd->obj_machine = bfd_mach_i960_core;
+	  machine = bfd_mach_i960_core;
 	  break;
 	case F_I960KB:
-	  abfd->obj_machine = bfd_mach_i960_kb_sb;
+	  machine = bfd_mach_i960_kb_sb;
 	  break;
-	case F_I960MC:
-	  abfd->obj_machine = bfd_mach_i960_mc;
+	case  F_I960MC:
+	  machine = bfd_mach_i960_mc;
 	  break;
 	case F_I960XA:
-	  abfd->obj_machine = bfd_mach_i960_xa;
+	  machine = bfd_mach_i960_xa;
 	  break;
 	case F_I960CA:
-	  abfd->obj_machine = bfd_mach_i960_ca;
+	  machine = bfd_mach_i960_ca;
 	  break;
 	case F_I960KA:
-	  abfd->obj_machine = bfd_mach_i960_ka_sa;
+	  machine = bfd_mach_i960_ka_sa;
 	  break;
 	  
 	}
@@ -1012,10 +995,11 @@ DEFUN(coff_real_object_p,(abfd, nscns, internal_f, internal_a),
 #endif
     
   default:			/* Unreadable input file type */
-    abfd->obj_arch = bfd_arch_obscure;
+ arch = bfd_arch_obscure;
     break;
   }
   
+  bfd_default_set_arch_mach(abfd, arch, machine);
   if (!(internal_f->f_flags & F_RELFLG))
     abfd->flags |= HAS_RELOC;
   if ((internal_f->f_flags & F_EXEC))
@@ -1033,8 +1017,8 @@ DEFUN(coff_real_object_p,(abfd, nscns, internal_f, internal_a),
   coff->sym_filepos = internal_f->f_symptr;
   
   /* These members communicate important constants about the symbol table
-     to GDB's symbol-reading code.  These `constants' unfortunately vary
-     from coff implementation to implementation...  */
+    to GDB's symbol-reading code.  These `constants' unfortunately vary
+      from coff implementation to implementation...  */
 #ifndef NO_COFF_SYMBOLS
   coff->local_n_btmask = N_BTMASK;
   coff->local_n_btshft = N_BTSHFT;
@@ -1097,7 +1081,7 @@ DEFUN(coff_object_p,(abfd),
      when doing that
      */
     
-#ifndef MIPS    
+#if defined(M88) || defined(I960)
   if (internal_f.f_opthdr != 0 && AOUTSZ != internal_f.f_opthdr)
     return (bfd_target *)NULL;
 #endif
@@ -1127,7 +1111,7 @@ DEFUN(coff_count_linenumbers,(abfd),
     
   for (p = abfd->outsymbols, i = 0; i < limit; i++, p++) {
     asymbol        *q_maybe = *p;
-    if (q_maybe->the_bfd->xvec->flavour == bfd_target_coff_flavour_enum) {
+    if (q_maybe->the_bfd->xvec->flavour == bfd_target_coff_flavour) {
       coff_symbol_type *q = coffsymbol(q_maybe);
       if (q->lineno) {
 	/*
@@ -1151,15 +1135,15 @@ DEFUN(coff_count_linenumbers,(abfd),
 #ifndef NO_COFF_SYMBOLS
 
 /* 
-Takes a bfd and a symbol, returns a pointer to the coff specific area
-of the symbol if there is one.
-*/
+  Takes a bfd and a symbol, returns a pointer to the coff specific area
+  of the symbol if there is one.
+  */
 static coff_symbol_type *
-DEFUN(coff_symbol_from,(abfd, symbol),
-      bfd            *abfd AND
+DEFUN(coff_symbol_from,(ignore_abfd, symbol),
+      bfd            *ignore_abfd AND
       asymbol        *symbol)
 {
-  if (symbol->the_bfd->xvec->flavour != bfd_target_coff_flavour_enum) 
+  if (symbol->the_bfd->xvec->flavour != bfd_target_coff_flavour) 
     return (coff_symbol_type *)NULL;
     
   if (symbol->the_bfd->tdata == (PTR)NULL)
@@ -1465,8 +1449,8 @@ DEFUN(coff_mangle_symbols,(bfd_ptr),
 #endif
 static int string_size; 
 static void
-DEFUN(coff_fix_symbol_name,(abfd, symbol, native),
-  bfd *abfd AND
+DEFUN(coff_fix_symbol_name,(ignore_abfd, symbol, native),
+  bfd *ignore_abfd AND
   asymbol *symbol AND
   combined_entry_type *native)
 {
@@ -1729,7 +1713,6 @@ DEFUN(coff_write_symbols,(abfd),
       
   }
 }
-#endif /* NO_COFF_SYMBOLS */
 
 /*doc*
 @subsubsection Writing Relocations
@@ -1769,11 +1752,12 @@ DEFUN(coff_write_relocs,(abfd),
 #else
       n.r_type = q->howto->type;
 #endif
-      bfd_swap_reloc_out(abfd, &n, &dst);
+      coff_swap_reloc_out(abfd, &n, &dst);
       bfd_write((PTR) &n, 1, RELSZ, abfd);
     }
   }
 }
+#endif /* NO_COFF_SYMBOLS */
 
 #ifndef NO_COFF_LINENOS
 
@@ -1846,18 +1830,18 @@ DEFUN(coff_print_symbol,(ignore_abfd, filep, symbol, how),
       bfd            *ignore_abfd AND
       PTR           filep AND
       asymbol        *symbol AND
-      bfd_print_symbol_enum_type how)
+      bfd_print_symbol_type how)
 {
   FILE *file = (FILE *)filep;
   switch (how) {
-  case bfd_print_symbol_name_enum:
+  case bfd_print_symbol_name:
     fprintf(file, "%s", symbol->name);
     break;
-  case bfd_print_symbol_type_enum:
+  case bfd_print_symbol_more:
     fprintf(file, "coff %lx %lx", (unsigned long) coffsymbol(symbol)->native,
 	    (unsigned long) coffsymbol(symbol)->lineno);
     break;
-  case bfd_print_symbol_all_enum:
+  case bfd_print_symbol_all:
       {
 	CONST char           *section_name = symbol->section == (asection *) NULL ?
 	  "*abs" : symbol->section->name;
@@ -1886,8 +1870,7 @@ DEFUN(coff_set_flags,(abfd, magicp, flagsp),
       unsigned       *magicp AND
       unsigned short *flagsp)
 {
-    
-  switch (abfd->obj_arch) {
+  switch (bfd_get_arch(abfd)) {
       
 #ifdef I960ROMAGIC
       
@@ -1900,7 +1883,7 @@ DEFUN(coff_set_flags,(abfd, magicp, flagsp),
 	  ((bfd_get_file_flags(abfd) & WP_TEXT) ? I960ROMAGIC :
 	  I960RWMAGIC);   FIXME???
 	  */
-	switch (abfd->obj_machine) {
+	switch (bfd_get_mach(abfd)) {
 	case bfd_mach_i960_core:
 	  flags = F_I960CORE;
 	  break;
@@ -1963,7 +1946,7 @@ DEFUN(coff_set_flags,(abfd, magicp, flagsp),
 	
   default:			/* Unknown architecture */
     /* return false;  -- fall through to "return false" below, to avoid
-			 "statement never reached" errors on the one below. */	
+       "statement never reached" errors on the one below. */	
     break;
   }
     
@@ -1977,15 +1960,15 @@ DEFUN(coff_set_arch_mach,(abfd, arch, machine),
       enum bfd_architecture arch AND
       unsigned long   machine)
 {
-    unsigned        dummy1;
-    unsigned     short dummy2;
-    abfd->obj_arch = arch;
-    abfd->obj_machine = machine;
-    if (arch != bfd_arch_unknown &&
-	coff_set_flags(abfd, &dummy1, &dummy2) != true)
-      return false;		/* We can't represent this type */
-    return true;		/* We're easy ... */
-  }
+  unsigned        dummy1;
+  unsigned     short dummy2;
+  bfd_default_set_arch_mach(abfd, arch, machine);
+
+  if (arch != bfd_arch_unknown &&
+      coff_set_flags(abfd, &dummy1, &dummy2) != true)
+    return false;		/* We can't represent this type */
+  return true;			/* We're easy ... */
+}
 
 
 /* Calculate the file position for each section. */
@@ -2178,7 +2161,7 @@ DEFUN(coff_write_object_contents,(abfd),
 	  {
 	    SCNHDR          buff;
 
-	    swap_scnhdr_out(abfd, &section, &buff);
+	    coff_swap_scnhdr_out(abfd, &section, &buff);
 	    bfd_write((PTR) (&buff), 1, SCNHSZ, abfd);
 
 	  }
@@ -2309,12 +2292,12 @@ DEFUN(coff_write_object_contents,(abfd),
     return false;
     {
       FILHDR buff;
-      bfd_swap_filehdr_out(abfd, &internal_f, &buff);
+      coff_swap_filehdr_out(abfd, &internal_f, &buff);
       bfd_write((PTR) &buff, 1, FILHSZ, abfd);
     }
   if (abfd->flags & EXEC_P) {
     AOUTHDR buff;
-    bfd_swap_aouthdr_out(abfd, &internal_a, &buff);
+    coff_swap_aouthdr_out(abfd, &internal_a, &buff);
     bfd_write((PTR) &buff, 1, AOUTSZ, abfd);
   }
   return true;
@@ -2329,8 +2312,8 @@ pointers to syments.
 
 
 static void
-DEFUN(coff_pointerize_aux,(abfd, table_base, type, class, auxent),
-bfd *abfd AND
+DEFUN(coff_pointerize_aux,(ignore_abfd, table_base, type, class, auxent),
+bfd *ignore_abfd AND
 combined_entry_type *table_base AND
 int type AND
 int class AND
@@ -2453,6 +2436,34 @@ bfd *abfd)
   return string_table;
 }
 
+/* Return a pointer to a malloc'd copy of 'name'.  'name' may not be
+ \0-terminated, but will not exceed 'maxlen' characters.  The copy *will*
+ be \0-terminated.  */
+static char *
+DEFUN(copy_name,(abfd, name, maxlen),
+      bfd *abfd AND
+      char *name AND
+      int maxlen)
+{
+  int  len;
+  char *newname;
+ 
+  for (len = 0; len < maxlen; ++len) {
+    if (name[len] == '\0') {
+      break;
+    }
+  }
+ 
+  if ((newname = (PTR) bfd_alloc(abfd, len+1)) == NULL) {
+    bfd_error = no_memory;
+    return (NULL);
+  }
+  strncpy(newname, name, len);
+  newname[len] = '\0';
+  return newname;
+}
+
+
 /*
 read a symbol table into freshly mallocated memory, swap it, and knit the
 symbol names into a normalized form. By normalized here I mean that all
@@ -2514,7 +2525,7 @@ bfd            *abfd)
       (internal_ptr+1)->fix_tag = 0;
       (internal_ptr+1)->fix_end = 0;
 
-      coff_swap_aux_in(abfd, (AUXENT *)(raw_src +1), internal_ptr->u.syment.n_type,
+      coff_swap_aux_in(abfd, (char *)(raw_src +1), internal_ptr->u.syment.n_type,
 		       internal_ptr->u.syment.n_sclass, & 	(internal_ptr+1)->u.auxent);
 
       coff_pointerize_aux(abfd, 
@@ -2526,7 +2537,7 @@ bfd            *abfd)
   }
       
   /* Free all the raw stuff */
-  bfd_release(abfd, raw_src);
+  bfd_release(abfd, raw);
 
   for (internal_ptr = internal; internal_ptr < internal_end;
        internal_ptr ++) 
@@ -2796,11 +2807,19 @@ DEFUN(coff_slurp_symbol_table,(abfd),
       case C_LEAFSTAT:		/* static leaf procedure        */
 #endif
       case C_LABEL:		/* label			 */
-	dst->symbol.flags = BSF_LOCAL;
+	if (src->u.syment.n_scnum == -2)
+	  dst->symbol.flags = BSF_DEBUGGING;
+	else
+	  dst->symbol.flags = BSF_LOCAL;
 	/*
-	  Base the value as an index from the base of the section
+	  Base the value as an index from the base of the section, if
+	  there is one
 	  */
-	dst->symbol.value = (src->u.syment.n_value) - dst->symbol.section->vma;
+	if (dst->symbol.section)
+	  dst->symbol.value = (src->u.syment.n_value) -
+	    dst->symbol.section->vma;
+	else
+	  dst->symbol.value = (src->u.syment.n_value) ;
 	break;
 	  
       case C_MOS:		/* member of structure	 */
@@ -3118,14 +3137,14 @@ location.
 static          boolean
 DEFUN(coff_find_nearest_line,(abfd,
 			      section,
-			      symbols,
+			      ignore_symbols,
 			      offset,
 			      filename_ptr,
 			      functionname_ptr,
 			      line_ptr),
       bfd            *abfd AND
       asection       *section AND
-      asymbol       **symbols AND
+      asymbol       **ignore_symbols AND
       bfd_vma         offset AND
       CONST char      **filename_ptr AND
       CONST char       **functionname_ptr AND
@@ -3150,7 +3169,7 @@ DEFUN(coff_find_nearest_line,(abfd,
   *line_ptr = 0;
     
   /* Don't try and find line numbers in a non coff file */
-  if (abfd->xvec->flavour != bfd_target_coff_flavour_enum)
+  if (abfd->xvec->flavour != bfd_target_coff_flavour)
     return false;
     
   if (cof == NULL)

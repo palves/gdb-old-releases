@@ -211,7 +211,7 @@ char *baud_rate;
 #define HAVE_SIGSETMASK !defined (USG)
 #endif
 
-#if !HAVE_SIGSETMASK
+#if 0 == (HAVE_SIGSETMASK)
 #define sigsetmask(n)
 #endif
 
@@ -1496,7 +1496,11 @@ define_command (comname, from_tty)
 
   validate_comname (comname);
 
+  /* Look it up, and verify that we got an exact match.  */
   c = lookup_cmd (&tem, cmdlist, "", -1, 1);
+  if (c && 0 != strcmp (comname, c->name))
+    c = 0;
+    
   if (c)
     {
       if (c->class == class_user || c->class == class_alias)
@@ -1576,8 +1580,8 @@ print_gnu_advertisement()
 {
     printf ("\
 GDB is free software and you are welcome to distribute copies of it\n\
- under certain conditions; type \"info copying\" to see the conditions.\n\
-There is absolutely no warranty for GDB; type \"info warranty\" for details.\n\
+ under certain conditions; type \"show copying\" to see the conditions.\n\
+There is absolutely no warranty for GDB; type \"show warranty\" for details.\n\
 ");
 }
 
@@ -1768,11 +1772,14 @@ echo_command (text, from_tty)
 
 	    c = parse_escape (&p);
 	    if (c >= 0)
-	      fputc (c, stdout);
+	      printf_filtered ("%c", c);
 	  }
 	else
-	  fputc (c, stdout);
+	  printf_filtered ("%c", c);
       }
+
+  /* Force this output to appear now.  */
+  wrap_here ("");
   fflush (stdout);
 }
 

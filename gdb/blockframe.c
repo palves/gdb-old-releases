@@ -56,6 +56,79 @@ outside_startup_file (addr)
   return !(addr >= startup_file_start && addr < startup_file_end);
 }
 
+/* Support an alternate method to avoid running off the bottom of
+   the stack (or top, depending upon your stack orientation).
+
+   There are two frames that are "special", the frame for the function
+   containing the process entry point, since it has no predecessor frame,
+   and the frame for the function containing the user code entry point
+   (the main() function), since all the predecessor frames are for the
+   process startup code.  Since we have no guarantee that the linked
+   in startup modules have any debugging information that gdb can use,
+   we need to avoid following frame pointers back into frames that might
+   have been built in the startup code, as we might get hopelessly 
+   confused.  However, we almost always have debugging information
+   available for main().
+
+   These variables are used to save the range of PC values which are valid
+   within the main() function and within the function containing the process
+   entry point.  If we always consider the frame for main() as the outermost
+   frame when debugging user code, and the frame for the process entry
+   point function as the outermost frame when debugging startup code, then
+   all we have to do is have FRAME_CHAIN_VALID return false whenever a
+   frame's current PC is within the range specified by these variables.
+   In essence, we set "blocks" in the frame chain beyond which we will
+   not proceed when following the frame chain.  
+
+   A nice side effect is that we can still debug startup code without
+   running off the end of the frame chain, assuming that we have usable
+   debugging information in the startup modules, and if we choose to not
+   use the block at main, or can't find it for some reason, everything
+   still works as before.  And if we have no startup code debugging
+   information but we do have usable information for main(), backtraces
+   from user code don't go wandering off into the startup code.
+
+   To use this method, define your FRAME_CHAIN_VALID macro like:
+
+	#define FRAME_CHAIN_VALID(chain, thisframe)     \
+	  (chain != 0                                   \
+	   && !(inside_main_scope ((thisframe)->pc))    \
+	   && !(inside_entry_scope ((thisframe)->pc)))
+
+   and add initializations of the four scope controlling variables inside
+   the object file / debugging information processing modules.  */
+
+CORE_ADDR entry_scope_lowpc;
+CORE_ADDR entry_scope_highpc;
+CORE_ADDR main_scope_lowpc;
+CORE_ADDR main_scope_highpc;
+
+/* Test a specified PC value to see if it is in the range of addresses
+   that correspond to the main() function.  See comments above for why
+   we might want to do this.
+
+   Typically called from FRAME_CHAIN_VALID. */
+
+int
+inside_main_scope (pc)
+CORE_ADDR pc;
+{
+  return (main_scope_lowpc <= pc && pc < main_scope_highpc);
+}
+
+/* Test a specified PC value to see if it is in the range of addresses
+   that correspond to the process entry point function.  See comments above
+   for why we might want to do this.
+
+   Typically called from FRAME_CHAIN_VALID. */
+
+int
+inside_entry_scope (pc)
+CORE_ADDR pc;
+{
+  return (entry_scope_lowpc <= pc && pc < entry_scope_highpc);
+}
+
 /* Address of innermost stack frame (contents of FP register) */
 
 static FRAME current_frame;

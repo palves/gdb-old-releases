@@ -1,2 +1,4 @@
+# Target HP 300 running BSD Unix.
+# ONLY works native.
 TDEFINES = -DDEFAULT_VECTOR=host_aout_big_vec
-TDEPFILES= host-aout.o trad-core.o
+TDEPFILES= host-aout.o 

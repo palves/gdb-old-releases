@@ -208,6 +208,7 @@ print_formatted (val, format, size)
       break;
 
     case 'i':
+      wrap_here ("");	/* Force output out, print_insn not using _filtered */
       next_address = VALUE_ADDRESS (val)
 	+ print_insn (VALUE_ADDRESS (val), stdout);
       break;
@@ -965,8 +966,6 @@ struct type *
 ptype_eval(exp)
    struct expression *exp;
 {
-   enum exp_opcode op;
-
    if(exp->elts[0].opcode==OP_TYPE)
       return exp->elts[1].type;
    else
@@ -980,10 +979,6 @@ ptype_command (typename, from_tty)
      char *typename;
      int from_tty;
 {
-  register char *p = typename;
-  register int len;
-  register struct block *b
-    = target_has_stack ? get_current_block () : 0;
   register struct type *type;
   struct expression *expr;
   register struct cleanup *old_chain;

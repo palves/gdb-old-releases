@@ -1,3 +1,16 @@
+Fri Oct  4 01:29:08 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  Most hosts need strerror, but one or two don't,
+	and they override these definitions in the host-dependent makefile
+	fragment.
+	* config/hmake-mach:  The odd man out on strerror -- it's supplied.
+	* strerror.c:  New file.
+
+	* strtol.c, strtoul.c:  Add strtol to libiberty, since Mach lacks
+	it and bfd uses it.
+	* configure.in, Makefile.in, config/hmake-mach:  Only configure
+	strtol & strotoul in on Mach.
+
 Tue Sep  3 06:36:23 1991  John Gilmore  (gnu at cygint.cygnus.com)
 
 	* obstack.c:  Merge with latest FSF version.

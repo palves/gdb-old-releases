@@ -1,7 +1,7 @@
 \input texinfo
 @setfilename bfd.info
-@c $Id: bfd.texinfo,v 1.2 1991/08/22 21:25:19 pesch Exp $
-@synindex ky cp
+@c $Id: bfd.texinfo,v 1.4 1991/10/08 18:51:19 pesch Exp $
+@synindex fn cp
 @ifinfo
 This file documents the BFD library.
 
@@ -44,7 +44,7 @@ into another language, under the above conditions for modified versions.
 
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.2 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.4 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill steve\@cygnus.com\par
@@ -316,15 +316,29 @@ between formats (COFF, IEEE and Oasys).
 @c FIXME: what is this line about?  Do we want introductory remarks 
 @c FIXME... on back ends?  commented out for now.
 @c What is a backend
+
+
 @node BFD front end, BFD back end, Overview, Top
 @chapter BFD front end
 @include  bfd.texi
 
 @menu
-* Memory Usage::		Memory Usage
+* Memory Usage::
+* Initialization::
+* Sections::
+* Symbols::
+* Archives::
+* Formats::
+* Relocations::
+* Core Files::
+* Targets::
+* Architectures::
+* Opening and Closing::
+* Internal::
+* File Caching::
 @end menu
 
-@node Memory Usage,  , BFD front end, BFD front end
+@node Memory Usage, Initialization, BFD front end, BFD front end
 @section Memory Usage
 BFD keeps all its internal structures in obstacks. There is one obstack
 per open BFD file, into which the current state is stored. When a BFD is
@@ -346,37 +360,40 @@ associated with the supplied BFD. This could be used to select the
 greediest open BFD, close it to reclaim the memory, perform some
 operation and reopen the BFD again, to get a fresh copy of the data structures.
 
-@node Sections, BFD back end, BFD front end, Top
+@node Initialization, Sections, Memory Usage, BFD front end
+@include  init.texi
+
+@node Sections, Symbols, Initialization, BFD front end
 @include  section.texi
 
-@node Symbols, BFD back end, BFD front end, Top
+@node Symbols, Archives, Sections, BFD front end
 @include  syms.texi
 
-@node Archives, BFD back end, BFD front end, Top
+@node Archives, Formats, Symbols, BFD front end
 @include  archive.texi
 
-@node Formats, BFD back end, BFD front end, Top
+@node Formats, Relocations, Archives, BFD front end
 @include  format.texi
 
-@node Relocations, BFD back end, BFD front end, Top
+@node Relocations, Core Files, Formats, BFD front end
 @include  reloc.texi
 
-@node Core Files, BFD back end, BFD front end, Top
+@node Core Files, Targets, Relocations, BFD front end
 @include  core.texi
 
-@node Targets, BFD back end, BFD front end, Top
+@node Targets, Architectures, Core Files, BFD front end
 @include  targets.texi
 
-@node Architectures, BFD back end, BFD front end, Top
+@node Architectures, Opening and Closing, Targets, BFD front end
 @include  archures.texi
 
-@node Opening and Closing, BFD back end, BFD front end, Top
+@node Opening and Closing, Internal, Architectures, BFD front end
 @include  opncls.texi
 
-@node Internal, BFD back end, BFD front end, Top
+@node Internal, File Caching, Opening and Closing, BFD front end
 @include  libbfd.texi
 
-@node File Caching, BFD back end, BFD front end, Top
+@node File Caching,  , Internal, BFD front end
 @include  cache.texi
 
 @node BFD back end, Index, BFD front end, Top
@@ -391,18 +408,16 @@ operation and reopen the BFD again, to get a fresh copy of the data structures.
 * srecord ::	s-record backend
 @end ignore
 @end menu
-@node What to Put Where, Index, BFD back end, Top
+@node What to Put Where, aout, BFD back end, BFD back end
 All of BFD lives in one directory.
 
-@node aout , Index, BFD back end, Top
+@node aout, coff, What to Put Where, BFD back end
 @include  aoutx.texi
 
-@node coff , Index, BFD back end, Top
+@node coff,  , aout, BFD back end
 @include  coffcode.texi
 
-@node Index, Index, BFD back end, Top
-@unnumbered Function Index
-@printindex  fn
+@node Index,  , BFD back end, Top
 @unnumbered Index
 @printindex cp
 
@@ -420,7 +435,6 @@ All of BFD lives in one directory.
 \page\colophon
 % Blame: pesch@cygnus.com, 28mar91.
 @end tex
-
 
 @contents
 @bye

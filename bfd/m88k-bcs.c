@@ -18,12 +18,11 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: m88k-bcs.c,v 1.12 1991/07/31 16:57:52 gnu Exp $ */
+/* $Id: m88k-bcs.c,v 1.14 1991/10/11 10:11:28 gnu Exp $ */
 
-#define M88 1
-#include <ansidecl.h>
-#include <sysdep.h>
+#define M88 1		/* Customize various include files */
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
 #include "obstack.h"
 #include "m88k-bcs.h"
@@ -49,7 +48,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
  
 
 
-static bfd_reloc_status_enum_type 
+static bfd_reloc_status_type 
 DEFUN(howto_hvrt16,(abfd, reloc_entry, symbol_in, data, ignore_input_section),
 bfd *abfd AND
 arelent *reloc_entry AND
@@ -95,7 +94,7 @@ static reloc_howto_type howto_table[] =
 bfd_target m88k_bcs_vec =
 {
   "m88kbcs",			/* name */
-  bfd_target_coff_flavour_enum,
+  bfd_target_coff_flavour,
   true,				/* data byte order is big */
   true,				/* header byte order is big */
 

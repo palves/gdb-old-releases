@@ -1,7 +1,7 @@
 _dnl__								-*- Texinfo -*-
 _dnl__ Copyright (c) 1990 1991 Free Software Foundation, Inc.
 _dnl__ This file is part of the source for the GDB manual.
-@c M4 FRAGMENT $Id: gdbinv-s.m4,v 2.1 1991/09/20 21:43:19 pesch Exp $
+@c M4 FRAGMENT $Id: gdbinv-s.m4,v 2.3 1991/10/09 00:17:27 pesch Exp $
 @c This text diverted to "Remote Debugging" section in general case;
 @c however, if we're doing a manual specifically for one of these, it
 @c belongs up front (in "Getting In and Out" chapter).

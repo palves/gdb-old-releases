@@ -28,6 +28,7 @@ m68k-tdep.c\
 m88k-pinsn.c\
 m88k-tdep.c\
 m88k-xdep.c\
+mach386-xdep.c\
 mips-pinsn.c\
 mips-tdep.c\
 mips-xdep.c\
@@ -111,6 +112,7 @@ xm-bigmips.h\
 xm-convex.h\
 xm-hp300bsd.h\
 xm-hp300hpux.h\
+xm-i386mach.h\
 xm-i386sco.h\
 xm-i386v.h\
 xm-i386v32.h\
@@ -145,7 +147,7 @@ ALLCONFIG=\
 ./tconfig/arm\
 ./tconfig/bigmips\
 ./tconfig/convex\
-./tconfig/dec3100\
+./tconfig/decstation\
 ./tconfig/hp300bsd\
 ./tconfig/hp300hpux\
 ./tconfig/i386sco\
@@ -188,9 +190,10 @@ ALLCONFIG=\
 ./xconfig/arm\
 ./xconfig/bigmips\
 ./xconfig/convex\
-./xconfig/dec3100\
+./xconfig/decstation\
 ./xconfig/hp300bsd\
 ./xconfig/hp300hpux\
+./xconfig/i386mach\
 ./xconfig/i386sco\
 ./xconfig/i386v\
 ./xconfig/i386v-g\

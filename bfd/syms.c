@@ -263,12 +263,12 @@ $} asymbol;
 
 */
 
-#include "sysdep.h"
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
  
 /*doc*
-@node symbol handling functions, Symbols, typedef asymbol, Symbols
+@node symbol handling functions,  , typedef asymbol, Symbols
 @subsection Symbol Handling Functions
 
 */

@@ -978,11 +978,13 @@ line_info (arg, from_tty)
 	    printf ("Line %d of \"%s\" is at pc %s but contains no code.\n",
 		    sal.line, sal.symtab->filename, local_hex_string(start_pc));
 	  else
-	    printf ("Line %d of \"%s\" starts at pc %s",
-		    sal.line, sal.symtab->filename, 
-		    local_hex_string(start_pc));
-	    printf (" and ends at %s.\n",
-		    local_hex_string(end_pc));
+	    {
+	      printf ("Line %d of \"%s\" starts at pc %s",
+		      sal.line, sal.symtab->filename, 
+		      local_hex_string(start_pc));
+	      printf (" and ends at %s.\n",
+		      local_hex_string(end_pc));
+	    }
 	  /* x/i should display this line's code.  */
 	  set_next_address (start_pc);
 	  /* Repeating "info line" should do the following line.  */

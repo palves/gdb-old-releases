@@ -4,6 +4,9 @@ Current members include:
 
 	getopt -- get options from command line
 	obstack -- stacks of arbitrarily-sized objects
+	strerror -- error message strings corresponding to errno
+	strtol -- string-to-long conversion
+	strtoul -- string-to-unsigned-long conversion
 
 We expect many of the GNU subroutines that are floating around to
 eventually arrive here.

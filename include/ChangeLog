@@ -1,3 +1,57 @@
+Wed Oct 16 13:31:45 1991  John Gilmore  (gnu at cygnus.com)
+
+	* aout64.h:  Remove PAGE_SIZE defines; they are target-dependent.
+	Add N_FN_SEQ for N_FN symbol type used on Sequent machines.
+	* stab.def:  Include N_FN_SEQ in table.
+	* bout.h:  External formats of structures use unsigned chars.
+
+Fri Oct 11 12:40:43 1991  Steve Chamberlain  (steve at cygnus.com)
+
+	* bfd.h:upgrade from bfd.c
+	* internalcoff.h: add n_name, n_zeroes and n_offset macros
+	* amdcoff.h: Define OMAGIC and AOUTHDRSZ.
+
+Fri Oct 11 10:58:06 1991  Per Bothner  (bothner at cygnus.com)
+
+	* a.out.host.h: Change SEGMENT_SIZE to 0x1000 for Sony.
+	* bfd.h (align_power): Add (actually move) comment.
+
+Tue Oct  8 15:29:32 1991  Per Bothner  (bothner at cygnus.com)
+
+	* sys/h-rtbsd.h: Define MISSING_VFPRINT (for binutils/bucomm.c).
+
+Sun Oct  6 19:24:39 1991  John Gilmore  (gnu at cygnus.com)
+
+	* aout64.h:  Move struct internal_exec to ../bfd/libaout.h so
+	it can be shared by all `a.out-family' code.  Rename
+	EXTERNAL_LIST_SIZE to EXTERNAL_NLIST_SIZE.  Use basic types
+	for nlist members, and make strx integral rather than pointer.
+	More commentary on n_type values.
+	* bout.h:  Provide a struct external_exec rather than an
+	internal_exec.
+	* m68kcoff.h:  Remove `tagentries' which snuck in from the i960
+	COFF port.
+
+Fri Oct  4 01:25:59 1991  John Gilmore  (gnu at cygnus.com)
+
+	* h8300-opcode.h:  Remove `_enum' from the typedef for an enum.
+	* bfd.h:  Update to match bfd changes.
+
+	* sys/h-i386mach.h, sysdep.h:  Add 386 Mach host support.
+
+Tue Oct  1 04:58:42 1991  John Gilmore  (gnu at cygnus.com)
+
+	* bfd.h, elf-common.h, elf-external.h, elf-internal.h: 
+	Add preliminary ELF support, sufficient for GDB, from Fred Fish.
+	* sysdep.h, sys/h-amix.h:  Support Amiga SVR4.
+
+	* sys/h-vaxult.h:  Make it work.  (David Taylor <taylor@think.com>)
+	* a.out.vax.h:  Remove unused and confusing file.
+
+Mon Sep 30 12:52:35 1991  Per Bothner  (bothner at cygnus.com)
+
+	* sysdep.h: Define NEWSOS3_SYS, and use it.
+
 Fri Sep 20 13:38:21 1991  John Gilmore  (gnu at cygnus.com)
 
 	* a.out.gnu.h (N_FN):  Its value *really is* 0x1F.

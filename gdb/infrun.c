@@ -166,7 +166,7 @@ extern struct target_ops child_ops;	/* In inftarg.c */
    no name, assume we are not in sigtramp).  */
 #if !defined (IN_SIGTRAMP)
 #define IN_SIGTRAMP(pc, name) \
-  name && !strcmp ("_sigtramp", name)
+  (name && !strcmp ("_sigtramp", name))
 #endif
 
 #ifdef TDESC
@@ -508,6 +508,13 @@ child_create_inferior (exec_file, allargs, env)
 
   new_tty_prefork (inferior_io_terminal);
 
+  /* It is generally good practice to flush any possible pending stdio
+     output prior to doing a fork, to avoid the possibility of both the
+     parent and child flushing the same data after the fork. */
+
+  fflush (stdout);
+  fflush (stderr);
+
 #if defined(USG) && !defined(HAVE_VFORK)
   pid = fork ();
 #else
@@ -762,6 +769,7 @@ wait_for_inferior ()
 #ifdef TDESC
   extern dc_handle_t tdesc_handle;
 #endif
+  int current_line;
 
 #if 0
   /* This no longer works now that read_register is lazy;
@@ -772,6 +780,9 @@ wait_for_inferior ()
   prev_func_start += FUNCTION_START_OFFSET;
   prev_sp = read_register (SP_REGNUM);
 #endif /* 0 */
+
+  sal = find_pc_line(prev_pc, 0);
+  current_line = sal.line;
 
   while (1)
     {
@@ -1005,6 +1016,11 @@ wait_for_inferior ()
 	     if we took it away.  */
 	  else if (printed)
 	    target_terminal_inferior ();
+
+	  /* Note that virtually all the code below does `if !random_signal'.
+	     Perhaps this code should end with a goto or continue.  At least
+	     one (now fixed) bug was caused by this -- a !random_signal was
+	     missing in one of the tests below.  */
 	}
       
       /* Handle cases caused by hitting a breakpoint.  */
@@ -1066,7 +1082,8 @@ wait_for_inferior ()
       
       /* If this is the breakpoint at the end of a stack dummy,
 	 just stop silently.  */
-      if (PC_IN_CALL_DUMMY (stop_pc, stop_sp, stop_frame_address))
+      if (!random_signal 
+	 && PC_IN_CALL_DUMMY (stop_pc, stop_sp, stop_frame_address))
 	  {
 	    stop_print_frame = 0;
 	    stop_stack_dummy = 1;
@@ -1216,11 +1233,27 @@ wait_for_inferior ()
 		  break;
 		}
 	    }
-	  /* No subroutince call; stop now.  */
+	  /* No subroutine call; stop now.  */
 	  else
 	    {
-	      stop_step = 1;
-	      break;
+	      /* We've wandered out of the step range (but we haven't done a
+		 subroutine call or return (that's handled elsewhere)).  We
+		 don't really want to stop until we encounter the start of a
+		 new statement.  If so, we stop.  Otherwise, we reset
+		 step_range_start and step_range_end, and just continue. */
+	      sal = find_pc_line(stop_pc, 0);
+	      
+	      if (current_line != sal.line
+		  && stop_pc == sal.pc) {
+		stop_step = 1;
+		break;
+	      } else {
+		/* This is probably not necessary, but it probably makes
+		   stepping more efficient, as we avoid calling find_pc_line()
+		   for each instruction we step over. */
+		step_range_start = sal.pc;
+		step_range_end = sal.end;
+	      }
 	    }
 	}
 

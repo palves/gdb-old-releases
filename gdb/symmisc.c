@@ -22,6 +22,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "defs.h"
 #include "param.h"
 #include "symtab.h"
+#include "bfd.h"
+#include "symfile.h"
 #include "breakpoint.h"
 #include "command.h"
 
@@ -94,7 +96,6 @@ free_symtab (s)
 {
   register int i, n;
   register struct blockvector *bv;
-  register struct typevector *tv;
 
   switch (s->free_code)
     {
@@ -114,9 +115,6 @@ free_symtab (s)
 	free_symtab_block (BLOCKVECTOR_BLOCK (bv, i));
       /* Free the blockvector itself.  */
       free (bv);
-      /* Free the type vector.  */
-      tv = TYPEVECTOR (s);
-      free (tv);
       /* Also free the linetable.  */
       
     case free_linetable:
@@ -141,6 +139,7 @@ free_symtab (s)
 
 static int block_depth ();
 static void print_symbol ();
+static void print_partial_symbol ();
 
 void
 print_symtabs (filename)
@@ -322,6 +321,149 @@ print_symbol (symbol, depth, outfile)
   fprintf (outfile, "\n");
 }
 
+void
+print_partial_symtabs (filename)
+     char *filename;
+{
+  FILE *outfile;
+  struct partial_symtab *p;
+  struct cleanup *cleanups;
+  extern int fclose();
+
+  if (filename == 0)
+    error_no_arg ("file to write partial symbol data in");
+
+  filename = tilde_expand (filename);
+  make_cleanup (free, filename);
+  
+  outfile = fopen (filename, "w");
+  if (outfile == 0)
+    perror_with_name (filename);
+
+  cleanups = make_cleanup (fclose, outfile);
+  immediate_quit++;
+
+  for (p = partial_symtab_list; p; p = p->next)
+    {
+      fprintf_filtered (outfile, "Partial symtab for source file %s ",
+	       p->filename);
+      fprintf_filtered (outfile, "(object 0x%x)\n\n", p);
+      fprintf_filtered (outfile, "  Full symbol table comes from %s\n",
+			p->symfile_name);
+      fprintf_filtered (outfile, "  %s read in from offset 0x%x (0x%x bytes)\n",
+			p->readin ? "Has been" : "Has not yet been",
+			p->ldsymoff, p->ldsymlen);
+#if 0  /* FIXME Fred! */
+      if (p->ldlnoff > 0)
+	{
+	  fprintf_filtered (outfile, "  Line number table is at offset 0x%x\n",
+			    p -> ldlnoff);
+	}
+#endif
+      if (p->readin)
+	fprintf_filtered (outfile, "  Was read into symtab at 0x%x by function at 0x%x\n",
+			  p->symtab, p->read_symtab);
+      fprintf_filtered (outfile, "  Relocate symbols by 0x%x\n", p->addr);
+      fprintf_filtered (outfile, "  Symbols cover text addresses 0x%x-0x%x\n",
+			p->textlow, p->texthigh);
+      fprintf_filtered (outfile, "  Depends on %d other partial symtabs.\n",
+			p->number_of_dependencies);
+      if (p->n_global_syms > 0)
+	print_partial_symbol (global_psymbols.list + p->globals_offset,
+			      p->n_global_syms, "Global", outfile);
+      if (p->n_static_syms > 0)
+	print_partial_symbol (static_psymbols.list + p->statics_offset,
+			      p->n_static_syms, "Static", outfile);
+      fprintf_filtered (outfile, "\n\n");
+    }
+
+  immediate_quit--;
+  do_cleanups (cleanups);
+}
+
+static void
+print_partial_symbol (p, count, what, outfile)
+struct partial_symbol *p;
+int count;
+char *what;
+FILE *outfile;
+{
+  char *space;
+  char *class;
+
+  fprintf_filtered (outfile, "  %s partial symbols:\n", what);
+  while (count-- > 0)
+    {
+      fprintf_filtered (outfile, "    `%s', ", SYMBOL_NAME(p));
+      switch (SYMBOL_NAMESPACE (p))
+	{
+	case UNDEF_NAMESPACE:
+	  fputs_filtered ("undefined namespace, ", outfile);
+	  break;
+	case VAR_NAMESPACE:
+	  /* This is the usual thing -- don't print it */
+	  break;
+	case STRUCT_NAMESPACE:
+	  fputs_filtered ("struct namespace, ", outfile);
+	  break;
+	case LABEL_NAMESPACE:
+	  fputs_filtered ("label namespace, ", outfile);
+	  break;
+	default:
+	  fputs_filtered ("<invalid namespace>, ", outfile);
+	  break;
+	}
+      switch (SYMBOL_CLASS (p))
+	{
+	case LOC_UNDEF:
+	  fputs_filtered ("undefined", outfile);
+	  break;
+	case LOC_CONST:
+	  fputs_filtered ("constant int", outfile);
+	  break;
+	case LOC_STATIC:
+	  fputs_filtered ("static", outfile);
+	  break;
+	case LOC_REGISTER:
+	  fputs_filtered ("register", outfile);
+	  break;
+	case LOC_ARG:
+	  fputs_filtered ("pass by value", outfile);
+	  break;
+	case LOC_REF_ARG:
+	  fputs_filtered ("pass by reference", outfile);
+	  break;
+	case LOC_REGPARM:
+	  fputs_filtered ("register parameter", outfile);
+	  break;
+	case LOC_LOCAL:
+	  fputs_filtered ("stack parameter", outfile);
+	  break;
+	case LOC_TYPEDEF:
+	  fputs_filtered ("type", outfile);
+	  break;
+	case LOC_LABEL:
+	  fputs_filtered ("label", outfile);
+	  break;
+	case LOC_BLOCK:
+	  fputs_filtered ("function", outfile);
+	  break;
+	case LOC_CONST_BYTES:
+	  fputs_filtered ("constant bytes", outfile);
+	  break;
+	case LOC_LOCAL_ARG:
+	  fputs_filtered ("shuffled arg", outfile);
+	  break;
+	default:
+	  fputs_filtered ("<invalid location>", outfile);
+	  break;
+	}
+      fputs_filtered (", ", outfile);
+      fprintf_filtered (outfile, "0x%x\n", SYMBOL_VALUE (p));
+      p++;
+    }
+}
+
 /* Return the nexting depth of a block within other blocks in its symtab.  */
 
 static int
@@ -352,5 +494,7 @@ _initialize_symmisc ()
   
   add_com ("printsyms", class_obscure, print_symtabs,
 	   "Print dump of current symbol definitions to file OUTFILE.");
+  add_com ("printpsyms", class_obscure, print_partial_symtabs,
+	   "Print dump of current partial symbol definitions to file OUTFILE.");
 }
 

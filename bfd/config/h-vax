@@ -1,2 +1,0 @@
-HDEFINES=-DHOST_SYS=VAX_BSD_SYS
-#CC=gcc -Wall -ansi

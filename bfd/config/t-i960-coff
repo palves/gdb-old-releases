@@ -1,5 +1,7 @@
+# Target: Intel 960 embedded development, COFF format
 TDEFINES = \
-	-DDEFAULT_VECTOR=icoff_little_vec \
+	-DDEFAULT_VECTOR=ICOFF_LITTLE_VEC \
+	-DICOFF_LITTLE_VEC=icoff_big_vec \
 	-DICOFF_BIG_VEC=icoff_big_vec \
 	-DB_OUT_VEC_LITTLE_HOST=b_out_vec_little_host \
 	-DB_OUT_VEC_BIG_HOST=b_out_vec_big_host

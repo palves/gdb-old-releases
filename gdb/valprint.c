@@ -251,7 +251,7 @@ print_floating (valaddr, type, stream)
   if (inv)
     fprintf_filtered (stream, "<invalid float value>");
   else
-    fprintf_filtered (stream, len <= sizeof(float) ? "%.6g" : "%.17g", doub);
+    fprintf_filtered (stream, len <= sizeof(float) ? "%.9g" : "%.17g", doub);
 }
 
 /* VALADDR points to an integer of LEN bytes.  Print it in hex on stream.  */
@@ -1212,6 +1212,11 @@ val_print (type, valaddr, address, stream, format,
       fprintf_filtered (stream, "?");
       break;
 
+    case TYPE_CODE_RANGE:
+      /* FIXME, we should not ever have to print one of these yet.  */
+      fprintf_filtered (stream, "<range type>");
+      break;
+
     default:
       error ("Invalid type code in symbol table.");
     }
@@ -1599,7 +1604,7 @@ type_print_base (type, stream, show, level)
   wrap_here ("    ");
   if (type == 0)
     {
-      fprintf_filtered (stream, "type unknown");
+      fprintf_filtered (stream, "<type unknown>");
       return;
     }
 
@@ -1813,12 +1818,17 @@ type_print_base (type, stream, show, level)
       fprintf_filtered (stream, "void");
       break;
 
-    case 0:
-      fprintf_filtered (stream, "struct unknown");
+    case TYPE_CODE_UNDEF:
+      fprintf_filtered (stream, "struct <unknown>");
       break;
 
     case TYPE_CODE_ERROR:
       fprintf_filtered (stream, "<unknown type>");
+      break;
+
+    case TYPE_CODE_RANGE:
+      /* This should not occur */
+      fprintf_filtered (stream, "<range type>");
       break;
 
     default:

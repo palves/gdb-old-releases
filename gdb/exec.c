@@ -111,34 +111,6 @@ exec_file_command (filename, from_tty)
 	error ("\"%s\": not in executable format: %s.",
 	       scratch_pathname, bfd_errmsg (bfd_error));
 
-#if FIXME
-/* This code needs to be incorporated into BFD */
-#ifdef COFF_ENCAPSULATE
-	/* If we have a coff header, it can give us better values for
-	   text_start and exec_data_start.  This is particularly useful
-	   for remote debugging of embedded systems.  */
-	if (N_FLAGS(exec_aouthdr) & N_FLAGS_COFF_ENCAPSULATE)
-	{
-		struct coffheader ch;
-		int val;
-		val = lseek (execchan, -(sizeof (AOUTHDR) + sizeof (ch)), 1);
-		if (val == -1)
-			perror_with_name (filename);
-		val = myread (execchan, &ch, sizeof (ch));
-		if (val < 0)
-			perror_with_name (filename);
-		text_start = ch.text_start;
-		exec_data_start = ch.data_start;
-	} else
-#endif
-	       {
-		text_start =
-		  IS_OBJECT_FILE (exec_aouthdr) ? 0 : N_TXTADDR (exec_aouthdr);
-		exec_data_start = IS_OBJECT_FILE (exec_aouthdr)
-		  ? exec_aouthdr.a_text : N_DATADDR (exec_aouthdr);
-	}
-#endif FIXME
-
       if (build_section_table (exec_bfd, &exec_ops.sections,
 				&exec_ops.sections_end))
 	error ("Can't find the file sections in `%s': %s", 
@@ -203,6 +175,8 @@ add_to_section_table (abfd, asect, table_pp_char)
   aflag = bfd_get_section_flags (abfd, asect);
   /* FIXME, we need to handle BSS segment here...it alloc's but doesn't load */
   if (!(aflag & SEC_LOAD))
+    return;
+  if (0 == bfd_section_size (abfd, asect))
     return;
   (*table_pp)->bfd = abfd;
   (*table_pp)->sec_ptr = asect;
@@ -324,8 +298,8 @@ exec_files_info ()
   printf ("\tExecutable file `%s'.\n", bfd_get_filename(exec_bfd));
 
   for (p = exec_ops.sections; p < exec_ops.sections_end; p++) {
-    printf("\texecutable from %s", local_hex_string_custom (p->addr, "08"));
-    printf(" to %s is %s\n", local_hex_string_custom (p->endaddr, "08"),
+    printf("\t%s", local_hex_string_custom (p->addr, "08"));
+    printf(" - %s is %s\n", local_hex_string_custom (p->endaddr, "08"),
 	bfd_section_name (exec_bfd, p->sec_ptr));
   }
 }

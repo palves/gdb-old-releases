@@ -1558,7 +1558,6 @@ parse_partial_symbols(end_of_text_seg)
 	int end_of_text_seg;
 {
 	int             f_idx, s_idx, h_max, stat_idx;
-	CORE_ADDR	dummy, *prevhigh;
 	HDRR		*hdr;
 	/* Running pointers */
 	FDR		*fh;
@@ -1698,6 +1697,7 @@ parse_partial_symbols(end_of_text_seg)
 	for (f_idx = 0; f_idx < hdr->ifdMax; f_idx++) {
 		fh = f_idx + (FDR *)(cur_hdr->cbFdOffset);
 		pst = fdr_to_pst[f_idx].pst;
+		pst->texthigh = pst->textlow;
 		
 		for (s_idx = 0; s_idx < fh->csym; ) {
 			register struct partial_symbol *p;
@@ -1725,6 +1725,17 @@ parse_partial_symbols(end_of_text_seg)
 				/* Skip over procedure to next one. */
 				s_idx = (sh->index + (AUXU *)fh->iauxBase)
 					  ->isym;
+					{
+					long high;
+					long procaddr = sh->value;
+
+					sh = s_idx + (SYMR *) fh->isymBase - 1;
+					if (sh->st != stEnd)
+						continue;
+					high = procaddr + sh->value;
+					if (high > pst->texthigh)
+						pst->texthigh = high;
+					}
 				continue;
 			case stStatic:			/* Variable */
 				SYMBOL_CLASS(p) = LOC_STATIC;
@@ -1767,40 +1778,19 @@ parse_partial_symbols(end_of_text_seg)
 		}
 	}
 
-	/* The array (of lists) of globals must be sorted.
-	   Take care, since we are at it, of pst->texthigh.
-
-	   NOTE: The way we handle textlow/high is incorrect, but good
-	   enough for a first approximation. The case we fail is on a
-	   file "foo.c" that looks like
-	   	proc1() {...}
-		#include "bar.c"	-- this contains proc2()
-		proc3() {...}
-	   where proc3() is attributed to bar.c.  But since this is a
-	   dependent file it will cause loading of foo.c as well, so
-	   everything will be fine at the end.  */
-
-	/* First, sort the psymtabs by their textlow addresses.  */
+	/* The array (of lists) of globals must be sorted. */
 	reorder_psymtabs();
 
-	/* Now, rip through and fill in "texthigh" from the textlow
-	   of the following psymtab.  Slimy but it might work.
-	   Sort the global psymbols while we're at it.  */
-	prevhigh = &dummy;
+	/* Now sort the global psymbols.  */
 	for (f_idx = 0; f_idx < hdr->ifdMax; f_idx++) {
 		struct partial_symtab *pst = fdr_to_pst[f_idx].pst;
 		if (pst->n_global_syms > 1)
 			qsort (global_psymbols.list + pst->globals_offset,
 				pst->n_global_syms, sizeof (struct partial_symbol),
 				compare_psymbols);
-		if (pst->textlow) {
-			*prevhigh = pst->textlow;
-			prevhigh = &pst->texthigh;
-		}
 	}
 
 	/* Mark the last code address, and remember it for later */
-	*prevhigh = end_of_text_seg;
 	hdr->cbDnOffset = end_of_text_seg;
 
 	free(&fdr_to_pst[-1]);
@@ -2532,6 +2522,7 @@ new_type(name)
 		obstack_alloc (symbol_obstack, sizeof (struct type));
 
 	bzero (t, sizeof (*t));
+	TYPE_VPTR_FIELDNO (t) = -1;
 	TYPE_NAME(t) = name;
 	return t;
 }
@@ -2554,6 +2545,7 @@ make_type(code, length, uns, name)
 	TYPE_LENGTH(type) = length;
 	TYPE_FLAGS(type) = uns ? TYPE_FLAG_UNSIGNED : 0;
 	TYPE_NAME(type) = name;
+	TYPE_VPTR_FIELDNO (type) = -1;
 
 	return type;
 }

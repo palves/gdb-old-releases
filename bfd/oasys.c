@@ -18,13 +18,11 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: oasys.c,v 1.34 1991/09/17 05:09:21 grossman Exp $ */
+/* $Id: oasys.c,v 1.38 1991/10/11 10:11:30 gnu Exp $ */
 
 #define UNDERSCORE_HACK 1
-#include <ansidecl.h>
-#include <sysdep.h>
-
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
 #include "oasys.h"
 #include "liboasys.h"
@@ -118,7 +116,7 @@ DEFUN(oasys_slurp_symbol_table,(abfd),
     case oasys_record_is_local_enum:
     case oasys_record_is_symbol_enum:
 	{
-	  int 	  flag = record.header.type == oasys_record_is_local_enum ?
+	  int 	  flag = record.header.type == (int)oasys_record_is_local_enum ?
 	    (BSF_LOCAL) : (BSF_GLOBAL | BSF_EXPORT);
 
 
@@ -134,7 +132,7 @@ DEFUN(oasys_slurp_symbol_table,(abfd),
 	    dest->section =
 	      oasys_data(abfd)->sections[record.symbol.relb &
 					 RELOCATION_SECT_BITS];
-	    if (record.header.type == oasys_record_is_local_enum) 
+	    if (record.header.type == (int)oasys_record_is_local_enum) 
 		{
 		  dest->flags = BSF_LOCAL;
 		  if (dest->section ==(asection *)(~0)) {
@@ -349,11 +347,9 @@ static boolean
 DEFUN(oasys_mkobject,(abfd),
       bfd *abfd)
 {
-  oasys_data_type *oasys;
 
   set_tdata (abfd,
     (oasys_data_type*)bfd_alloc(abfd, sizeof(oasys_data_type)));
-  oasys = oasys_data(abfd);
   return true;
 }
 
@@ -444,8 +440,7 @@ DEFUN(oasys_object_p,(abfd),
     Oasys support several architectures, but I can't see a simple way
     to discover which one is in a particular file - we'll guess 
     */
-  abfd->obj_arch = bfd_arch_m68k;
-  abfd->obj_machine =0;
+  bfd_default_set_arch_mach(abfd, bfd_arch_m68k, 0);
   if (abfd->symcount != 0) {
     abfd->flags |= HAS_SYMS;
   }
@@ -471,16 +466,16 @@ DEFUN(oasys_print_symbol,(ignore_abfd, afile, symbol, how),
       bfd *ignore_abfd AND
       PTR afile AND
       asymbol *symbol AND
-      bfd_print_symbol_enum_type how)
+      bfd_print_symbol_type how)
 {
   FILE *file = (FILE *)afile;
 
   switch (how) {
-  case bfd_print_symbol_name_enum:
-  case bfd_print_symbol_type_enum:
+  case bfd_print_symbol_name:
+  case bfd_print_symbol_more:
     fprintf(file,"%s", symbol->name);
     break;
-  case bfd_print_symbol_all_enum:
+  case bfd_print_symbol_all:
     {
 CONST      char *section_name = symbol->section == (asection *)NULL ?
 	"*abs" : symbol->section->name;
@@ -759,8 +754,8 @@ DEFUN(oasys_get_section_contents,(abfd, section, location, offset, count),
 
 
 unsigned int
-DEFUN(oasys_canonicalize_reloc,(abfd, section, relptr, symbols),
-      bfd *abfd AND
+DEFUN(oasys_canonicalize_reloc,(ignore_abfd, section, relptr, symbols),
+      bfd *ignore_abfd AND
       sec_ptr section AND
       arelent **relptr AND
       asymbol **symbols)
@@ -781,17 +776,6 @@ DEFUN(oasys_canonicalize_reloc,(abfd, section, relptr, symbols),
 }
 
 
-boolean
-DEFUN(oasys_set_arch_mach, (abfd, arch, machine),
-      bfd *abfd AND
-      enum bfd_architecture arch AND
-      unsigned long machine)
-{
-  abfd->obj_arch = arch;
-  abfd->obj_machine = machine;
-  return true;
-}
-
 
 
 /* Writing */
@@ -809,7 +793,7 @@ DEFUN(oasys_write_record,(abfd, type, record, size),
   size_t i;
   uint8e_type *ptr;
   record->header.length = size;
-  record->header.type = type;
+  record->header.type = (int)type;
   record->header.check_sum = 0;
   record->header.fill = 0;
   ptr = &record->pad[0];
@@ -1279,7 +1263,7 @@ return 0;
 #define oasys_write_armap 0
 #define oasys_get_lineno (struct lineno_cache_entry *(*)())bfd_nullvoidptr
 #define	oasys_close_and_cleanup		bfd_generic_close_and_cleanup
-
+#define oasys_set_arch_mach bfd_default_set_arch_mach
 #define oasys_bfd_debug_info_start bfd_void
 #define oasys_bfd_debug_info_end bfd_void
 #define oasys_bfd_debug_info_accumulate  (FOO(void, (*), (bfd *, asection *)))bfd_void
@@ -1289,7 +1273,7 @@ return 0;
 bfd_target oasys_vec =
 {
   "oasys",			/* name */
-  bfd_target_oasys_flavour_enum,
+  bfd_target_oasys_flavour,
   true,				/* target byte order */
   true,				/* target headers byte order */
   (HAS_RELOC | EXEC_P |		/* object flags */

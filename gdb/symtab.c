@@ -83,7 +83,7 @@ lookup_symtab_1 (name)
     if (!strcmp (name, ps->filename))
       {
 	if (ps->readin)
-	  fatal ("Internal: readin pst found when no symtab found.");
+	  error ("Internal: readin pst found when no symtab found.");
 	return PSYMTAB_TO_SYMTAB (ps);
       }
 
@@ -106,7 +106,7 @@ lookup_symtab_1 (name)
 	      && !strcmp (ps->filename + l - len, name))
 	    {
 	      if (ps->readin)
-		fatal ("Internal: readin pst found when no symtab found.");
+		error ("Internal: readin pst found when no symtab found.");
 	      return PSYMTAB_TO_SYMTAB (ps);
 	    }
 	}
@@ -437,6 +437,8 @@ lookup_pointer_type (type)
   if (TYPE_FLAGS (type) & TYPE_FLAG_PERM)
     TYPE_FLAGS (ptype) |= TYPE_FLAG_PERM;
   /* We assume the machine has only one representation for pointers!  */
+  /* FIXME:  This confuses host<->target data representations, and is a
+     poor assumption besides. */
   TYPE_LENGTH (ptype) = sizeof (char *);
   TYPE_CODE (ptype) = TYPE_CODE_PTR;
   return ptype;
@@ -548,13 +550,13 @@ allocate_stub_method (type)
   return mtype;
 }
 
-/* Lookup a method type returning type TYPE, belonging
-   to class DOMAIN, and taking a list of arguments ARGS.
+/* Lookup a method type belonging to class DOMAIN, returning type TYPE,
+   and taking a list of arguments ARGS.
    If one is not found, allocate a new one.  */
 
 struct type *
-lookup_method_type (type, domain, args)
-     struct type *type, *domain, **args;
+lookup_method_type (domain, type, args)
+     struct type *domain, *type, **args;
 {
   register struct type *mtype = TYPE_MAIN_VARIANT (type);
   struct type *main_type;
@@ -1037,7 +1039,7 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
 	block = BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK);
 	sym = lookup_block_symbol (block, name, namespace);
 	if (!sym)
-	  fatal ("Internal: global symbol found in psymtab but not in symtab");
+	  error ("Internal: global symbol found in psymtab but not in symtab");
 	if (symtab != NULL)
 	  *symtab = s;
 	return sym;
@@ -1069,7 +1071,7 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
 	block = BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK);
 	sym = lookup_block_symbol (block, name, namespace);
 	if (!sym)
-	  fatal ("Internal: static symbol found in psymtab but not in symtab");
+	  error ("Internal: static symbol found in psymtab but not in symtab");
 	if (symtab != NULL)
 	  *symtab = s;
 	return sym;
@@ -1102,7 +1104,7 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
 	    block = BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK);
 	    sym = lookup_demangled_block_symbol (block, name);
 	    if (!sym)
-	      fatal ("Internal: static symbol found in psymtab but not in symtab");
+	      error ("Internal: mangled static symbol found in psymtab but not in symtab");
 	    if (symtab != NULL)
 	      *symtab = s;
 	    return sym;

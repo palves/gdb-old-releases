@@ -644,7 +644,7 @@ add_symbol_file_command (arg_string, from_tty)
 
   dont_repeat ();
 
-  if (!query ("add symbol table from file \"%s\" at text_addr = %s\n",
+  if (!query ("add symbol table from file \"%s\" at text_addr = %s?\n",
 	      name, local_hex_string (text_addr)))
     error ("Not confirmed.");
 
@@ -755,7 +755,6 @@ clear_complaints ()
    Caller must set these fields:
 	LINETABLE(symtab)
 	symtab->blockvector
-	symtab->typevector
 	symtab->dirname
 	symtab->free_code
 	symtab->free_ptr

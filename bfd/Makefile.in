@@ -18,18 +18,18 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-# $Id: Makefile.in,v 1.39 1991/09/13 01:44:41 gnu Exp $
+# $Id: Makefile.in,v 1.49 1991/10/12 05:45:59 gnu Exp $
 
 srcdir = .
 destdir = /usr/local
-libdir = $(destdir)/lib
+libdir = $(destdir)/H-$(host_alias)/T-independent/lib
 docdir = $(srcdir)/doc
 
 RANLIB = ranlib
 AR = ar
 AR_FLAGS = clq
 INCDIR = $(srcdir)/../include
-CSEARCH = -I$(INCDIR)
+CSEARCH = -I. -I$(INCDIR)
 DEP = mkdep
 
 
@@ -41,30 +41,35 @@ CFLAGS = -g $(HDEFINES) $(TDEFINES) $(CSEARCH) $(CSWITCHES) # -DINTEL960VERSION
 
 
 BFD_LIBS = libbfd.o opncls.o bfd.o archive.o targets.o cache.o \
-	archures.o core.o section.o format.o syms.o reloc.o
+	archures.o core.o section.o format.o syms.o reloc.o init.o
+
+BFD_MACHINES = cpu-h8300.o cpu-i960.o cpu-sparc.o cpu-m68k.o cpu-m88k.o \
+	cpu-vax.o cpu-mips.o cpu-a29k.o cpu-i386.o
 
 BFD_BACKENDS = oasys.o ieee.o srec.o \
-	aout64.o aout32.o demo64.o sunos.o newsos3.o bout.o \
-	icoff.o amdcoff.o m68kcoff.o i386coff.o m88k-bcs.o ecoff.o
+	aout64.o aout32.o demo64.o sunos.o newsos3.o i386aout.o bout.o \
+	icoff.o amdcoff.o m68kcoff.o i386coff.o m88k-bcs.o ecoff.o elf.o
+
 
 OPTIONAL_BACKENDS = trad-core.o
 
 BFD_H=$(INCDIR)/bfd.h
-SYSDEP_H=$(INCDIR)/sysdep.h
 
 # C source files that correspond to .o's.
 CFILES = libbfd.c opncls.c bfd.c archive.c targets.c cache.c archures.c \
 	 i386coff.c aout64.c aout32.c sunos.c demo64.c icoff.c srec.c \
 	 oasys.c ieee.c m68kcoff.c amdcoff.c \
-	 format.c section.c core.c syms.c reloc.c \
-	 m88k-bcs.c ecoff.c trad-core.c newsos3.c bout.c
+	 format.c section.c core.c syms.c reloc.c init.c \
+	 m88k-bcs.c ecoff.c trad-core.c newsos3.c i386aout.c bout.c elf.c \
+	cpu-h8300.c cpu-i960.c cpu-sparc.c cpu-m68k.c cpu-m88k.c \
+ 	cpu-vax.c cpu-mips.c cpu-a29k.c cpu-i386.o
 
 STAGESTUFF = $(TARGETLIB) $(OFILES)
 
 all: $(TARGETLIB) 
 
-# XDEPFILES comes from the host config; TDEPFILES from the target config.
-OFILES = $(BFD_LIBS) $(BFD_BACKENDS) $(XDEPFILES) $(TDEPFILES)
+# HDEPFILES comes from the host config; TDEPFILES from the target config.
+OFILES = $(BFD_LIBS) $(BFD_BACKENDS) $(BFD_MACHINES) $(HDEPFILES) $(TDEPFILES)
 
 $(TARGETLIB): $(OFILES)
 	 rm -f $(TARGETLIB)
@@ -111,7 +116,17 @@ clean:
 clobber realclean: clean
 	rm -f libbfd.a TAGS
 
-$(BFD_LIBS) $(BFD_BACKENDS) $(OPTIONAL_BACKENDS):  libbfd.h $(BFD_H)
+# Mark everything as depending on config.status, since the timestamp on
+# sysdep.h might actually move backwards if we reconfig and relink it
+# to a different hosts/h-xxx.h file.  This will force a recompile anyway.
+RECONFIG = config.status
+$(BFD_LIBS):  libbfd.h $(BFD_H) $(RECONFIG)
+$(BFD_MACHINES):  libbfd.h $(BFD_H) $(RECONFIG)
+$(BFD_BACKENDS):  libbfd.h $(BFD_H) $(RECONFIG)
+$(OPTIONAL_BACKENDS):  libbfd.h $(BFD_H) $(RECONFIG)
+
+# Get around a Sun Make bug in SunOS 4.1.1 with VPATH
+cpu-i386.o:cpu-i386.c
 
 saber:
 	#suppress 65 on bfd_map_over_sections 
@@ -160,8 +175,9 @@ roll:
 force:
 
 install:
-	install -c libbfd.a $(libdir)
-	$(RANLIB) $(libdir)/libbfd.a
+	cp libbfd.a $(libdir)/libbfd.a.new
+	$(RANLIB) $(libdir)/libbfd.a.new
+	mv -f $(libdir)/libbfd.a.new $(libdir)/libbfd.a
 
 # Target to uncomment host-specific lines in this makefile.  Such lines must
 # have the following string beginning in column 1: #__<hostname>__#
@@ -185,12 +201,8 @@ make:
 	echo							>>Makefile ; \
 	sed "s/^#__$(HOST)__#//" < Makefile.old			>>Makefile
 
-Makefile: $(srcdir)/Makefile.in $(srcdir)/configure
-	(cd $(srcdir) ; \
-		./configure +norecurse \
-		+destdir=$(destdir) \
-		`if [ "$(srcdir)" != "." ] ; then echo +subdirs; fi` \
-		$(host) +target=$(target);)
+Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
+	$(SHELL) ./config.status
 
 dep: $(CFILES)
 	mkdep $(CFLAGS) $?
@@ -206,6 +218,9 @@ headers:
 	cp $(docdir)/bfd.h $(BFD_H)
 	cp $(docdir)/libbfd.h $(srcdir)/libbfd.h
 	cp $(docdir)/libcoff.h $(srcdir)/libcoff.h
+	rm -f $(docdir)/bfd-in.h 
+	rm -f $(docdir)/libbfd-in.h 
+	rm -f $(docdir)/libcoff-in.h 
 
 bfd.info:
 	( cd $(docdir); $(MAKE) bfd.info)
@@ -250,15 +265,15 @@ m68kcoff.o : m68kcoff.c $(INCDIR)/bfd.h $(INCDIR)/obstack.h libbfd.h \
   $(INCDIR)/m68kcoff.h $(INCDIR)/internalcoff.h libcoff.h coffcode.h 
 amdcoff.o : amdcoff.c $(INCDIR)/bfd.h $(INCDIR)/obstack.h libbfd.h \
   $(INCDIR)/amdcoff.h $(INCDIR)/internalcoff.h libcoff.h coffcode.h 
-format.o : format.c $(INCDIR)/sysdep.h $(INCDIR)/bfd.h \
+format.o : format.c $(INCDIR)/bfd.h \
   $(INCDIR)/obstack.h libbfd.h 
-section.o : section.c $(INCDIR)/sysdep.h $(INCDIR)/bfd.h \
+section.o : section.c $(INCDIR)/bfd.h \
   $(INCDIR)/obstack.h libbfd.h 
-core.o : core.c $(INCDIR)/sysdep.h $(INCDIR)/bfd.h \
+core.o : core.c $(INCDIR)/bfd.h \
   $(INCDIR)/obstack.h libbfd.h 
-syms.o : syms.c $(INCDIR)/sysdep.h $(INCDIR)/bfd.h \
+syms.o : syms.c $(INCDIR)/bfd.h \
   $(INCDIR)/obstack.h libbfd.h 
-reloc.o : reloc.c $(INCDIR)/sysdep.h $(INCDIR)/bfd.h \
+reloc.o : reloc.c $(INCDIR)/bfd.h \
   $(INCDIR)/obstack.h libbfd.h 
 m88k-bcs.o : m88k-bcs.c $(INCDIR)/bfd.h $(INCDIR)/obstack.h libbfd.h \
   $(INCDIR)/m88k-bcs.h $(INCDIR)/internalcoff.h libcoff.h coffcode.h 
@@ -268,6 +283,9 @@ ecoff.o : ecoff.c $(INCDIR)/bfd.h $(INCDIR)/obstack.h libbfd.h \
 trad-core.o : trad-core.c $(INCDIR)/bfd.h $(INCDIR)/obstack.h \
   libbfd.h libaout.h 
 newsos3.o : newsos3.c $(INCDIR)/bfd.h $(INCDIR)/obstack.h libbfd.h \
+  $(INCDIR)/aout64.h $(INCDIR)/stab.gnu.h $(INCDIR)/stab.def \
+  $(INCDIR)/ar.h libaout.h 
+i386aout.o : i386aout.c $(INCDIR)/bfd.h $(INCDIR)/obstack.h libbfd.h \
   $(INCDIR)/aout64.h $(INCDIR)/stab.gnu.h $(INCDIR)/stab.def \
   $(INCDIR)/ar.h libaout.h 
 bout.o : bout.c $(INCDIR)/bfd.h $(INCDIR)/obstack.h libbfd.h \

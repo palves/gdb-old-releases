@@ -16,6 +16,14 @@ m68k)
 		*)	gdb_host=altos ;;	
 		esac
 		;;
+
+	cbm)
+		case ${host_os} in
+		amigados)	gdb_host=amigados ;;
+		svr4)		gdb_host=amix ;;
+		esac
+		;;
+
 	hp)
 		case ${host_os} in
 		hpux)	gdb_host=hp300hpux ;;
@@ -63,7 +71,7 @@ m68030)
 mips)
 	case "${host_vendor}" in
 	sony)	gdb_host=bigmips ;;
-	dec)	gdb_host=dec3100 ;;
+	dec)	gdb_host=decstation ;;
 	little)	gdb_host=littlemips ;;
 	sgi)	gdb_host=irix3 ;;
 	esac
@@ -78,6 +86,7 @@ i386)
 		case "${host_os}" in
 		sysv)	gdb_host=i386v ;;
 		sysv32)	gdb_host=i386v32 ;;
+		mach)	gdb_host=i386mach ;;
 		esac
 		;;
 	esac
@@ -126,6 +135,12 @@ m68k)
 	case "${target_vendor}" in
 	att)	gdb_target=3b1 ;;
 	altos)	gdb_target=altos ;;
+	cbm)
+		case ${target_os} in
+		amigados)	gdb_host=amigados ;;
+		svr4)		gdb_target=amix ;;
+		esac
+		;;
 	hp)
 		case "${target_os}" in
 		bsd)	gdb_target=hp300bsd ;;
@@ -176,7 +191,7 @@ a29k)
 mips)
 	case "${target_vendor}" in
 	sony)	gdb_target=bigmips ;;
-	dec)	gdb_target=dec3100 ;;
+	dec)	gdb_target=decstation ;;
 	little)	gdb_target=littlemips ;;
 	sgi)	gdb_target=irix3 ;;
 	esac
@@ -208,6 +223,7 @@ i386)
 		case "${target_os}" in
 		sysv)	gdb_target=i386v ;;
 		sysv32)	gdb_target=i386v32 ;;
+		mach)	gdb_target=i386mach ;;
 		esac
 	esac
 	;;

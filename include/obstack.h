@@ -215,11 +215,11 @@ int obstack_chunk_size (struct obstack *obstack);
 
 #define obstack_init(h) \
   _obstack_begin ((h), 0, 0, \
-		  (void *(*) ()) obstack_chunk_alloc, obstack_chunk_free)
+		  (void *(*) ()) obstack_chunk_alloc, (void (*) ())obstack_chunk_free)
 
 #define obstack_begin(h, size) \
   _obstack_begin ((h), (size), 0, \
-		  (void *(*) ()) obstack_chunk_alloc, obstack_chunk_free)
+		  (void *(*) ()) obstack_chunk_alloc, (void (*) ())obstack_chunk_free)
 
 #define obstack_1grow_fast(h,achar) (*((h)->next_free)++ = achar)
 

@@ -568,10 +568,10 @@ parse_escape (string_ptr)
   switch (c)
     {
     case 'a':
-      return '\a';
+      return 007;		/* Bell (alert) char */
     case 'b':
       return '\b';
-    case 'e':
+    case 'e':			/* Escape character */
       return 033;
     case 'f':
       return '\f';
@@ -1293,6 +1293,10 @@ _initialize_utils ()
 	  }
       }
   }
+
+  /* If the output is not a terminal, don't paginate it.  */
+  if (!ISATTY (stdout))
+    lines_per_page = UINT_MAX;
 
   set_width_command ((char *)NULL, 0, c);
 

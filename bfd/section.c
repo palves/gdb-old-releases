@@ -34,8 +34,7 @@ the list.
 * section prototypes::
 @end menu
 
-@node Section Input, Section Output,,Sections
-@comment  node-name,  next,  previous,  up
+@node Section Input, Section Output, Sections, Sections
 @subsection Section Input
 When a BFD is opened for reading, the section structures are created
 and attached to the BFD.
@@ -60,7 +59,7 @@ file doesn't contain raw data in sections, but data and relocation
 expressions intermixed, so the data area has to be parsed to get out
 the data and relocations.
 
-@node Section Output,typedef asection,Section Input,Sections
+@node Section Output, typedef asection, Section Input, Sections
 @subsection Section Output
 To write a new object style BFD, the various sections to be written
 have to be created. They are attached to the BFD in the same way as
@@ -97,13 +96,13 @@ subsections, "A" at offset 0x0 (ie at vma 0x100) and "B" at offset
 */
 
 
-#include "sysdep.h"
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
 
 
 /*doc*
-@node typedef asection,section prototypes,Section Output,Sections
+@node typedef asection, section prototypes, Section Output, Sections
 @subsection typedef asection
 */
 
@@ -297,7 +296,7 @@ $} asection ;
 */
 
 /*doc*
-@node section prototypes,Section,typedef section,Sections
+@node section prototypes,  , typedef asection, Sections
 @subsection section prototypes
 
 */

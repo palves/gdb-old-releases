@@ -18,12 +18,10 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: m68kcoff.c,v 1.8 1991/09/20 03:44:20 gnu Exp $ */
+/* $Id: m68kcoff.c,v 1.10 1991/10/11 10:08:31 gnu Exp $ */
 
-#define M68 1
-#include <ansidecl.h>
-#include <sysdep.h>
 #include "bfd.h"
+#include "sysdep.h"
 #include "libbfd.h"
 #include "obstack.h"
 #include "m68kcoff.h"
@@ -41,10 +39,11 @@ static reloc_howto_type howto_table[] =
 };
 
 
-/* Turn a howto into a reloc  nunmber */
+/* Turn a howto into a reloc number */
 
 #define SELECT_RELOC(x,howto) { x = howto_table[howto->size +(int)howto->pc_relative*3].type; }
 #define BADMAG(x) M68KBADMAG(x)
+#define M68 1		/* Customize coffcode.h */
 #include "coffcode.h"
 
 
@@ -53,7 +52,7 @@ static reloc_howto_type howto_table[] =
 bfd_target m68kcoff_vec =
 {
   "m68kcoff",		/* name */
-  bfd_target_coff_flavour_enum,
+  bfd_target_coff_flavour,
   true,				/* data byte order is big */
   true,				/* header byte order is big */
 
