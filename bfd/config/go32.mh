@@ -1,4 +1,2 @@
-EXTRALIBS=-lm
-HDEFINES=-D__MSDOS__ -D__GO32__
 CC=gcc
 

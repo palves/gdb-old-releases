@@ -1,11 +1,11 @@
 srcdir = .
 
-all: wierd.o
+all: weird.o
 
 #### host, target, and site specific Makefile frags come in here.
 
 clean mostlyclean:
-	-rm -f *.o ${PROGS} *~ core tmp.c tmp.s wierd.s
+	-rm -f *.o ${PROGS} *~ core tmp.c tmp.s weird.s
 
 distclean realclean: clean
 	-rm -f Makefile config.status

@@ -160,7 +160,7 @@ extern CORE_ADDR sh_skip_prologue ();
    into VALBUF.  */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy ((char *)(REGBUF), VALBUF, TYPE_LENGTH(TYPE))
+  memcpy (VALBUF, (char *)(REGBUF), TYPE_LENGTH(TYPE))
 
 
 /* Write into appropriate registers a function return value
@@ -226,7 +226,6 @@ extern CORE_ADDR sh_skip_prologue ();
 typedef unsigned short INSN_WORD;
 
 #define ADDR_BITS_REMOVE(addr) ((addr) & 0xffffff)
-#define ADDR_BITS_SET(addr)    (addr)
 
 #define CALL_DUMMY_LENGTH 10
 

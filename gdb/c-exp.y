@@ -564,6 +564,8 @@ variable:	block COLONCOLON name
 				   copy_name ($3));
 
 			  write_exp_elt_opcode (OP_VAR_VALUE);
+			  /* block_found is set by lookup_symbol.  */
+			  write_exp_elt_block (block_found);
 			  write_exp_elt_sym (sym);
 			  write_exp_elt_opcode (OP_VAR_VALUE); }
 	;
@@ -620,6 +622,7 @@ variable:	qualified_name
 			  if (sym)
 			    {
 			      write_exp_elt_opcode (OP_VAR_VALUE);
+			      write_exp_elt_block (NULL);
 			      write_exp_elt_sym (sym);
 			      write_exp_elt_opcode (OP_VAR_VALUE);
 			      break;
@@ -630,7 +633,7 @@ variable:	qualified_name
 			  if (msymbol != NULL)
 			    {
 			      write_exp_elt_opcode (OP_LONG);
-			      write_exp_elt_type (builtin_type_int);
+			      write_exp_elt_type (builtin_type_long);
 			      write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
 			      write_exp_elt_opcode (OP_LONG);
 			      write_exp_elt_opcode (UNOP_MEMVAL);
@@ -656,39 +659,19 @@ variable:	name_not_typename
 
 			  if (sym)
 			    {
-			      switch (SYMBOL_CLASS (sym))
+			      if (symbol_read_needs_frame (sym))
 				{
-				case LOC_REGISTER:
-				case LOC_ARG:
-				case LOC_REF_ARG:
-				case LOC_REGPARM:
-				case LOC_LOCAL:
-				case LOC_LOCAL_ARG:
 				  if (innermost_block == 0 ||
 				      contained_in (block_found, 
 						    innermost_block))
 				    innermost_block = block_found;
-				case LOC_UNDEF:
-				case LOC_CONST:
-				case LOC_STATIC:
-				case LOC_TYPEDEF:
-				case LOC_LABEL:
-				case LOC_BLOCK:
-				case LOC_CONST_BYTES:
-				case LOC_OPTIMIZED_OUT:
-
-				  /* In this case the expression can
-				     be evaluated regardless of what
-				     frame we are in, so there is no
-				     need to check for the
-				     innermost_block.  These cases are
-				     listed so that gcc -Wall will
-				     report types that may not have
-				     been considered.  */
-
-				  break;
 				}
+
 			      write_exp_elt_opcode (OP_VAR_VALUE);
+			      /* We want to use the selected frame, not
+				 another more inner frame which happens to
+				 be in the same block.  */
+			      write_exp_elt_block (NULL);
 			      write_exp_elt_sym (sym);
 			      write_exp_elt_opcode (OP_VAR_VALUE);
 			    }
@@ -716,7 +699,7 @@ variable:	name_not_typename
 			      if (msymbol != NULL)
 				{
 				  write_exp_elt_opcode (OP_LONG);
-				  write_exp_elt_type (builtin_type_int);
+				  write_exp_elt_type (builtin_type_long);
 				  write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
 				  write_exp_elt_opcode (OP_LONG);
 				  write_exp_elt_opcode (UNOP_MEMVAL);
@@ -739,48 +722,23 @@ variable:	name_not_typename
 	;
 
 
+/* shift/reduce conflict: "typebase ." and the token is '('.  (Shows up
+   twice, once where qualified_name is a possibility and once where
+   it is not).  */
+/* shift/reduce conflict: "typebase CONST_KEYWORD ." and the token is '('.  */
+/* shift/reduce conflict: "typebase VOLATILE_KEYWORD ." and the token is
+   '('.  */
 ptype	:	typebase
+	/* "const" and "volatile" are curently ignored.  A type qualifier
+	   before the type is currently handled in the typebase rule.  */
+	|	typebase CONST_KEYWORD
+	|	typebase VOLATILE_KEYWORD
 	|	typebase abs_decl
-		{
-		  /* This is where the interesting stuff happens.  */
-		  int done = 0;
-		  int array_size;
-		  struct type *follow_type = $1;
-		  struct type *range_type;
-		  
-		  while (!done)
-		    switch (pop_type ())
-		      {
-		      case tp_end:
-			done = 1;
-			break;
-		      case tp_pointer:
-			follow_type = lookup_pointer_type (follow_type);
-			break;
-		      case tp_reference:
-			follow_type = lookup_reference_type (follow_type);
-			break;
-		      case tp_array:
-			array_size = pop_type_int ();
-			if (array_size != -1)
-			  {
-			    range_type =
-			      create_range_type ((struct type *) NULL,
-						 builtin_type_int, 0,
-						 array_size - 1);
-			    follow_type =
-			      create_array_type ((struct type *) NULL,
-						 follow_type, range_type);
-			  }
-			else
-			  follow_type = lookup_pointer_type (follow_type);
-			break;
-		      case tp_function:
-			follow_type = lookup_function_type (follow_type);
-			break;
-		      }
-		  $$ = follow_type;
-		}
+		{ $$ = follow_types ($1); }
+	|	typebase CONST_KEYWORD abs_decl
+		{ $$ = follow_types ($1); }
+	|	typebase VOLATILE_KEYWORD abs_decl
+		{ $$ = follow_types ($1); }
 	;
 
 abs_decl:	'*'
@@ -807,6 +765,10 @@ direct_abs_decl: '(' abs_decl ')'
 			  push_type (tp_array);
 			  $$ = 0;
 			}
+
+     /* shift/reduce conflict.  "direct_abs_decl . func_mod", and the token
+	is '('.  */
+
 	| 	direct_abs_decl func_mod
 			{ push_type (tp_function); }
 	|	func_mod
@@ -825,6 +787,8 @@ func_mod:	'(' ')'
 			{ free ((PTR)$2); $$ = 0; }
 	;
 
+/* shift/reduce conflict: "type '(' typebase COLONCOLON '*' ')' ." and the
+   token is '('.  */
 type	:	ptype
 	|	typebase COLONCOLON '*'
 			{ $$ = lookup_member_type (builtin_type_int, $1); }
@@ -888,7 +852,9 @@ typebase  /* Implements (approximately): (type-qualifier)* type-specifier */
 			{ $$ = lookup_template_type(copy_name($2), $4,
 						    expression_context_block);
 			}
-	/* "const" and "volatile" are curently ignored. */
+	/* "const" and "volatile" are curently ignored.  A type qualifier
+	   after the type is handled in the ptype rule.  I think these could
+	   be too.  */
 	|	CONST_KEYWORD typebase { $$ = $2; }
 	|	VOLATILE_KEYWORD typebase { $$ = $2; }
 	;
@@ -961,7 +927,7 @@ parse_number (p, len, parsed_float, putithere)
 {
   register LONGEST n = 0;
   register LONGEST prevn = 0;
-  register int i;
+  register int i = 0;
   register int c;
   register int base = input_radix;
   int unsigned_p = 0;

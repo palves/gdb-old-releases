@@ -14,6 +14,7 @@ links=sysdep.h
 
 case "${host}" in
   rs6000-ibm-aix)	files=sysdep-aix.h;	my_host=aix ;;
+  rs6000-ibm-aix3.1)	files=sysdep-aix.h;	my_host=aix ;;
   *-*-aix*)					my_host=aix ;;
   mips-sgi-irix*)	files=sysdep-irix.h ;;
   m68k-sony-news*)	files=sysdep-obsd.h ;;
@@ -23,7 +24,7 @@ case "${host}" in
   *-*-sysv4*)					my_host=sysv4 ;;
   *-*-sco*)		files=sysdep-sco.h ;;
   *-apollo-sysv*)	files=sysdep-a68v.h;	my_host=apollo68v ;;
-  m88k-motorola-m88kbcs)			my_host=delta88 ;;
+  m88k-motorola-m88kbcs*)			my_host=delta88 ;;
 esac
 
 host_makefile_frag=config/mh-${my_host}

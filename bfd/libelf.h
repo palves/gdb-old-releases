@@ -35,6 +35,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif
 #endif
 
+#ifndef NAME
+#define NAME(x,y) CAT4(x,NOSIZE,_,y)
+#endif
+
 #define ElfNAME(X)	NAME(Elf,X)
 #define elfNAME(X)	NAME(elf,X)
 
@@ -42,35 +46,13 @@ typedef struct
 {
   asymbol symbol;
   Elf_Internal_Sym internal_elf_sym;
-  /* these are used for the generation of .stabX symbols (?) */
-  short desc;
-  unsigned char type;
-  char other;
   union
     {
       unsigned int hppa_arg_reloc;
       PTR any;
     }
   tc_data;
-  Elf32_External_Sym native_elf_sym;
-} elf32_symbol_type;
-
-typedef struct
-{
-  asymbol symbol;
-  Elf_Internal_Sym internal_elf_sym;
-  /* these are used for the generation of .stabX symbols (?) */
-  short desc;
-  unsigned char type;
-  char other;
-  union
-    {
-      unsigned int hppa_arg_reloc;
-      PTR any;
-    }
-  tc_data;
-  Elf64_External_Sym native_elf_sym;
-} elf64_symbol_type;
+} elf_symbol_type;
 
 struct elf_backend_data
 {
@@ -84,15 +66,20 @@ struct elf_backend_data
   bfd_vma maxpagesize;
   void (*write_relocs) PARAMS ((bfd *, asection *, PTR));
 
-  /* @@ I really don't think this should be here.  I don't know what
-     global_sym is supposed to be used for, but I doubt it's something
-     that would be considered global, e.g., if you've got a program
-     reading and writing many BFDs.  My hunch is that it's specific to
-     the output BFD.  If not, put a comment here explaining why.  */
-  /* @@ Was pointer to elfNAME(symbol_type).  This makes it size-
-     independent.  */
-  PTR global_sym;
+  void (*elf_backend_symbol_processing) PARAMS ((bfd *, asymbol *));
+  boolean (*elf_backend_symbol_table_processing) PARAMS ((bfd *, elf_symbol_type *, int));
+  boolean (*elf_backend_section_processing) PARAMS ((bfd *, Elf32_Internal_Shdr *));
+  boolean (*elf_backend_section_from_shdr) PARAMS ((bfd *, Elf32_Internal_Shdr *, char *));
+  boolean (*elf_backend_fake_sections) PARAMS ((bfd *, Elf32_Internal_Shdr *, asection *));
+  boolean (*elf_backend_section_from_bfd_section) PARAMS ((bfd *, Elf32_Internal_Shdr *, asection *, int *));
 };
+
+struct elf_sym_extra
+{
+  int elf_sym_num;		/* sym# after locals/globals are reordered */
+};
+
+typedef struct elf_sym_extra Elf_Sym_Extra;
 
 struct bfd_elf_arch_map {
   enum bfd_architecture bfd_arch;
@@ -106,10 +93,6 @@ struct bfd_elf_section_data {
   Elf_Internal_Shdr this_hdr;
   Elf_Internal_Shdr rel_hdr;
   int this_idx, rel_idx;
-#if 0
-  Elf_Internal_Shdr str_hdr;
-  int str_idx;
-#endif
 };
 #define elf_section_data(sec)  ((struct bfd_elf_section_data*)sec->used_by_bfd)
 #define shdr_name(abfd,shdr)	(elf_shstrtab (abfd)->tab + (shdr)->sh_name)
@@ -135,11 +118,11 @@ struct elf_obj_tdata
   struct strtab *strtab_ptr;
   int num_locals;
   int num_globals;
-  int *symtab_map;
-  PTR raw_syms;			/* Elf_External_Sym* */
   Elf_Internal_Sym *internal_syms;
-  PTR symbols;			/* elf_symbol_type */
-/*  struct strtab *shstrtab;*/
+  elf_symbol_type *symbols;	/* elf_symbol_type */
+  Elf_Sym_Extra *sym_extra;
+  asymbol **section_syms;	/* STT_SECTION symbols for each section */
+  int num_section_syms;		/* number of section_syms allocated */
   Elf_Internal_Shdr symtab_hdr;
   Elf_Internal_Shdr shstrtab_hdr;
   Elf_Internal_Shdr strtab_hdr;
@@ -147,6 +130,8 @@ struct elf_obj_tdata
   file_ptr next_file_pos;
   void *prstatus;		/* The raw /proc prstatus structure */
   void *prpsinfo;		/* The raw /proc prpsinfo structure */
+  bfd_vma gp;			/* The gp value (MIPS only, for now) */
+  int gp_size;			/* The gp size (MIPS only, for now) */
 };
 
 #define elf_tdata(bfd)		((bfd) -> tdata.elf_obj_data)
@@ -156,12 +141,15 @@ struct elf_obj_tdata
 #define elf_onesymtab(bfd)	(elf_tdata(bfd) -> symtab_section)
 #define elf_num_locals(bfd)	(elf_tdata(bfd) -> num_locals)
 #define elf_num_globals(bfd)	(elf_tdata(bfd) -> num_globals)
-#define elf_symtab_map(bfd)	(elf_tdata(bfd) -> symtab_map)
+#define elf_sym_extra(bfd)	(elf_tdata(bfd) -> sym_extra)
+#define elf_section_syms(bfd)	(elf_tdata(bfd) -> section_syms)
+#define elf_num_section_syms(bfd) (elf_tdata(bfd) -> num_section_syms)
 #define core_prpsinfo(bfd)	(elf_tdata(bfd) -> prpsinfo)
 #define core_prstatus(bfd)	(elf_tdata(bfd) -> prstatus)
-#define obj_symbols(bfd)	((elf_symbol_type*)(elf_tdata(bfd) -> symbols))
-#define obj_raw_syms(bfd)	((Elf_External_Sym*)(elf_tdata(bfd) -> raw_syms))
+#define obj_symbols(bfd)	(elf_tdata(bfd) -> symbols)
 #define obj_internal_syms(bfd)	(elf_tdata(bfd) -> internal_syms)
+#define elf_gp(bfd)		(elf_tdata(bfd) -> gp)
+#define elf_gp_size(bfd)	(elf_tdata(bfd) -> gp_size)
 
 extern char * elf_string_from_elf_section PARAMS ((bfd *, unsigned, unsigned));
 extern char * elf_get_str_section PARAMS ((bfd *, unsigned));
@@ -170,7 +158,7 @@ extern char * elf_get_str_section PARAMS ((bfd *, unsigned));
 #define bfd_elf64_mkobject	bfd_elf_mkobject
 #define elf_mkobject		bfd_elf_mkobject
 
-extern unsigned long elf_hash PARAMS ((CONST unsigned char *));
+extern unsigned long bfd_elf_hash PARAMS ((CONST unsigned char *));
 
 extern bfd_reloc_status_type bfd_elf_generic_reloc PARAMS ((bfd *,
 							    arelent *,
@@ -179,6 +167,8 @@ extern bfd_reloc_status_type bfd_elf_generic_reloc PARAMS ((bfd *,
 							    asection *,
 							    bfd *));
 extern boolean bfd_elf_mkobject PARAMS ((bfd *));
+extern Elf_Internal_Shdr *bfd_elf_find_section PARAMS ((bfd *, char *));
+
 extern boolean bfd_elf32_write_object_contents PARAMS ((bfd *));
 extern boolean bfd_elf64_write_object_contents PARAMS ((bfd *));
 

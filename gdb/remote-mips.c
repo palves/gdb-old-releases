@@ -28,6 +28,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcore.h"
 #include "serial.h"
 #include "target.h"
+#include "remote-utils.h"
 
 #include <signal.h>
 
@@ -74,7 +75,7 @@ static void
 mips_resume PARAMS ((int pid, int step, int siggnal));
 
 static int
-mips_wait PARAMS ((WAITTYPE *status));
+mips_wait PARAMS ((int pid, WAITTYPE *status));
 
 static int
 mips_map_regno PARAMS ((int regno));
@@ -276,9 +277,6 @@ static int mips_receive_wait = 5;
    a reply.  */
 static int mips_need_reply = 0;
 
-/* This can be set to get debugging with ``set remotedebug''.  */
-static int mips_debug = 0;
-
 /* Handle used to access serial I/O stream.  */
 static serial_t mips_desc;
 
@@ -309,7 +307,7 @@ mips_readchar (timeout)
     error ("End of file from remote");
   if (ch == SERIAL_ERROR)
     error ("Error reading from remote: %s", safe_strerror (errno));
-  if (mips_debug > 1)
+  if (sr_get_debug () > 1)
     {
       if (ch != SERIAL_TIMEOUT)
 	printf_filtered ("Read '%c' %d 0x%x\n", ch, ch, ch);
@@ -326,7 +324,7 @@ mips_readchar (timeout)
       && state == 5
       && ! mips_initializing)
     {
-      if (mips_debug > 0)
+      if (sr_get_debug () > 0)
 	printf_filtered ("Reinitializing MIPS debugging mode\n");
       SERIAL_WRITE (mips_desc, "\rdb tty0\r", sizeof "\rdb tty0\r" - 1);
       sleep (1);
@@ -378,7 +376,7 @@ mips_receive_header (hdr, pgarbage, ch, timeout)
 		 what the program is outputting, if the debugging is
 		 being done on the console port.  FIXME: Perhaps this
 		 should be filtered?  */
-	      if (! mips_initializing || mips_debug > 0)
+	      if (! mips_initializing || sr_get_debug () > 0)
 		{
 		  putchar (ch);
 		  fflush (stdout);
@@ -513,7 +511,7 @@ mips_send_packet (s, get_ack)
       int garbage;
       int ch;
 
-      if (mips_debug > 0)
+      if (sr_get_debug () > 0)
 	{
 	  packet[HDR_LENGTH + len + TRLR_LENGTH] = '\0';
 	  printf_filtered ("Writing \"%s\"\n", packet + 1);
@@ -569,7 +567,7 @@ mips_send_packet (s, get_ack)
 	      != TRLR_GET_CKSUM (trlr))
 	    continue;
 
-	  if (mips_debug > 0)
+	  if (sr_get_debug () > 0)
 	    {
 	      hdr[HDR_LENGTH] = '\0';
 	      trlr[TRLR_LENGTH] = '\0';
@@ -630,7 +628,7 @@ mips_receive_packet (buff)
       /* An acknowledgement is probably a duplicate; ignore it.  */
       if (! HDR_IS_DATA (hdr))
 	{
-	  if (mips_debug > 0)
+	  if (sr_get_debug () > 0)
 	    printf_filtered ("Ignoring unexpected ACK\n");
 	  continue;
 	}
@@ -638,7 +636,7 @@ mips_receive_packet (buff)
       /* If this is the wrong sequence number, ignore it.  */
       if (HDR_GET_SEQ (hdr) != mips_receive_seq)
 	{
-	  if (mips_debug > 0)
+	  if (sr_get_debug () > 0)
 	    printf_filtered ("Ignoring sequence number %d (want %d)\n",
 			     HDR_GET_SEQ (hdr), mips_receive_seq);
 	  continue;
@@ -663,7 +661,7 @@ mips_receive_packet (buff)
 
       if (i < len)
 	{
-	  if (mips_debug > 0)
+	  if (sr_get_debug () > 0)
 	    printf_filtered ("Got new SYN after %d chars (wanted %d)\n",
 			     i, len);
 	  continue;
@@ -674,7 +672,7 @@ mips_receive_packet (buff)
 	error ("Timed out waiting for packet");
       if (err == -2)
 	{
-	  if (mips_debug > 0)
+	  if (sr_get_debug () > 0)
 	    printf_filtered ("Got SYN when wanted trailer\n");
 	  continue;
 	}
@@ -682,7 +680,7 @@ mips_receive_packet (buff)
       if (mips_cksum (hdr, buff, len) == TRLR_GET_CKSUM (trlr))
 	break;
 
-      if (mips_debug > 0)
+      if (sr_get_debug () > 0)
 	printf_filtered ("Bad checksum; data %d, trailer %d\n",
 			 mips_cksum (hdr, buff, len),
 			 TRLR_GET_CKSUM (trlr));
@@ -700,7 +698,7 @@ mips_receive_packet (buff)
       ack[HDR_LENGTH + TRLR_INDX_CSUM2] = TRLR_SET_CSUM2 (cksum);
       ack[HDR_LENGTH + TRLR_INDX_CSUM3] = TRLR_SET_CSUM3 (cksum);
 
-      if (mips_debug > 0)
+      if (sr_get_debug () > 0)
 	{
 	  ack[HDR_LENGTH + TRLR_LENGTH] = '\0';
 	  printf_filtered ("Writing ack %d \"%s\"\n", mips_receive_seq,
@@ -711,7 +709,7 @@ mips_receive_packet (buff)
 	error ("write to target failed: %s", safe_strerror (errno));
     }
 
-  if (mips_debug > 0)
+  if (sr_get_debug () > 0)
     {
       buff[len] = '\0';
       printf_filtered ("Got packet \"%s\"\n", buff);
@@ -731,7 +729,7 @@ mips_receive_packet (buff)
   ack[HDR_LENGTH + TRLR_INDX_CSUM2] = TRLR_SET_CSUM2 (cksum);
   ack[HDR_LENGTH + TRLR_INDX_CSUM3] = TRLR_SET_CSUM3 (cksum);
 
-  if (mips_debug > 0)
+  if (sr_get_debug () > 0)
     {
       ack[HDR_LENGTH + TRLR_LENGTH] = '\0';
       printf_filtered ("Writing ack %d \"%s\"\n", mips_receive_seq,
@@ -973,7 +971,8 @@ mips_resume (pid, step, siggnal)
 /* Wait until the remote stops, and return a wait status.  */
 
 static int
-mips_wait (status)
+mips_wait (pid, status)
+     int pid;
      WAITTYPE *status;
 {
   int rstatus;
@@ -1335,12 +1334,5 @@ _initialize_remote_mips ()
 	 "Set retransmit timeout in seconds for remote MIPS serial I/O.\n\
 This is the number of seconds to wait for an acknowledgement to a packet\n\
 before resending the packet.", &setlist),
-	&showlist);
-
-  add_show_from_set (
-    add_set_cmd ("remotedebug", no_class, var_zinteger, (char *) &mips_debug,
-		   "Set debugging of remote MIPS serial I/O.\n\
-When non-zero, each packet sent or received with the remote target\n\
-is displayed.  Higher numbers produce more debugging.", &setlist),
 	&showlist);
 }

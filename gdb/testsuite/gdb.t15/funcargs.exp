@@ -672,7 +672,7 @@ proc discard_and_shuffle {} {
     expect {
 	-re "backtrace 100\r
 .* call6a \(c=97 'a', s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call6a" ; return }
 	timeout { fail "(timeout) backtrace from call6a" ; return }
@@ -693,7 +693,7 @@ $prompt $" {}
 	-re "backtrace 100\r
 .* call6b \(s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6a \(c=97 'a', s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call6b" ; return }
 	timeout { fail "(timeout) backtrace from call6b" ; return }
@@ -715,7 +715,7 @@ $prompt $" {}
 .* call6c \(i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6b \(s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6a \(c=97 'a', s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call6c" ; return }
 	timeout { fail "(timeout) backtrace from call6c" ; return }
@@ -738,7 +738,7 @@ $prompt $" {}
 .* call6c \(i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6b \(s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6a \(c=97 'a', s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call6d" ; return }
 	timeout { fail "(timeout) backtrace from call6d" ; return }
@@ -762,7 +762,7 @@ $prompt $" {}
 .* call6c \(i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6b \(s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6a \(c=97 'a', s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call6e" ; return }
 	timeout { fail "(timeout) backtrace from call6e" ; return }
@@ -787,7 +787,7 @@ $prompt $" {}
 .* call6c \(i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6b \(s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6a \(c=97 'a', s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call6f" ; return }
 	timeout { fail "(timeout) backtrace from call6f" ; return }
@@ -813,7 +813,7 @@ $prompt $" {}
 .* call6c \(i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6b \(s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6a \(c=97 'a', s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call6g" ; return }
 	timeout { fail "(timeout) backtrace from call6g" ; return }
@@ -840,7 +840,7 @@ $prompt $" {}
 .* call6c \(i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6b \(s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6a \(c=97 'a', s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call6h" ; return }
 	timeout { fail "(timeout) backtrace from call6h" ; return }
@@ -868,7 +868,7 @@ $prompt $" {}
 .* call6c \(i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6b \(s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6a \(c=97 'a', s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call6i" ; return }
 	timeout { fail "(timeout) backtrace from call6i" ; return }
@@ -897,7 +897,7 @@ $prompt $" {}
 .* call6c \(i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6b \(s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6a \(c=97 'a', s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call6j" ; return }
 	timeout { fail "(timeout) backtrace from call6j" ; return }
@@ -929,7 +929,7 @@ $prompt $" {}
 .* call6c \(i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6b \(s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
 .* call6a \(c=97 'a', s=1, i=2, l=3, f=4, d=5, uc=98 'b', us=6, ui=7, ul=8\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call6k" ; return }
 	timeout { fail "(timeout) backtrace from call6k" ; return }
@@ -984,7 +984,7 @@ proc shuffle_round_robin {} {
     expect {
 	-re "backtrace 100\r
 .* call7a \(c=97 'a', i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call7a" ; return }
 	timeout { fail "(timeout) backtrace from call7a" ; return }
@@ -1005,7 +1005,7 @@ $prompt $" {}
 	-re "backtrace 100\r
 .* call7b \(i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a'\) .*\r
 .* call7a \(c=97 'a', i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call7b" ; return }
 	timeout { fail "(timeout) backtrace from call7b" ; return }
@@ -1027,7 +1027,7 @@ $prompt $" {}
 .* call7c \(s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a', i=2\) .*\r
 .* call7b \(i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a'\) .*\r
 .* call7a \(c=97 'a', i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call7c" ; return }
 	timeout { fail "(timeout) backtrace from call7c" ; return }
@@ -1050,7 +1050,7 @@ $prompt $" {}
 .* call7c \(s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a', i=2\) .*\r
 .* call7b \(i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a'\) .*\r
 .* call7a \(c=97 'a', i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call7d" ; return }
 	timeout { fail "(timeout) backtrace from call7d" ; return }
@@ -1074,7 +1074,7 @@ $prompt $" {}
 .* call7c \(s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a', i=2\) .*\r
 .* call7b \(i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a'\) .*\r
 .* call7a \(c=97 'a', i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call7e" ; return }
 	timeout { fail "(timeout) backtrace from call7e" ; return }
@@ -1099,7 +1099,7 @@ $prompt $" {}
 .* call7c \(s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a', i=2\) .*\r
 .* call7b \(i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a'\) .*\r
 .* call7a \(c=97 'a', i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call7f" ; return }
 	timeout { fail "(timeout) backtrace from call7f" ; return }
@@ -1125,7 +1125,7 @@ $prompt $" {}
 .* call7c \(s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a', i=2\) .*\r
 .* call7b \(i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a'\) .*\r
 .* call7a \(c=97 'a', i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call7g" ; return }
 	timeout { fail "(timeout) backtrace from call7g" ; return }
@@ -1152,7 +1152,7 @@ $prompt $" {}
 .* call7c \(s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a', i=2\) .*\r
 .* call7b \(i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a'\) .*\r
 .* call7a \(c=97 'a', i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call7h" ; return }
 	timeout { fail "(timeout) backtrace from call7h" ; return }
@@ -1180,7 +1180,7 @@ $prompt $" {}
 .* call7c \(s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a', i=2\) .*\r
 .* call7b \(i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a'\) .*\r
 .* call7a \(c=97 'a', i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call7i" ; return }
 	timeout { fail "(timeout) backtrace from call7i" ; return }
@@ -1209,7 +1209,7 @@ $prompt $" {}
 .* call7c \(s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a', i=2\) .*\r
 .* call7b \(i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a'\) .*\r
 .* call7a \(c=97 'a', i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call7j" ; return }
 	timeout { fail "(timeout) backtrace from call7j" ; return }
@@ -1239,7 +1239,7 @@ $prompt $" {}
 .* call7c \(s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a', i=2\) .*\r
 .* call7b \(i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7, c=97 'a'\) .*\r
 .* call7a \(c=97 'a', i=2, s=1, l=3, f=4, uc=98 'b', d=5, us=6, ul=8, ui=7\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "backtrace from call7k" ; return }
 	timeout { fail "(timeout) backtrace from call7k" ; return }
@@ -1289,7 +1289,7 @@ proc recursive_structs_by_value {} {
 .* recurse \(a=\{s = 3, i = 3, l = 3\}, depth=3\) .*\r
 .* recurse \(a=\{s = 4, i = 4, l = 4\}, depth=4\) .*\r
 .* test_struct_args \(\) .*\r
-.* main \(\) .*\r
+.* main \(.*\) .*\r
 $prompt $" {}
 	-re "$prompt $" { fail "recursive passing of structs by value" ; return }
 	timeout { fail "(timeout) recursive passing of structs by value" ; return }
@@ -1298,14 +1298,22 @@ $prompt $" {}
     pass "locate actual args, recursive structs by value"
 }
 
-proc funcargs_a29k_reload { } {
+proc funcargs_reload { } {
     global objdir
     global subdir
     global binfile
+    global srcdir
 
     if [istarget "a29k-*-udi"] then {
 	# FIXME: If PR 2415 is fixed, this is not needed.
 	gdb_target_udi
+	gdb_load $objdir/$subdir/$binfile
+    }
+    if [istarget "mips-idt-*"] then {
+	# Restart because IDT/SIM runs out of file descriptors.
+	gdb_exit
+	gdb_start
+	gdb_reinitialize_dir $srcdir/$subdir
 	gdb_load $objdir/$subdir/$binfile
     }
 }
@@ -1388,7 +1396,7 @@ proc localvars_in_indirect_call { } {
     # after the indirect call. In these cases we will step till we hit the
     # second indirect call.
     #
-    setup_xfail "hppa*-*-*"
+    setup_xfail "hppa*-*-*"	# but only fails on dynamically linked binaries
     send "finish\n"
     expect {
 	-re "\(\*pointer_to_call0a\) \(c, s, i, l\);.*First.*$prompt $" {
@@ -1401,7 +1409,7 @@ proc localvars_in_indirect_call { } {
 	default { fail "finish from indirectly called function" ; return }
     }
 
-    setup_xfail "hppa*-*-*"
+    setup_xfail "hppa*-*-*"	# but only fails on dynamically linked binaries
     gdb_test "step" "call0a \(c=97 'a', s=1, i=2, l=3\)" \
 	"stepping into indirectly called function"
 }
@@ -1417,25 +1425,25 @@ set oldtimeout $timeout
 set timeout 120
 
 integral_args
-funcargs_a29k_reload
+funcargs_reload
 unsigned_integral_args
-funcargs_a29k_reload
+funcargs_reload
 float_and_integral_args
-funcargs_a29k_reload
+funcargs_reload
 pointer_args
-funcargs_a29k_reload
+funcargs_reload
 structs_by_reference
-funcargs_a29k_reload
+funcargs_reload
 structs_by_value
-funcargs_a29k_reload
+funcargs_reload
 discard_and_shuffle
-funcargs_a29k_reload
+funcargs_reload
 shuffle_round_robin
-funcargs_a29k_reload
+funcargs_reload
 recursive_structs_by_value
-funcargs_a29k_reload
+funcargs_reload
 localvars_after_alloca
-funcargs_a29k_reload
+funcargs_reload
 localvars_in_indirect_call
 
 if [istarget "a29k-*-udi"] then {

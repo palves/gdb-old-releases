@@ -19,6 +19,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include <bfd.h>
 #include "coff/sym.h"		/* Needed for PDR below.  */
 #include "coff/symconst.h"
 
@@ -114,6 +115,7 @@ extern CORE_ADDR mips_skip_prologue PARAMS ((CORE_ADDR addr, int lenient));
    but do serve to get the desired values when passed to read_register.  */
 
 #define ZERO_REGNUM 0		/* read-only register, always 0 */
+#define V0_REGNUM 2		/* Function integer return value */
 #define A0_REGNUM 4		/* Loc of first arg during a subr call */
 #define SP_REGNUM 29		/* Contains address of top of stack */
 #define RA_REGNUM 31		/* Contains return address value */
@@ -171,13 +173,13 @@ extern CORE_ADDR mips_skip_prologue PARAMS ((CORE_ADDR addr, int lenient));
    to virtual format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)	\
-  bcopy ((FROM), (TO), 4);
+  memcpy ((TO), (FROM), 4);
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-  bcopy ((FROM), (TO), 4);
+  memcpy ((TO), (FROM), 4);
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -210,10 +212,9 @@ extern CORE_ADDR mips_skip_prologue PARAMS ((CORE_ADDR addr, int lenient));
 #endif
 
 /* Store the address of the place in which to copy the structure the
-   subroutine will return.  This is called from call_function. */
+   subroutine will return.  Handled by mips_push_arguments.  */
 
-#define STORE_STRUCT_RETURN(addr, sp) \
-  { sp = push_word(sp, addr);}
+#define STORE_STRUCT_RETURN(addr, sp)	/**/
 
 /* Extract from an array REGBUF containing the (raw) register state
    a function return value of type TYPE, and copy that, in virtual format,
@@ -231,8 +232,14 @@ extern CORE_ADDR mips_skip_prologue PARAMS ((CORE_ADDR addr, int lenient));
 /* Extract from an array REGBUF containing the (raw) register state
    the address in which a function should return its structure value,
    as a CORE_ADDR (or an expression that can be used as one).  */
+/* The address is passed in a0 upon entry to the function, but when
+   the function exits, the compiler has copied the value to v0.  This
+   convention is specified by the System V ABI, so I think we can rely
+   on it.  */
 
-#define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) (*(int *)(REGBUF+16))
+#define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) \
+  (extract_address (REGBUF + REGISTER_BYTE (V0_REGNUM), \
+		    REGISTER_RAW_SIZE (V0_REGNUM)))
 
 /* Structures are returned by ref in extra arg0 */
 #define USE_STRUCT_CONVENTION(gcc_p, type)	1
@@ -427,3 +434,7 @@ extern struct frame_info *setup_arbitrary_frame PARAMS ((int, CORE_ADDR *));
 /* Convert a dbx stab register number (from `r' declaration) to a gdb REGNUM */
 
 #define STAB_REG_TO_REGNUM(num) ((num) < 32 ? (num) : (num)+FP0_REGNUM-38)
+
+/* Convert a ecoff register number to a gdb REGNUM */
+
+#define ECOFF_REG_TO_REGNUM(num) ((num) < 32 ? (num) : (num)+FP0_REGNUM-32)

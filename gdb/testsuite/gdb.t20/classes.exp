@@ -317,12 +317,14 @@ proc test_ptype_class_objects {} {
     }
 
     send "ptype class Base1\n"
+    # This happens with the Base1 (const Base1&) constructor for some
+    # post-2.4.5 Cygnus gcc version.
+    # It happens without that constructor for gcc 2.4.5.
     expect {
-	-re "type = class Base1 \{\r\n\[ \]*public:\r\n\[ \]*int x;\r\n\r\n\[ \]*Base1\(int\);\r\n\}\r\n$prompt $" {
+	-re "type = class Base1 \{\r\n\[ \]*public:\r\n\[ \]*int x;\r\n(|\r\n\[ \]*Base1\(Base1 const &\);)\r\n\[ \]*Base1\(int\);\r\n\}\r\n$prompt $" {
 	    incr passcount
 	}
 	-re "type = struct Base1 \{\r\n\[ \]*int x;\r\n\}\r\n$prompt $" {
-	    setup_xfail "*-*-*"
 	    fail "ptype class Base1"
 	}
 	-re ".*$prompt $" { fail "ptype class Base1" }
@@ -332,7 +334,7 @@ proc test_ptype_class_objects {} {
     setup_xfail "*-*-*"
     send "ptype class Foo\n"
     expect {
-	-re "type = class Foo \{\r\n\[ \]*public:\r\n\[ \]*int x;\r\n\[ \]*int y;\r\n\[ \]*static int st;\r\n\r\n\[ \]*Foo\(int, int\);\r\n\[ \]*int operator\!\(void\);\r\n\[ \]*int operator int\(void\);\r\n\[ \]*int times\(int\);\r\n\}\r\n$prompt $" {
+	-re "type = class Foo \{\r\n\[ \]*public:\r\n\[ \]*int x;\r\n\[ \]*int y;\r\n\[ \]*static int st;\r\n\r\n\[ \]*Foo\(Foo const &\);\r\n\[ \]*Foo\(int, int\);\r\n\[ \]*int operator\!\(void\);\r\n\[ \]*int operator int\(void\);\r\n\[ \]*int times\(int\);\r\n\}\r\n$prompt $" {
 	    incr passcount
 	}
 	-re "type = struct Foo \{\r\n\[ \]*int x;\r\n\[ \]*int y;\r\n\}\r\n$prompt $" {
@@ -346,7 +348,7 @@ proc test_ptype_class_objects {} {
     setup_xfail "*-*-*"
     send "ptype class Bar\n"
     expect {
-	-re "type = class Bar : public Base1, public Foo \{\r\n\[ \]*public:\r\n\[ \]*int z;\r\n\r\n\[ \]*Bar\(int, int, int\);\r\n\}\r\n$prompt $" {
+	-re "type = class Bar : public Base1, public Foo \{\r\n\[ \]*public:\r\n\[ \]*int z;\r\n\r\n\[ \]*Bar\(Bar const &\);\r\n\[ \]*Bar\(int, int, int\);\r\n\}\r\n$prompt $" {
 	    incr passcount
 	}
 	-re "type = struct Bar \{\r\n\[ \]*struct Base1 Base1;\r\n\[ \]*struct Foo Foo;\r\n\[ \]*int z;\r\n\}\r\n$prompt $" {
@@ -728,6 +730,7 @@ proc do_tests {} {
     global srcdir
     global binfile
     global prompt
+    global timeout
 
     set prms_id 0
     set bug_id 0
@@ -752,6 +755,13 @@ proc do_tests {} {
 	test_nonexistant_members
     }
 
+    if [istarget "mips-idt-*"] then {
+	# Restart because IDT/SIM runs out of file descriptors.
+	gdb_exit
+	gdb_start
+	gdb_reinitialize_dir $srcdir/$subdir
+	gdb_load $objdir/$subdir/$binfile
+    }
     if [istarget "a29k-*-udi"] then {
 	# FIXME: If PR 2415 is fixed, this is not needed.
 	gdb_target_udi
@@ -763,8 +773,20 @@ proc do_tests {} {
 	test_static_members
     }
 
+    if [istarget "mips-idt-*"] then {
+	# Restart because IDT/SIM runs out of file descriptors.
+	gdb_exit
+	gdb_start
+	gdb_reinitialize_dir $srcdir/$subdir
+	gdb_load $objdir/$subdir/$binfile
+    }
+ 
     if [ runto marker_reg1 ] then {
+
+	set otimeout $timeout
+	set timeout 120
 	gdb_test "finish" "Run till exit from"
+	set timeout $otimeout
 
 	send "print v.method ()\n"
 	expect {

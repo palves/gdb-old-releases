@@ -20,6 +20,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifndef NM_I386LYNX_H
 #define NM_I386LYNX_H
 
+#include <sys/conf.h>
 #include <sys/kernel.h>
 #include <sys/mem.h>
 #include <sys/signal.h>

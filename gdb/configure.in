@@ -15,7 +15,9 @@ i[34]86)		gdb_host_cpu=i386 ;;
 m68*)			gdb_host_cpu=m68k ;;
 np1)			gdb_host_cpu=gould ;;
 pyramid)		gdb_host_cpu=pyr ;;
+mips*)			gdb_host_cpu=mips ;;
 *)			gdb_host_cpu=$host_cpu ;;
+
 
 esac
 
@@ -31,8 +33,9 @@ arm-*-*)		gdb_host=arm ;;
 
 c[12]-*-*)		gdb_host=convex ;;
 
-hppa*-hp-bsd*)		gdb_host=hppabsd ;;
-hppa*-hp-hpux*)		gdb_host=hppahpux ;;
+hppa*-*-bsd*)		gdb_host=hppabsd ;;
+hppa*-*-hpux*)		gdb_host=hppahpux ;;
+hppa*-*-hiux*)		gdb_host=hppahpux ;;
 
 i[34]86-ncr-*)		gdb_host=ncr3000 ;;
 i[34]86-sequent-bsd*)	gdb_host=symmetry ;; #dynix
@@ -40,15 +43,19 @@ i[34]86-sequent-sysv*)	gdb_host=ptx ;;
 
 i[34]86-*-aix*)		gdb_host=i386aix ;;
 i[34]86-*-bsd*)		gdb_host=i386bsd ;;
-i[34]86-*-go32)		gdb_host=go32 ;;
-i[34]86-*-linux)	gdb_host=linux ;;
+i[34]86-*-netbsd*)	gdb_host=i386bsd ;;
+i[34]86-*-go32*)	gdb_host=go32 ;;
+i[34]86-*-linux*)	gdb_host=linux ;;
 i[34]86-*-lynx*)	gdb_host=i386lynx ;;
-i[34]86-*-mach)		gdb_host=i386mach ;;
+# Obsolete I suspect
+# i[34]86-*-mach)	gdb_host=i386mach ;;
+i[34]86-*-mach*)	gdb_host=i386m3 ;;
+i[34]86-*-osf1mk*)	gdb_host=i386mk ;;
 i[34]86-*-sco3.2v4*)	gdb_host=i386sco4 ;;
 i[34]86-*-sco*)		gdb_host=i386sco ;;
 i[34]86-*-solaris*)	gdb_host=i386sol2 ;;
 i[34]86-*-sunos*)	gdb_host=sun386 ;;
-i[34]86-*-sysv3.2)	gdb_host=i386v32 ;;
+i[34]86-*-sysv3.2*)	gdb_host=i386v32 ;;
 i[34]86-*-sysv4*)	gdb_host=i386v4 ;;
 i[34]86-*-sysv*)	gdb_host=i386v ;;
 i[34]86-*-isc*)		gdb_host=i386v32 ;;
@@ -72,23 +79,26 @@ m68*-sun-sunos3*)	gdb_host=sun3os3 ;;
 m68*-sun-sunos4*)	gdb_host=sun3os4 ;;
 m68*-sun-*)		gdb_host=sun3os4 ;;
 
-m88k-motorola-*)	gdb_host=delta88 ;;
-m88k-*-*)		gdb_host=m88k ;;
+m88*-motorola-sysv4*)	gdb_host=delta88v4 ;;
+m88*-motorola-sysv*)	gdb_host=delta88 ;;
+# I suspect this is just used for DGUX
+m88*-*-*)		gdb_host=m88k ;;
 
-mips-dec-*)		gdb_host=decstation ;;
-mips-little-*)		gdb_host=littlemips ;;
-mips-sgi-irix3)		gdb_host=irix3 ;;
-mips-sgi-irix4*)	gdb_host=irix4 ;;
-mips-sony-*)		gdb_host=news-mips ;;
-mips-*-sysv*)		gdb_host=riscos ;;
-mips-*-riscos*)		gdb_host=riscos ;;
+mips*-dec-*)		gdb_host=decstation ;;
+mips*-little-*)		gdb_host=littlemips ;;
+mips*-sgi-irix3*)	gdb_host=irix3 ;;
+mips*-sgi-irix4*)	gdb_host=irix4 ;;
+mips*-sony-*)		gdb_host=news-mips ;;
+mips*-*-sysv*)		gdb_host=riscos ;;
+mips*-*-riscos*)	gdb_host=riscos ;;
+mips*-*-mach*)		gdb_host=mipsm3 ;;
 
 none-*-*)		gdb_host=none ;;
 
 np1-*-*)		gdb_host=np1 ;;
 
 ns32k-umax-*)		gdb_host=umax ;;
-ns32k-utek-sysv)	gdb_host=merlin ;;
+ns32k-utek-sysv*)	gdb_host=merlin ;;
 
 pn-*-*)			gdb_host=pn ;;
 
@@ -126,10 +136,13 @@ hostfile=`awk '$1 == "XM_FILE=" { print $2 }' <${srcdir}/config/${gdb_host_cpu}/
 
 case "${target_cpu}" in
 
+alpha)			gdb_target_cpu=alpha ;;
 c[12])			gdb_target_cpu=convex ;;
 hppa*)			gdb_target_cpu=pa ;;
 i[34]86)		gdb_target_cpu=i386 ;;
 m68*)			gdb_target_cpu=m68k ;;
+m8*)			gdb_target_cpu=m88k ;;
+mips*)			gdb_target_cpu=mips ;;
 np1)			gdb_target_cpu=gould ;;
 pn)			gdb_target_cpu=gould ;;
 pyramid)		gdb_target_cpu=pyr ;;
@@ -145,14 +158,16 @@ esac
 
 case "${target}" in
 
-a29k-*-aout)		gdb_target=a29k ;;
-a29k-*-coff)		gdb_target=a29k ;;
-a29k-*-elf)		gdb_target=a29k ;;
-a29k-*-ebmon)		gdb_target=a29k ;;
-a29k-*-kern)		gdb_target=a29k-kern ;;
-a29k-*-none)		gdb_target=a29k ;;
-a29k-*-sym1)		gdb_target=ultra3 ;;
-a29k-*-udi)		gdb_target=a29k-udi ;;
+a29k-*-aout*)		gdb_target=a29k ;;
+a29k-*-coff*)		gdb_target=a29k ;;
+a29k-*-elf*)		gdb_target=a29k ;;
+a29k-*-ebmon*)		gdb_target=a29k ;;
+a29k-*-kern*)		gdb_target=a29k-kern ;;
+a29k-*-none*)		gdb_target=a29k ;;
+a29k-*-sym1*)		gdb_target=ultra3 ;;
+a29k-*-udi*)		gdb_target=a29k-udi ;;
+
+alpha-*-osf*)		gdb_target=alpha-osf1 ;;
 
 arm-*-*)		gdb_target=arm ;;
 
@@ -167,19 +182,21 @@ sh-*-*)			gdb_target=sh ;;
 
 hppa*-*-bsd*)		gdb_target=hppabsd ;;
 hppa*-*-hpux*)		gdb_target=hppahpux ;;
+hppa*-*-hiux*)		gdb_target=hppahiux ;;
 
 i[34]86-sequent-*)	gdb_target=symmetry ;;
 i[34]86-ncr-*)		gdb_target=ncr3000 ;;
 
-i[34]86-*-aout)		gdb_target=i386aout ;;
-i[34]86-*-coff)		gdb_target=i386v ;;
-i[34]86-*-elf)		gdb_target=i386v ;;
+i[34]86-*-aout*)	gdb_target=i386aout ;;
+i[34]86-*-coff*)	gdb_target=i386v ;;
+i[34]86-*-elf*)		gdb_target=i386v ;;
 
 i[34]86-*-aix*)		gdb_target=i386aix ;;
 i[34]86-*-bsd*)		gdb_target=i386bsd ;;
-i[34]86-*-go32)		gdb_target=i386aout ;;
+i[34]86-*-netbsd*)	gdb_target=i386bsd ;;
+i[34]86-*-go32*)	gdb_target=i386aout ;;
 i[34]86-*-lynx*)	gdb_target=i386lynx
-			configdirs="${configdirs} gdbserver"
+			configdirs="${configdirs} gdbserver" 
 			;;
 i[34]86-*-solaris*)	gdb_target=i386sol2 ;;
 i[34]86-*-sunos*)	gdb_target=sun386 ;;
@@ -188,18 +205,17 @@ i[34]86-*-sco*)		gdb_target=i386v ;;
 i[34]86-*-sysv*)	gdb_target=i386v ;;
 i[34]86-*-linux*)	gdb_target=linux ;;
 i[34]86-*-isc*)		gdb_target=i386v ;;
+i[34]86-*-mach*)	gdb_target=i386m3 ;;
 i[34]86-*-netware*)	gdb_target=i386nw ;;
+i[34]86-*-osf1mk*)	gdb_target=i386mk ;;
 
-i960-*-bout)		gdb_target=vxworks960 ;;
-i960-*-coff)		gdb_target=nindy960 ;;
-i960-*-elf)		gdb_target=nindy960 ;;
+i960-*-bout*)		gdb_target=vxworks960 ;;
+i960-*-coff*)		gdb_target=nindy960 ;;
+i960-*-elf*)		gdb_target=nindy960 ;;
 
-i960-*-nindy)		gdb_target=nindy960 ;;
-i960-*-vxworks)		gdb_target=vxworks960 ;;
+i960-*-nindy*)		gdb_target=nindy960 ;;
+i960-*-vxworks*)	gdb_target=vxworks960 ;;
 
-m68000-*-aout)		gdb_target=m68k-nofp ;;
-m68000-*-coff)		gdb_target=m68k-nofp ;;
-m68000-*-elf)		gdb_target=m68k-nofp ;;
 m68000-*-sunos3*)	gdb_target=sun2os3 ;;
 m68000-*-sunos4*)	gdb_target=sun2os4 ;;
 
@@ -221,32 +237,34 @@ m68*-rom68k-*)          gdb_target=monitor ;;
 m68*-*bug-*)            gdb_target=monitor ;;
 m68*-monitor-*)         gdb_target=monitor ;;
 
-m68*-*-aout)		gdb_target=m68k-fp ;;
-m68*-*-coff)		gdb_target=m68k-fp ;;
-m68*-*-elf)		gdb_target=m68k-fp ;;
-m68*-*-os68k)		gdb_target=os68k ;;
+m68*-*-aout*)		gdb_target=m68k-em ;;
+m68*-*-coff*)		gdb_target=m68k-em ;;
+m68*-*-elf*)		gdb_target=m68k-em ;;
+m68*-*-os68k*)		gdb_target=os68k ;;
 m68*-*-sunos3*)		gdb_target=sun3os3 ;;
 m68*-*-sunos4*)		gdb_target=sun3os4 ;;
 m68*-*-vxworks*)	gdb_target=vxworks68 ;;
 
-m88k-motorola-*)	gdb_target=delta88 ;;
-m88k-*-*)		gdb_target=m88k ;;
+m88*-motorola-sysv4*)	gdb_target=delta88v4 ;;
+m88*-motorola-*)	gdb_target=delta88 ;;
+m88*-*-*)		gdb_target=m88k ;;
 
-mips-big-*)		gdb_target=bigmips ;;
-mips-dec-*)		gdb_target=decstation ;;
-mips-idt-ecoffl*)	gdb_target=idtl ;;
-mips-idt-ecoff*)	gdb_target=idt ;;
-mips-little-*)		gdb_target=littlemips ;;
-mips-sgi-*)		gdb_target=irix3 ;;
-mips-sony-*)		gdb_target=bigmips ;;
-mips-*-sysv*)		gdb_target=bigmips ;;
-mips-*-riscos*)		gdb_target=bigmips ;;
+mips*-big-*)		gdb_target=bigmips ;;
+mips*-dec-*)		gdb_target=decstation ;;
+mips*el-idt-ecoff*)	gdb_target=idtl ;;
+mips*-idt-ecoff*)	gdb_target=idt ;;
+mips*-little-*)		gdb_target=littlemips ;;
+mips*-sgi-*)		gdb_target=irix3 ;;
+mips*-sony-*)		gdb_target=bigmips ;;
+mips*-*-sysv*)		gdb_target=bigmips ;;
+mips*-*-riscos*)	gdb_target=bigmips ;;
+mips*-*-mach*)		gdb_target=mipsm3 ;;
 
 none-*-*)		gdb_target=none ;;
 
 np1-*-*)		gdb_target=np1 ;;
 
-ns32k-utek-sysv)	gdb_target=merlin ;;
+ns32k-utek-sysv*)	gdb_target=merlin ;;
 ns32k-utek-*)		gdb_target=umax ;;
 
 pn-*-*)			gdb_target=pn ;;
@@ -255,9 +273,9 @@ pyramid-*-*)		gdb_target=pyramid ;;
 
 rs6000-*-*)		gdb_target=rs6000 ;;
 
-sparc-*-aout)		gdb_target=sparc-em ;;
-sparc-*-coff)		gdb_target=sparc-em ;;
-sparc-*-elf)		gdb_target=sparc-em ;;
+sparc-*-aout*)		gdb_target=sparc-em ;;
+sparc-*-coff*)		gdb_target=sparc-em ;;
+sparc-*-elf*)		gdb_target=sparc-em ;;
 sparc-*-solaris2*)	gdb_target=sun4sol2 ;;
 sparc-*-sunos4*)	gdb_target=sun4os4 ;;
 sparc-*-vxworks*)	gdb_target=vxsparc ;;
@@ -267,7 +285,8 @@ sparclite*-*-*)		gdb_target=sparclite ;;
 tahoe-*-*)		gdb_target=tahoe ;;
 vax-*-*)		gdb_target=vax ;;
 
-z8k-*-sim)		gdb_target=z8ksim ;;
+z8k-*-sim*)		gdb_target=z8ksim ;;
+z8k-*-coff*)		gdb_target=z8ksim ;;
 esac
 
 if [ ! -f ${srcdir}/config/${gdb_target_cpu}/${gdb_target}.mt ]; then
@@ -283,8 +302,16 @@ fi
 #  We really shouldn't depend on there being a space after TM_FILE= ...
 targetfile=`awk '$1 == "TM_FILE=" { print $2 }' <${srcdir}/config/${gdb_target_cpu}/${gdb_target}.mt`
 
+
+# these really aren't orthogonal true/false values of the same condition,
+# but shells are slow enough that I like to reuse the test conditions
+# whenever possible
+#
 if [ "${target}" = "${host}" ] ; then
 	nativefile=`awk '$1 == "NAT_FILE=" { print $2 }' <${srcdir}/config/${gdb_host_cpu}/${gdb_host}.mh`
+else
+	# GDBserver is only useful in a "native" enviroment
+	configdirs=`echo $configdirs | sed 's/gdbserver//'`
 fi
 
 host_makefile_frag=config/${gdb_host_cpu}/${gdb_host}.mh

@@ -67,7 +67,7 @@ struct pa_opcode
 
 	'  "#$%    *+- ./   3      :; =  @'
 	' B         L N            [\] _'
-	'    e gh   lm   qr       z{|} '
+	'    e gh   lm   qr        { } '
 
    Here are all the characters:
 
@@ -99,7 +99,8 @@ Kinds of operands:
    k    21 bit immediate value at 31
    n	nullification for branch instructions
    w    12 bit branch displacement
-   W    17 bit branch displacement
+   W    17 bit branch displacement (PC relative)
+   z    17 bit branch displacement (just a number, not an address)
 
 Also these:
 
@@ -141,6 +142,7 @@ Also these:
    Q	5 bit immediate value at 10 (a bit position specified in
 	the bb instruction. It's the same as r above, except the
         value is in a different location)
+   |	shift/extract/deposit conditions when used in a conditional branch
 
 And these (PJH) for PA-89 F.P. registers and instructions:
 
@@ -236,10 +238,10 @@ static const struct pa_opcode pa_opcodes[] =
 { "blr",	0xe8004000, 0xfc00e001, "nx,b", NORMAL},
 { "bv",		0xe800c000, 0xfc00e001, "nx(b)", NORMAL},
 { "bv",		0xe800c000, 0xfc00e001, "n(b)", NORMAL},
-{ "be",		0xe0000000, 0xfc000000, "nW(S,b)", NORMAL},
-{ "ble",	0xe4000000, 0xfc000000, "nW(S,b)", NORMAL},
-{ "movb",	0xc8000000, 0xfc000000, ">nx,b,w", CONDITIONAL},
-{ "movib",	0xcc000000, 0xfc000000, ">n5,b,w", CONDITIONAL},
+{ "be",		0xe0000000, 0xfc000000, "nz(S,b)", NORMAL},
+{ "ble",	0xe4000000, 0xfc000000, "nz(S,b)", NORMAL},
+{ "movb",	0xc8000000, 0xfc000000, "|nx,b,w", CONDITIONAL},
+{ "movib",	0xcc000000, 0xfc000000, "|n5,b,w", CONDITIONAL},
 { "combt",	0x80000000, 0xfc000000, "<nx,b,w", CONDITIONAL},
 { "combf",	0x88000000, 0xfc000000, "<nx,b,w", CONDITIONAL},
 { "comibt",	0x84000000, 0xfc000000, "<n5,b,w", CONDITIONAL},
@@ -363,6 +365,13 @@ static const struct pa_opcode pa_opcodes[] =
 { "fice",       0x040002c0, 0xfc003fdf, "Zx(s,b)"},
 { "fice",       0x040002c0, 0xfc003fdf, "Zx(b)"},
 { "diag",       0x14000000, 0xfc000000, "D"},
+
+/* gfw and gfr are not in the HP PA 1.1 manual, but they are in either
+   the Timex FPU or the Mustang ERS (not sure which) manual.  */
+{ "gfw",	0x04001680, 0xfc003fdf, "Zx(s,b)"},
+{ "gfw",	0x04001680, 0xfc003fdf, "Zx(b)"},
+{ "gfr",	0x04001a80, 0xfc003fdf, "Zx(s,b)"},
+{ "gfr",	0x04001a80, 0xfc003fdf, "Zx(b)"},
 
 /* Floating Point Coprocessor Instructions */
   

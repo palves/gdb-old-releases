@@ -706,7 +706,7 @@ DEFUN(oasys_slurp_section_data,(abfd),
 
 
 
-bfd_error_vector_type bfd_error_vector;
+extern bfd_error_vector_type bfd_error_vector;
 
 static boolean
 DEFUN(oasys_new_section_hook,(abfd, newsect),
@@ -1328,12 +1328,12 @@ bfd_target oasys_vec =
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
   1,				/* minimum alignment */
-  _do_getb64, _do_getb_signed_64, _do_putb64,
-    _do_getb32, _do_getb_signed_32, _do_putb32,
-    _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
-  _do_getb64, _do_getb_signed_64, _do_putb64,
-    _do_getb32, _do_getb_signed_32, _do_putb32,
-    _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
+  bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+    bfd_getb32, bfd_getb_signed_32, bfd_putb32,
+    bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* data */
+  bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+    bfd_getb32, bfd_getb_signed_32, bfd_putb32,
+    bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* hdrs */
 
     {_bfd_dummy_target,
        oasys_object_p,		/* bfd_check_format */

@@ -32,7 +32,7 @@ child_prepare_to_store PARAMS ((void));
 
 #ifndef CHILD_WAIT
 static int
-child_wait PARAMS ((int *));
+child_wait PARAMS ((int, int *));
 #endif /* CHILD_WAIT */
 
 static void
@@ -73,10 +73,10 @@ extern struct target_ops child_ops;
    of error; store status through argument pointer STATUS.  */
 
 static int
-child_wait (status)
+child_wait (pid, status)
+     int pid;
      int *status;
 {
-  int pid;
   int save_errno;
 
   do {

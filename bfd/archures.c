@@ -36,7 +36,7 @@ SECTION
 	The arch information is provided by each architecture package.
 	The set of default architectures is selected by the #define
 	<<SELECT_ARCHITECTURES>>.  This is normally set up in the
-	<<hosts/host.h>> file of your choice.  If the name is not
+	<<config/target.mt>> file of your choice.  If the name is not
 	defined, then all the architectures supported are included. 
 
 	When BFD starts up, all the architectures are called with an
@@ -319,7 +319,7 @@ boolean DEFUN(bfd_default_set_arch_mach,(abfd, arch, mach),
     if (found==false) {
       /*looked for it and it wasn't there, so put in the default */
       old_ptr = &bfd_default_arch_struct;
-
+      bfd_error = bad_value;
     }
   }
   else {
@@ -406,45 +406,44 @@ unsigned int DEFUN(bfd_arch_bits_per_address, (abfd), bfd *abfd)
   }
 
 
-
-extern void bfd_h8300_arch PARAMS ((void));
-extern void bfd_sh_arch PARAMS ((void));
-extern void bfd_h8500_arch PARAMS ((void));
-extern void bfd_alpha_arch PARAMS ((void));
-extern void bfd_i960_arch PARAMS ((void));
-extern void bfd_empty_arch PARAMS ((void));
-extern void bfd_sparc_arch PARAMS ((void));
-extern void bfd_m88k_arch PARAMS ((void));
-extern void bfd_m68k_arch PARAMS ((void));
-extern void bfd_vax_arch PARAMS ((void));
 extern void bfd_a29k_arch PARAMS ((void));
-extern void bfd_mips_arch PARAMS ((void));
-extern void bfd_i386_arch PARAMS ((void));
-extern void bfd_rs6000_arch PARAMS ((void));
+extern void bfd_alpha_arch PARAMS ((void));
+extern void bfd_h8300_arch PARAMS ((void));
+extern void bfd_h8500_arch PARAMS ((void));
 extern void bfd_hppa_arch PARAMS ((void));
-extern void bfd_z8k_arch PARAMS ((void));
+extern void bfd_i386_arch PARAMS ((void));
+extern void bfd_i960_arch PARAMS ((void));
+extern void bfd_m68k_arch PARAMS ((void));
+extern void bfd_m88k_arch PARAMS ((void));
+extern void bfd_mips_arch PARAMS ((void));
+extern void bfd_rs6000_arch PARAMS ((void));
+extern void bfd_sh_arch PARAMS ((void));
+extern void bfd_sparc_arch PARAMS ((void));
+extern void bfd_vax_arch PARAMS ((void));
 extern void bfd_we32k_arch PARAMS ((void));
+extern void bfd_z8k_arch PARAMS ((void));
 
 static void (*archures_init_table[]) PARAMS ((void)) = 
 {
 #ifdef SELECT_ARCHITECTURES
   SELECT_ARCHITECTURES,
 #else
-  bfd_sparc_arch,
   bfd_a29k_arch,
-  bfd_mips_arch,
+  bfd_alpha_arch,
   bfd_h8300_arch,
   bfd_h8500_arch,
-  bfd_alpha_arch,
+  bfd_hppa_arch,
   bfd_i386_arch,
-  bfd_m88k_arch,
   bfd_i960_arch,
   bfd_m68k_arch,
-  bfd_vax_arch,
+  bfd_m88k_arch,
+  bfd_mips_arch,
   bfd_rs6000_arch,
-  bfd_hppa_arch,
-  bfd_z8k_arch,
+  bfd_sh_arch,
+  bfd_sparc_arch,
+  bfd_vax_arch,
   bfd_we32k_arch,
+  bfd_z8k_arch,
 #endif
   0
   };

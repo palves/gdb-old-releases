@@ -286,13 +286,25 @@ static reloc_howto_type howto_table[] =
 
 #include "coffcode.h"
 
-bfd_target *i3coff_object_p(a)
-bfd *a ;
-{ return coff_object_p(a); }
-
-bfd_target i386coff_vec =
+static bfd_target *
+i3coff_object_p(a)
+     bfd *a;
 {
+  return coff_object_p(a);
+}
+
+bfd_target
+#ifdef TARGET_SYM
+  TARGET_SYM =
+#else
+  i386coff_vec =
+#endif
+{
+#ifdef TARGET_NAME
+  TARGET_NAME,
+#else
   "coff-i386",			/* name */
+#endif
   bfd_target_coff_flavour,
   false,			/* data byte order is little */
   false,			/* header byte order is little */
@@ -307,12 +319,12 @@ bfd_target i386coff_vec =
   15,				/* ar_max_namelen */
 
   2,				/* minimum alignment power */
-  _do_getl64, _do_getl_signed_64, _do_putl64,
-     _do_getl32, _do_getl_signed_32, _do_putl32,
-     _do_getl16, _do_getl_signed_16, _do_putl16, /* data */
-  _do_getl64, _do_getl_signed_64, _do_putl64,
-     _do_getl32, _do_getl_signed_32, _do_putl32,
-     _do_getl16, _do_getl_signed_16, _do_putl16, /* hdrs */
+  bfd_getl64, bfd_getl_signed_64, bfd_putl64,
+     bfd_getl32, bfd_getl_signed_32, bfd_putl32,
+     bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* data */
+  bfd_getl64, bfd_getl_signed_64, bfd_putl64,
+     bfd_getl32, bfd_getl_signed_32, bfd_putl32,
+     bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* hdrs */
 
 /* Note that we allow an object file to be treated as a core file as well. */
     {_bfd_dummy_target, i3coff_object_p, /* bfd_check_format */

@@ -24,6 +24,21 @@
 # or by passing arguments.
 
 #
+# gdb_version -- extract and print the version number of gcc
+#
+proc default_gdb_version {} {
+    global GDB
+    global GDBFLAGS
+    if {[which $GDB] != 0} then {
+	set tmp [exec echo "q" | $GDB]
+	regexp " \[0-9\.\]+" $tmp version
+	clone_output "[which $GDB] version$version $GDBFLAGS\n"
+    } else {
+	warning "$GDB does not exist"
+    }
+}
+
+#
 # gdb_unload -- unload a file if one is loaded
 #
 
@@ -231,9 +246,8 @@ proc gdb_test { args } {
 
 proc gdb_reinitialize_dir { subdir } {
     global prompt
-    global verbose
 
-    send "dir\n"
+   send "dir\n"
     expect {
 	-re "Reinitialize source path to empty.*" {
 	    send "y\n"
@@ -242,9 +256,7 @@ proc gdb_reinitialize_dir { subdir } {
 		    send "dir $subdir\n"
 		    expect {
 			-re "Source directories searched.*$prompt $" {
-			    if $verbose>1 then {
-				send_user "Dir set to $subdir\n"
-			    }
+			    verbose "Dir set to $subdir"
 			}
 			-re ".*$prompt $" {
 			    error "Dir \"$subdir\" failed."
@@ -261,3 +273,118 @@ proc gdb_reinitialize_dir { subdir } {
 	}
     }
 }
+
+#
+# gdb_exit -- exit the GDB, killing the target program if necessary
+#
+proc default_gdb_exit {} {
+    global GDB
+    global GDBFLAGS
+    global verbose
+
+    verbose "Quitting $GDB $GDBFLAGS" 1
+
+    # This used to be 1 for unix-gdb.exp
+    set timeout 5
+
+    catch "send \"quit\n\"" result
+    # If the process has gone away (e.g. gdb dumped core), deal with it.
+    if [string match "write\(spawn_id=\[0-9\]+\):" $result] then {
+	catch "close"
+	# FIXME:  Shouldn't we call "wait" too?
+	return -1
+    }
+    # FIXME: What is this catch statement doing here?  Won't it prevent us
+    # from getting errors that we'd rather see?
+    catch {
+    expect {
+	eof { 
+	    verbose "Got EOF from $GDB" 2
+	}
+	timeout { 
+	    verbose "Got TIMEOUT from $GDB" 2
+	}
+	-re "The program is running.  Quit anyway.*(y or n) $" {
+	    send "y\n"
+	    verbose "Killing program being debugged" 2
+	}
+    }
+    }
+
+    # FIXME: Does the catch prevent us from getting errors that we'd rather
+    # see?  the old gdb_exit in unix-gdb.exp had "close" without catch
+    # in the above expect statement (for the timeout and -re "The
+    # program... cases) (as well as a catch "close" here).
+    catch "close"
+
+    # Before this was here sometimes "uit" would get sent to the next GDB
+    # (assuming this is immediately followed by gdb_start), which would
+    # cause a loss of syncronization (i.e. all the stuff that swallows a
+    # prompt would swallow the wrong one).
+    wait
+}
+
+#
+# gdb_load -- load a file into the debugger.
+#             return a -1 if anything goes wrong.
+#
+proc gdb_file_cmd { arg } {
+    global verbose
+    global loadpath
+    global loadfile
+    global GDB
+    global prompt
+
+    send "file $arg\n"
+    expect {
+        -re "Reading symbols from.*done.*$prompt $" {
+            verbose "\t\tLoaded $arg into the $GDB"
+            return 0
+        }
+        -re "has no symbol-table.*$prompt $" {
+            error "$arg wasn't compiled with \"-g\""
+            return -1
+        }
+        -re "A program is being debugged already..*Kill it\? \(y or n\) $" {
+            send "y\n"
+                verbose "\t\tKilling previous program being debugged"
+            continue -expect
+        }
+        -re "Load new symbol table from.*\? \(y or n\) $" {
+            send "y\n"
+            expect {
+                -re "Reading symbols from.*done.*$prompt $" {
+                    verbose "\t\tLoaded $arg with new symbol table into $GDB"
+                    return 0
+                }
+                timeout {
+                    error "(timeout) Couldn't load $arg, other program already l
+oaded."
+                    return -1
+                }
+            }
+                }
+        -re ".*No such file or directory.*$prompt $" {
+            error "($arg) No such file or directory\n"
+            return -1
+        }
+        -re "$prompt $" {
+            error "couldn't load $arg into $GDB."
+            return -1
+            }
+        timeout {
+            error "couldn't load $arg into $GDB (timed out)."
+            return -1
+        }
+        eof {
+            # This is an attempt to detect a core dump, but seems not to
+            # work.  Perhaps we need to match .* followed by eof, in which
+            # expect does not seem to have a way to do that.
+            error "couldn't load $arg into $GDB (end of file)."
+            return -1
+        }
+    }
+}
+
+
+

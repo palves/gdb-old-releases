@@ -19,10 +19,13 @@ links=sysdep.h
 case "${host}" in
   *-*-irix*)		host_makefile_frag=config/mh-sysv; files=sysdep-irix.h;;
   i[34]86-ncr-sysv4*)	host_makefile_frag=config/mh-ncr3000 ;;
-  m88k-*-sysv4*)	host_makefile_frag=config/mh-sysv ;
+# Using sysdep-norm.h is harmful because termio.h defines VWERASE even though
+# c_cc is too small for it (VWERASE is for termios).
+# The problem with _POSIX_SOURCE is said not to be a problem after all.
+#  m88k-*-sysv4*)	host_makefile_frag=config/mh-sysv ;
 			# defining POSIX_SOURCE causes stack_t to be undefined
 			# even though it's used in <setjmp.h>
-			files=sysdep-norm.h ;;
+#			files=sysdep-norm.h ;;
   *-*-sysv4*)		host_makefile_frag=config/mh-sysv4 ; files=sysdep-sysv4.h;;
   *-*-solaris2*)	host_makefile_frag=config/mh-sysv4 ;;
   i[34]86-*-sco3.2v4*)	host_makefile_frag=config/mh-sco4; files=sysdep-sco.h ;;
@@ -30,8 +33,8 @@ case "${host}" in
   i[34]86-*-isc*)	host_makefile_frag=config/mh-isc ;;
   m68k-apollo-sysv*)	host_makefile_frag=config/mh-apollo68v ;;    
   *-*-sysv*)		host_makefile_frag=config/mh-sysv ;;
-  *-*-m88kbcs)		host_makefile_frag=config/mh-sysv ;;
-  i[34]86-*-linux)	host_makefile_frag=config/mh-posix ;;
+  *-*-m88kbcs*)		host_makefile_frag=config/mh-sysv ;;
+  i[34]86-*-linux*)	host_makefile_frag=config/mh-posix ;;
   rs6000-ibm-aix*)	host_makefile_frag=config/mh-sysv; files=sysdep-aix.h ;;
   *-ibm-aix*)		host_makefile_frag=config/mh-sysv ;;
   m68k-sony-news*)					files=sysdep-obsd.h ;;

@@ -61,7 +61,7 @@ main (argc, argv)
   }
   else {
       printf("/*#define ENTRY_CAN_BE_ZERO*/\n");
-      printf("/*#define N_SHARED_LIB(x) 0\n*/");
+      printf("/*#define N_SHARED_LIB(x) 0*/\n");
   }
 
   printf("#define TEXT_START_ADDR %d\n", my_exec.a_entry);

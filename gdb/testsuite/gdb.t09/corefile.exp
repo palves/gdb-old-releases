@@ -27,11 +27,9 @@ set prms_id 0
 set bug_id 0
 
 # are we on a target board
-if [string first $target_alias $host_alias]==-1 then {
-    if $verbose>1 then {
-	send_user "WARNING: corefile test case can't run on a target system\n\n"
-    }
-    continue
+if ![isnative] then {
+    warning "corefile test case can't run on a target system"
+    return
 }
 
 set binfile "gdbme"
@@ -39,7 +37,7 @@ set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
     error "$objdir/$subdir/$binfile does not exist."
-    alldone
+    return 0
 }
 
 #

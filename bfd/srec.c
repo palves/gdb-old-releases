@@ -925,12 +925,12 @@ bfd_target srec_vec =
     ' ',			/* ar_pad_char */
     16,				/* ar_max_namelen */
     1,				/* minimum alignment */
-    _do_getb64, _do_getb_signed_64, _do_putb64,
-      _do_getb32, _do_getb_signed_32,     _do_putb32,
-      _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
-    _do_getb64, _do_getb_signed_64, _do_putb64,
-      _do_getb32, _do_getb_signed_32,     _do_putb32,
-      _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
+    bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+      bfd_getb32, bfd_getb_signed_32,     bfd_putb32,
+      bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* data */
+    bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+      bfd_getb32, bfd_getb_signed_32,     bfd_putb32,
+      bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* hdrs */
 
   {
       _bfd_dummy_target,
@@ -970,12 +970,12 @@ bfd_target symbolsrec_vec =
     ' ',			/* ar_pad_char */
     16,				/* ar_max_namelen */
     1,				/* minimum alignment */
-    _do_getb64, _do_getb_signed_64, _do_putb64,
-      _do_getb32, _do_getb_signed_32,     _do_putb32,
-      _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
-    _do_getb64, _do_getb_signed_64, _do_putb64,
-      _do_getb32, _do_getb_signed_32,     _do_putb32,
-      _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
+    bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+      bfd_getb32, bfd_getb_signed_32,     bfd_putb32,
+      bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* data */
+    bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+      bfd_getb32, bfd_getb_signed_32,     bfd_putb32,
+      bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* hdrs */
 
   {
       _bfd_dummy_target,

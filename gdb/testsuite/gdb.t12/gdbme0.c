@@ -10,7 +10,7 @@ main ()
   init ();
   foo ();
   autovars (5, 6);
-  localscopes ();
+  localscopes (0);
 }
 
 /* On some systems, such as AIX, unreferenced variables are deleted
@@ -28,36 +28,70 @@ init ()
   init1 ();
 }
 
+/* This is to derail optimizer in localscopes.
+   Return 1 + 2 + . . . + N.  */
+int
+sum_upto (n)
+     int n;
+{
+  int i;
+  int retval = 0;
+
+  for (i = 1; i <= n; ++i)
+    retval += i;
+  return retval;
+}
+
+int
 useit (val)
 {
     static int usedval;
 
     usedval = val;
+    return val + sum_upto (0);
 }
 
+int
 autovars (bcd, abc)
      int bcd;
      int abc;
 {
-    int  i0 =  0,  i1 =  1,  i2 =  2,  i3 =  3,  i4 =  4,  i5 =  5;
-    int  i6 =  6,  i7 =  7,  i8 =  8,  i9 =  9, i10 = 10, i11 = 11;
-    int i12 = 12, i13 = 13, i14 = 14, i15 = 15, i16 = 16, i17 = 17;
-    int i18 = 18, i19 = 19, i20 = 20, i21 = 21, i22 = 22, i23 = 23;
-    int i24 = 24, i25 = 25, i26 = 26, i27 = 27, i28 = 28, i29 = 29;
-    int i30 = 30, i31 = 31, i32 = 32, i33 = 33, i34 = 34, i35 = 35;
-    int i36 = 36, i37 = 37, i38 = 38, i39 = 39, i40 = 40, i41 = 41;
-    int i42 = 42, i43 = 43, i44 = 44, i45 = 45, i46 = 46, i47 = 47;
-    int i48 = 48, i49 = 49, i50 = 50, i51 = 51, i52 = 52, i53 = 53;
-    int i54 = 54, i55 = 55, i56 = 56, i57 = 57, i58 = 58, i59 = 59;
-    int i60 = 60, i61 = 61, i62 = 62, i63 = 63, i64 = 64, i65 = 65;
-    int i66 = 66, i67 = 67, i68 = 68, i69 = 69, i70 = 70, i71 = 71;
-    int i72 = 72, i73 = 73, i74 = 74, i75 = 75, i76 = 76, i77 = 77;
-    int i78 = 78, i79 = 79, i80 = 80, i81 = 81, i82 = 82, i83 = 83;
-    int i84 = 84, i85 = 85, i86 = 86, i87 = 87, i88 = 88, i89 = 89;
-    int i90 = 90, i91 = 91, i92 = 92, i93 = 93, i94 = 94, i95 = 95;
-    int i96 = 96, i97 = 97, i98 = 98, i99 = 99;
+    int  i0 =  useit (0),  i1 =  useit (1),  i2 =  useit (2);
+    int  i3 =  useit (3),  i4 =  useit (4),  i5 =  useit (5);
+    int  i6 =  useit (6),  i7 =  useit (7),  i8 =  useit (8);
+    int  i9 =  useit (9), i10 = useit (10), i11 = useit (11);
+    int i12 = useit (12), i13 = useit (13), i14 = useit (14);
+    int i15 = useit (15), i16 = useit (16), i17 = useit (17);
+    int i18 = useit (18), i19 = useit (19), i20 = useit (20);
+    int i21 = useit (21), i22 = useit (22), i23 = useit (23);
+    int i24 = useit (24), i25 = useit (25), i26 = useit (26);
+    int i27 = useit (27), i28 = useit (28), i29 = useit (29);
+    int i30 = useit (30), i31 = useit (31), i32 = useit (32);
+    int i33 = useit (33), i34 = useit (34), i35 = useit (35);
+    int i36 = useit (36), i37 = useit (37), i38 = useit (38);
+    int i39 = useit (39), i40 = useit (40), i41 = useit (41);
+    int i42 = useit (42), i43 = useit (43), i44 = useit (44);
+    int i45 = useit (45), i46 = useit (46), i47 = useit (47);
+    int i48 = useit (48), i49 = useit (49), i50 = useit (50);
+    int i51 = useit (51), i52 = useit (52), i53 = useit (53);
+    int i54 = useit (54), i55 = useit (55), i56 = useit (56);
+    int i57 = useit (57), i58 = useit (58), i59 = useit (59);
+    int i60 = useit (60), i61 = useit (61), i62 = useit (62);
+    int i63 = useit (63), i64 = useit (64), i65 = useit (65);
+    int i66 = useit (66), i67 = useit (67), i68 = useit (68);
+    int i69 = useit (69), i70 = useit (70), i71 = useit (71);
+    int i72 = useit (72), i73 = useit (73), i74 = useit (74);
+    int i75 = useit (75), i76 = useit (76), i77 = useit (77);
+    int i78 = useit (78), i79 = useit (79), i80 = useit (80);
+    int i81 = useit (81), i82 = useit (82), i83 = useit (83);
+    int i84 = useit (84), i85 = useit (85), i86 = useit (86);
+    int i87 = useit (87), i88 = useit (88), i89 = useit (89);
+    int i90 = useit (90), i91 = useit (91), i92 = useit (92);
+    int i93 = useit (93), i94 = useit (94), i95 = useit (95);
+    int i96 = useit (96), i97 = useit (97), i98 = useit (98);
+    int i99 = useit (99);
 
-    /* Use all 100 of the local variables to derail agressive optimizers */
+    /* Use all 100 of the local variables to derail agressive optimizers.  */
 
     useit ( i0); useit ( i1); useit ( i2); useit ( i3); useit ( i4);
     useit ( i5); useit ( i6); useit ( i7); useit ( i8); useit ( i9);
@@ -83,36 +117,53 @@ autovars (bcd, abc)
     useit (abc); useit (bcd);
 
     marker1 ();
+    return i0 + i1 + i2 + i3 + i4 + i5 + i6 + i7 + i8 + i9 + i10
+      + i11 + i12 + i13 + i14 + i15 + i16 + i17 + i18 + i19 + i20
+      + i21 + i22 + i23 + i24 + i25 + i26 + i27 + i28 + i29 + i30
+      + i31 + i32 + i33 + i34 + i35 + i36 + i37 + i38 + i39 + i40
+      + i41 + i42 + i43 + i44 + i45 + i46 + i47 + i48 + i49 + i50
+      + i51 + i52 + i53 + i54 + i55 + i56 + i57 + i58 + i59 + i60
+      + i61 + i62 + i63 + i64 + i65 + i66 + i67 + i68 + i69 + i70
+      + i71 + i72 + i73 + i74 + i75 + i76 + i77 + i78 + i79 + i80
+      + i81 + i82 + i83 + i84 + i85 + i86 + i87 + i88 + i89 + i90
+      + i91 + i92 + i93 + i94 + i95 + i96 + i97 + i98 + i99 + abc + bcd;
 }
 
-localscopes ()
+int
+localscopes (x)
+     int x;
 {
     int localval;
+    int retval;
+    int i;
 
     localval = 0;
     useit (localval);
 
     {
-	int localval = 10;
-	int localval1 = 11;
+	int localval = x + 4 + sum_upto (3); /* 10 */
+	int localval1 = x + 5 + sum_upto (3); /* 11 */
+
 	useit (localval);
 	useit (localval1);
 	marker2 ();
 	{
-	    int localval = 20;
-	    int localval2 = 12;
+	    int localval = localval1 + 3 + sum_upto (3); /* 20 */
+	    int localval2 = localval1 + sum_upto (1); /* 12 */
 	    useit (localval);
 	    useit (localval2);
 	    marker3 ();
 	    {
-		int localval = 30;
-		int localval3 = 13;
+		int localval = localval2 + 3 + sum_upto (5); /* 30 */
+		int localval3 = localval2 + sum_upto (1); /* 13 */
 		useit (localval);
 		useit (localval3);
 		marker4 ();
+		retval = x + localval1 + localval2 + localval3;
 	    }
 	}
     }
+    return retval;
 }
 
 marker1 () {}

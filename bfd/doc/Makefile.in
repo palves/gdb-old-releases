@@ -67,7 +67,7 @@ CC_FOR_BUILD = $(CC)
 
 DOCFILES = aoutx.texi  archive.texi archures.texi \
 	bfd.texi  cache.texi coffcode.texi \
-	core.texi  format.texi  libbfd.texi  \
+	core.texi elf.texi elfcode.texi  format.texi  libbfd.texi  \
 	opncls.texi  reloc.texi  section.texi  \
 	syms.texi  targets.texi init.texi ctor.texi
 
@@ -85,7 +85,8 @@ IPROTOS = cache.ip libbfd.ip reloc.ip init.ip archures.ip ctor.ip coffcode.ip
 SRCDOC = $(srcdir)/../aoutx.h  $(srcdir)/../archive.c \
 	$(srcdir)/../archures.c $(srcdir)/../bfd.c \
 	$(srcdir)/../cache.c $(srcdir)/../coffcode.h \
-	$(srcdir)/../core.c  $(srcdir)/../format.c \
+	$(srcdir)/../core.c $(srcdir)/../elf.c \
+	$(srcdir)/../elfcode.h  $(srcdir)/../format.c \
 	$(srcdir)/../libbfd.c $(srcdir)/../opncls.c \
 	$(srcdir)/../reloc.c  $(srcdir)/../section.c \
 	$(srcdir)/../syms.c  $(srcdir)/../targets.c \
@@ -154,6 +155,12 @@ coffcode.texi:	$(MKDOC) $(srcdir)/../coffcode.h $(srcdir)/doc.str
 
 core.texi: $(MKDOC) $(srcdir)/../core.c $(srcdir)/doc.str
 	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../core.c >core.texi
+
+elf.texi: $(MKDOC) $(srcdir)/../elf.c $(srcdir)/doc.str
+	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../elf.c >elf.texi
+
+elfcode.texi: $(MKDOC) $(srcdir)/../elfcode.h $(srcdir)/doc.str
+	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../elfcode.h >elfcode.texi
 
 format.texi: $(MKDOC) $(srcdir)/../format.c $(srcdir)/doc.str
 	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../format.c >format.texi

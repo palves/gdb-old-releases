@@ -7,7 +7,7 @@
 #include <string.h>
 #include <sys/file.h>
 
-#ifndef O_ACCMODE
+#ifndef	O_ACCMODE
 #define O_ACCMODE (O_RDONLY | O_WRONLY | O_RDWR)
 #endif
 

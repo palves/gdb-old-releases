@@ -6,10 +6,10 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.10.
+   This is Edition 4.09, August 1993, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.11.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
+   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
@@ -35,6 +35,8 @@ Index
 
 * #:                                    Command Syntax.
 * $bpnum:                               Set Breaks.
+* $cdir:                                Source Path.
+* $cwd:                                 Source Path.
 * $_:                                   Convenience Vars.
 * $__:                                  Convenience Vars.
 * .:                                    M2 Scope.
@@ -116,21 +118,23 @@ Index
 * catch:                                Exception Handling.
 * catch exceptions:                     Frame Info.
 * cd:                                   Working Directory.
+* cdir:                                 Source Path.
 * checks, range:                        Type Checking.
 * checks, type:                         Checks.
 * checksum, for GDB remote:             Protocol.
 * clear:                                Delete Breaks.
 * clearing breakpoints, watchpoints:    Delete Breaks.
 * colon, doubled as scope operator:     M2 Scope.
-* colon-colon:                          Variables.
 * colon-colon:                          M2 Scope.
-* command files:                        Command Files.
+* colon-colon:                          Variables.
 * command files:                        Hooks.
+* command files:                        Command Files.
 * command line editing:                 Editing.
 * commands:                             Break Commands.
 * commands for C++:                     Debugging C plus plus.
 * commands to STDBUG (ST2000):          ST2000 Remote.
 * comment:                              Command Syntax.
+* compilation directory:                Source Path.
 * completion:                           Completion.
 * completion of quoted strings:         Completion.
 * condition:                            Conditions.
@@ -147,6 +151,8 @@ Index
 * core-file:                            Files.
 * CPU simulator:                        Simulator.
 * crash of debugger:                    Bug Criteria.
+* current directory:                    Source Path.
+* cwd:                                  Source Path.
 * d:                                    Delete Breaks.
 * debugger crash:                       Bug Criteria.
 * debugging optimized code:             Compilation.
@@ -162,6 +168,8 @@ Index
 * device:                               Hitachi Remote.
 * directories for source files:         Source Path.
 * directory:                            Source Path.
+* directory, compilation:               Source Path.
+* directory, current:                   Source Path.
 * dis:                                  Disabling.
 * disable:                              Disabling.
 * disable breakpoints:                  Disabling.
@@ -198,8 +206,9 @@ Index
 * event designators:                    Event Designators.
 * examining data:                       Data.
 * examining memory:                     Memory.
-* exception handlers:                   Frame Info.
 * exception handlers:                   Exception Handling.
+* exception handlers:                   Frame Info.
+* exceptionHandler:                     Bootstrapping.
 * exec-file:                            Files.
 * executable file:                      Files.
 * exiting GDB:                          Quitting GDB.
@@ -222,6 +231,7 @@ Index
 * foo:                                  Symbol Errors.
 * format options:                       Print Settings.
 * formatted output:                     Output Formats.
+* Fortran:                              Summary.
 * forward-search:                       Search.
 * frame:                                Selection.
 * frame:                                Frames.
@@ -290,8 +300,8 @@ Index
 * info share:                           Files.
 * info sharedlibrary:                   Files.
 * info signals:                         Signals.
-* info source:                          Show.
 * info source:                          Symbols.
+* info source:                          Show.
 * info sources:                         Symbols.
 * info stack:                           Backtrace.
 * info target:                          Files.
@@ -328,7 +338,6 @@ Index
 * listing machine instructions:         Machine Code.
 * load:                                 Files.
 * log file for EB29K:                   Remote Log.
-* lost output:                          Break Commands.
 * m68k-stub.c:                          Remote Serial.
 * machine instructions:                 Machine Code.
 * maint info breakpoints:               Set Breaks.
@@ -448,8 +457,8 @@ Index
 * set arrayprint:                       Renamed Commands.
 * set asm-demangle:                     Renamed Commands.
 * set caution:                          Renamed Commands.
-* set check:                            Type Checking.
 * set check:                            Range Checking.
+* set check:                            Type Checking.
 * set check range:                      Range Checking.
 * set check type:                       Type Checking.
 * set complaints:                       Messages/Warnings.
@@ -616,8 +625,8 @@ Index
 * type checking:                        Checks.
 * type conversions in C++:              Cplus expressions.
 * u:                                    Continuing and Stepping.
-* UDI:                                  UDI29K Remote.
 * udi:                                  UDI29K Remote.
+* UDI:                                  UDI29K Remote.
 * undisplay:                            Auto Display.
 * unset:                                Renamed Commands.
 * unset environment:                    Environment.
@@ -636,6 +645,7 @@ Index
 * whatis:                               Symbols.
 * where:                                Backtrace.
 * word completion:                      Completion.
+* working directory:                    Source Path.
 * working directory (of your program):  Working Directory.
 * working language:                     Languages.
 * writing into corefiles:               Patching.

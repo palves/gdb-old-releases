@@ -375,7 +375,15 @@ register_class ()
      it means that GDB can't call any methods for that variable.  */
   register small v;
 
-  v.x = 77;
+  int i;
+
+  /* Perform a computation sufficiently complicated that optimizing compilers
+     won't optimized out the variable.  If some compiler constant-folds this
+     whole loop, maybe using a parameter to this function here would help.  */
+  v.x = 0;
+  for (i = 0; i < 13; ++i)
+    v.x += i;
+  --v.x; /* v.x is now 77 */
   marker_reg1 ();
   return v.x + 5;
 }

@@ -24,7 +24,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "obstack.h"
 #include "coff/h8300.h"
 #include "coff/internal.h"
+#include "seclet.h"
 #include "libcoff.h"
+extern bfd_error_vector_type bfd_error_vector;
 
 static reloc_howto_type howto_table[] =
 {
@@ -68,7 +70,7 @@ static reloc_howto_type howto_table[] =
   dst->r_stuff[1] = 'C';
 
 
-static int 
+static int
 select_reloc (howto)
      reloc_howto_type *howto;
 {
@@ -146,7 +148,7 @@ rtype2howto (internal, dst)
 #define RELOC_PROCESSING(relent,reloc,symbols,abfd,section) \
  reloc_processing(relent, reloc, symbols, abfd, section)
 
-static void 
+static void
 DEFUN (reloc_processing, (relent, reloc, symbols, abfd, section),
        arelent * relent AND
        struct internal_reloc *reloc AND
@@ -175,6 +177,124 @@ DEFUN (reloc_processing, (relent, reloc, symbols, abfd, section),
 }
 
 
+h8300_reloc16_estimate(input_section, symbols, reloc, shrink)
+     asection *input_section;
+     asymbol **symbols;
+     arelent *reloc;
+     int shrink;
+{
+  bfd_vma value;  
+  bfd_vma dot;
+  bfd_vma gap;
+
+  /* The address of the thing to be relocated will have moved back by 
+   the size of the shrink  - but we don't change reloc->address here,
+   since we need it to know where the relocation lives in the source
+   uncooked section */
+
+  /*  reloc->address -= shrink;   conceptual */
+
+  bfd_vma address = reloc->address - shrink;
+  
+
+  switch (reloc->howto->type)
+    {     
+    case R_MOVB2:
+    case R_JMP2:
+      shrink+=2;
+      break;
+
+      /* Thing is a move one byte */
+    case R_MOVB1:
+      value = bfd_coff_reloc16_get_value(reloc,0);
+	
+      if (value >= 0xff00)
+	{ 
+
+	  /* Change the reloc type from 16bit, possible 8 to 8bit
+	     possible 16 */
+	  reloc->howto = reloc->howto + 1;	  
+	  /* The place to relc moves back by one */
+	  /* This will be two bytes smaller in the long run */
+	  shrink +=2 ;
+	  bfd_perform_slip(symbols, 2, input_section, address);
+	}      
+
+      break;
+      /* This is the 24 bit branch which could become an 8 bitter, 
+       the relocation points to the first byte of the insn, not the
+       actual data */
+
+    case R_JMPL1:
+      value = bfd_coff_reloc16_get_value(reloc, 0);
+	
+      dot = input_section->output_section->vma +
+	input_section->output_offset + address;
+  
+      /* See if the address we're looking at within 127 bytes of where
+	 we are, if so then we can use a small branch rather than the
+	 jump we were going to */
+
+      gap = value - dot ;
+  
+      if (-120 < (long)gap && (long)gap < 120 )
+	{ 
+
+	  /* Change the reloc type from 24bit, possible 8 to 8bit
+	     possible 32 */
+	  reloc->howto = reloc->howto + 1;	  
+	  /* This will be two bytes smaller in the long run */
+	  shrink +=2 ;
+	  bfd_perform_slip(symbols, 2, input_section, address);
+	}
+      break;
+
+    case R_JMP1:
+
+      value = bfd_coff_reloc16_get_value(reloc, 0);
+	
+      dot = input_section->output_section->vma +
+	input_section->output_offset + address;
+      gap;
+  
+      /* See if the address we're looking at within 127 bytes of where
+	 we are, if so then we can use a small branch rather than the
+	 jump we were going to */
+
+      gap = value - (dot - shrink);
+  
+
+      if (-120 < (long)gap && (long)gap < 120 )
+	{ 
+
+	  /* Change the reloc type from 16bit, possible 8 to 8bit
+	     possible 16 */
+	  reloc->howto = reloc->howto + 1;	  
+	  /* The place to relc moves back by one */
+
+	  /* This will be two bytes smaller in the long run */
+	  shrink +=2 ;
+	  bfd_perform_slip(symbols, 2, input_section, address);
+	}
+      break;
+    }
+
+  
+  return shrink;
+}
+
+
+/* First phase of a relaxing link */
+
+/* Reloc types
+   large		small
+   R_MOVB1		R_MOVB2		mov.b with 16bit or 8 bit address
+   R_JMP1		R_JMP2		jmp or pcrel branch
+   R_JMPL1		R_JMPL_B8	24jmp or pcrel branch
+   R_MOVLB1		R_MOVLB2	24 or 8 bit reloc for mov.b
+
+*/
+
 static void
 h8300_reloc16_extra_cases (abfd, seclet, reloc, data, src_ptr, dst_ptr)
      bfd *abfd;
@@ -184,18 +304,181 @@ h8300_reloc16_extra_cases (abfd, seclet, reloc, data, src_ptr, dst_ptr)
      unsigned int *src_ptr;
      unsigned int *dst_ptr;
 {
+  unsigned int src_address = *src_ptr;
+  unsigned int dst_address = *dst_ptr;
+
   switch (reloc->howto->type)
     {
       /* A 24 bit branch which could be a 8 bit pcrel, really pointing to
 	 the byte before the 24bit hole, so we can treat it as a 32bit pointer */
+    case R_PCRBYTE:
+      {
+	bfd_vma dot = seclet->offset 
+	  + dst_address 
+	    + seclet->u.indirect.section->output_section->vma;
+	int gap = bfd_coff_reloc16_get_value (reloc, seclet) - dot;
+	if (gap > 127 || gap < -128)
+	  {
+	    bfd_error_vector.reloc_value_truncated (reloc, seclet);
+	  }
+
+	bfd_put_8 (abfd, gap, data + dst_address);
+	dst_address++;
+	src_address++;
+
+	break;
+      }
+
+    case R_RELBYTE:
+      {
+	unsigned int gap = bfd_coff_reloc16_get_value (reloc, seclet);
+	if (gap > 0xff && gap < ~0xff)
+	  {
+	    bfd_error_vector.reloc_value_truncated (reloc, seclet);
+	  }
+
+	bfd_put_8 (abfd, gap, data + dst_address);
+	dst_address += 1;
+	src_address += 1;
+
+
+      }
+      break;
+    case R_JMP1:
+      /* A relword which would have like to have been a pcrel */
+    case R_MOVB1:
+      /* A relword which would like to have been modified but
+	     didn't make it */
+    case R_RELWORD:
+      bfd_put_16 (abfd, bfd_coff_reloc16_get_value (reloc, seclet),
+		  data + dst_address);
+      dst_address += 2;
+      src_address += 2;
+      break;
+    case R_RELLONG:
+      bfd_put_32 (abfd, bfd_coff_reloc16_get_value (reloc, seclet),
+		  data + dst_address);
+      dst_address += 4;
+      src_address += 4;
+      break;
+
+    case R_MOVB2:
+      /* Special relaxed type, there will be a gap between where we
+	     get stuff from and where we put stuff to now
+	
+	     for a mov.b @aa:16 -> mov.b @aa:8
+	     opcode 0x6a 0x0y offset
+	     ->     0x2y off
+	     */
+      if (data[dst_address - 1] != 0x6a)
+	abort ();
+      switch (data[src_address] & 0xf0)
+	{
+	case 0x00:
+	  /* Src is memory */
+	  data[dst_address - 1] = (data[src_address] & 0xf) | 0x20;
+	  break;
+	case 0x80:
+	  /* Src is reg */
+	  data[dst_address - 1] = (data[src_address] & 0xf) | 0x30;
+	  break;
+	default:
+	  abort ();
+	}
+
+      /* the offset must fit ! after all, what was all the relaxing
+	     about ? */
+
+      bfd_put_8 (abfd, bfd_coff_reloc16_get_value (reloc, seclet),
+		 data + dst_address);
+
+      /* Note the magic - src goes up by two bytes, but dst by only
+	     one */
+      dst_address += 1;
+      src_address += 3;
+
+      break;
+
+    case R_JMP2:
+      
+      /* Speciial relaxed type */
+      {
+	bfd_vma dot = seclet->offset
+	+ dst_address
+	+ seclet->u.indirect.section->output_section->vma;
+
+	int gap = bfd_coff_reloc16_get_value (reloc, seclet) - dot - 1;
+
+	if ((gap & ~0xff) != 0 && ((gap & 0xff00) != 0xff00))
+	  abort ();
+
+	bfd_put_8 (abfd, gap, data + dst_address);
+
+	switch (data[dst_address - 1])
+	  {
+	  case 0x5e:
+	    /* jsr -> bsr */
+	    bfd_put_8 (abfd, 0x55, data + dst_address - 1);
+	    break;
+	  case 0x5a:
+	    /* jmp ->bra */
+	    bfd_put_8 (abfd, 0x40, data + dst_address - 1);
+	    break;
+
+	  default:
+	    abort ();
+	  }
+	dst_address++;
+	src_address += 3;
+
+	break;
+      }
+      break;
+      
+    case R_JMPL_B8: /* 24 bit branch which is now 8 bits */
+      
+      /* Speciial relaxed type */
+      {
+	bfd_vma dot = seclet->offset
+	+ dst_address
+	+ seclet->u.indirect.section->output_section->vma;
+
+	int gap = bfd_coff_reloc16_get_value (reloc, seclet) - dot - 2;
+
+	if ((gap & ~0xff) != 0 && ((gap & 0xff00) != 0xff00))
+	  abort ();
+
+	switch (data[src_address])
+	  {
+	  case 0x5e:
+	    /* jsr -> bsr */
+	    bfd_put_8 (abfd, 0x55, data + dst_address);
+	    break;
+	  case 0x5a:
+	    /* jmp ->bra */
+	    bfd_put_8 (abfd, 0x40, data + dst_address);
+	    break;
+
+	  default:
+	    bfd_put_8 (abfd, 0xde, data + dst_address);
+	    break;
+	  }
+
+	bfd_put_8 (abfd, gap, data + dst_address + 1);
+	dst_address += 2;
+	src_address += 4;
+
+	break;
+      }
+
     case R_JMPL1:
       {
 	int v = bfd_coff_reloc16_get_value (reloc, seclet);
-	int o = bfd_get_32 (abfd, data + *dst_ptr);
+	int o = bfd_get_32 (abfd, data + src_address);
 	v = (v & 0x00ffffff) | (o & 0xff000000);
-	bfd_put_32 (abfd, v, data + *dst_ptr);
-	*dst_ptr += 4;
-	*src_ptr += 4;
+	bfd_put_32 (abfd, v, data + dst_address);
+	dst_address += 4;
+	src_address += 4;
       }
 
       break;
@@ -206,11 +489,11 @@ h8300_reloc16_extra_cases (abfd, seclet, reloc, data, src_ptr, dst_ptr)
     case R_MOVLB1:
       {
 	int v = bfd_coff_reloc16_get_value (reloc, seclet);
-	int o = bfd_get_32 (abfd, data + *dst_ptr);
+	int o = bfd_get_32 (abfd, data + dst_address);
 	v = (v & 0x00ffffff) | (o & 0xff000000);
-	bfd_put_32 (abfd, v, data + *dst_ptr);
-	*dst_ptr += 4;
-	*src_ptr += 4;
+	bfd_put_32 (abfd, v, data + dst_address);
+	dst_address += 4;
+	src_address += 4;
       }
 
       break;
@@ -220,13 +503,18 @@ h8300_reloc16_extra_cases (abfd, seclet, reloc, data, src_ptr, dst_ptr)
       break;
 
     }
+  *src_ptr = src_address;
+  *dst_ptr = dst_address;
+
 }
 
 #define coff_reloc16_extra_cases h8300_reloc16_extra_cases
+#define coff_reloc16_estimate h8300_reloc16_estimate
+
 #include "coffcode.h"
 
 
-#undef  coff_bfd_get_relocated_section_contents
+#undef coff_bfd_get_relocated_section_contents
 #undef coff_bfd_relax_section
 #define  coff_bfd_get_relocated_section_contents bfd_coff_reloc16_get_relocated_section_contents
 #define coff_bfd_relax_section bfd_coff_reloc16_relax_section
@@ -248,12 +536,12 @@ bfd_target h8300coff_vec =
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
   1,				/* minimum section alignment */
-  _do_getb64, _do_getb_signed_64, _do_putb64,
-  _do_getb32, _do_getb_signed_32, _do_putb32,
-  _do_getb16, _do_getb_signed_16, _do_putb16,	/* data */
-  _do_getb64, _do_getb_signed_64, _do_putb64,
-  _do_getb32, _do_getb_signed_32, _do_putb32,
-  _do_getb16, _do_getb_signed_16, _do_putb16,	/* hdrs */
+  bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+  bfd_getb32, bfd_getb_signed_32, bfd_putb32,
+  bfd_getb16, bfd_getb_signed_16, bfd_putb16,	/* data */
+  bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+  bfd_getb32, bfd_getb_signed_32, bfd_putb32,
+  bfd_getb16, bfd_getb_signed_16, bfd_putb16,	/* hdrs */
 
   {_bfd_dummy_target, coff_object_p,	/* bfd_check_format */
    bfd_generic_archive_p, _bfd_dummy_target},

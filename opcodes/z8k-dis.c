@@ -56,7 +56,7 @@ instr_data_s;
    to ADDR (exclusive) are valid.  Returns 1 for success, longjmps
    on error.  */
 #define FETCH_DATA(info, nibble) \
-  ((nibble) <= ((instr_data_s *)(info->private_data))->max_fetched \
+  ((nibble) < ((instr_data_s *)(info->private_data))->max_fetched \
    ? 1 : fetch_data ((info), (nibble)))
 
 static int
@@ -67,25 +67,26 @@ fetch_data (info, nibble)
   unsigned char mybuf[20];
   int status;
   instr_data_s *priv = (instr_data_s *)info->private_data;
-  bfd_vma start = priv->insn_start + priv->max_fetched / 2;
+  bfd_vma start;
 
   if ((nibble % 4) != 0)
     abort ();
-  status = (*info->read_memory_func) (start,
+
+  status = (*info->read_memory_func) (priv->insn_start,
 				      (bfd_byte *) mybuf,
-				      (nibble - priv->max_fetched) / 2,
+				      nibble / 2,
 				      info);
   if (status != 0)
     {
-      (*info->memory_error_func) (status, start, info);
+      (*info->memory_error_func) (status, priv->insn_start, info);
       longjmp (priv->bailout, 1);
     }
 
   {
     int i;
-    unsigned char *p = mybuf + priv->max_fetched / 2;
+    unsigned char *p = mybuf ;
     
-    for (i = priv->max_fetched; i < nibble;)
+    for (i = 0; i < nibble;)
       {
 	priv->words[i] = (p[0] << 8) | p[1];
 	
@@ -367,8 +368,9 @@ unpack_instr (instr_data, is_segmented, info)
 	    case ARG_IMMN:
 	      instr_data->immediate = instr_nibl - 1;
 	      break;
-	      /* ????? */
-	      /* missing ARG_IMMNMINUS1 */
+	    case ARG_IMM4M1:
+	      instr_data->immediate = instr_nibl + 1;
+	      break;
 	    case ARG_IMM_1:
 	      instr_data->immediate = 1;
 	      break;

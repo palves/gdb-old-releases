@@ -7,14 +7,18 @@
 #include <string.h>
 #include <sys/file.h>
 #include <malloc.h>
-#ifndef O_ACCMODE
+#ifndef	O_ACCMODE
 #define O_ACCMODE (O_RDONLY | O_WRONLY | O_RDWR)
 #endif
 #define SEEK_SET 0
 #define SEEK_CUR 1
 
-#include <machine/param.h>
+/* Hopefully this should include either machine/param.h (Ultrix) or
+   machine/machparam.h (Mach), whichever is its name on this system.  */
+#include <sys/param.h>
+
 #include <machine/vmparam.h>
+
 #define	HOST_PAGE_SIZE		NBPG
 /* #define	HOST_SEGMENT_SIZE	NBPG -- we use HOST_DATA_START_ADDR */
 #define	HOST_MACHINE_ARCH	bfd_arch_mips

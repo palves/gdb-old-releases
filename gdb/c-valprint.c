@@ -94,7 +94,6 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
   struct type *elttype;
   unsigned eltlen;
   LONGEST val;
-  unsigned char c;
   CORE_ADDR addr;
 
   switch (TYPE_CODE (type))
@@ -172,7 +171,7 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 
 	  if (addressprint && format != 's')
 	    {
-	      fprintf_filtered (stream, "0x%x", addr);
+	      fprintf_filtered (stream, "0x%lx", (unsigned long)addr);
 	    }
 
 	  /* For a pointer to char or unsigned char, also print the string
@@ -201,8 +200,25 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	      if (vtblprint)
 	        {
 		  value vt_val;
+	          struct symbol *wsym = (struct symbol *)NULL;
+	          struct type *wtype;
+		  struct symtab *s;
+		  struct block *block = (struct block *)NULL;
+		  int is_this_fld;
 
-		  vt_val = value_at (TYPE_TARGET_TYPE (type), vt_address);
+
+              	  wsym = lookup_symbol (SYMBOL_NAME(msymbol), block, 
+				VAR_NAMESPACE, &is_this_fld, &s);
+ 
+		  if (wsym)
+		    {
+	              wtype = SYMBOL_TYPE(wsym);
+		    }
+		  else
+		    {
+		      wtype = TYPE_TARGET_TYPE(type);
+		    }
+		  vt_val = value_at (wtype, vt_address);
 		  val_print (VALUE_TYPE (vt_val), VALUE_CONTENTS (vt_val),
 			     VALUE_ADDRESS (vt_val), stream, format,
 			     deref_ref, recurse + 1, pretty);

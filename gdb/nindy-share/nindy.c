@@ -815,7 +815,7 @@ ninMemPut( ninaddr, hostaddr, len )
 
 		buf[0] = 'M';
 		store_unsigned_integer (&buf[1], ninaddr, 4);
-		bcopy( hostaddr, buf+5, cnt );
+		memcpy(buf + 5, hostaddr, cnt);
 		send( buf, cnt+5, NULL );
 
 		ninaddr += cnt;
@@ -929,7 +929,7 @@ ninRegsPut( regp )
 	}
 
 	buf[0] = 'R';
-	bcopy( regp, buf+1, NINDY_REGISTER_BYTES );
+	memcpy(buf+1,  regp, NINDY_REGISTER_BYTES );
 	send( buf, NINDY_REGISTER_BYTES+1, NULL );
 }
 
@@ -1076,9 +1076,9 @@ ninStopWhy( whyp, ipp, fpp, spp )
 	send((unsigned char *) "?", 1, buf );
 
 	*whyp = buf[1];
-	bcopy (&buf[2],  (char *)ipp, sizeof (*ipp));
-	bcopy (&buf[6],  (char *)fpp, sizeof (*ipp));
-	bcopy (&buf[10], (char *)spp, sizeof (*ipp));
+	memcpy ((char *)ipp, &buf[2],  sizeof (*ipp));
+	memcpy ((char *)fpp, &buf[6],  sizeof (*ipp));
+	memcpy ((char *)spp, &buf[10], sizeof (*ipp));
 	return buf[0];
 }
 

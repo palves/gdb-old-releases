@@ -20,8 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* This has not been tested on ISI's running BSD 4.2, but it will probably
    work.  */
 
-#define HAVE_68881
-
 /* Data segment starts at etext rounded up to DATAROUND in {N,Z}MAGIC files */
 
 #define DATAROUND	0x20000
@@ -69,7 +67,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
   register CORE_ADDR pc;						\
   register int insn;							\
   register int offset;							\
-  bzero (&frame_saved_regs, sizeof frame_saved_regs);			\
+  memset (&frame_saved_regs, '\0', sizeof frame_saved_regs);			\
   if ((frame_info)->pc >= (frame_info)->frame - CALL_DUMMY_LENGTH - FP_REGNUM*4 - 8*12 - 4 \
       && (frame_info)->pc <= (frame_info)->frame)				\
     { next_addr = (frame_info)->frame;					\

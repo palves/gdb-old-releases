@@ -2306,7 +2306,28 @@ sim_info ()
   printf ("cycles (v approximate) %10d\n", cpu.cycles);
   printf ("real time taken        %10.4f\n", timetaken);
   printf ("virtual time taked     %10.4f\n", virttime);
-  printf ("simulation ratio       %10.4f\n", virttime / timetaken);
+  if (timetaken) 
+    {
+      printf ("simulation ratio       %10.4f\n", virttime / timetaken);
+    }
+  
   printf ("compiles               %10d\n", cpu.compiles);
   printf ("cache size             %10d\n", cpu.csize);
+}
+
+void
+sim_kill()
+{
+}
+
+sim_open ()
+{
+  return 0;
+}
+
+sim_set_args(argv, env)
+char **argv;
+char **env;
+{
+  return 0;
 }

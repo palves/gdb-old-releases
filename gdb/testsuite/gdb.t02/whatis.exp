@@ -33,7 +33,7 @@ set binfile "gdbme"
 
 if ![file exists $objdir/$subdir/$binfile] then {
     error "$objdir/$subdir/$binfile does not exist."
-    alldone
+    return 0
 }
 
 gdb_reinitialize_dir $srcdir/$subdir
@@ -47,6 +47,19 @@ if $signed_keyword_not_used then {
   set signed_char "char"
 } else {
   set signed_char "signed char"
+}
+
+# Define a procedure to set up an xfail for all targets that put out a
+# `long' type as an `int' type.
+# Sun/Ultrix cc have this problem.
+# It was said that COFF targets can not distinguish int from long either.
+
+proc setup_xfail_on_long_vs_int {} {
+	global gcc_compiled
+
+	if {!$gcc_compiled} then {
+		setup_xfail "*-sun-sunos4*" "*-*-ultrix*"
+	}
 }
 
 #
@@ -138,12 +151,7 @@ expect {
     timeout		{ fail "(timeout) whatis unsigned int" }
 }
 
-
-# COFF targets can not distinguish int from long
-
-# Neither can Sun/Mips /bin/cc
-if {!$gcc_compiled} then {setup_xfail "*-sun-sunos4*"}
-if {!$gcc_compiled} then {setup_xfail "mips-*-*"}
+setup_xfail_on_long_vs_int
 # AIX xlc gets this wrong and unsigned long right.  Go figure.
 if {!$gcc_compiled} then {setup_xfail "rs6000-*-aix*"}
 
@@ -155,8 +163,7 @@ expect {
 }
 
 
-if {!$gcc_compiled} then {setup_xfail "*-sun-sunos4*"}
-if {!$gcc_compiled} then {setup_xfail "mips-*-*"}
+setup_xfail_on_long_vs_int
 # AIX xlc gets this wrong and unsigned long right.  Go figure.
 if {!$gcc_compiled} then {setup_xfail "rs6000-*-aix*"}
 send "whatis v_signed_long\n"
@@ -167,8 +174,7 @@ expect {
 }
 
 
-if {!$gcc_compiled} then {setup_xfail "*-sun-sunos4*"}
-if {!$gcc_compiled} then {setup_xfail "mips-*-*"}
+setup_xfail_on_long_vs_int
 send "whatis v_unsigned_long\n"
 expect {
     -re "type = unsigned long.*$prompt $"	{ pass "whatis unsigned long" }
@@ -397,8 +403,7 @@ expect {
 }
 
 
-if {!$gcc_compiled} then {setup_xfail "*-sun-sunos4*"}
-if {!$gcc_compiled} then {setup_xfail "mips-*-*"}
+setup_xfail_on_long_vs_int
 send "whatis v_unsigned_long_pointer\n"
 expect {
     -re "type = unsigned long \*.*$prompt $"	{ 
@@ -563,8 +568,7 @@ expect {
 }
 
 
-if {!$gcc_compiled} then {setup_xfail "*-sun-sunos4*"}
-if {!$gcc_compiled} then {setup_xfail "mips-*-*"}
+setup_xfail_on_long_vs_int
 send "whatis v_unsigned_long_func\n"
 expect {
     -re "type = unsigned long \(\).*$prompt $"	{ 

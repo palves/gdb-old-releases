@@ -1,5 +1,6 @@
 /* Tahoe running BSD (post-Reno) Unix.  */
 
+#include <stddef.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>

@@ -1,14 +1,7 @@
 @c This GPL is meant to be included from other files.
 @c To format a standalone GPL, use license.texi.
 
-@ifset STAND-ALONE
-@node Top
 @unnumbered GNU GENERAL PUBLIC LICENSE
-@end ifset
-@ifclear STAND-ALONE
-@node Copying
-@unnumbered GNU GENERAL PUBLIC LICENSE
-@end ifclear
 
 @center Version 2, June 1991
 
@@ -296,6 +289,8 @@ of preserving the free status of all derivatives of our free software and
 of promoting the sharing and reuse of software generally.
 
 @iftex
+@vskip -@baselineskip
+@vskip -@baselineskip
 @heading NO WARRANTY
 @end iftex
 @ifinfo

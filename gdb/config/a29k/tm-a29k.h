@@ -52,7 +52,9 @@ CORE_ADDR skip_prologue ();
    the new frame is not set up until the new function executes
    some instructions.  */
 
-#define SAVED_PC_AFTER_CALL(frame) (read_register (LR0_REGNUM))
+#define SAVED_PC_AFTER_CALL(frame) ((frame->flags & TRANSPARENT) \
+				    ? read_register (TPC_REGNUM) \
+				    : read_register (LR0_REGNUM))
 
 /* I'm not sure about the exact value of this, but based on looking
    at the stack pointer when we get to main this seems to be right.
@@ -175,6 +177,7 @@ CORE_ADDR skip_prologue ();
    : (x) == 164 ? EXO_REGNUM                                     \
    : (error ("Internal error in SR_REGNUM"), 0))
 #define GR96_REGNUM 0
+
 /* Define the return register separately, so it can be overridden for
    kernel procedure calling conventions. */
 #define	RETURN_REGNUM	GR96_REGNUM
@@ -183,16 +186,25 @@ CORE_ADDR skip_prologue ();
    to make call_function work right.  */
 #define SP_REGNUM MSP_REGNUM
 #define FP_REGNUM 33 /* lr1 */
+
+/* Return register for transparent calling convention (gr122).  */
+#define TPC_REGNUM (122 - 96 + GR96_REGNUM)
+
 /* Large Return Pointer (gr123).  */
 #define LRP_REGNUM (123 - 96 + GR96_REGNUM)
+
 /* Static link pointer (gr124).  */
 #define SLP_REGNUM (124 - 96 + GR96_REGNUM)
+
 /* Memory Stack Pointer (gr125).  */
 #define MSP_REGNUM (125 - 96 + GR96_REGNUM)
+
 /* Register allocate bound (gr126).  */
 #define RAB_REGNUM (126 - 96 + GR96_REGNUM)
+
 /* Register Free Bound (gr127).  */
 #define RFB_REGNUM (127 - 96 + GR96_REGNUM)
+
 /* Register Stack Pointer.  */
 #define RSP_REGNUM GR1_REGNUM
 #define LR0_REGNUM 32
@@ -267,13 +279,13 @@ CORE_ADDR skip_prologue ();
    to virtual format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO) \
-{ bcopy ((FROM), (TO), 4); }
+{ memcpy ((TO), (FROM), 4); }
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-{ bcopy ((FROM), (TO), 4); }
+{ memcpy ((TO), (FROM), 4); }
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -309,7 +321,7 @@ CORE_ADDR skip_prologue ();
 	read_memory (*((int *)(REGBUF) + LRP_REGNUM), (VALBUF) + 16 * 4,   \
 		     TYPE_LENGTH (TYPE) - 16 * 4);			   \
       }									   \
-    bcopy (((int *)(REGBUF))+RETURN_REGNUM, (VALBUF), reg_length);	   \
+    memcpy ((VALBUF), ((int *)(REGBUF))+RETURN_REGNUM, reg_length);	   \
   }
 
 /* Write into appropriate registers a function return value
@@ -470,7 +482,12 @@ void init_frame_pc ();
 
 /* These are mostly dummies for the a29k because INIT_FRAME_PC
    sets prev->frame instead.  */
-#define FRAME_CHAIN(thisframe) ((thisframe)->frame + (thisframe)->rsize)
+/* If rsize is zero, we must be at end of stack (or otherwise hosed).
+   If we don't check rsize, we loop forever if we see rsize == 0.  */
+#define FRAME_CHAIN(thisframe) \
+  ((thisframe)->rsize == 0 \
+   ? 0 \
+   : (thisframe)->frame + (thisframe)->rsize)
 
 /* Determine if the frame has a 'previous' and back-traceable frame. */
 #define FRAME_IS_UNCHAINED(frame)	((frame)->flags & TRANSPARENT)
@@ -703,3 +720,14 @@ extern void pop_frame ();
 		"Invalid register number %d in symbol table entry for %s\n", \
 	         (num), SYMBOL_SOURCE_NAME (sym)), (num)	\
 	   : (num))
+
+extern enum a29k_processor_types {
+  a29k_unknown,
+
+  /* Bit 0x400 of the CPS does *not* identify freeze mode, i.e. 29000,
+     29030, etc.  */
+  a29k_no_freeze_mode,
+
+  /* Bit 0x400 of the CPS does identify freeze mode, i.e. 29050.  */
+  a29k_freeze_mode
+} processor_type;

@@ -441,42 +441,31 @@ sparc_frame_find_saved_regs (fi, saved_regs_addr)
 void
 sparc_push_dummy_frame ()
 {
-  CORE_ADDR sp;
-  char register_temp[REGISTER_BYTES];
+  CORE_ADDR sp, old_sp;
+  char register_temp[0x140];
 
-  sp = read_register (SP_REGNUM);
-
-  read_register_bytes (REGISTER_BYTE (FP0_REGNUM), register_temp,
-		       REGISTER_RAW_SIZE (FP0_REGNUM) * 32);
-  write_memory (sp - 0x80, register_temp, REGISTER_RAW_SIZE (FP0_REGNUM) * 32);
-
-  read_register_bytes (REGISTER_BYTE (G0_REGNUM), register_temp,
-		       REGISTER_RAW_SIZE (G0_REGNUM) * 8);
-  write_memory (sp - 0xa0, register_temp, REGISTER_RAW_SIZE (G0_REGNUM) * 8);
-
-  read_register_bytes (REGISTER_BYTE (O0_REGNUM), register_temp,
-		       REGISTER_RAW_SIZE (O0_REGNUM) * 8);
-  write_memory (sp - 0xc0, register_temp, REGISTER_RAW_SIZE (O0_REGNUM) * 8);
+  old_sp = sp = read_register (SP_REGNUM);
 
   /* Y, PS, WIM, TBR, PC, NPC, FPS, CPS regs */
-  read_register_bytes (REGISTER_BYTE (Y_REGNUM), register_temp,
+  read_register_bytes (REGISTER_BYTE (Y_REGNUM), &register_temp[0],
 		       REGISTER_RAW_SIZE (Y_REGNUM) * 8);
-  write_memory (sp - 0xe0, register_temp, REGISTER_RAW_SIZE (Y_REGNUM) * 8);
 
-  {
-    CORE_ADDR old_sp = sp;
+  read_register_bytes (REGISTER_BYTE (O0_REGNUM), &register_temp[8 * 4],
+		       REGISTER_RAW_SIZE (O0_REGNUM) * 8);
 
-    /* Now move the stack pointer (equivalent to the add part of a save
-       instruction).  */
-    sp -= 0x140;
-    write_register (SP_REGNUM, sp);
+  read_register_bytes (REGISTER_BYTE (G0_REGNUM), &register_temp[16 * 4],
+		       REGISTER_RAW_SIZE (G0_REGNUM) * 8);
 
-    /* Now make sure that the frame pointer we save in the new frame points
-       to the old frame (equivalent to the register window shift part of
-       a save instruction).  Need to do this after the write to the sp, or
-       else this might get written into the wrong set of saved ins&locals.  */
-    write_register (FP_REGNUM, old_sp);
-  }
+  read_register_bytes (REGISTER_BYTE (FP0_REGNUM), &register_temp[24 * 4],
+		       REGISTER_RAW_SIZE (FP0_REGNUM) * 32);
+
+  sp -= 0x140;
+
+  write_register (SP_REGNUM, sp);
+
+  write_memory (sp + 0x60, &register_temp[0], (8 + 8 + 8 + 32) * 4);
+
+  write_register (FP_REGNUM, old_sp);
 }
 
 /* Discard from the stack the innermost frame, restoring all saved registers.

@@ -20,15 +20,18 @@ Cambridge, MA 02139, USA.  */
 
 #include "config.h"
 
-#include <stdio.h>
 #ifndef NEED_sys_errlist
-/* Note that errno.h might declare sys_errlist in a way that the
- * compiler might consider incompatible with our later declaration,
- * perhaps by using const attributes.  So we hide the declaration
- * in errno.h (if any) using a macro. */
+/* Note that errno.h (not sure what OS) or stdio.h (BSD 4.4, at least)
+   might declare sys_errlist in a way that the compiler might consider
+   incompatible with our later declaration, perhaps by using const
+   attributes.  So we hide the declaration in errno.h (if any) using a
+   macro. */
 #define sys_errlist sys_errlist__
 #endif
+
+#include <stdio.h>
 #include <errno.h>
+
 #ifndef NEED_sys_errlist
 #undef sys_errlist
 #endif
@@ -46,14 +49,6 @@ extern void *memset (void *s, int c, size_t n);			/* 4.11.6.1 */
 extern char *malloc ();		/* Standard memory allocater */
 extern char *memset ();
 #endif	/* __STDC__ */
-
-#ifndef NULL
-#  ifdef __STDC__
-#    define NULL (void *) 0
-#  else
-#    define NULL 0
-#  endif
-#endif
 
 #ifndef MAX
 #  define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -80,369 +75,369 @@ struct error_info
 static const struct error_info error_table[] =
 {
 #if defined (EPERM)
-  EPERM, "EPERM", "Not owner",
+  {EPERM, "EPERM", "Not owner"},
 #endif
 #if defined (ENOENT)
-  ENOENT, "ENOENT", "No such file or directory",
+  {ENOENT, "ENOENT", "No such file or directory"},
 #endif
 #if defined (ESRCH)
-  ESRCH, "ESRCH", "No such process",
+  {ESRCH, "ESRCH", "No such process"},
 #endif
 #if defined (EINTR)
-  EINTR, "EINTR", "Interrupted system call",
+  {EINTR, "EINTR", "Interrupted system call"},
 #endif
 #if defined (EIO)
-  EIO, "EIO", "I/O error",
+  {EIO, "EIO", "I/O error"},
 #endif
 #if defined (ENXIO)
-  ENXIO, "ENXIO", "No such device or address",
+  {ENXIO, "ENXIO", "No such device or address"},
 #endif
 #if defined (E2BIG)
-  E2BIG, "E2BIG", "Arg list too long",
+  {E2BIG, "E2BIG", "Arg list too long"},
 #endif
 #if defined (ENOEXEC)
-  ENOEXEC, "ENOEXEC", "Exec format error",
+  {ENOEXEC, "ENOEXEC", "Exec format error"},
 #endif
 #if defined (EBADF)
-  EBADF, "EBADF", "Bad file number",
+  {EBADF, "EBADF", "Bad file number"},
 #endif
 #if defined (ECHILD)
-  ECHILD, "ECHILD", "No child processes",
+  {ECHILD, "ECHILD", "No child processes"},
 #endif
 #if defined (EWOULDBLOCK)	/* Put before EAGAIN, sometimes aliased */
-  EWOULDBLOCK, "EWOULDBLOCK", "Operation would block",
+  {EWOULDBLOCK, "EWOULDBLOCK", "Operation would block"},
 #endif
 #if defined (EAGAIN)
-  EAGAIN, "EAGAIN", "No more processes",
+  {EAGAIN, "EAGAIN", "No more processes"},
 #endif
 #if defined (ENOMEM)
-  ENOMEM, "ENOMEM", "Not enough space",
+  {ENOMEM, "ENOMEM", "Not enough space"},
 #endif
 #if defined (EACCES)
-  EACCES, "EACCES", "Permission denied",
+  {EACCES, "EACCES", "Permission denied"},
 #endif
 #if defined (EFAULT)
-  EFAULT, "EFAULT", "Bad address",
+  {EFAULT, "EFAULT", "Bad address"},
 #endif
 #if defined (ENOTBLK)
-  ENOTBLK, "ENOTBLK", "Block device required",
+  {ENOTBLK, "ENOTBLK", "Block device required"},
 #endif
 #if defined (EBUSY)
-  EBUSY, "EBUSY", "Device busy",
+  {EBUSY, "EBUSY", "Device busy"},
 #endif
 #if defined (EEXIST)
-  EEXIST, "EEXIST", "File exists",
+  {EEXIST, "EEXIST", "File exists"},
 #endif
 #if defined (EXDEV)
-  EXDEV, "EXDEV", "Cross-device link",
+  {EXDEV, "EXDEV", "Cross-device link"},
 #endif
 #if defined (ENODEV)
-  ENODEV, "ENODEV", "No such device",
+  {ENODEV, "ENODEV", "No such device"},
 #endif
 #if defined (ENOTDIR)
-  ENOTDIR, "ENOTDIR", "Not a directory",
+  {ENOTDIR, "ENOTDIR", "Not a directory"},
 #endif
 #if defined (EISDIR)
-  EISDIR, "EISDIR", "Is a directory",
+  {EISDIR, "EISDIR", "Is a directory"},
 #endif
 #if defined (EINVAL)
-  EINVAL, "EINVAL", "Invalid argument",
+  {EINVAL, "EINVAL", "Invalid argument"},
 #endif
 #if defined (ENFILE)
-  ENFILE, "ENFILE", "File table overflow",
+  {ENFILE, "ENFILE", "File table overflow"},
 #endif
 #if defined (EMFILE)
-  EMFILE, "EMFILE", "Too many open files",
+  {EMFILE, "EMFILE", "Too many open files"},
 #endif
 #if defined (ENOTTY)
-  ENOTTY, "ENOTTY", "Not a typewriter",
+  {ENOTTY, "ENOTTY", "Not a typewriter"},
 #endif
 #if defined (ETXTBSY)
-  ETXTBSY, "ETXTBSY", "Text file busy",
+  {ETXTBSY, "ETXTBSY", "Text file busy"},
 #endif
 #if defined (EFBIG)
-  EFBIG, "EFBIG", "File too large",
+  {EFBIG, "EFBIG", "File too large"},
 #endif
 #if defined (ENOSPC)
-  ENOSPC, "ENOSPC", "No space left on device",
+  {ENOSPC, "ENOSPC", "No space left on device"},
 #endif
 #if defined (ESPIPE)
-  ESPIPE, "ESPIPE", "Illegal seek",
+  {ESPIPE, "ESPIPE", "Illegal seek"},
 #endif
 #if defined (EROFS)
-  EROFS, "EROFS", "Read-only file system",
+  {EROFS, "EROFS", "Read-only file system"},
 #endif
 #if defined (EMLINK)
-  EMLINK, "EMLINK", "Too many links",
+  {EMLINK, "EMLINK", "Too many links"},
 #endif
 #if defined (EPIPE)
-  EPIPE, "EPIPE", "Broken pipe",
+  {EPIPE, "EPIPE", "Broken pipe"},
 #endif
 #if defined (EDOM)
-  EDOM, "EDOM", "Math argument out of domain of func",
+  {EDOM, "EDOM", "Math argument out of domain of func"},
 #endif
 #if defined (ERANGE)
-  ERANGE, "ERANGE", "Math result not representable",
+  {ERANGE, "ERANGE", "Math result not representable"},
 #endif
 #if defined (ENOMSG)
-  ENOMSG, "ENOMSG", "No message of desired type",
+  {ENOMSG, "ENOMSG", "No message of desired type"},
 #endif
 #if defined (EIDRM)
-  EIDRM, "EIDRM", "Identifier removed",
+  {EIDRM, "EIDRM", "Identifier removed"},
 #endif
 #if defined (ECHRNG)
-  ECHRNG, "ECHRNG", "Channel number out of range",
+  {ECHRNG, "ECHRNG", "Channel number out of range"},
 #endif
 #if defined (EL2NSYNC)
-  EL2NSYNC, "EL2NSYNC", "Level 2 not synchronized",
+  {EL2NSYNC, "EL2NSYNC", "Level 2 not synchronized"},
 #endif
 #if defined (EL3HLT)
-  EL3HLT, "EL3HLT", "Level 3 halted",
+  {EL3HLT, "EL3HLT", "Level 3 halted"},
 #endif
 #if defined (EL3RST)
-  EL3RST, "EL3RST", "Level 3 reset",
+  {EL3RST, "EL3RST", "Level 3 reset"},
 #endif
 #if defined (ELNRNG)
-  ELNRNG, "ELNRNG", "Link number out of range",
+  {ELNRNG, "ELNRNG", "Link number out of range"},
 #endif
 #if defined (EUNATCH)
-  EUNATCH, "EUNATCH", "Protocol driver not attached",
+  {EUNATCH, "EUNATCH", "Protocol driver not attached"},
 #endif
 #if defined (ENOCSI)
-  ENOCSI, "ENOCSI", "No CSI structure available",
+  {ENOCSI, "ENOCSI", "No CSI structure available"},
 #endif
 #if defined (EL2HLT)
-  EL2HLT, "EL2HLT", "Level 2 halted",
+  {EL2HLT, "EL2HLT", "Level 2 halted"},
 #endif
 #if defined (EDEADLK)
-  EDEADLK, "EDEADLK", "Deadlock condition",
+  {EDEADLK, "EDEADLK", "Deadlock condition"},
 #endif
 #if defined (ENOLCK)
-  ENOLCK, "ENOLCK", "No record locks available",
+  {ENOLCK, "ENOLCK", "No record locks available"},
 #endif
 #if defined (EBADE)
-  EBADE, "EBADE", "Invalid exchange",
+  {EBADE, "EBADE", "Invalid exchange"},
 #endif
 #if defined (EBADR)
-  EBADR, "EBADR", "Invalid request descriptor",
+  {EBADR, "EBADR", "Invalid request descriptor"},
 #endif
 #if defined (EXFULL)
-  EXFULL, "EXFULL", "Exchange full",
+  {EXFULL, "EXFULL", "Exchange full"},
 #endif
 #if defined (ENOANO)
-  ENOANO, "ENOANO", "No anode",
+  {ENOANO, "ENOANO", "No anode"},
 #endif
 #if defined (EBADRQC)
-  EBADRQC, "EBADRQC", "Invalid request code",
+  {EBADRQC, "EBADRQC", "Invalid request code"},
 #endif
 #if defined (EBADSLT)
-  EBADSLT, "EBADSLT", "Invalid slot",
+  {EBADSLT, "EBADSLT", "Invalid slot"},
 #endif
 #if defined (EDEADLOCK)
-  EDEADLOCK, "EDEADLOCK", "File locking deadlock error",
+  {EDEADLOCK, "EDEADLOCK", "File locking deadlock error"},
 #endif
 #if defined (EBFONT)
-  EBFONT, "EBFONT", "Bad font file format",
+  {EBFONT, "EBFONT", "Bad font file format"},
 #endif
 #if defined (ENOSTR)
-  ENOSTR, "ENOSTR", "Device not a stream",
+  {ENOSTR, "ENOSTR", "Device not a stream"},
 #endif
 #if defined (ENODATA)
-  ENODATA, "ENODATA", "No data available",
+  {ENODATA, "ENODATA", "No data available"},
 #endif
 #if defined (ETIME)
-  ETIME, "ETIME", "Timer expired",
+  {ETIME, "ETIME", "Timer expired"},
 #endif
 #if defined (ENOSR)
-  ENOSR, "ENOSR", "Out of streams resources",
+  {ENOSR, "ENOSR", "Out of streams resources"},
 #endif
 #if defined (ENONET)
-  ENONET, "ENONET", "Machine is not on the network",
+  {ENONET, "ENONET", "Machine is not on the network"},
 #endif
 #if defined (ENOPKG)
-  ENOPKG, "ENOPKG", "Package not installed",
+  {ENOPKG, "ENOPKG", "Package not installed"},
 #endif
 #if defined (EREMOTE)
-  EREMOTE, "EREMOTE", "Object is remote",
+  {EREMOTE, "EREMOTE", "Object is remote"},
 #endif
 #if defined (ENOLINK)
-  ENOLINK, "ENOLINK", "Link has been severed",
+  {ENOLINK, "ENOLINK", "Link has been severed"},
 #endif
 #if defined (EADV)
-  EADV, "EADV", "Advertise error",
+  {EADV, "EADV", "Advertise error"},
 #endif
 #if defined (ESRMNT)
-  ESRMNT, "ESRMNT", "Srmount error",
+  {ESRMNT, "ESRMNT", "Srmount error"},
 #endif
 #if defined (ECOMM)
-  ECOMM, "ECOMM", "Communication error on send",
+  {ECOMM, "ECOMM", "Communication error on send"},
 #endif
 #if defined (EPROTO)
-  EPROTO, "EPROTO", "Protocol error",
+  {EPROTO, "EPROTO", "Protocol error"},
 #endif
 #if defined (EMULTIHOP)
-  EMULTIHOP, "EMULTIHOP", "Multihop attempted",
+  {EMULTIHOP, "EMULTIHOP", "Multihop attempted"},
 #endif
 #if defined (EDOTDOT)
-  EDOTDOT, "EDOTDOT", "RFS specific error",
+  {EDOTDOT, "EDOTDOT", "RFS specific error"},
 #endif
 #if defined (EBADMSG)
-  EBADMSG, "EBADMSG", "Not a data message",
+  {EBADMSG, "EBADMSG", "Not a data message"},
 #endif
 #if defined (ENAMETOOLONG)
-  ENAMETOOLONG, "ENAMETOOLONG", "File name too long",
+  {ENAMETOOLONG, "ENAMETOOLONG", "File name too long"},
 #endif
 #if defined (EOVERFLOW)
-  EOVERFLOW, "EOVERFLOW", "Value too large for defined data type",
+  {EOVERFLOW, "EOVERFLOW", "Value too large for defined data type"},
 #endif
 #if defined (ENOTUNIQ)
-  ENOTUNIQ, "ENOTUNIQ", "Name not unique on network",
+  {ENOTUNIQ, "ENOTUNIQ", "Name not unique on network"},
 #endif
 #if defined (EBADFD)
-  EBADFD, "EBADFD", "File descriptor in bad state",
+  {EBADFD, "EBADFD", "File descriptor in bad state"},
 #endif
 #if defined (EREMCHG)
-  EREMCHG, "EREMCHG", "Remote address changed",
+  {EREMCHG, "EREMCHG", "Remote address changed"},
 #endif
 #if defined (ELIBACC)
-  ELIBACC, "ELIBACC", "Can not access a needed shared library",
+  {ELIBACC, "ELIBACC", "Can not access a needed shared library"},
 #endif
 #if defined (ELIBBAD)
-  ELIBBAD, "ELIBBAD", "Accessing a corrupted shared library",
+  {ELIBBAD, "ELIBBAD", "Accessing a corrupted shared library"},
 #endif
 #if defined (ELIBSCN)
-  ELIBSCN, "ELIBSCN", ".lib section in a.out corrupted",
+  {ELIBSCN, "ELIBSCN", ".lib section in a.out corrupted"},
 #endif
 #if defined (ELIBMAX)
-  ELIBMAX, "ELIBMAX", "Attempting to link in too many shared libraries",
+  {ELIBMAX, "ELIBMAX", "Attempting to link in too many shared libraries"},
 #endif
 #if defined (ELIBEXEC)
-  ELIBEXEC, "ELIBEXEC", "Cannot exec a shared library directly",
+  {ELIBEXEC, "ELIBEXEC", "Cannot exec a shared library directly"},
 #endif
 #if defined (EILSEQ)
-  EILSEQ, "EILSEQ", "Illegal byte sequence",
+  {EILSEQ, "EILSEQ", "Illegal byte sequence"},
 #endif
 #if defined (ENOSYS)
-  ENOSYS, "ENOSYS", "Operation not applicable",
+  {ENOSYS, "ENOSYS", "Operation not applicable"},
 #endif
 #if defined (ELOOP)
-  ELOOP, "ELOOP", "Too many symbolic links encountered",
+  {ELOOP, "ELOOP", "Too many symbolic links encountered"},
 #endif
 #if defined (ERESTART)
-  ERESTART, "ERESTART", "Interrupted system call should be restarted",
+  {ERESTART, "ERESTART", "Interrupted system call should be restarted"},
 #endif
 #if defined (ESTRPIPE)
-  ESTRPIPE, "ESTRPIPE", "Streams pipe error",
+  {ESTRPIPE, "ESTRPIPE", "Streams pipe error"},
 #endif
 #if defined (ENOTEMPTY)
-  ENOTEMPTY, "ENOTEMPTY", "Directory not empty",
+  {ENOTEMPTY, "ENOTEMPTY", "Directory not empty"},
 #endif
 #if defined (EUSERS)
-  EUSERS, "EUSERS", "Too many users",
+  {EUSERS, "EUSERS", "Too many users"},
 #endif
 #if defined (ENOTSOCK)
-  ENOTSOCK, "ENOTSOCK", "Socket operation on non-socket",
+  {ENOTSOCK, "ENOTSOCK", "Socket operation on non-socket"},
 #endif
 #if defined (EDESTADDRREQ)
-  EDESTADDRREQ, "EDESTADDRREQ", "Destination address required",
+  {EDESTADDRREQ, "EDESTADDRREQ", "Destination address required"},
 #endif
 #if defined (EMSGSIZE)
-  EMSGSIZE, "EMSGSIZE", "Message too long",
+  {EMSGSIZE, "EMSGSIZE", "Message too long"},
 #endif
 #if defined (EPROTOTYPE)
-  EPROTOTYPE, "EPROTOTYPE", "Protocol wrong type for socket",
+  {EPROTOTYPE, "EPROTOTYPE", "Protocol wrong type for socket"},
 #endif
 #if defined (ENOPROTOOPT)
-  ENOPROTOOPT, "ENOPROTOOPT", "Protocol not available",
+  {ENOPROTOOPT, "ENOPROTOOPT", "Protocol not available"},
 #endif
 #if defined (EPROTONOSUPPORT)
-  EPROTONOSUPPORT, "EPROTONOSUPPORT", "Protocol not supported",
+  {EPROTONOSUPPORT, "EPROTONOSUPPORT", "Protocol not supported"},
 #endif
 #if defined (ESOCKTNOSUPPORT)
-  ESOCKTNOSUPPORT, "ESOCKTNOSUPPORT", "Socket type not supported",
+  {ESOCKTNOSUPPORT, "ESOCKTNOSUPPORT", "Socket type not supported"},
 #endif
 #if defined (EOPNOTSUPP)
-  EOPNOTSUPP, "EOPNOTSUPP", "Operation not supported on transport endpoint",
+  {EOPNOTSUPP, "EOPNOTSUPP", "Operation not supported on transport endpoint"},
 #endif
 #if defined (EPFNOSUPPORT)
-  EPFNOSUPPORT, "EPFNOSUPPORT", "Protocol family not supported",
+  {EPFNOSUPPORT, "EPFNOSUPPORT", "Protocol family not supported"},
 #endif
 #if defined (EAFNOSUPPORT)
-  EAFNOSUPPORT, "EAFNOSUPPORT", "Address family not supported by protocol",
+  {EAFNOSUPPORT, "EAFNOSUPPORT", "Address family not supported by protocol"},
 #endif
 #if defined (EADDRINUSE)
-  EADDRINUSE, "EADDRINUSE", "Address already in use",
+  {EADDRINUSE, "EADDRINUSE", "Address already in use"},
 #endif
 #if defined (EADDRNOTAVAIL)
-  EADDRNOTAVAIL, "EADDRNOTAVAIL","Cannot assign requested address",
+  {EADDRNOTAVAIL, "EADDRNOTAVAIL","Cannot assign requested address"},
 #endif
 #if defined (ENETDOWN)
-  ENETDOWN, "ENETDOWN", "Network is down",
+  {ENETDOWN, "ENETDOWN", "Network is down"},
 #endif
 #if defined (ENETUNREACH)
-  ENETUNREACH, "ENETUNREACH", "Network is unreachable",
+  {ENETUNREACH, "ENETUNREACH", "Network is unreachable"},
 #endif
 #if defined (ENETRESET)
-  ENETRESET, "ENETRESET", "Network dropped connection because of reset",
+  {ENETRESET, "ENETRESET", "Network dropped connection because of reset"},
 #endif
 #if defined (ECONNABORTED)
-  ECONNABORTED, "ECONNABORTED", "Software caused connection abort",
+  {ECONNABORTED, "ECONNABORTED", "Software caused connection abort"},
 #endif
 #if defined (ECONNRESET)
-  ECONNRESET, "ECONNRESET", "Connection reset by peer",
+  {ECONNRESET, "ECONNRESET", "Connection reset by peer"},
 #endif
 #if defined (ENOBUFS)
-  ENOBUFS, "ENOBUFS", "No buffer space available",
+  {ENOBUFS, "ENOBUFS", "No buffer space available"},
 #endif
 #if defined (EISCONN)
-  EISCONN, "EISCONN", "Transport endpoint is already connected",
+  {EISCONN, "EISCONN", "Transport endpoint is already connected"},
 #endif
 #if defined (ENOTCONN)
-  ENOTCONN, "ENOTCONN", "Transport endpoint is not connected",
+  {ENOTCONN, "ENOTCONN", "Transport endpoint is not connected"},
 #endif
 #if defined (ESHUTDOWN)
-  ESHUTDOWN, "ESHUTDOWN", "Cannot send after transport endpoint shutdown",
+  {ESHUTDOWN, "ESHUTDOWN", "Cannot send after transport endpoint shutdown"},
 #endif
 #if defined (ETOOMANYREFS)
-  ETOOMANYREFS, "ETOOMANYREFS", "Too many references: cannot splice",
+  {ETOOMANYREFS, "ETOOMANYREFS", "Too many references: cannot splice"},
 #endif
 #if defined (ETIMEDOUT)
-  ETIMEDOUT, "ETIMEDOUT", "Connection timed out",
+  {ETIMEDOUT, "ETIMEDOUT", "Connection timed out"},
 #endif
 #if defined (ECONNREFUSED)
-  ECONNREFUSED, "ECONNREFUSED", "Connection refused",
+  {ECONNREFUSED, "ECONNREFUSED", "Connection refused"},
 #endif
 #if defined (EHOSTDOWN)
-  EHOSTDOWN, "EHOSTDOWN", "Host is down",
+  {EHOSTDOWN, "EHOSTDOWN", "Host is down"},
 #endif
 #if defined (EHOSTUNREACH)
-  EHOSTUNREACH, "EHOSTUNREACH", "No route to host",
+  {EHOSTUNREACH, "EHOSTUNREACH", "No route to host"},
 #endif
 #if defined (EALREADY)
-  EALREADY, "EALREADY", "Operation already in progress",
+  {EALREADY, "EALREADY", "Operation already in progress"},
 #endif
 #if defined (EINPROGRESS)
-  EINPROGRESS, "EINPROGRESS", "Operation now in progress",
+  {EINPROGRESS, "EINPROGRESS", "Operation now in progress"},
 #endif
 #if defined (ESTALE)
-  ESTALE, "ESTALE", "Stale NFS file handle",
+  {ESTALE, "ESTALE", "Stale NFS file handle"},
 #endif
 #if defined (EUCLEAN)
-  EUCLEAN, "EUCLEAN", "Structure needs cleaning",
+  {EUCLEAN, "EUCLEAN", "Structure needs cleaning"},
 #endif
 #if defined (ENOTNAM)
-  ENOTNAM, "ENOTNAM", "Not a XENIX named type file",
+  {ENOTNAM, "ENOTNAM", "Not a XENIX named type file"},
 #endif
 #if defined (ENAVAIL)
-  ENAVAIL, "ENAVAIL", "No XENIX semaphores available",
+  {ENAVAIL, "ENAVAIL", "No XENIX semaphores available"},
 #endif
 #if defined (EISNAM)
-  EISNAM, "EISNAM", "Is a named type file",
+  {EISNAM, "EISNAM", "Is a named type file"},
 #endif
 #if defined (EREMOTEIO)
-  EREMOTEIO, "EREMOTEIO", "Remote I/O error",
+  {EREMOTEIO, "EREMOTEIO", "Remote I/O error"},
 #endif
-  0, NULL, NULL
+  {0, NULL, NULL}
 };
 
 /* Translation table allocated and initialized at runtime.  Indexed by the

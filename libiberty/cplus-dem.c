@@ -198,7 +198,8 @@ demangle_method_args PARAMS ((struct work_stuff *work, CONST char **, string *))
 #endif
 
 static int
-demangle_template PARAMS ((struct work_stuff *work, CONST char **, string *));
+demangle_template PARAMS ((struct work_stuff *work, CONST char **, string *,
+			   string *));
 
 static int
 demangle_qualified PARAMS ((struct work_stuff *, CONST char **, string *,
@@ -408,6 +409,16 @@ cplus_demangle (mangled, options)
 	{
 	  success = demangle_signature (work, &mangled, &decl);
 	}
+      if (work->constructor == 2)
+        {
+          string_prepend(&decl, "global constructors keyed to ");
+          work->constructor = 0;
+        }
+      else if (work->destructor == 2)
+        {
+          string_prepend(&decl, "global destructors keyed to ");
+          work->destructor = 0;
+        }
       demangled = mop_up (work, &decl, success);
     }
   return (demangled);
@@ -485,6 +496,8 @@ demangle_signature (work, mangled, declp)
   int func_done = 0;
   int expect_func = 0;
   CONST char *oldmangled = NULL;
+  string trawname;
+  string tname;
 
   while (success && (**mangled != '\0'))
     {
@@ -567,8 +580,25 @@ demangle_signature (work, mangled, declp)
 	  
 	  case 't':
 	    /* G++ Template */
-	    success = demangle_template (work, mangled, declp);
-	    func_done = 1;
+	    string_init(&trawname); 
+	    string_init(&tname);
+	    success = demangle_template (work, mangled, &tname, &trawname);
+	    string_append(&tname, "::");
+	    string_prepends(declp, &tname);
+  	    if (work -> destructor & 1)
+    	      {
+      		string_prepend (&trawname, "~");
+      		string_appends (declp, &trawname);
+		work->destructor -= 1;
+    	      }
+  	    if ((work->constructor & 1) || (work->destructor & 1))
+    	      {
+      		string_appends (declp, &trawname);
+		work->constructor -= 1;
+              }
+	    string_delete(&trawname);
+	    string_delete(&tname);
+	    expect_func = 1;
 	    break;
 
 	  case '_':
@@ -657,14 +687,13 @@ demangle_method_args (work, mangled, declp)
 #endif
 
 static int
-demangle_template (work, mangled, declp)
+demangle_template (work, mangled, tname, trawname)
      struct work_stuff *work;
      CONST char **mangled;
-     string *declp;
+     string *tname;
+     string *trawname;
 {
   int i;
-  string tname;
-  string trawname;
   int is_pointer;
   int is_real;
   int is_integral;
@@ -679,17 +708,16 @@ demangle_template (work, mangled, declp)
 
   (*mangled)++;
   start = *mangled;
-  string_init (&tname);
-  string_init (&trawname);
   /* get template name */
-  if (!get_count (mangled, &r))
+  if ((r = consume_count (mangled)) == 0)
     {
       return (0);
     }
-  remember_type (work, start, *mangled - start + r);
-  string_appendn (&tname, *mangled, r);
+  if (trawname)
+    string_appendn (trawname, *mangled, r);
+  string_appendn (tname, *mangled, r);
   *mangled += r;
-  string_append (&tname, "<");
+  string_append (tname, "<");
   /* get size of template parameter list */
   if (!get_count (mangled, &r))
     {
@@ -699,7 +727,7 @@ demangle_template (work, mangled, declp)
     {
       if (need_comma)
 	{
-	  string_append (&tname, ", ");
+	  string_append (tname, ", ");
 	}
       /* Z for type parameters */
       if (**mangled == 'Z')
@@ -709,7 +737,7 @@ demangle_template (work, mangled, declp)
 	  success = do_type (work, mangled, &temp);
 	  if (success)
 	    {
-	      string_appends (&tname, &temp);
+	      string_appends (tname, &temp);
 	    }
 	  string_delete(&temp);
 	  if (!success)
@@ -729,14 +757,14 @@ demangle_template (work, mangled, declp)
 	  success = do_type (work, mangled, &temp);
 	  if (success)
 	    {
-	      string_appends (&tname, &temp);
+	      string_appends (tname, &temp);
 	    }
 	  string_delete(&temp);
 	  if (!success)
 	    {
 	      break;
 	    }
-	  string_append (&tname, "=");
+	  string_append (tname, "=");
 	  while (*old_p && !done)
 	    {	
 	      switch (*old_p)
@@ -782,12 +810,12 @@ demangle_template (work, mangled, declp)
 	    {
 	      if (**mangled == 'm')
 		{
-		  string_appendn (&tname, "-", 1);
+		  string_appendn (tname, "-", 1);
 		  (*mangled)++;
 		}
 	      while (isdigit (**mangled))	
 		{
-		  string_appendn (&tname, *mangled, 1);
+		  string_appendn (tname, *mangled, 1);
 		  (*mangled)++;
 		}
 	    }
@@ -795,31 +823,31 @@ demangle_template (work, mangled, declp)
 	    {
 	      if (**mangled == 'm')
 		{
-		  string_appendn (&tname, "-", 1);
+		  string_appendn (tname, "-", 1);
 		  (*mangled)++;
 		}
 	      while (isdigit (**mangled))	
 		{
-		  string_appendn (&tname, *mangled, 1);
+		  string_appendn (tname, *mangled, 1);
 		  (*mangled)++;
 		}
 	      if (**mangled == '.') /* fraction */
 		{
-		  string_appendn (&tname, ".", 1);
+		  string_appendn (tname, ".", 1);
 		  (*mangled)++;
 		  while (isdigit (**mangled))	
 		    {
-		      string_appendn (&tname, *mangled, 1);
+		      string_appendn (tname, *mangled, 1);
 		      (*mangled)++;
 		    }
 		}
 	      if (**mangled == 'e') /* exponent */
 		{
-		  string_appendn (&tname, "e", 1);
+		  string_appendn (tname, "e", 1);
 		  (*mangled)++;
 		  while (isdigit (**mangled))	
 		    {
-		      string_appendn (&tname, *mangled, 1);
+		      string_appendn (tname, *mangled, 1);
 		      (*mangled)++;
 		    }
 		}
@@ -831,34 +859,15 @@ demangle_template (work, mangled, declp)
 		  success = 0;
 		  break;
 		}
-	      string_appendn (&tname, *mangled, symbol_len);
+	      string_appendn (tname, *mangled, symbol_len);
 	      *mangled += symbol_len;
 	    }
 	}
       need_comma = 1;
     }
-  string_append (&tname, ">");
-  string_appends (&trawname, &tname);
-  string_append (&tname, "::");
-  if (work -> destructor)
-    {
-      string_append (&tname, "~");
-    }
-  if (work -> constructor || work -> destructor)
-    {
-      string_appends (&tname, &trawname);
-    }
-  string_delete(&trawname);
+  string_append (tname, ">");
   
-  if (!success)
-    {
-      string_delete(&tname);
-    }
-  else
-    {
-      string_prepends (declp, &tname);
-      string_delete (&tname);
-      
+/*
       if (work -> static_type)
 	{
 	  string_append (declp, *mangled + 1);
@@ -870,6 +879,7 @@ demangle_template (work, mangled, declp)
 	  success = demangle_args (work, mangled, declp);
 	}
     }
+*/
   return (success);
 }
 
@@ -985,14 +995,18 @@ demangle_class (work, mangled, declp)
   string_init (&class_name);
   if (demangle_class_name (work, mangled, &class_name))
     {
-      if (work -> constructor || work -> destructor)
+      if ((work->constructor & 1) || (work->destructor & 1))
 	{
 	  string_prepends (declp, &class_name);
-	  if (work -> destructor)
+	  if (work -> destructor & 1)
 	    {
 	      string_prepend (declp, "~");
+              work -> destructor -= 1;
 	    }
-	  work -> constructor = work -> destructor = 0;
+	  else
+	    {
+	      work -> constructor -= 1; 
+	    }
 	}
       string_prepend (declp, "::");
       string_prepends (declp, &class_name);
@@ -1043,6 +1057,31 @@ demangle_prefix (work, mangled, declp)
   CONST char *scan;
   int i;
 
+  if (strncmp(*mangled, "_GLOBAL_$D$", 11) == 0)
+    {
+      /* it's a GNU global destructor to be executed at program exit */
+      (*mangled) += 11;
+      work->destructor = 2;
+    }
+  else if (strncmp(*mangled, "_GLOBAL_$I$", 11) == 0)
+    {
+      /* it's a GNU global constructor to be executed at program initial */
+      (*mangled) += 11;
+      work->constructor = 2;
+    }
+  else if (ARM_DEMANGLING && strncmp(*mangled, "__std__", 7) == 0)
+    {
+      /* it's a ARM global destructor to be executed at program exit */
+      (*mangled) += 7;
+      work->destructor = 2;
+    }
+  else if (ARM_DEMANGLING && strncmp(*mangled, "__sti__", 7) == 0)
+    {
+      /* it's a ARM global constructor to be executed at program initial */
+      (*mangled) += 7;
+      work->constructor = 2;
+    }
+
 /*  This block of code is a reduction in strength time optimization
     of:
     	scan = strstr (*mangled, "__"); */
@@ -1091,12 +1130,14 @@ demangle_prefix (work, mangled, declp)
 	  consume_count (mangled);
 	  string_append (declp, *mangled);
 	  *mangled += strlen (*mangled);
-	  return (1);
+	  success = 1; 
 	}
-
+      else
+	{
       /* A GNU style constructor starts with "__[0-9Qt]. */
-      work -> constructor = 1;
-      *mangled = scan + 2;
+          work -> constructor += 1;
+          *mangled = scan + 2;
+	}
     }
   else if ((scan == *mangled) && !isdigit (scan[2]) && (scan[2] != 't'))
     {
@@ -1134,6 +1175,13 @@ demangle_prefix (work, mangled, declp)
       /* Doesn't look like a mangled name */
       success = 0;
     }
+
+  if (!success && (work->constructor == 2 || work->destructor == 2))
+    {
+      string_append (declp, *mangled);
+      *mangled += strlen (*mangled);
+      success = 1;
+    } 
   return (success);
 }
 
@@ -1179,7 +1227,7 @@ gnu_special (work, mangled, declp)
     {
       /* Found a GNU style destructor, get past "_<CPLUS_MARKER>_" */
       (*mangled) += 3;
-      work -> destructor = 1;
+      work -> destructor += 1;
     }
   else if ((*mangled)[0] == '_'
 	   && (*mangled)[1] == 'v'
@@ -1193,9 +1241,17 @@ gnu_special (work, mangled, declp)
       (*mangled) += 4;
       while (**mangled != '\0')
 	{
-	  n = strcspn (*mangled, cplus_markers);
+	  if (isdigit(*mangled[0]))
+	    {
+	      n = consume_count(mangled);
+	    }
+	  else
+	    {
+	      n = strcspn (*mangled, cplus_markers);
+	    }
 	  string_appendn (declp, *mangled, n);
 	  (*mangled) += n;
+	  
 	  if (**mangled != '\0')
 	    {
 	      string_append (declp, "::");
@@ -1216,7 +1272,7 @@ gnu_special (work, mangled, declp)
 	    success = demangle_qualified (work, mangled, declp, 0, 1);
 	    break;
 	  case 't':
-	    success = demangle_template (work, mangled, declp);
+	    success = demangle_template (work, mangled, declp, 0);
 	    break;
 	  default:
 	    n = consume_count (mangled);
@@ -1361,76 +1417,124 @@ demangle_qualified (work, mangled, result, isfuncname, append)
 {
   int qualifiers;
   int namelength;
-  int success = 0;
+  int success = 1;
+  CONST char *p;
+  char num[2];
   string temp;
 
   string_init (&temp);
-  qualifiers = (*mangled)[1] - '0';
-  if (qualifiers > 0 && qualifiers < 10)
+  switch ((*mangled)[1])
     {
-      /* Assume success until we discover otherwise.  Skip over the 'Q', the
-	 qualifier count, and any '_' between the qualifier count and the
-	 first name (ARM qualified names). */
+    case '_':
+      /* GNU mangled name with more than 9 classes.  The count is preceded
+	 by an underscore (to distinguish it from the <= 9 case) and followed
+	 by an underscore.  */
+      p = *mangled + 2;
+      qualifiers = atoi (p);
+      if (!isdigit (*p) || *p == '0')
+	success = 0;
 
-      success = 1;
+      /* Skip the digits.  */
+      while (isdigit (*p))
+	++p;
+
+      if (*p != '_')
+	success = 0;
+
+      *mangled = p + 1;
+      break;
+
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+      /* The count is in a single digit.  */
+      num[0] = (*mangled)[1];
+      num[1] = '\0';
+      qualifiers = atoi (num);
+
+      /* If there is an underscore after the digit, skip it.  This is
+	 said to be for ARM-qualified names, but the ARM makes no
+	 mention of such an underscore.  Perhaps cfront uses one.  */
       if ((*mangled)[2] == '_')
 	{
 	  (*mangled)++;
 	}
       (*mangled) += 2;
+      break;
 
+    case '0':
+    default:
+      success = 0;
+    }
 
-      /* Pick off the names and collect them in the temp buffer in the order
-	 in which they are found, separated by '::'. */
+  if (!success)
+    return success;
 
-      while (qualifiers-- > 0)
+  /* Pick off the names and collect them in the temp buffer in the order
+     in which they are found, separated by '::'. */
+
+  while (qualifiers-- > 0)
+    {
+      if (*mangled[0] == 't')
 	{
-	  namelength = consume_count (mangled);
-	  if (strlen (*mangled) < namelength)
-	    {
-	      /* Simple sanity check failed */
-	      success = 0;
-	      break;
-	    }
-	  string_appendn (&temp, *mangled, namelength);
-	  if (qualifiers > 0)
-	    {
-	      string_appendn (&temp, "::", 2);
-	    }
-	  *mangled += namelength;
-	}
-
-      /* If we are using the result as a function name, we need to append
-	 the appropriate '::' separated constructor or destructor name.
-	 We do this here because this is the most convenient place, where
-	 we already have a pointer to the name and the length of the name. */
-
-      if (isfuncname && (work -> constructor || work -> destructor))
-	{
-	  string_appendn (&temp, "::", 2);
-	  if (work -> destructor)
-	    {
-	      string_append (&temp, "~");
-	    }
-	  string_appendn (&temp, (*mangled) - namelength, namelength);
-	}
-
-      /* Now either prepend the temp buffer to the result, or append it, 
-	 depending upon the state of the append flag. */
-
-      if (append)
-	{
-	  string_appends (result, &temp);
+	  success = demangle_template(work, mangled, &temp, 0);
+	  if (!success) break;
 	}
       else
-	{
-	  if (!STRING_EMPTY (result))
+        {	
+	  namelength = consume_count (mangled);
+      	  if (strlen (*mangled) < namelength)
 	    {
-	      string_appendn (&temp, "::", 2);
+	    /* Simple sanity check failed */
+	       success = 0;
+	       break;
 	    }
-	  string_prepends (result, &temp);
+      	  string_appendn (&temp, *mangled, namelength);
+      	  *mangled += namelength;
 	}
+      if (qualifiers > 0)
+        {
+          string_appendn (&temp, "::", 2);
+        }
     }
+
+  /* If we are using the result as a function name, we need to append
+     the appropriate '::' separated constructor or destructor name.
+     We do this here because this is the most convenient place, where
+     we already have a pointer to the name and the length of the name. */
+
+  if (isfuncname && (work->constructor & 1 || work->destructor & 1))
+    {
+      string_appendn (&temp, "::", 2);
+      if (work -> destructor & 1)
+	{
+	  string_append (&temp, "~");
+	}
+      string_appendn (&temp, (*mangled) - namelength, namelength);
+    }
+
+  /* Now either prepend the temp buffer to the result, or append it, 
+     depending upon the state of the append flag. */
+
+  if (append)
+    {
+      string_appends (result, &temp);
+    }
+  else
+    {
+      if (!STRING_EMPTY (result))
+	{
+	  string_appendn (&temp, "::", 2);
+	}
+      string_prepends (result, &temp);
+    }
+
   string_delete (&temp);
   return (success);
 }
@@ -1526,6 +1630,28 @@ do_type (work, mangled, result)
 	  (*mangled)++;
 	  string_prepend (&decl, "&");
 	  break;
+
+	/* An array */
+	case 'A':
+	  {
+	    CONST char *p = ++(*mangled);
+
+	    string_prepend (&decl, "(");
+	    string_append (&decl, ")[");
+	    /* Copy anything up until the next underscore (the size of the
+	       array).  */
+	    while (**mangled && **mangled != '_')
+	      ++(*mangled);
+	    if (**mangled == '_')
+	      {
+		string_appendn (&decl, p, *mangled - p);
+		string_append (&decl, "]");             
+		*mangled += 1;
+	      }
+	    else
+	      success = 0;
+	    break;
+	  }
 
 	/* A back reference to a previously seen type */
 	case 'T':
@@ -1628,11 +1754,16 @@ do_type (work, mangled, result)
 	      }
 	    break;
 	  }
+        case 'G':
+	    (*mangled)++;
+	    break;
 
 	case 'C':
+	  (*mangled)++;
+/*
 	  if ((*mangled)[1] == 'P')
 	    {
-	      (*mangled)++;
+*/
 	      if (PRINT_ANSI_QUALIFIERS)
 		{
 		  if (!STRING_EMPTY (&decl))
@@ -1642,7 +1773,9 @@ do_type (work, mangled, result)
 		  string_prepend (&decl, "const");
 		}
 	      break;
+/*
 	    }
+*/
 
 	  /* fall through */
 	default:
@@ -1821,6 +1954,9 @@ demangle_fund_type (work, mangled, result)
 	  success = 0;
 	}
 	break;
+      case 't':
+        success = demangle_template(work,mangled, result, 0);
+        break;
       default:
 	success = 0;
 	break;
@@ -2084,13 +2220,13 @@ demangle_function_name (work, mangled, declp, scan)
 
       if (strcmp (declp -> b, "__ct") == 0)
 	{
-	  work -> constructor = 1;
+	  work -> constructor += 1;
 	  string_clear (declp);
 	  return;
 	}
       else if (strcmp (declp -> b, "__dt") == 0)
 	{
-	  work -> destructor = 1;
+	  work -> destructor += 1;
 	  string_clear (declp);
 	  return;
 	}

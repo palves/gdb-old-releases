@@ -285,7 +285,7 @@ struct m68k_opcode {
 */
 
 #define one(x) ((unsigned int) (x) << 16)
-#define two(x, y) (((unsigned int) (x) << 16) + y)
+#define two(x, y) (((unsigned int) (x) << 16) + (y))
 
 /*
 	*** DANGER WILL ROBINSON ***

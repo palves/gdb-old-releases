@@ -78,6 +78,10 @@ proc set_lang_c {} {
 # (computed in the inferior) is 1 for true and 0 for false.
 
 proc do_function_calls {} {
+    global timeout
+
+    set otimeout $timeout
+    set timeout 120
 
     gdb_test "p t_char_values(0,0)" " = 0"
     gdb_test "p t_char_values('a','b')" " = 1"
@@ -149,6 +153,8 @@ proc do_function_calls {} {
     gdb_test "p sum_args(3,{2,3,4})" " = 9"
     gdb_test "p sum_args(4,{2,3,4,5})" " = 14"
     gdb_test "p sum10 (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)" " = 55"
+
+    set timeout $otimeout
 }
 
 # Start with a fresh gdb.
@@ -171,3 +177,4 @@ if [set_lang_c] then {
 } else {
     fail "C function calling tests suppressed"
 }
+return 0

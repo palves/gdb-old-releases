@@ -21,7 +21,7 @@
 #include "sysdep.h"
 #include <sys/times.h>
 #include <sys/param.h>
-
+#include "bfd.h"
 #define O_RECOMPILE 85
 #define DEFINE_TABLE
 
@@ -280,7 +280,7 @@ trap (i, regs)
       break;
 
     case 255:
-      saved_state.asregs.exception = SIGILL;
+      saved_state.asregs.exception = SIGTRAP;
       break;
     }
 
@@ -553,12 +553,14 @@ sim_resume (step)
   register int maskb = ((saved_state.asregs.msize - 1) & ~0);
   register int maskw = ((saved_state.asregs.msize - 1) & ~1);
   register int maskl = ((saved_state.asregs.msize - 1) & ~3);
-  register unsigned char *memory = saved_state.asregs.memory;
+  register unsigned char *memory ;
   register unsigned int sbit = (1 << 31);
 
   prev = signal (SIGINT, control_c);
 
   init_pointers ();
+
+  memory = saved_state.asregs.memory;
 
   if (step)
     {
@@ -647,7 +649,7 @@ sim_resume (step)
 
 
 
-void
+int
 sim_write (addr, buffer, size)
      long int addr;
      unsigned char *buffer;
@@ -660,9 +662,10 @@ sim_write (addr, buffer, size)
     {
       saved_state.asregs.memory[MMASKB & (addr + i)] = buffer[i];
     }
+return size;
 }
 
-void
+int
 sim_read (addr, buffer, size)
      long int addr;
      char *buffer;
@@ -676,15 +679,16 @@ sim_read (addr, buffer, size)
     {
       buffer[i] = saved_state.asregs.memory[MMASKB & (addr + i)];
     }
+return size;
 }
 
 
 void
 sim_store_register (rn, value)
      int rn;
-     int value;
+     unsigned char value[4];
 {
-  saved_state.asregs.regs[rn] = value;
+  saved_state.asregs.regs[rn] = (value[0] << 24) | (value[1] << 16) | (value[2] << 8) | (value[3]);
 }
 
 void
@@ -728,7 +732,7 @@ sim_info ()
   printf ("# cycles                 %10d\n", saved_state.asregs.cycles);
   printf ("# pipeline stalls        %10d\n", saved_state.asregs.stalls);
   printf ("# real time taken        %10.4f\n", timetaken);
-  printf ("# virtual time taked     %10.4f\n", virttime);
+  printf ("# virtual time taken     %10.4f\n", virttime);
   printf ("# profiling size         %10d\n", sim_profile_size);
   printf ("# profiling frequency    %10d\n", saved_state.asregs.profile);
   printf ("# profile maxpc          %10x\n", (1 << sim_profile_size) << PROFILE_SHIFT);
@@ -754,3 +758,22 @@ sim_set_profile_size (n)
 {
   sim_profile_size = n;
 }
+
+
+void
+sim_kill()
+{
+
+}
+
+int
+sim_open()
+{
+  return 0;
+}
+int sim_set_args()
+{
+  return 0;
+}
+
+

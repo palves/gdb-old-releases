@@ -1,3 +1,12 @@
+Fri Oct 15 23:52:55 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* compile.c (sim_kill, sim_open, sim_set_args): New functions.
+
+Tue Aug 17 07:17:09 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
+
+	* compile.c (sim_info): Don't work out simulation ration if
+	timetaken is zero.
+
 Mon Aug  2 14:08:24 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
 
 	* compile.c (get_now, now_persec): Use time system call. (find) do

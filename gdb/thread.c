@@ -28,6 +28,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "value.h"
 #include "target.h"
 #include "thread.h"
+#include "command.h"
 
 #include <sys/types.h>
 #include <signal.h>
@@ -44,13 +45,13 @@ struct thread_info
 static struct thread_info *thread_list = NULL;
 static int highest_thread_num;
 
-static void thread_info PARAMS ((void));
-
 static void thread_command PARAMS ((char * tidstr, int from_tty));
 
 static void prune_threads PARAMS ((void));
 
 static void thread_switch PARAMS ((int pid));
+
+static struct thread_info * find_thread_id PARAMS ((int num));
 
 void
 init_thread_list ()
@@ -98,6 +99,32 @@ find_thread_id (num)
 }
 
 int
+valid_thread_id (num)
+    int num;
+{
+  struct thread_info *tp;
+
+  for (tp = thread_list; tp; tp = tp->next)
+    if (tp->num == num)
+      return 1;
+
+  return 0;
+}
+
+int
+pid_to_thread_id (pid)
+    int pid;
+{
+  struct thread_info *tp;
+
+  for (tp = thread_list; tp; tp = tp->next)
+    if (tp->pid == pid)
+      return tp->num;
+
+  return 0;
+}
+
+int
 in_thread_list (pid)
     int pid;
 {
@@ -109,19 +136,6 @@ in_thread_list (pid)
 
   return 0;			/* Never heard of 'im */
 }
-
-#if 0
-void
-bfd_get_core_threads (abfd)
-    bfd *abfd;
-{
-    int i;
-
-    inferior_pid = BUILDPID (inferior_pid, core_thread (abfd)->pid);
-    for (i = 0; i < core_pss (abfd).threadcnt; i++)
-      add_thread (core_thread (abfd)[i].pid);
-}
-#endif
 
 static void
 prune_threads ()
@@ -159,7 +173,7 @@ info_threads_command (arg, from_tty)
       if (target_has_execution
 	  && kill (tp->pid, 0) == -1)
  	{
-	  tp->pid == -1;	/* Mark it as dead */
+	  tp->pid = -1;	/* Mark it as dead */
 	  continue;
  	}
 
@@ -188,7 +202,6 @@ thread_switch (pid)
     return;
 
   inferior_pid = pid;
-  pc_changed = 0;
   flush_cached_frames ();
   registers_changed ();
   stop_pc = read_pc();

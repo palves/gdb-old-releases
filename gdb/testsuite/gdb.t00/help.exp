@@ -797,7 +797,6 @@ No arg means to have no executable file and no symbols..*$prompt $"\
 
 
 # test help files
-# FIXME -- this should probably use the full pattern, but it won't work for some reason
 send "help files\n"
 expect {
 	-re "Specifying.*$prompt $"  { pass "help files" }
@@ -848,7 +847,6 @@ expect {
 
 
 # test help handle
-# FIXME -- this should probably use the full pattern, but it won't work for some reason
 send "help handle\n"
 expect {
 	-re "Specify how to handle a signal..*$prompt $"\
@@ -859,7 +857,6 @@ expect {
 
 
 # test help info "i" abbreviation
-# FIXME -- this should probably use the full pattern, but it won't work for some reason
 send "help i\n"
 expect {
 	-re "Generic command for showing things about the program being debugged..*\
@@ -900,7 +897,6 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 
 
 # test help info
-# FIXME -- this should probably use the full pattern, but it won't work for some reason
 send "help info\n"
 expect {
 	-re "Generic command for showing things about the program being debugged..*\
@@ -982,7 +978,6 @@ expect {
 
 
 # test help info breakpoints
-# FIXME -- this should probably use the full pattern, but it won't work for some reason
 send "help info breakpoints\n"
 expect {
 	-re "Status of user-settable breakpoints, or breakpoint number NUMBER..*\
@@ -1407,7 +1402,6 @@ This is useful in user-defined commands..*$prompt $"\
 
 
 # test help print "p" abbreviation
-# FIXME -- this should probably use the full pattern, but it won't work for some reason
 send "help p\n"
 expect {
 	-re "Print value of expression EXP..*\
@@ -1421,7 +1415,6 @@ but no count or size letter \(see \"x\" command\)..*$prompt $"\
 
 
 # test help print
-# FIXME -- this should probably use the full pattern, but it won't work for some reason
 send "help print\n"
 expect {
 	-re "Print value of expression EXP..*\
@@ -2138,11 +2131,14 @@ if ![istarget "rs6000-*-*"] then {
 }
 
 # test help set
-# FIXME -- this should probably use the full pattern, but it won't work for some reason
-# FIXME -- decstations hang randomly on this very long output from gdb and
-# continue with their output only if something is sent to gdb.
-# This behaviour brings expect and gdb out of sync, so we better skip this test.
-if ![istarget "mips-*-ultrix*"] then {
+# FIXME -- Ultrix hangs randomly on this very long output from gdb and
+# continues with its output only if something is sent to gdb.
+# This behaviour throws expect and gdb out of sync, so we better skip this 
+# test.
+# Also, if the system is slow, it may time out because the output is large.
+# Just skip the test rather than bothering with increasing the timeout.
+if 0 then {
+if ![istarget "*-*-ultrix*"] then {
     send "help set\n"
     expect {
 	-re ".*\
@@ -2159,6 +2155,7 @@ $prompt $"\
 	-re "$prompt $"	{ fail "help set" }
 	timeout		{ fail "(timeout) help set" }
 	}
+}
 }
 
 # test help shell
@@ -2695,7 +2692,6 @@ if ![istarget "rs6000-*-*"] then {
 }
 
 # test help show
-# FIXME -- this should probably use the full pattern, but it won't work for some reason
 send "help show\n"
 expect {
 	-re "Generic command for showing things about the debugger..*\
@@ -2808,7 +2804,6 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 
 
 # test help support
-# FIXME -- this should probably use the full pattern, but it won't work for some reason
 send "help support\n"
 expect {
 	-re "Support facilities..*\
@@ -3072,7 +3067,6 @@ With a negative argument, print outermost -COUNT frames..*$prompt $"\
 
 
 # test help x
-# FIXME -- this should probably use the full pattern, but it won't work for some reason
 send "help x\n"
 expect {
 	-re "Examine memory: x/FMT ADDRESS..*\

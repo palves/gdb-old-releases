@@ -120,7 +120,6 @@ extend_psymbol_list PARAMS ((struct psymbol_allocation_list *,
 #define	ADD_PSYMBOL_VT_TO_LIST(NAME,NAMELENGTH,NAMESPACE,CLASS,LIST,VALUE,VT,LANGUAGE, OBJFILE) \
   do {		        						\
     register struct partial_symbol *psym;				\
-    register char *demangled_name;					\
     if ((LIST).next >= (LIST).list + (LIST).size)			\
       extend_psymbol_list (&(LIST),(OBJFILE));				\
     psym = (LIST).next++;						\
@@ -220,15 +219,6 @@ extern void generic_load PARAMS ((char *name, int from_tty));
 extern void
 dwarf_build_psymtabs PARAMS ((struct objfile *, struct section_offsets *, int,
 			      file_ptr, unsigned int, file_ptr, unsigned int));
-
-/* From dbxread.c */
-
-extern void
-elfstab_build_psymtabs PARAMS ((struct objfile *objfile,
-	struct section_offsets *section_offsets,
-	int mainline,
-	file_ptr staboff, unsigned int stabsize,
-	file_ptr stabstroffset, unsigned int stabstrsize));
 
 /* From demangle.c */
 

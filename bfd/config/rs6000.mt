@@ -1,2 +1,4 @@
 # Target:  IBM RS/6000 running AIX
-TDEFAULTS = -DDEFAULT_VECTOR=rs6000coff_vec
+
+DEFAULT_VECTOR=rs6000coff_vec
+SELECT_ARCHITECTURES=bfd_rs6000_arch

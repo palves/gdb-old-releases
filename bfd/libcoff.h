@@ -262,6 +262,12 @@ typedef struct
        bfd_byte *data,
        unsigned int *src_ptr,
        unsigned int *dst_ptr));
+ int (*_bfd_coff_reloc16_estimate) PARAMS ((
+       asection *input_section,
+       asymbol **symbols,
+       arelent *r,
+       unsigned int shrink));	
+
 } bfd_coff_backend_data;
 
 #define coff_backend_info(abfd) ((bfd_coff_backend_data *) (abfd)->xvec->backend_data)
@@ -338,4 +344,9 @@ typedef struct
 #define bfd_coff_reloc16_extra_cases(abfd, seclet, reloc, data, src_ptr, dst_ptr)\
         ((coff_backend_info (abfd)->_bfd_coff_reloc16_extra_cases)\
          (abfd, seclet, reloc, data, src_ptr, dst_ptr))
+
+#define bfd_coff_reloc16_estimate(abfd, section, symbols, reloc, shrink)\
+        ((coff_backend_info (abfd)->_bfd_coff_reloc16_estimate)\
+         (section, symbols, reloc, shrink))
+ 
  

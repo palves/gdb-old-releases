@@ -151,7 +151,7 @@ extern int yyerrflag;
 YYSTYPE yylval, yyval;
 # define YYERRCODE 256
 
-# line 668 "./m2-exp.y"
+# line 657 "./m2-exp.y"
 
 
 #if 0  /* FIXME! */
@@ -597,10 +597,14 @@ yylex ()
        case LOC_ARG:
        case LOC_REF_ARG:
        case LOC_REGPARM:
+       case LOC_REGPARM_ADDR:
        case LOC_LOCAL:
        case LOC_LOCAL_ARG:
+       case LOC_BASEREG:
+       case LOC_BASEREG_ARG:
        case LOC_CONST:
        case LOC_CONST_BYTES:
+       case LOC_OPTIMIZED_OUT:
 	  return NAME;
 
        case LOC_TYPEDEF:
@@ -1773,15 +1777,16 @@ case 76:
 case 77:
 # line 561 "./m2-exp.y"
 { write_exp_elt_opcode(OP_VAR_VALUE);
+			  write_exp_elt_block (NULL);
 			  write_exp_elt_sym (yypvt[-0].sym);
 			  write_exp_elt_opcode (OP_VAR_VALUE); } break;
 case 78:
-# line 568 "./m2-exp.y"
+# line 569 "./m2-exp.y"
 { write_exp_elt_opcode (OP_INTERNALVAR);
 			  write_exp_elt_intern (yypvt[-0].ivar);
 			  write_exp_elt_opcode (OP_INTERNALVAR); } break;
 case 79:
-# line 575 "./m2-exp.y"
+# line 576 "./m2-exp.y"
 { struct symbol *sym;
 			  sym = lookup_symbol (copy_name (yypvt[-0].sval), yypvt[-2].bval,
 					       VAR_NAMESPACE, 0, NULL);
@@ -1790,10 +1795,12 @@ case 79:
 				   copy_name (yypvt[-0].sval));
 
 			  write_exp_elt_opcode (OP_VAR_VALUE);
+			  /* block_found is set by lookup_symbol.  */
+			  write_exp_elt_block (block_found);
 			  write_exp_elt_sym (sym);
 			  write_exp_elt_opcode (OP_VAR_VALUE); } break;
 case 80:
-# line 589 "./m2-exp.y"
+# line 592 "./m2-exp.y"
 { struct symbol *sym;
 			  int is_a_field_of_this;
 
@@ -1804,33 +1811,19 @@ case 80:
 					       NULL);
 			  if (sym)
 			    {
-			      switch (sym->class)
+			      if (symbol_read_needs_frame (sym))
 				{
-				case LOC_REGISTER:
-				case LOC_ARG:
-				case LOC_LOCAL:
-				case LOC_REF_ARG:
-				case LOC_REGPARM:
-				case LOC_LOCAL_ARG:
 				  if (innermost_block == 0 ||
-				      contained_in (block_found,
+				      contained_in (block_found, 
 						    innermost_block))
 				    innermost_block = block_found;
-				  break;
-
-				case LOC_UNDEF:
-				case LOC_CONST:
-				case LOC_STATIC:
-				case LOC_TYPEDEF:
-				case LOC_LABEL:	/* maybe should go above? */
-				case LOC_BLOCK:
-				case LOC_CONST_BYTES:
-				case LOC_OPTIMIZED_OUT:
-				  /* These are listed so gcc -Wall will reveal
-				     un-handled cases.  */
-				  break;
 				}
+
 			      write_exp_elt_opcode (OP_VAR_VALUE);
+			      /* We want to use the selected frame, not
+				 another more inner frame which happens to
+				 be in the same block.  */
+			      write_exp_elt_block (NULL);
 			      write_exp_elt_sym (sym);
 			      write_exp_elt_opcode (OP_VAR_VALUE);
 			    }
@@ -1844,7 +1837,7 @@ case 80:
 			      if (msymbol != NULL)
 				{
 				  write_exp_elt_opcode (OP_LONG);
-				  write_exp_elt_type (builtin_type_int);
+				  write_exp_elt_type (builtin_type_long);
 				  write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
 				  write_exp_elt_opcode (OP_LONG);
 				  write_exp_elt_opcode (UNOP_MEMVAL);
@@ -1865,7 +1858,7 @@ case 80:
 			    }
 			} break;
 case 81:
-# line 663 "./m2-exp.y"
+# line 652 "./m2-exp.y"
 { yyval.tval = lookup_typename (copy_name (yypvt[-0].sval),
 						expression_context_block, 0); } break;
 	}

@@ -1,5 +1,5 @@
-/* Definitions to make GDB run on an Alpha box under OSF 1.
-   Copyright (C) 1992 Free Software Foundation, Inc.
+/* Host definitions for GDB running on an alpha under OSF/1
+   Copyright (C) 1992, 1993 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -21,29 +21,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define HOST_BYTE_ORDER LITTLE_ENDIAN
 #endif
 
-/* Get rid of any system-imposed stack limit if possible */
-
+/* Get rid of any system-imposed stack limit if possible.  */
 #define	SET_STACK_LIMIT_HUGE
 
-#define	MEM_FNS_DECLARED
-
-#if ! defined (__STDC__) && ! defined (offsetof)
-# define offsetof(TYPE, MEMBER) ((unsigned long) &((TYPE *)0)->MEMBER)
-#endif
-
-/*#define MALLOC_INCOMPATIBLE*/
-
-extern void free PARAMS ((void *));
-
+/* The alpha has no siginterrupt routine.  */
 #define NO_SIGINTERRUPT
 
-#define KERNEL_U_ADDR 0
+/* HAVE_SGTTY also works, but we have termios, so use it.  */
 
-
-#define MAKEVA_END(list)  		\
-{ 					\
-  va_list ret;				\
-  ret.a0 = (char *)(list)->aligner.arg_bytes;	\
-  ret.offset = (list)->argindex;	\
-  return ret;				\
-}
+#define HAVE_TERMIOS

@@ -111,6 +111,12 @@ struct internal_exec
 3130292827262524232221201918171615141312111009080706050403020100
 < FLAGS      >< MACHINE TYPE ><  MAGIC NUMBER		       >
 */
+/* Magic number for NetBSD is
+<MSB         >
+3130292827262524232221201918171615141312111009080706050403020100
+< FLAGS    ><                  ><  MAGIC NUMBER                >
+*/
+
 enum machine_type {
   M_UNKNOWN = 0,
   M_68010 = 1,
@@ -120,6 +126,7 @@ enum machine_type {
   M_386 = 100,
   M_29K = 101,          /* AMD 29000 */
   M_386_DYNIX = 102,	/* Sequent running dynix */
+  M_386_NETBSD = 134,		/* NetBSD/386 binary */
   M_MIPS1 = 151,        /* MIPS R2000/R3000 binary */
   M_MIPS2 = 152,        /* MIPS R4000/R6000 binary */
   M_HP200 = 200,	/* HP 200 (68010) BSD binary */
@@ -129,24 +136,41 @@ enum machine_type {
 
 #define N_DYNAMIC(exec) ((exec).a_info & 0x8000000)
 
-#define N_MAGIC(exec) ((exec).a_info & 0xffff)
-#define N_MACHTYPE(exec) ((enum machine_type)(((exec).a_info >> 16) & 0xff))
-#define N_FLAGS(exec) (((exec).a_info >> 24) & 0xff)
-#define N_SET_INFO(exec, magic, type, flags) \
+#ifndef N_MAGIC
+# define N_MAGIC(exec) ((exec).a_info & 0xffff)
+#endif
+
+#ifndef N_MACHTYPE
+# define N_MACHTYPE(exec) ((enum machine_type)(((exec).a_info >> 16) & 0xff))
+#endif
+
+#ifndef N_FLAGS
+# define N_FLAGS(exec) (((exec).a_info >> 24) & 0xff)
+#endif
+
+#ifndef N_SET_INFO
+# define N_SET_INFO(exec, magic, type, flags) \
 ((exec).a_info = ((magic) & 0xffff) \
  | (((int)(type) & 0xff) << 16) \
  | (((flags) & 0xff) << 24))
+#endif
 
-#define N_SET_MAGIC(exec, magic) \
+#ifndef N_SET_MAGIC
+# define N_SET_MAGIC(exec, magic) \
 ((exec).a_info = (((exec).a_info & 0xffff0000) | ((magic) & 0xffff)))
+#endif
 
-#define N_SET_MACHTYPE(exec, machtype) \
+#ifndef N_SET_MACHTYPE
+# define N_SET_MACHTYPE(exec, machtype) \
 ((exec).a_info = \
  ((exec).a_info&0xff00ffff) | ((((int)(machtype))&0xff) << 16))
+#endif
 
-#define N_SET_FLAGS(exec, flags) \
+#ifndef N_SET_FLAGS
+# define N_SET_FLAGS(exec, flags) \
 ((exec).a_info = \
  ((exec).a_info&0x00ffffff) | (((flags) & 0xff) << 24))
+#endif
 
 typedef struct aout_symbol {
   asymbol symbol;

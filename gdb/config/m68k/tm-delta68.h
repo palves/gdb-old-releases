@@ -32,6 +32,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define DECR_PC_AFTER_BREAK 0
 
-#define HAVE_68881
+/* Not sure what happens if we try to store this register, but
+   phdm@info.ucl.ac.be says we need this define.  */
+#define CANNOT_STORE_REGISTER(regno)	(regno == FPI_REGNUM)
 
 #include "m68k/tm-m68k.h"

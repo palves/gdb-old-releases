@@ -31,7 +31,7 @@ set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
     error "$objdir/$subdir/$binfile does not exist."
-    alldone
+    return 0
 }
 
 
@@ -377,6 +377,8 @@ proc test_disabling_watchpoints {} {
 
 # Test stepping and other mundane operations with watchpoints enabled
 proc test_stepping {} {
+    global prompt
+
     if [runto marker1] then {
 	gdb_test "watch ival2" "Watchpoint \[0-9\]*: ival2"
 
@@ -392,19 +394,47 @@ proc test_stepping {} {
 	} else {
 	    # The problem is that GDB confuses stepping through the call
 	    # dummy with hitting the breakpoint at the end of the call dummy.
-	    # Would be fixed by making that breakpoint a breakpoint.c style
-	    # breakpoint.
+	    # Will be fixed once all architectures define 
+	    # CALL_DUMMY_BREAKPOINT_OFFSET.
 	    setup_xfail "*-*-*"
 	    # This doesn't occur if the call dummy starts with a call,
 	    # because we are out of the dummy by the first time the inferior
 	    # stops.
 	    clear_xfail "m68*-*-*"
 	    clear_xfail "i*86*-*-*"
+	    clear_xfail "vax-*-*"
+	    # The following architectures define CALL_DUMMY_BREAKPOINT_OFFSET.
+	    clear_xfail "alpha-*-*"
+	    clear_xfail "sparc-*-*"
 	    gdb_test "p func1 ()" "= 73" \
 		"calling function with watchpoint enabled"
 	}
 
-	gdb_test "finish" "Run.*exit from.*marker1.*func1 \(\);"
+	# 
+	# "finish" brings us back to main.
+	# On some targets (e.g. alpha) gdb will stop from the finish in midline
+	# of the marker1 call. This is due to register restoring code on
+	# the alpha and might be caused by stack adjustment instructions
+	# on other targets. In this case we will step once more.
+	#
+	send "finish\n"
+	expect {
+	    -re "Run.*exit from.*marker1.*main.* at" { }
+	    default { fail "finish from marker1" ; return }
+	}
+	expect {
+	    -re "marker1 \(\);.*$prompt $" {
+		send "step\n"
+		continue -expect
+	    }
+	    -re "func1 \(\);.*$prompt $" {
+		pass "finish from marker1"
+	    }
+	    -re ".*$prompt $" {
+		fail "finish from marker1"
+	    }
+	    default { fail "finish from marker1" ; return }
+	}
 
 	# BEGIN xfail for next over bp problem.
 	setup_xfail "*-*-*"
@@ -426,8 +456,19 @@ next over breakpoint with false condition would cause infinite loop"
 
 	gdb_test "until" "ival1 = count"
 	gdb_test "until" "ival3 = count"
-	gdb_test "until" "(for \(count = 0|\})"
-	gdb_test "until" "ival1 = count; /. Outside loop ./"
+	send "until\n"
+	expect {
+	    -re "(for \(count = 0|\}).*$prompt $" {
+		gdb_test "until" "ival1 = count; /. Outside loop ./"
+	    }
+	    -re "ival1 = count; /. Outside loop ./.*$prompt $" {
+		pass "until out of loop"
+	    }
+	    -re ".*$prompt $" {
+		fail "until out of loop"
+	    }
+	    default { fail "until out of loop" ; return }
+	}
 
 	gdb_test "step" "ival2 = count"
     }
@@ -469,6 +510,16 @@ if [initialize] then {
     }
 
     test_disabling_watchpoints
+
+    # See above.
+    if [istarget "mips-idt-*"] then {
+	gdb_exit
+	gdb_start
+	gdb_reinitialize_dir $srcdir/$subdir
+	gdb_load $objdir/$subdir/$binfile
+	initialize
+    }
+
     test_stepping
 
     # Restore the preserved old timeout value.

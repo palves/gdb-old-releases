@@ -1,3 +1,15 @@
+Mon Sep 13 21:00:56 1993  John Gilmore  (gnu@cygnus.com)
+
+	* ar.h (ARMAP_TIME_OFFSET):  Add and describe.
+
+Mon Aug 23  Sean Fagan  (sef@cygnus.com)
+
+	* aout64.h [ARCH_SIZE != 64]: Allow N_BADMAG to be overridden.
+
+Mon Aug 16 14:30:14 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stab_gnu.h: Include aout/stab.def not just stab.def.
+
 Sun Jul 18 21:41:47 1993  Jim Kingdon  (kingdon@rtl.cygnus.com)
 
 	* dynix3.h: New, for symmetry running dynix.

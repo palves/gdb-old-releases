@@ -60,7 +60,7 @@ That operation is not available on integers of more than %d bytes.",
   p = endaddr - 1;
 #endif
   /* Do the sign extension once at the start.  */
-  retval = (*p ^ 0x80) - 0x80;
+  retval = ((LONGEST)*p ^ 0x80) - 0x80;
 #if TARGET_BYTE_ORDER == BIG_ENDIAN
   for (++p; p < endaddr; ++p)
 #else
@@ -365,7 +365,7 @@ value_of_register (regnum)
    the caller got the value from the last stop).  */
 
 /* Contents of the registers in target byte order.
-   We allocate some extra slop since we do a lot of bcopy's around `registers',
+   We allocate some extra slop since we do a lot of memcpy's around `registers',
    and failing-soft is better than failing hard.  */
 char registers[REGISTER_BYTES + /* SLOP */ 256];
 
@@ -466,7 +466,8 @@ read_register (regno)
 
 void
 write_register (regno, val)
-     int regno, val;
+     int regno;
+     LONGEST val;
 {
   PTR buf;
   int size;
@@ -517,6 +518,45 @@ supply_register (regno, val)
 #endif
 }
 
+/* Will calling read_var_value or locate_var_value on SYM end
+   up caring what frame it is being evaluated relative to?  SYM must
+   be non-NULL.  */
+int
+symbol_read_needs_frame (sym)
+     struct symbol *sym;
+{
+  switch (SYMBOL_CLASS (sym))
+    {
+      /* All cases listed explicitly so that gcc -Wall will detect it if
+	 we failed to consider one.  */
+    case LOC_REGISTER:
+    case LOC_ARG:
+    case LOC_REF_ARG:
+    case LOC_REGPARM:
+    case LOC_REGPARM_ADDR:
+    case LOC_LOCAL:
+    case LOC_LOCAL_ARG:
+    case LOC_BASEREG:
+    case LOC_BASEREG_ARG:
+      return 1;
+
+    case LOC_UNDEF:
+    case LOC_CONST:
+    case LOC_STATIC:
+    case LOC_TYPEDEF:
+
+    case LOC_LABEL:
+      /* Getting the address of a label can be done independently of the block,
+	 even if some *uses* of that address wouldn't work so well without
+	 the right frame.  */
+
+    case LOC_BLOCK:
+    case LOC_CONST_BYTES:
+    case LOC_OPTIMIZED_OUT:
+      return 0;
+    }
+}
+
 /* Given a struct symbol for a variable,
    and a stack frame id, read the value of the variable
    and return a (pointer to a) struct value containing the value. 
@@ -569,60 +609,51 @@ read_var_value (var, frame)
       break;
 
     case LOC_ARG:
-      if (SYMBOL_BASEREG_VALID (var))
-	{
-	  addr = FRAME_GET_BASEREG_VALUE (frame, SYMBOL_BASEREG (var));
-	}
-      else
-	{
-	  fi = get_frame_info (frame);
-	  if (fi == NULL)
-	    return 0;
-	  addr = FRAME_ARGS_ADDRESS (fi);
-	}
+      fi = get_frame_info (frame);
+      if (fi == NULL)
+	return 0;
+      addr = FRAME_ARGS_ADDRESS (fi);
       if (!addr)
 	{
 	  return 0;
-	}
-      addr += SYMBOL_VALUE (var);
-      break;
-      
-    case LOC_REF_ARG:
-      if (SYMBOL_BASEREG_VALID (var))
-	{
-	  addr = FRAME_GET_BASEREG_VALUE (frame, SYMBOL_BASEREG (var));
-	}
-      else
-	{
-	  fi = get_frame_info (frame);
-	  if (fi == NULL)
-	    return 0;
-	  addr = FRAME_ARGS_ADDRESS (fi);
-	}
-      if (!addr)
-	{
-	  return 0;
-	}
-      addr += SYMBOL_VALUE (var);
-      read_memory (addr, (char *) &addr, sizeof (CORE_ADDR));
-      break;
-      
-    case LOC_LOCAL:
-    case LOC_LOCAL_ARG:
-      if (SYMBOL_BASEREG_VALID (var))
-	{
-	  addr = FRAME_GET_BASEREG_VALUE (frame, SYMBOL_BASEREG (var));
-	}
-      else
-	{
-	  fi = get_frame_info (frame);
-	  if (fi == NULL)
-	    return 0;
-	  addr = FRAME_LOCALS_ADDRESS (fi);
 	}
       addr += SYMBOL_VALUE (var);
       break;
 
+    case LOC_REF_ARG:
+      fi = get_frame_info (frame);
+      if (fi == NULL)
+	return 0;
+      addr = FRAME_ARGS_ADDRESS (fi);
+      if (!addr)
+	{
+	  return 0;
+	}
+      addr += SYMBOL_VALUE (var);
+      addr = read_memory_unsigned_integer
+	(addr, TARGET_PTR_BIT / TARGET_CHAR_BIT);
+      break;
+
+    case LOC_LOCAL:
+    case LOC_LOCAL_ARG:
+      fi = get_frame_info (frame);
+      if (fi == NULL)
+	return 0;
+      addr = FRAME_LOCALS_ADDRESS (fi);
+      addr += SYMBOL_VALUE (var);
+      break;
+
+    case LOC_BASEREG:
+    case LOC_BASEREG_ARG:
+      {
+	char buf[MAX_REGISTER_RAW_SIZE];
+	get_saved_register (buf, NULL, NULL, frame, SYMBOL_BASEREG (var),
+			    NULL);
+	addr = extract_address (buf, REGISTER_RAW_SIZE (SYMBOL_BASEREG (var)));
+	addr += SYMBOL_VALUE (var);
+	break;
+      }
+			    
     case LOC_TYPEDEF:
       error ("Cannot look up value of a typedef");
       break;
@@ -706,7 +737,7 @@ value_from_register (type, regnum, frame)
       int mem_stor = 0, reg_stor = 0;
       int mem_tracking = 1;
       CORE_ADDR last_addr = 0;
-      CORE_ADDR first_addr;
+      CORE_ADDR first_addr = 0;
 
       value_bytes = (char *) alloca (len + MAX_REGISTER_RAW_SIZE);
 
@@ -865,8 +896,12 @@ value_from_register (type, regnum, frame)
 	  /* eg a variable of type `float' in a 68881 register
 	     with raw type `extended' and virtual type `double'.
 	     Fetch it as a `double' and then convert to `float'.  */
+	  /* FIXME: This value will be not_lval, which means we can't assign
+	     to it.  Probably the right fix is to do the cast on a temporary
+	     value, and just copy the VALUE_CONTENTS over.  */
 	  v = allocate_value (REGISTER_VIRTUAL_TYPE (regnum));
-	  memcpy (VALUE_CONTENTS_RAW (v), virtual_buffer, len);
+	  memcpy (VALUE_CONTENTS_RAW (v), virtual_buffer,
+		  REGISTER_VIRTUAL_SIZE (regnum));
 	  v = value_cast (type, v);
 	}
       else

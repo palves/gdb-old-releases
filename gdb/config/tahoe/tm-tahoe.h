@@ -156,13 +156,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    to virtual format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)	\
-  bcopy ((FROM), (TO), 4);
+  memcpy ((TO), (FROM), 4);
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-  bcopy ((FROM), (TO), 4);
+  memcpy ((TO), (FROM), 4);
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -180,7 +180,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    into VALBUF.  */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy (REGBUF, VALBUF, TYPE_LENGTH (TYPE))
+  memcpy (VALBUF, REGBUF, TYPE_LENGTH (TYPE))
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.  */
@@ -243,7 +243,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 { register int regnum;     \
   register int rmask = read_memory_integer ((frame_info)->frame-4, 4) >> 16;\
   register CORE_ADDR next_addr;     \
-  bzero (&frame_saved_regs, sizeof frame_saved_regs);     \
+  memset (&frame_saved_regs, '\0', sizeof frame_saved_regs);     \
   next_addr = (frame_info)->frame - 8;     \
   for (regnum = 12; regnum >= 0; regnum--, rmask <<= 1)  \
     (frame_saved_regs).regs[regnum] = (rmask & 0x1000) ? (next_addr -= 4) : 0;\
@@ -305,5 +305,5 @@ printf("POP_FRAME\n");							\
 #define FIX_CALL_DUMMY(dummyname, pc, fun, nargs, args, valtype, using_gcc) \
 { int temp = (int) fun;				\
   *((char *) dummyname + 1) = nargs;		\
-  bcopy(&temp,(char *)dummyname+3,4); }
+  memcpy((char *)dummyname+3,&temp,4); }
 

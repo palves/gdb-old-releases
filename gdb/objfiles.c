@@ -26,6 +26,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "symfile.h"
 #include "objfiles.h"
+#include "gdb-stabs.h"
+#include "target.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -86,7 +88,7 @@ add_to_objfile_sections (abfd, asect, objfile_p_char)
   section.addr = bfd_section_vma (abfd, asect);
   section.endaddr = section.addr + bfd_section_size (abfd, asect);
   obstack_grow (&objfile->psymbol_obstack, &section, sizeof(section));
-  objfile->sections_end = (struct obj_section *) (((int) objfile->sections_end) + 1);
+  objfile->sections_end = (struct obj_section *) (((unsigned long) objfile->sections_end) + 1);
 }
 
 /* Builds a section table for OBJFILE.
@@ -103,7 +105,7 @@ build_objfile_section_table (objfile)
   bfd_map_over_sections (objfile->obfd, add_to_objfile_sections, (char *)objfile);
   objfile->sections = (struct obj_section *)
     obstack_finish (&objfile->psymbol_obstack);
-  objfile->sections_end = objfile->sections + (int) objfile->sections_end;
+  objfile->sections_end = objfile->sections + (unsigned long) objfile->sections_end;
   return(0);
 }
 
@@ -119,7 +121,7 @@ allocate_objfile (abfd, mapped)
 {
   struct objfile *objfile = NULL;
   int fd;
-  void *md;
+  PTR md;
   CORE_ADDR mapto;
 
   mapped |= mapped_symbol_files;
@@ -140,7 +142,7 @@ allocate_objfile (abfd, mapped)
   if (fd >= 0)
     {
       if (((mapto = map_to_address ()) == 0) ||
-	  ((md = mmalloc_attach (fd, (void *) mapto)) == NULL))
+	  ((md = mmalloc_attach (fd, (PTR) mapto)) == NULL))
 	{
 	  close (fd);
 	}
@@ -338,6 +340,14 @@ free_objfile (objfile)
      
 #if defined (CLEAR_SOLIB)
   CLEAR_SOLIB ();
+  /* CLEAR_SOLIB closes the bfd's for any shared libraries.  But
+     the to_sections for a core file might refer to those bfd's.  So
+     detach any core file.  */
+  {
+    struct target_ops *t = find_core_target ();
+    if (t != NULL)
+      (t->to_detach) (NULL, 0);
+  }
 #endif
   clear_pc_function_cache ();
 
@@ -474,9 +484,39 @@ objfile_relocate (objfile, new_offsets)
   }
 
   {
+    struct partial_symtab *p;
+
+    ALL_OBJFILE_PSYMTABS (objfile, p)
+      {
+	/* FIXME: specific to symbol readers which use gdb-stabs.h.
+	   We can only get away with it since objfile_relocate is only
+	   used on XCOFF, which lacks psymtabs, and for gdb-stabs.h
+	   targets.  */
+	p->textlow += ANOFFSET (delta, SECT_OFF_TEXT);
+	p->texthigh += ANOFFSET (delta, SECT_OFF_TEXT);
+      }
+  }
+
+  {
+    struct partial_symbol *psym;
+
+    for (psym = objfile->global_psymbols.list;
+	 psym < objfile->global_psymbols.next;
+	 psym++)
+      if (SYMBOL_SECTION (psym) >= 0)
+	SYMBOL_VALUE_ADDRESS (psym) += ANOFFSET (delta, SYMBOL_SECTION (psym));
+    for (psym = objfile->static_psymbols.list;
+	 psym < objfile->static_psymbols.next;
+	 psym++)
+      if (SYMBOL_SECTION (psym) >= 0)
+	SYMBOL_VALUE_ADDRESS (psym) += ANOFFSET (delta, SYMBOL_SECTION (psym));
+  }
+
+  {
     struct minimal_symbol *msym;
     ALL_OBJFILE_MSYMBOLS (objfile, msym)
-      SYMBOL_VALUE_ADDRESS (msym) += ANOFFSET (delta, SYMBOL_SECTION (msym));
+      if (SYMBOL_SECTION (msym) >= 0)
+	SYMBOL_VALUE_ADDRESS (msym) += ANOFFSET (delta, SYMBOL_SECTION (msym));
   }
 
   {

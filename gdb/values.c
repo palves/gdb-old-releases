@@ -255,6 +255,14 @@ record_latest_value (val)
     }
 
   value_history_chain->values[i] = val;
+
+  /* We don't want this value to have anything to do with the inferior anymore.
+     In particular, "set $1 = 50" should not affect the variable from which
+     the value was taken, and fast watchpoints should be able to assume that
+     a value on the value history never changes.  */
+  if (VALUE_LAZY (val))
+    value_fetch_lazy (val);
+  VALUE_LVAL (val) = not_lval;
   release_value (val);
 
   /* Now we regard value_history_count as origin-one
@@ -334,11 +342,9 @@ show_values (num_exp, from_tty)
 
   if (num_exp)
     {
-      if (num_exp[0] == '+' && num_exp[1] == '\0')
-	/* "info history +" should print from the stored position.  */
-	;
-      else
-	/* "info history <exp>" should print around value number <exp>.  */
+	/* "info history +" should print from the stored position.
+	   "info history <exp>" should print around value number <exp>.  */
+      if (num_exp[0] != '+' || num_exp[1] != '\0')
 	num = parse_and_eval_address (num_exp) - 5;
     }
   else
@@ -552,7 +558,14 @@ value_as_pointer (val)
 {
   /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
      whether we want this to be true eventually.  */
+#if 0
+  /* ADDR_BITS_REMOVE is wrong if we are being called for a
+     non-address (e.g. argument to "signal", "info break", etc.), or
+     for pointers to char, in which the low bits *are* significant.  */
   return ADDR_BITS_REMOVE(value_as_long (val));
+#else
+  return value_as_long (val);
+#endif
 }
 
 /* Unpack raw data (copied from debugee, target byte order) at VALADDR
@@ -798,8 +811,9 @@ value_fn_field (arg1p, f, j, type, offset)
       *arg1p = value_ind (value_cast (lookup_pointer_type (type),
 				      value_addr (*arg1p)));
 
-    /* Move the `this' pointer according to the offset. */
+    /* Move the `this' pointer according to the offset. 
     VALUE_OFFSET (*arg1p) += offset;
+    */
     }
 
   return v;
@@ -863,8 +877,9 @@ value_virtual_fn_field (arg1p, f, j, type, offset)
      a virtual function.  */
   entry = value_subscript (vtbl, vi);
 
-  /* Move the `this' pointer according to the virtual function table.  */
-  VALUE_OFFSET (arg1) += value_as_long (value_field (entry, 0)) + offset;
+  /* Move the `this' pointer according to the virtual function table. */ 
+  VALUE_OFFSET (arg1) += value_as_long (value_field (entry, 0))/* + offset*/;
+
   if (! VALUE_LAZY (arg1))
     {
       VALUE_LAZY (arg1) = 1;
@@ -1001,7 +1016,6 @@ vb_match (type, index, basetype)
      struct type *basetype;
 {
   struct type *fieldtype;
-  struct type *fieldtype_target_type;
   char *name = TYPE_FIELD_NAME (type, index);
   char *field_class_name = NULL;
 

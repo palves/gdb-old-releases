@@ -183,7 +183,9 @@ lookup_minimal_symbol (name, objf)
    equal to PC.  Returns a pointer to the minimal symbol if such a symbol
    is found, or NULL if PC is not in a suitable range.  Note that we need
    to look through ALL the minimal symbol tables before deciding on the
-   symbol that comes closest to the specified PC. */
+   symbol that comes closest to the specified PC.  This is because objfiles
+   can overlap, for example objfile A has .text at 0x100 and .data at 0x40000
+   and objfile B has .text at 0x234 and .data at 0x40048.  */
 
 struct minimal_symbol *
 lookup_minimal_symbol_by_pc (pc)
@@ -210,7 +212,7 @@ lookup_minimal_symbol_by_pc (pc)
 	{
 	  lo = 0;
 	  hi = objfile -> minimal_symbol_count - 1;
-	  
+
 	  /* This code assumes that the minimal symbols are sorted by
 	     ascending address values.  If the pc value is greater than or
 	     equal to the first symbol's address, then some symbol in this
@@ -251,14 +253,28 @@ lookup_minimal_symbol_by_pc (pc)
 		 objfile's minimal symbol table.  See if it is the best one
 		 overall. */
 
-	      if ((best_symbol == NULL) ||
-		  (SYMBOL_VALUE_ADDRESS (best_symbol) < 
-		   SYMBOL_VALUE_ADDRESS (&msymbol[hi])))
+	      /* Skip any absolute symbols.  This is apparently what adb
+		 and dbx do, and is needed for the CM-5.  There are two
+		 known possible problems: (1) on ELF, apparently end, edata,
+		 etc. are absolute.  Not sure ignoring them here is a big
+		 deal, but if we want to use them, the fix would go in
+		 elfread.c.  (2) I think shared library entry points on the
+		 NeXT are absolute.  If we want special handling for this
+		 it probably should be triggered by a special
+		 mst_abs_or_lib or some such.  */
+	      while (hi >= 0
+		     && msymbol[hi].type == mst_abs)
+		--hi;
+
+	      if (hi >= 0
+		  && ((best_symbol == NULL) ||
+		      (SYMBOL_VALUE_ADDRESS (best_symbol) < 
+		       SYMBOL_VALUE_ADDRESS (&msymbol[hi]))))
 		{
 		  best_symbol = &msymbol[hi];
 		}
 	    }
-	}      
+	}
     }
   return (best_symbol);
 }
@@ -490,7 +506,6 @@ install_minimal_symbols (objfile)
   register struct minimal_symbol *msymbols;
   int alloc_count;
   register char leading_char;
-  char *demangled_name;
 
   if (msym_count > 0)
     {

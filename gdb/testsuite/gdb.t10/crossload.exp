@@ -27,6 +27,12 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
+# FIXME: The configure.in for this test should look for --with-targets
+# and deal accordingly.  Until that has been done, skip the whole thing.
+# With a minimal bfd (the default), few if any of these tests work.
+
+continue
+
 # FIXME: These tests don't work for the i960, because
 # bfd/config/i960-bout.mt sets SELECT_VECS.  I could use setup_xfail
 # for each test, but rebooting the board between each one takes a long
@@ -117,6 +123,8 @@ proc bfdexplicit {} {
     gdb_unload
     set file_loaded 0
 
+    # Once GDB 4.10 (the last to lack `set gnutarget') is forgotten,
+    # change this to use set gnutarget.
    if [gdb_test "set env GNUTARGET=$bfdformat" "" ""]!=0 then {
        fail "setting GNUTARGET=$bfdformat in environment"
        return
@@ -316,7 +324,7 @@ proc loadandtest { args } {
 
     if ![file exists $objdir/$subdir/$binfile] then {
         send_user "ERROR: $objdir/$subdir/$binfile does not exist\n"
-        alldone
+	return 0
     }
     gdb_exit
     gdb_start
@@ -350,7 +358,10 @@ proc loadandtest { args } {
 # from the makefile or some other control file (FIXME).
 
 loadandtest m68k-elf	"elf32-m68k"		0
+
+# I'm getting an XPASS for explicit format on this one
 loadandtest m68k-aout	"a.out-newsos3"		1
+
 loadandtest m68k-aout2	"a.out-sunos-big"	0
 loadandtest mips-ecoff	"ecoff-bigmips"		0
 loadandtest i486-elf	"elf32-i386"		0
@@ -360,3 +371,5 @@ loadandtest sparc-elf	"elf32-sparc"		0
 #FIXME:  i860 support is unlikely to be working in the near future
 # so suppress this test until it is working.  -fnf
 #loadandtest i860-elf	"elf32-i860"		0
+
+gdb_test "set gnutarget auto" ""

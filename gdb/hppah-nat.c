@@ -212,14 +212,17 @@ child_resume (pid, step, signal)
 {
   errno = 0;
 
+  if (pid == -1)
+    pid = inferior_pid;
+
   /* An address of (PTRACE_ARG3_TYPE) 1 tells ptrace to continue from where
      it was. (If GDB wanted it to start some other way, we have already
      written a new PC value to the child.)  */
 
   if (step)
-    ptrace (PT_SINGLE, inferior_pid, (PTRACE_ARG3_TYPE) 1, signal, 0);
+    ptrace (PT_SINGLE, pid, (PTRACE_ARG3_TYPE) 1, signal, 0);
   else
-    ptrace (PT_CONTIN, inferior_pid, (PTRACE_ARG3_TYPE) 1, signal, 0);
+    ptrace (PT_CONTIN, pid, (PTRACE_ARG3_TYPE) 1, signal, 0);
 
   if (errno)
     perror_with_name ("ptrace");
@@ -271,7 +274,7 @@ child_xfer_memory (memaddr, myaddr, len, write, target)
 
       /* Copy data to be written over corresponding part of buffer */
 
-      bcopy (myaddr, (char *) buffer + (memaddr & (sizeof (int) - 1)), len);
+      memcpy ((char *) buffer + (memaddr & (sizeof (int) - 1)), myaddr, len);
 
       /* Write the entire buffer.  */
 
@@ -303,7 +306,7 @@ child_xfer_memory (memaddr, myaddr, len, write, target)
 	}
 
       /* Copy appropriate bytes out of the buffer.  */
-      bcopy ((char *) buffer + (memaddr & (sizeof (int) - 1)), myaddr, len);
+      memcpy (myaddr, (char *) buffer + (memaddr & (sizeof (int) - 1)), len);
     }
   return len;
 }

@@ -149,47 +149,47 @@ init ()
     }
 }
 
-/* decode the lvalues, creating a pointer in real space to object - 
+/* decode the lvalues, creating a pointer in real space to object -
  remember if the thing has to be swapped out of where it is */
 
 
 int swap[2];
 
-lval(p)
+lval (p)
      struct h8_opcode *p;
 {
   int i;
 
-  for (i= 0; p->data.nib[i] != E; i++)
+  for (i = 0; p->data.nib[i] != E; i++)
     {
       int x = p->data.nib[i];
       int size;
-int op;  
+      int op;
       op = (x & DST) ? 1 : 0;
-      
-	switch (x&SIZE)
-	  {
-	  case L_32:
-	    size = 32;
-	    break;
-	  case L_16:
-	    size = 16;
-	    break;
-	  case L_8:
-	    size = 8;
-	    break;
-	  default:
-	    size = 1234;
-	  }
-  
-      if (x & REG) 
+
+      switch (x & SIZE)
 	{
-	  printf("ir%d = GET_LVAL_%d_REG(%d);\n", op, size, i);
+	case L_32:
+	  size = 32;
+	  break;
+	case L_16:
+	  size = 16;
+	  break;
+	case L_8:
+	  size = 8;
+	  break;
+	default:
+	  size = 1234;
 	}
-else     if (x &IMM)
-  {
-    printf("/* Imm has no lvalue */\n");
-  }
+
+      if (x & REG)
+	{
+	  printf ("ir%d = GET_LVAL_%d_REG(%d);\n", op, size, i);
+	}
+      else if (x & IMM)
+	{
+	  printf ("/* Imm has no lvalue */\n");
+	}
 
     }
 
@@ -205,229 +205,12 @@ decode (p, fetch, size)
 {
   if (fetch)
     {
-      lval(p);
+      lval (p);
     }
-  
-}
-
-
-#if 0     
-void
-decode (p, fetch, size)
-     struct h8_opcode *p;
-     int fetch;
-     int size;
-{
-  int i;
-  char *ss = size == 8 ? "BYTE" : "WORD";
-
-
-  for (i = 0; p->data.nib[i] != E; i++)
-    {
-      int      x = p->data.nib[i];
-      char **r;
-      char *srcname = (x & DST) ?"opdst":"opsrc";
-
-      if (x & REG)      
-	{
-	  printf("
-	}
-      
-      /* 
-      switch (x & SIZE)
-	{
-	case L_8:
-	  r = breg;
-	  break;
-	case L_16:
-	  r = wreg;
-	  break;
-	case L_32:
-	  r = lreg;
-	  break;
-	}
-      if (x & REG) 
-	{
-	  
-      if (x & SRC)
-	{
-	  if (fetch)
-	    printf ("srca = %s;\n", r[i]);
-	}
-      
-else      if (x & DST)
-	{
-	  if (fetch)
-	    printf("srcb = %s;\n",r[i]);
-	  else 
-	    printf("%s = dst;\n", r[i]);
-	}
-else abort();
-    }
-      
-    else if (x & IMM)
-      {
-	if (fetch) 
-	  {
-	    
-swtich (x & SIZE)
-{
-case IMM3:
-  printf ("srca = %s;\n", imm3[i]);
-  break;
-  
-case IMM8:	
-
-	    printf ("srca = b1;\n");
-	    break;
-case IMM16:
-	    printf ("srca =( pc[1]);\n");
-	  break;
-	    
-	  }
 
 }
 
-}
 
-else if ( x & INC)
-{
-	  if (fetch)
-	    {
-	      printf ("srca = %s_MEM(%s);\n", ss, wreg[i]);
-	      printf ("%s+=%d;\n", wreg[i], size / 8);
-	    }
-	  
-	}
-
-else if (x & IND)
-
-{
-if (x & SRC)
-{	  if (fetch)
-	    {
-	      printf ("lval = %s;\n", wreg[i]);
-	      printf ("srca = %s_MEM(lval);\n", ss);
-	    }
-	}
-
-else if (x & DST) 
-{
-	  if (fetch)
-	    {
-	      printf ("lval = %s;\n", wreg[i]);
-	      printf ("srcb = %s_MEM(lval);\n", ss);
-	    }
-	  else
-	    {
-	      printf ("SET_%s_MEM(lval,dst);\n", ss);
-	    }
-	}
-
-}
-
-else if (x &MEMIND)
-{
-  
-	  if (fetch)
-	    {
-	      printf ("lval = pc[1];\n");
-	    }
-	}
-
-else if (x & DEC) 
-{
-	  if (!fetch)
-	    {
-	      printf ("%s -=%d;\n", wreg[i], size / 8);
-	      printf ("SET_%s_MEM(%s, dst);\n", ss, wreg[i]);
-	    }
-	}
-
-else if (x & ABS)
-{
-  if ( x & SRC) 
-    {
-	case ABS8SRC:
-	  if (fetch)
-	    {
-
-	      printf ("lval = (0xff00) + b1;\n");
-	      printf ("srca = BYTE_MEM(lval);\n");
-	    }
-
-	  break;
-	case ABS8DST:
-	  if (fetch)
-	    {
-	      printf ("lval = (0xff00) + b1;\n");
-	      printf ("srcb = BYTE_MEM(lval);\n");
-	    }
-	  else
-	    {
-	      printf ("SET_BYTE_MEM(lval,dst);\n");
-	    }
-	  break;
-	case KBIT:
-	  if (fetch)
-	    printf ("srca = ((b1&0x80)?2:1);\n");
-	  break;
-	case ABS16ORREL8SRC:
-	case ABS16SRC:
-	  if (fetch)
-	    {
-	      printf ("lval = pc[1];\n");
-	      printf ("srca = %s_MEM(lval);\n", size == 8 ? "BYTE" : "WORD");
-	    }
-	  break;
-	case DISPREG | B30:
-	case DISPREG | B31:
-	case DISPREG:
-	  printf ("rn = %s & 0x7;\n", nibs[i]);
-	  break;
-	case DISPSRC:
-	  if (fetch)
-	    {
-	      printf ("lval = 0xffff&(pc[1] +reg[rn]);\n");
-	      printf ("srca = %s_MEM(lval);\n", size == 8 ? "BYTE" : "WORD");
-	    }
-	  break;
-	case DISPDST:
-	  if (fetch)
-	    {
-	      printf ("lval = 0xffff&(pc[1] +reg[rn]);\n");
-	      printf ("srcb = %s_MEM(lval);\n", size == 8 ? "BYTE" : "WORD");
-	    }
-	  else
-	    {
-	      printf ("SET_%s_MEM(lval,dst);\n", ss);
-	    }
-	  break;
-	case ABS16DST:
-	  if (fetch)
-	    {
-	      printf ("lval = (pc[1]);\n");
-	      printf ("srcb = %s_MEM(lval);\n", ss);
-	    }
-	  else
-	    {
-	      printf ("SET_%s_MEM(lval,dst);\n", ss);
-	    }
-	  break;
-	case IGNORE:
-	  break;
-	case DISP8:
-	  printf ("			/* DISP8 handled in opcode */\n");
-	  break;
-	default:
-	  if (p->data.nib[i] > HexF)
-	    {
-	      printf ("saved_state.exception = SIGILL;\n");
-	    }
-	}
-    }
-}
-#endif
 
 static void
 esleep ()
@@ -746,7 +529,7 @@ struct
 
 }
 
-table  [] =
+table[] =
 {
   {
     nx, 1, "bld", bit, "dst = srcb; c = (srcb>>srca)&1;", 8

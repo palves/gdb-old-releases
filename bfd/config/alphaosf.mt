@@ -1,3 +1,5 @@
 # Target: Alpha running OSF
-TDEFAULTS = -DSELECT_VECS='&ecoffalpha_little_vec' -DDEFAULT_VECTOR=ecoffalpha_little_vec
-HDEFINES=-DHOST_64_BIT="long"
+
+DEFAULT_VECTOR=ecoffalpha_little_vec
+TDEFINES=-DHOST_64_BIT="long"
+SELECT_ARCHITECTURES=bfd_alpha_arch

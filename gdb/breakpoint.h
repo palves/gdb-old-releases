@@ -33,9 +33,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* FIXME In the future, we should fold all other breakpoint-like things into
    here.  This includes:
 
-   * call-dummy (the breakpoint at the end of a subroutine stub that gdb
-      uses to call functions in the target) (definately). 
-
    * single-step (for machines where we have to simulate single stepping)
       (probably, though perhaps it is better for it to look as much as
       possible like a single-step to wait_for_inferior).  */
@@ -50,7 +47,16 @@ enum bptype {
 
   /* Used by wait_for_inferior for stepping over subroutine calls, for
      stepping over signal handlers, and for skipping prologues.  */
-  bp_step_resume
+  bp_step_resume,
+
+  /* The breakpoint at the end of a call dummy.  */
+  /* FIXME: What if the function we are calling longjmp()s out of the
+     call, or the user gets out with the "return" command?  We currently
+     have no way of cleaning up the breakpoint in these (obscure) situations.
+     (Probably can solve this by noticing longjmp, "return", etc., it's
+     similar to noticing when a watchpoint on a local variable goes out
+     of scope (with hardware support for watchpoints)).  */
+  bp_call_dummy
 };
 
 /* States of enablement of breakpoint. */
@@ -139,6 +145,8 @@ struct breakpoint
   struct block *exp_valid_block;
   /* Value of the watchpoint the last time we checked it.  */
   value val;
+  /* Thread number for thread-specific breakpoint, or -1 if don't care */
+  int thread;
 };
 
 /* The following stuff is an abstract data type "bpstat" ("breakpoint status").
@@ -156,11 +164,8 @@ extern void bpstat_clear PARAMS ((bpstat *));
    is part of the bpstat is copied as well.  */
 extern bpstat bpstat_copy PARAMS ((bpstat));
 
-/* Get a bpstat associated with having just stopped at address *PC
-   and frame address FRAME_ADDRESS.  Update *PC to point at the
-   breakpoint (if we hit a breakpoint).  */
 /* FIXME:  prototypes uses equivalence between FRAME_ADDR and CORE_ADDR */
-extern bpstat bpstat_stop_status PARAMS ((CORE_ADDR *, CORE_ADDR));
+extern bpstat bpstat_stop_status PARAMS ((CORE_ADDR *, CORE_ADDR, int));
 
 /* This bpstat_what stuff tells wait_for_inferior what to do with a
    breakpoint (a challenging task).  */
@@ -207,12 +212,18 @@ enum bpstat_what_main_action {
 };
 
 struct bpstat_what {
-  enum bpstat_what_main_action main_action : 4;
+  enum bpstat_what_main_action main_action;
 
   /* Did we hit the step resume breakpoint?  This is separate from the
      main_action to allow for it to be combined with any of the main
      actions.  */
-  unsigned int step_resume : 1;
+  int step_resume;
+
+  /* Did we hit a call dummy breakpoint?  This only goes with a main_action
+     of BPSTAT_WHAT_STOP_SILENT or BPSTAT_WHAT_STOP_NOISY (the concept of
+     continuing from a call dummy without popping the frame is not a
+     useful one).  */
+  int call_dummy;
 };
 
 /* Tell what to do about this bpstat.  */
@@ -286,6 +297,9 @@ struct frame_info;
 extern int
 breakpoint_here_p PARAMS ((CORE_ADDR));
 
+extern int
+breakpoint_thread_match PARAMS ((CORE_ADDR, int));
+
 extern void
 until_break_command PARAMS ((char *, int));
 
@@ -309,6 +323,9 @@ set_default_breakpoint PARAMS ((int, CORE_ADDR, struct symtab *, int));
 
 extern void
 mark_breakpoints_out PARAMS ((void));
+
+extern void
+breakpoint_init_inferior PARAMS ((void));
 
 extern void
 delete_breakpoint PARAMS ((struct breakpoint *));

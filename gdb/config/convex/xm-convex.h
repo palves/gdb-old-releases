@@ -41,6 +41,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define STOP_SIGNAL SIGCONT
 
-/* Hook to call after creating inferior process.  */
+/* Hook to call after creating inferior process.  Now init_trace_fun
+   is in the same place.  So re-write this to use the init_trace_fun
+   (making convex a debugging target).  FIXME.  */
 
 #define CREATE_INFERIOR_HOOK create_inferior_hook

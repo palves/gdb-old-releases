@@ -17,7 +17,7 @@ struct external_filehdr {
 #define	H8500MAGIC	0x8500
 
 
-#define H8500BADMAG(x) (((x).f_magic!=H8500MAGIC))
+#define H8500BADMAG(x) ((0xffff && ((x).f_magic)!=H8500MAGIC))
 
 #define	FILHDR	struct external_filehdr
 #define	FILHSZ	sizeof(FILHDR)

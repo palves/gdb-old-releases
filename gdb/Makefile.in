@@ -151,7 +151,11 @@ INTERNAL_CFLAGS = $(CFLAGS) $(GLOBAL_CFLAGS) $(PROFILE_CFLAGS) \
 	$(GDB_CFLAGS) $(OPCODES_CFLAGS) $(READLINE_CFLAGS) \
 	$(BFD_CFLAGS) $(MMALLOC_CFLAGS) $(INCLUDE_CFLAGS)
 
-# The config/mh-* file must define REGEX and REGEX1 on USG machines.
+# We are using our own version of REGEX now to be consistent across
+# machines.
+REGEX = regex.o
+REGEX1 = regex.o
+
 # If your system is missing alloca(), or, more likely, it's there but
 # it doesn't work, then refer to libiberty.
 
@@ -170,7 +174,7 @@ CDEPS = $(XM_CDEPS) $(TM_CDEPS) $(NAT_CDEPS) \
 ADD_FILES = $(REGEX) $(XM_ADD_FILES) $(TM_ADD_FILES) $(NAT_ADD_FILES)
 ADD_DEPS = $(REGEX1) $(XM_ADD_FILES) $(TM_ADD_FILES) $(NAT_ADD_FILES)
 
-VERSION = 4.10.pl1
+VERSION = 4.11
 DIST=gdb
 
 LINT=/usr/5bin/lint
@@ -189,7 +193,7 @@ SER_HARDWIRE=ser-unix.o
 
 # The `remote' debugging target is supported for most architectures,
 # but not all (e.g. 960)
-REMOTE_O=remote.o
+REMOTE_O = remote.o dcache.o remote-utils.o
 
 # Host and target-dependent makefile fragments come in here.
 ####
@@ -304,7 +308,8 @@ NONSRC = Makefile.in munch configure.in ChangeLog ChangeLog-9091 \
 	Projects .gdbinit COPYING $(YYFILES) copying.c copying.awk \
 	saber.suppress standalone.c stuff.c kdb-start.c gcc.patch \
 	nindy-share/Makefile nindy-share/VERSION nindy-share/README \
-	vx-share/README 29k-share/README config/convex/Convex.notes
+	vx-share/README 29k-share/README config/convex/Convex.notes \
+	i386-nlmstub.c
 
 # All source files that lint should look at
 LINTFILES = $(SFILES) $(YYFILES) init.c
@@ -322,6 +327,9 @@ SFILES_KGDB  = $(SFILES) stuff.c kdb-start.c
 #wait_h =	$(INCLUDE_DIR)/wait.h
 #dis-asm_h =	$(INCLUDE_DIR)/dis-asm.h 
 
+dcache_h = dcache.h
+remote_utils_h = $(dcache_h) serial.h target.h remote-utils.h remote-sim.h
+
 readline_headers = \
 	$(READLINE_SRC)/chardefs.h \
 	$(READLINE_SRC)/history.h \
@@ -329,13 +337,14 @@ readline_headers = \
 	$(READLINE_SRC)/readline.h
 
 udiheaders = \
-	29k-share/udi/udiproc.h \
-	29k-share/udi/udiphcfg.h \
-	29k-share/udi/udiphunix.h \
-	29k-share/udi/udiptcfg.h \
-	29k-share/udi/udipt29k.h \
-	29k-share/udi/udisoc.h
+	$(srcdir)/29k-share/udi/udiproc.h \
+	$(srcdir)/29k-share/udi/udiphcfg.h \
+	$(srcdir)/29k-share/udi/udiphunix.h \
+	$(srcdir)/29k-share/udi/udiptcfg.h \
+	$(srcdir)/29k-share/udi/udipt29k.h \
+	$(srcdir)/29k-share/udi/udisoc.h
 
+dcache_h =	dcache.h
 
 gdbcore_h =	gdbcore.h $(bfd_h)
 
@@ -357,7 +366,7 @@ inferior_h =	inferior.h $(breakpoint_h)
 # Header files that are not named in config/*/* Makefile fragments go
 # into HFILES.
 
-HFILES = buildsym.h call-cmds.h defs.h environ.h $(gdbcmd_h) \
+HFILES = buildsym.h call-cmds.h coff-solib.h defs.h environ.h $(gdbcmd_h) \
 	$(gdbcore_h) gdb-stabs.h $(inferior_h) language.h minimon.h monitor.h \
 	objfiles.h parser-defs.h partial-stab.h serial.h signals.h solib.h \
 	symfile.h stabsread.h target.h terminal.h typeprint.h xcoffsolib.h \
@@ -365,13 +374,14 @@ HFILES = buildsym.h call-cmds.h defs.h environ.h $(gdbcmd_h) \
 	config/m68k/tm-m68k.h config/pa/tm-hppa.h config/i960/tm-i960.h \
 	config/sparc/tm-sparc.h config/tm-sunos.h config/tm-sysv4.h \
 	config/m68k/xm-m68k.h config/sparc/xm-sparc.h config/xm-sysv4.h \
-	config/vax/xm-vax.h config/nm-trash.h $(udiheaders) \
+	config/vax/xm-vax.h config/nm-m3.h config/nm-trash.h $(udiheaders) \
 	29k-share/udi/udiids.h 29k-share/udi_soc nindy-share/b.out.h \
 	nindy-share/block_io.h nindy-share/coff.h \
 	nindy-share/env.h nindy-share/stop.h \
 	vx-share/dbgRpcLib.h vx-share/ptrace.h vx-share/vxTypes.h \
 	vx-share/vxWorks.h vx-share/wait.h vx-share/xdr_ld.h \
-	vx-share/xdr_ptrace.h vx-share/xdr_rdb.h thread.h
+	vx-share/xdr_ptrace.h vx-share/xdr_rdb.h thread.h \
+	$(remote_utils_h)
 
 # GDB "info" files, which should be included in their entirety
 INFOFILES = gdb.info*
@@ -456,13 +466,10 @@ install: all install-only
 install-only: 
 	$(INSTALL_XFORM) gdb $(bindir)/gdb
 	$(INSTALL_XFORM1) $(srcdir)/gdb.1 $(man1dir)/gdb.1
-	$(INSTALL_DATA) $(srcdir)/gdb.1 $(man1dir)/$$n.1
-	$(M_INSTALL)
 	@$(MAKE) DO=install "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS) subdir_do 
 
 uninstall: force
-	rm -f $(bindir)/gdb $(man1dir)/gdb.1 $(man1dir)/$$n.1
-	$(M_UNINSTALL)
+	rm -f $(bindir)/gdb $(man1dir)/gdb.1
 	@$(MAKE) DO=uninstall "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS) subdir_do 
 
 init.c: munch $(OBS) $(TSOBS)
@@ -555,7 +562,6 @@ kdb:	$(NTSSTART) $(OBS) $(NTSOBS) $(ADD_DEPS) $(CDEPS)
 
 # Put the proper machine-specific files first, so M-. on a machine
 # specific routine gets the one for the correct machine.
-# The xyzzy stuff below deals with empty DEPFILES
 TAGS:	
 	etags `find $(srcdir)/config \( -name $(TM_FILE) \
 		-o -name $(XM_FILE) \
@@ -713,7 +719,7 @@ version.c: Makefile
 # else.
 c-exp.tab.o: c-exp.tab.c
 c-exp.tab.c: c-exp.y Makefile.in
-	@echo 'Expect 4 shift/reduce conflicts.'
+	@echo 'Expect 6 shift/reduce conflicts.'
 	$(YACC) $(YFLAGS) $(srcdir)/c-exp.y
 	-sed -e '/extern.*malloc/d' \
 	     -e '/extern.*realloc/d' \
@@ -797,33 +803,41 @@ unexport CHILLFLAGS CHILL_LIB CHILL_FOR_TARGET :
 # why they are separate from the lists of files above.
 
 ALLDEPFILES = 29k-share/udi/udip2soc.c 29k-share/udi/udr.c \
-	a29k-pinsn.c a29k-tdep.c a68v-nat.c altos-xdep.c arm-convert.s \
-	arm-pinsn.c arm-tdep.c arm-xdep.c convex-pinsn.c convex-tdep.c \
-	convex-xdep.c core-svr4.c coredep.c corelow.c delta68-nat.c \
-	dpx2-nat.c \
-	exec.c fork-child.c go32-xdep.c gould-pinsn.c gould-xdep.c \
-	h8300-tdep.c h8500-tdep.c hp300ux-nat.c hppa-pinsn.c \
-	hppa-tdep.c hppab-nat.c hppah-nat.c i386-pinsn.c i386-tdep.c \
-	i386b-nat.c i386mach-nat.c i386v-nat.c i386aix-nat.c \
-	i386v4-nat.c i386lynx-tdep.c i386lynx-nat.c i387-tdep.c i960-pinsn.c \
-	i960-tdep.c infptrace.c inftarg.c irix4-nat.c isi-xdep.c \
-	m68k-pinsn.c m68k-tdep.c m88k-nat.c m88k-pinsn.c m88k-tdep.c \
-	mips-nat.c mips-pinsn.c mips-tdep.c news-xdep.c \
+	a29k-pinsn.c a29k-tdep.c a68v-nat.c alpha-nat.c alpha-tdep.c \
+	altos-xdep.c arm-convert.s \
+	arm-pinsn.c arm-tdep.c arm-xdep.c coff-solib.c convex-pinsn.c \
+	convex-tdep.c \
+	convex-xdep.c core-svr4.c coredep.c corelow.c dcache.c delta68-nat.c \
+	dpx2-nat.c exec.c fork-child.c \
+	go32-xdep.c gould-pinsn.c gould-xdep.c h8300-tdep.c h8500-tdep.c \
+	hp300ux-nat.c hppa-pinsn.c hppa-tdep.c hppab-nat.c hppah-nat.c \
+	i386-pinsn.c i386-tdep.c i386b-nat.c i386mach-nat.c i386v-nat.c \
+	i386aix-nat.c i386m3-nat.c i386v4-nat.c i386lynx-nat.c i386ly-tdep.c \
+	i387-tdep.c \
+	i960-pinsn.c i960-tdep.c \
+	infptrace.c inftarg.c irix4-nat.c isi-xdep.c m3-nat.c \
+	m68k-pinsn.c m68k-tdep.c \
+	m88k-nat.c m88k-pinsn.c m88k-tdep.c mips-nat.c mips-pinsn.c \
+	mips-tdep.c mipsm3-nat.c news-xdep.c \
 	nindy-share/Onindy.c nindy-share/nindy.c \
-	nindy-share/ttyflush.c nindy-tdep.c ns32k-pinsn.c paread.c \
-	procfs.c pyr-pinsn.c pyr-tdep.c pyr-xdep.c remote-adapt.c \
-	remote-bug.c remote-eb.c remote-es.c remote-hms.c \
-	remote-mips.c remote-mm.c remote-monitor.c remote-nindy.c \
-	remote-sim.c remote-st.c remote-udi.c remote-vx.c remote-z8k.c \
-	rs6000-nat.c rs6000-pinsn.c rs6000-tdep.c ser-go32.c ser-tcp.c \
-	sh-tdep.c solib.c sparc-nat.c sparc-pinsn.c sparc-tdep.c \
-	sun3-nat.c sun386-nat.c symm-tdep.c symm-nat.c tahoe-pinsn.c \
-	ultra3-nat.c ultra3-xdep.c umax-xdep.c vax-pinsn.c \
+	nindy-share/ttyflush.c nindy-tdep.c \
+	ns32k-pinsn.c ns32km3-nat.c osfsolib.c \
+	paread.c procfs.c pyr-pinsn.c pyr-tdep.c pyr-xdep.c \
+	remote-adapt.c remote-bug.c remote-eb.c remote-es.c \
+	remote-hms.c remote-mips.c \
+	remote-mm.c remote-mon.c remote-nindy.c remote-sim.c \
+	remote-st.c remote-utils.c dcache.c \
+	remote-udi.c remote-vx.c remote-z8k.c rs6000-nat.c rs6000-pinsn.c \
+	rs6000-tdep.c ser-go32.c ser-tcp.c sh-tdep.c solib.c sparc-nat.c \
+	sparc-pinsn.c sparc-tdep.c sun3-nat.c sun386-nat.c symm-tdep.c \
+	symm-nat.c tahoe-pinsn.c ultra3-nat.c ultra3-xdep.c umax-xdep.c \
+	vax-pinsn.c \
 	vx-share/xdr_ld.c vx-share/xdr_ptrace.c vx-share/xdr_rdb.c \
 	xcoffexec.c xcoffread.c xcoffsolib.c z8k-tdep.c
 
 ALLPARAM = config/a29k/nm-ultra3.h config/a29k/tm-a29k.h \
 	config/a29k/tm-ultra3.h config/a29k/xm-ultra3.h \
+	config/alpha/nm-alpha.h config/alpha/tm-alpha.h \
 	config/alpha/xm-alpha.h config/arm/tm-arm.h \
 	config/arm/xm-arm.h config/convex/tm-convex.h \
 	config/convex/xm-convex.h config/gould/tm-np1.h config/gould/tm-pn.h \
@@ -835,13 +849,15 @@ ALLPARAM = config/a29k/nm-ultra3.h config/a29k/tm-a29k.h \
 	config/i386/nm-i386v4.h config/i386/nm-linux.h \
 	config/i386/nm-sun386.h config/i386/nm-symmetry.h \
 	config/i386/tm-i386aix.h config/i386/tm-i386bsd.h \
-	config/i386/tm-i386lynx.h config/i386/tm-i386nw.h \
+	config/i386/tm-i386lynx.h config/i386/tm-i386m3.h \
+	config/i386/tm-i386mk.h config/i386/tm-i386nw.h \
 	config/i386/tm-i386v.h \
 	config/i386/tm-i386v4.h config/i386/tm-linux.h \
 	config/i386/tm-sun386.h \
 	config/i386/tm-symmetry.h config/i386/xm-go32.h \
 	config/i386/xm-i386aix.h config/i386/xm-i386bsd.h \
 	config/i386/xm-i386lynx.h config/i386/xm-i386mach.h \
+	config/i386/xm-i386m3.h config/i386/xm-i386mk.h \
 	config/i386/xm-i386sco.h config/i386/xm-i386v.h \
 	config/i386/xm-i386v32.h config/i386/xm-i386v4.h \
 	config/i386/xm-linux.h config/i386/xm-sun386.h \
@@ -855,8 +871,8 @@ ALLPARAM = config/a29k/nm-ultra3.h config/a29k/tm-a29k.h \
 	config/m68k/tm-amix.h config/m68k/tm-delta68.h \
 	config/m68k/tm-dpx2.h config/m68k/tm-es1800.h \
 	config/m68k/tm-hp300bsd.h config/m68k/tm-hp300hpux.h \
-	config/m68k/tm-isi.h config/m68k/tm-m68k-fp.h \
-	config/m68k/tm-m68k-nofp.h config/m68k/tm-monitor.h \
+	config/m68k/tm-isi.h config/m68k/tm-m68k-em.h \
+	config/m68k/tm-monitor.h \
 	config/m68k/tm-news.h config/m68k/tm-os68k.h config/m68k/tm-st2000.h \
 	config/m68k/tm-sun2.h config/m68k/tm-sun2os4.h config/m68k/tm-sun3.h \
 	config/m68k/tm-sun3os4.h config/m68k/tm-vx68.h config/m68k/xm-3b1.h \
@@ -866,17 +882,26 @@ ALLPARAM = config/a29k/nm-ultra3.h config/a29k/tm-a29k.h \
 	config/m68k/xm-hp300bsd.h config/m68k/xm-hp300hpux.h \
 	config/m68k/xm-isi.h config/m68k/xm-news.h config/m68k/xm-news1000.h \
 	config/m68k/xm-sun2.h config/m68k/xm-sun3.h config/m68k/xm-sun3os4.h \
-	config/m88k/nm-m88k.h config/m88k/tm-delta88.h config/m88k/tm-m88k.h \
-	config/m88k/xm-delta88.h config/m88k/xm-m88k.h config/mips/nm-irix3.h \
+	config/m88k/nm-delta88v4.h config/m88k/nm-m88k.h \
+	config/m88k/tm-delta88.h \
+	config/m88k/tm-delta88v4.h config/m88k/tm-m88k.h \
+	config/m88k/xm-delta88.h config/m88k/xm-delta88v4.h \
+	config/m88k/xm-dgux.h config/m88k/xm-m88k.h \
+	config/mips/nm-irix3.h \
 	config/mips/nm-irix4.h config/mips/nm-mips.h config/mips/nm-riscos.h \
 	config/mips/nm-news-mips.h config/mips/tm-bigmips.h \
-	config/mips/tm-irix3.h config/mips/tm-mips.h config/mips/xm-irix3.h \
+	config/mips/tm-irix3.h config/mips/tm-mips.h config/mips/tm-mipsm3.h \
+	config/mips/xm-irix3.h \
 	config/mips/xm-irix4.h config/mips/xm-makeva.h config/mips/xm-mips.h \
+	config/mips/xm-mipsm3.h \
 	config/mips/xm-riscos.h config/mips/xm-news-mips.h config/nm-sysv4.h \
 	config/none/nm-none.h config/none/tm-none.h config/none/xm-none.h \
-	config/ns32k/nm-umax.h config/ns32k/tm-merlin.h \
-	config/ns32k/tm-umax.h \
-	config/ns32k/xm-merlin.h config/ns32k/xm-umax.h config/pa/nm-hppab.h \
+	config/ns32k/nm-umax.h \
+	config/ns32k/tm-ns32km3.h \
+	config/ns32k/tm-merlin.h config/ns32k/tm-umax.h \
+	config/ns32k/xm-ns32km3.h \
+	config/ns32k/xm-merlin.h config/ns32k/xm-umax.h \
+	config/pa/nm-hppab.h \
 	config/pa/nm-hppah.h config/pa/tm-hppab.h config/pa/tm-hppah.h \
 	config/pa/xm-hppab.h config/pa/xm-hppah.h config/pa/xm-pa.h \
 	config/pyr/tm-pyr.h \
@@ -892,15 +917,16 @@ ALLPARAM = config/a29k/nm-ultra3.h config/a29k/tm-a29k.h \
 
 ALLCONFIG = config/a29k/a29k-kern.mt config/a29k/a29k-udi.mt \
 	config/a29k/a29k.mt config/a29k/ultra3.mh config/a29k/ultra3.mt \
-	config/alpha/alpha-osf1.mh \
+	config/alpha/alpha-osf1.mh config/alpha/alpha-osf1.mt \
 	config/arm/arm.mh config/arm/arm.mt config/convex/convex.mh \
 	config/convex/convex.mt config/gould/np1.mh config/gould/np1.mt \
 	config/gould/pn.mh config/gould/pn.mt config/h8300/h8300hms.mt \
 	config/h8500/h8500hms.mt config/i386/go32.mh config/i386/i386aix.mh \
 	config/i386/i386aix.mt config/i386/i386aout.mt config/i386/i386bsd.mh \
 	config/i386/i386bsd.mt config/i386/i386lynx.mh \
-	config/i386/i386lynx.mt \
-	config/i386/i386mach.mh config/i386/i386nw.mt config/i386/i386sco.mh \
+	config/i386/i386lynx.mt config/i386/i386m3.mh config/i386/i386m3.mt \
+	config/i386/i386mach.mh config/i386/i386mk.mh config/i386/i386mk.mt \
+	config/i386/i386nw.mt config/i386/i386sco.mh \
 	config/i386/i386sco4.mh \
 	config/i386/i386sol2.mh config/i386/i386sol2.mt config/i386/i386v.mh \
 	config/i386/i386v.mt config/i386/i386v32.mh config/i386/i386v4.mh \
@@ -916,21 +942,24 @@ ALLCONFIG = config/a29k/a29k-kern.mt config/a29k/a29k-udi.mt \
 	config/m68k/es1800.mt config/m68k/hp300bsd.mh \
 	config/m68k/hp300bsd.mt config/m68k/hp300hpux.mh \
 	config/m68k/hp300hpux.mt config/m68k/isi.mh config/m68k/isi.mt \
-	config/m68k/m68k-fp.mt config/m68k/m68k-nofp.mt \
+	config/m68k/m68k-em.mt \
 	config/m68k/monitor.mt \
 	config/m68k/news.mh config/m68k/news.mt config/m68k/news1000.mh \
 	config/m68k/os68k.mt config/m68k/st2000.mt config/m68k/sun2os3.mh \
 	config/m68k/sun2os3.mt config/m68k/sun2os4.mh config/m68k/sun2os4.mt \
 	config/m68k/sun3os3.mh config/m68k/sun3os3.mt config/m68k/sun3os4.mh \
 	config/m68k/sun3os4.mt config/m68k/vxworks68.mt config/m88k/delta88.mh \
-	config/m88k/delta88.mt config/m88k/m88k.mh config/m88k/m88k.mt \
+	config/m88k/delta88.mt config/m88k/delta88v4.mh \
+	config/m88k/delta88v4.mt config/m88k/m88k.mh config/m88k/m88k.mt \
 	config/mips/bigmips.mt config/mips/decstation.mh \
 	config/mips/decstation.mt config/mips/idt.mt config/mips/idtl.mt \
 	config/mips/irix3.mh config/mips/irix3.mt config/mips/irix4.mh \
 	config/mips/littlemips.mh config/mips/littlemips.mt \
+	config/mips/mipsm3.mh config/mips/mipsm3.mt \
 	config/mips/news-mips.mh config/mips/riscos.mh \
 	config/none/none.mh config/none/none.mt config/ns32k/merlin.mh \
-	config/ns32k/merlin.mt config/ns32k/umax.mh config/ns32k/umax.mt \
+	config/ns32k/merlin.mt config/ns32k/ns32km3.mh config/ns32k/ns32km3.mt \
+	config/ns32k/umax.mh config/ns32k/umax.mt \
 	config/pa/hppabsd.mh config/pa/hppabsd.mt config/pa/hppahpux.mh \
 	config/pa/hppahpux.mt config/pyr/pyramid.mh config/pyr/pyramid.mt \
 	config/romp/rtbsd.mh config/rs6000/rs6000.mh config/rs6000/rs6000.mt \
@@ -942,15 +971,21 @@ ALLCONFIG = config/a29k/a29k-kern.mt config/a29k/a29k-udi.mt \
 	config/vax/vaxult2.mh config/z8k/z8ksim.mt
 
 
-udip2soc.o: 29k-share/udi/udip2soc.c $(udiheaders)
+udip2soc.o: $(srcdir)/29k-share/udi/udip2soc.c $(udiheaders)
 	$(CC) -c $(INTERNAL_CFLAGS) $(srcdir)/29k-share/udi/udip2soc.c
 
-udr.o: 29k-share/udi/udr.c $(udiheaders) 
+udr.o: $(srcdir)/29k-share/udi/udr.c $(udiheaders) 
 	$(CC) -c $(INTERNAL_CFLAGS) $(srcdir)/29k-share/udi/udr.c
 
 a29k-pinsn.o: a29k-pinsn.c $(bfd_h) $(dis-asm_h)
-a29k-tdep.o: a29k-tdep.c $(gdbcmd_h) $(gdbcore_h) $(inferior_h)
+a29k-tdep.o: a29k-tdep.c $(gdbcmd_h) $(gdbcore_h) $(inferior_h) $(defs_h)
 a68v-nat.o: a68v-nat.c $(defs_h) $(gdbcore_h) $(inferior_h)
+
+alpha-nat.o: alpha-nat.c $(defs_h) $(gdbcore_h) $(inferior_h) target.h
+
+alpha-tdep.o: alpha-tdep.c $(defs_h) $(gdbcmd_h) $(gdbcore_h) \
+	$(inferior_h) $(symtab_h) $(dis-asm.h)
+
 altos-xdep.o: altos-xdep.c $(defs_h) $(gdbcore_h) $(inferior_h)
 arm-pinsn.o: arm-pinsn.c $(OP_INCLUDE)/arm.h $(defs_h) $(symtab_h)
 
@@ -982,6 +1017,8 @@ ch-typeprint.o: ch-typeprint.c ch-lang.h $(defs_h) $(expression_h) \
 
 ch-valprint.o: ch-valprint.c $(defs_h) $(expression_h) $(gdbtypes_h) \
 	language.h $(symtab_h) valprint.h $(value_h)
+
+coff-solib.o: coff-solib.c $(defs_h)
 
 coffread.o: coffread.c $(bfd_h) $(breakpoint_h) buildsym.h \
 	complaints.h $(defs_h) $(expression_h) $(gdbtypes_h) objfiles.h \
@@ -1015,10 +1052,14 @@ corelow.o: corelow.c $(command_h) $(defs_h) $(gdbcore_h) $(inferior_h) \
 cp-valprint.o: cp-valprint.c $(defs_h) $(expression_h) $(gdbcmd_h) \
 	$(gdbtypes_h) $(symtab_h) $(value_h)
 
+dcache.o: dcache.c $(dcache_h)
+
 dbxread.o: dbxread.c $(breakpoint_h) buildsym.h $(command_h) \
 	complaints.h $(defs_h) $(expression_h) gdb-stabs.h $(gdbcore_h) \
 	$(gdbtypes_h) language.h objfiles.h partial-stab.h stabsread.h \
 	symfile.h $(symtab_h) target.h
+
+dcache.o: dcache.c $(dcache_h)
 
 delta68-nat.o: delta68-nat.c $(defs_h)
 
@@ -1073,8 +1114,9 @@ hppab-nat.o: hppab-nat.c $(bfd_h) $(defs_h) $(inferior_h) target.h
 hppah-nat.o: hppah-nat.c $(bfd_h) $(defs_h) $(inferior_h) target.h
 i386-pinsn.o: i386-pinsn.c $(bfd_h) $(dis-asm_h) $(defs_h)
 i386-tdep.o: i386-tdep.c $(defs_h) $(gdbcore_h) $(inferior_h) target.h
-i386lynx-tdep.o: i386lynx-tdep.c $(defs_h) $(inferior_h) target.h
 i386b-nat.o: i386b-nat.c $(defs_h) 
+i386lynx-nat.o: i386lynx-nat.c $(defs_h) $(frame_h) $(inferior_h) target.h
+i386ly-tdep.o: i386ly-tdep.c $(defs_h) $(inferior_h) target.h
 i386mach-nat.o: i386mach-nat.c $(defs_h) $(gdbcore_h) $(inferior_h) 
 
 i386v-nat.o: i386v-nat.c $(ieee-float_h) $(defs_h) $(gdbcore_h) \
@@ -1128,7 +1170,8 @@ m88k-pinsn.o: m88k-pinsn.c $(defs_h) $(symtab_h)
 m88k-tdep.o: m88k-tdep.c $(defs_h) $(gdbcore_h) $(inferior_h)
 
 main.o: main.c $(bfd_h) $(getopt_h) $(readline_headers) call-cmds.h \
-	$(defs_h) $(gdbcmd_h) $(inferior_h) language.h signals.h target.h
+	$(defs_h) $(gdbcmd_h) $(inferior_h) language.h signals.h \
+	$(remote_utils_h)
 	$(CC) -c $(INTERNAL_CFLAGS) $(READLINE_CFLAGS) $(srcdir)/main.c
 
 maint.o: maint.c $(defs_h) $(gdbcmd_h) $(gdbtypes_h) $(symtab_h) 
@@ -1143,7 +1186,7 @@ mips-pinsn.o: mips-pinsn.c $(bfd_h) $(dis-asm_h) $(defs_h)
 mips-tdep.o: mips-tdep.c $(defs_h) $(gdbcmd_h) $(gdbcore_h) \
 	$(inferior_h) language.h objfiles.h symfile.h
 
-mipsread.o: mipsread.c buildsym.h complaints.h $(defs_h) \
+mipsread.o: mipsread.c buildsym.h complaints.h $(bfd_h) $(defs_h) \
 	$(expression_h) gdb-stabs.h $(gdbcore_h) $(gdbtypes_h) language.h \
 	objfiles.h partial-stab.h stabsread.h symfile.h $(symtab_h)
 
@@ -1170,6 +1213,9 @@ ns32k-pinsn.o: ns32k-pinsn.c $(defs_h) $(gdbcore_h) ns32k-opcode.h \
 
 objfiles.o: objfiles.c $(bfd_h) $(defs_h) objfiles.h symfile.h \
 	$(symtab_h)
+
+osfsolib.o: osfsolib.c $(command_h) $(defs_h) $(gdbcore_h) $(inferior_h) \
+	objfiles.h regex.h symfile.h target.h language.h
 
 paread.o: paread.c $(bfd_h) buildsym.h complaints.h $(defs_h) \
 	gdb-stabs.h objfiles.h symfile.h $(symtab_h)
@@ -1198,13 +1244,13 @@ remote-adapt.o: remote-adapt.c $(wait_h) $(defs_h) $(gdbcore_h) \
 	$(inferior_h) target.h terminal.h
 
 remote-bug.o: remote-bug.c $(wait_h) $(defs_h) $(gdbcore_h) \
-	$(inferior_h) target.h terminal.h
+	$(inferior_h) target.h terminal.h $(remote_utils_h)
 
 remote-eb.o: remote-eb.c $(wait_h) $(srcdir)/config/a29k/tm-a29k.h \
 	$(defs_h) $(gdbcore_h) $(inferior_h) symfile.h target.h terminal.h
 
 remote-es.o: remote-es.c $(bfd_h) $(wait_h) $(command_h) $(defs_h) \
-	$(inferior_h) target.h terminal.h
+	$(inferior_h) $(remote_utils_h) terminal.h
 
 remote-hms.o: remote-hms.c $(wait_h) $(defs_h) $(gdbcore_h) \
 	$(inferior_h) serial.h target.h terminal.h
@@ -1215,13 +1261,13 @@ remote-mips.o: remote-mips.c $(wait_h) $(defs_h) $(gdbcmd_h) \
 remote-mm.o: remote-mm.c $(bfd_h) $(wait_h) $(defs_h) $(inferior_h) \
 	minimon.h target.h terminal.h
 
-remote-monitor.o: remote-monitor.c $(wait_h) $(command_h) $(defs_h) \
+remote-mon.o: remote-mon.c $(wait_h) $(command_h) $(defs_h) \
 	$(gdbcore_h) monitor.h serial.h target.h
 
 remote-nindy.o: remote-nindy.c $(ieee-float_h) $(wait_h) $(command_h) \
 	$(defs_h) $(gdbcore_h) $(inferior_h) \
-	nindy-share/env.h nindy-share/stop.h \
-	symfile.h target.h
+	nindy-share/env.h nindy-share/stop.h $(remote_utils_h) \
+	symfile.h
 
 remote-sim.o: remote-sim.c $(wait_h) $(defs_h) $(gdbcore_h) \
 	$(inferior_h) target.h terminal.h
@@ -1240,8 +1286,11 @@ remote-vx.o: remote-vx.c $(wait_h) complaints.h $(defs_h) $(gdbcmd_h) \
 remote-z8k.o: remote-z8k.c $(wait_h) $(srcdir)/../sim/z8k/sim.h \
 	$(defs_h) $(gdbcore_h) $(inferior_h) target.h terminal.h
 
+remote-utils.o: remote-utils.c $(defs_h) $(gdbcmd_h) $(gdbcore_h) \
+	$(inferior_h) $(remote_utils_h) 
+
 remote.o: remote.c $(bfd_h) $(wait_h) $(defs_h) $(gdbcmd_h) \
-	$(inferior_h) serial.h symfile.h target.h terminal.h
+	$(inferior_h) $(remote_utils_h) symfile.h terminal.h
 
 rs6000-nat.o: rs6000-nat.c $(bfd_h) $(defs_h) $(inferior_h) target.h
 

@@ -192,7 +192,13 @@ trad_unix_core_file_p (abfd)
 #else
   core_datasec (abfd)->vma = HOST_TEXT_START_ADDR + (NBPG * u.u_tsize);
 #endif
+
+#ifdef HOST_STACK_START_ADDR
+  core_stacksec (abfd)->vma = HOST_STACK_START_ADDR;
+#else
   core_stacksec (abfd)->vma = HOST_STACK_END_ADDR - (NBPG * u.u_ssize);
+#endif
+
   /* This is tricky.  As the "register section", we give them the entire
      upage and stack.  u.u_ar0 points to where "register 0" is stored.
      There are two tricks with this, though.  One is that the rest of the

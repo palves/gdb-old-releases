@@ -328,12 +328,12 @@ bfd_target aout_mips_little_vec =
   ' ',				/* ar_pad_char */
   15,				/* ar_max_namelen */
   1,				/* minimum alignment */
-  _do_getl64, _do_getl_signed_64, _do_putl64,
-     _do_getl32, _do_getl_signed_32, _do_putl32,
-     _do_getl16, _do_getl_signed_16, _do_putl16, /* data */
-  _do_getl64, _do_getl_signed_64, _do_putl64,
-     _do_getl32, _do_getl_signed_32, _do_putl32,
-     _do_getl16, _do_getl_signed_16, _do_putl16, /* hdrs */
+  bfd_getl64, bfd_getl_signed_64, bfd_putl64,
+     bfd_getl32, bfd_getl_signed_32, bfd_putl32,
+     bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* data */
+  bfd_getl64, bfd_getl_signed_64, bfd_putl64,
+     bfd_getl32, bfd_getl_signed_32, bfd_putl32,
+     bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* hdrs */
     {_bfd_dummy_target, MY_object_p, /* bfd_check_format */
        bfd_generic_archive_p, MY_core_file_p},
     {bfd_false, MY_mkobject,	/* bfd_set_format */
@@ -390,12 +390,12 @@ bfd_target aout_mips_big_vec =
   ' ',				/* ar_pad_char */
   15,				/* ar_max_namelen */
   1,				/* minimum alignment */
-  _do_getb64, _do_getb_signed_64, _do_putb64,
-     _do_getb32, _do_getb_signed_32, _do_putb32,
-     _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
-  _do_getb64, _do_getb_signed_64, _do_putb64,
-     _do_getb32, _do_getb_signed_32, _do_putb32,
-     _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
+  bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+     bfd_getb32, bfd_getb_signed_32, bfd_putb32,
+     bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* data */
+  bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+     bfd_getb32, bfd_getb_signed_32, bfd_putb32,
+     bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* hdrs */
     {_bfd_dummy_target, MY_object_p, /* bfd_check_format */
        bfd_generic_archive_p, MY_core_file_p},
     {bfd_false, MY_mkobject,	/* bfd_set_format */

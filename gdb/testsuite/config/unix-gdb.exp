@@ -19,6 +19,8 @@
 
 # This file was written by Rob Savoye. (rob@cygnus.com)
 
+load_lib gdb.exp
+
 # variables that need to set up
 #
 if ![info exists prompt] then {
@@ -37,16 +39,7 @@ if ![info exists decimal] then {
 # gdb_version -- extract and print the version number of gcc
 #
 proc gdb_version {} {
-    global GDB
-    global GDBFLAGS
-    if {[which $GDB] != 0} then {
-    set tmp [exec echo "q" | $GDB]
-	set version "[lindex $tmp [lsearch $tmp "\[0-9\]*"]]"
-	set version "[string range $version 0 [expr [string length $version]-2]]"
-    clone_output "[which $GDB] version $version $GDBFLAGS\n"
-    } else {
-	warning "$GDB does not exist"
-}
+    default_gdb_version
 }
 
 #
@@ -91,101 +84,7 @@ proc gdb_load { arg } {
     global GDB
     global prompt
 
-    set loadfile [file tail $arg]
-    set loadpath [file dirname $arg]
-    send "file $arg\n"
-    expect {
-	-re "Reading symbols from.*done.*$prompt $" {
-	    if $verbose>1 then {
-		send_user "\t\tLoaded $arg into the $GDB\n"
-	    }
-	    return 0
-	}
-	-re "has no symbol-table.*$prompt $" {
-	    error "$arg wasn't compiled with \"-g\""
-	    return -1
-	}
-	-re "A program is being debugged already..*Kill it\? \(y or n\) $" {
-	    send "y\n"
-		if $verbose>1 then {
-		    send_user "\t\tKilling previous program being debugged\n"
-		}
-	    continue -expect
-	}
-	-re "Load new symbol table from.*\? \(y or n\) $" {
-	    send "y\n"
-	    expect {
-		-re "Reading symbols from.*done.*$prompt $" {
-		    if $verbose>1 then {
-		    send_user "\t\tLoaded $arg with new symbol table into $GDB\n"
-		}
-		    return 0
-		}
-		timeout	{
-		    error "(timeout) Couldn't load $arg, other program already loaded."
-		    return -1
-		}
-	    }
-		}
-	-re ".*No such file or directory.*$prompt $" {
-	    error "($arg) No such file or directory\n"
-	    return -1
-	}
-	-re "$prompt $" {
-	    error "couldn't load $arg into $GDB."
-	    return -1
-	    }
-	timeout	{
-	    error "couldn't load $arg into $GDB (timed out)."
-	    return -1
-	}
-    }
-}
-
-#
-# gdb_exit -- kills the gdb process currently running
-#
-proc gdb_exit {} {
-    global verbose
-    global GDB
-    global GDBFLAGS
-    set timeout 1
-
-    if $verbose>1 then {
-	send_user "Quitting $GDB $GDBFLAGS\n"
-    }    
-    catch "send \"quit\n\"" result
-    if [string match "write\(spawn_id=\[0-9\]+\):" $result] then {
-	catch "close"
-	return -1
-    }
-    catch {
-    expect {
-	eof                 { 
-	    if $verbose>1 then {
-		send_user "Got EOF from $GDB\n"
-	    }
-	}
-	timeout             { 
-	    if $verbose>1 then {
-		send_user "Got TIMEOUT from $GDB\n"
-	    }
-	    close
-	}
-	    -re "The program is running.  Quit anyway.*? (y or n) $" {
-		send "y\n"
-		if $verbose>1 then {
-		    send_user "\t\tKilling program being debugged\n"
-		}
-	        close
-	    }
-    }
-    }
-    catch "close"
-
-    if $verbose>1 then {
-	send_user "Quitting $GDB $GDBFLAGS\n"
-    }    
+    return [gdb_file_cmd $arg]
 }
 
 #
@@ -202,19 +101,19 @@ proc gdb_start {} {
     if $verbose>1 then {
 	send_user "Spawning $GDB $GDBFLAGS\n"
     }
-
+    
     set oldtimeout $timeout
     set timeout [expr "$timeout + 60"]
     if [ llength $GDBFLAGS ] then {
 	if {[which $GDB] != 0} then {
-	spawn $GDB $GDBFLAGS
-    } else {
+	    spawn $GDB $GDBFLAGS
+	} else {
 	    error "$GDB does not exist."
 	    exit 1
 	}
     } else {
-	IF {[WHICH $GDB] != 0} then {
-	spawn $GDB
+	if {[which $GDB] != 0} then {
+	    spawn $GDB
 	} else {
 	    error "$GDB does not exist."
 	    exit 1
@@ -224,8 +123,8 @@ proc gdb_start {} {
 	-re ".*$prompt $"	{
 	    if $verbose>1 then {
 		send_user "GDB initialized for native mode\n"
+	    }
 	}
-    }
 	-re "$prompt $"	{
 	    error "GDB never initialized."
 	    return -1
@@ -254,12 +153,16 @@ proc gdb_start {} {
 	-re ".*$prompt $" {
 	    if $verbose>2 then {
 		send_user "Seting width to 0.\n"
-}
+	    }
 	}
 	timeout {
 	    warning "Couldn't set the width to 0."
-}
+	}
     }
+}
+
+proc gdb_exit { } {
+    catch default_gdb_exit
 }
 
 # These only need to be uncommented for debugging test cases. They exist
@@ -268,13 +171,12 @@ proc gdb_start {} {
 #    "<return>"		   { send "\n"; error "Window too small." }
 #    -re "\(y or n\) " 	   { send "n\n"; error "Got interactive prompt." }
 #    buffer_full		   { error "internal buffer is full." }
-#    eof			   { error "eof -- there is no child process" ; alldone}
+#    eof			   { error "eof -- there is no child process" ; cleanup ; exit $exit_status}
 #    timeout			   { error "timeout." }
 #    "virtual memory exhausted" { error "virtual memory exhausted." }
 #    "Undefined command"	   { error "send string probably wrong." }
 #}
 
-load_lib gdb.exp
 
 set binpath /s1/users/rob/vxworks/bin/somewhere-bogus-that-needs-configuring
 set bin $GDB

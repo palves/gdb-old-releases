@@ -1,3 +1,21 @@
+Fri Oct 22 07:55:08 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* configure.in: Add * to end of all OS names.
+
+Tue Oct  5 12:33:51 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* readline.c: Add stuff for HIUX to place where we detect termio
+	vs. sgtty (ugh, but I don't see a simple better way).
+
+Wed Sep 29 11:02:58 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* readline.c (parser_if): Free tname when done with it (change
+	imported from from bash	1.12 readline).
+
+Tue Sep  7 17:15:37 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* configure.in (m88k-*-sysvr4*): Comment out previous change.
+
 Fri Jul  2 11:05:34 1993  Ian Lance Taylor  (ian@cygnus.com)
 
 	* configure.in (*-*-riscos*): New entry; use mh-sysv.

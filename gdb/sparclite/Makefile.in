@@ -65,7 +65,10 @@ TERMCAP = -ltermcap
 # distribution will fix your include files up.
 #CC=cc
 #CC=gcc -traditional
-GCC=gcc
+
+# These tools MUST be build with gcc and gnu ld.
+CC=gcc
+LD=ld
 
 # Directory containing source files.  Don't clean up the spacing,
 # this exact string is matched for by the "configure" script.
@@ -83,9 +86,11 @@ INCLUDE_DEP = $$(INCLUDE_DIR)
 
 # Where is the source dir for the BFD library?  Traditionally ../bfd or ./bfd
 # (When we want the binary library built from it, we use ${BFD_DIR}${subdir}.)
-BFD_DIR =  ${srcdir}/../../bfd
+BFD_DIR =  ../../bfd
 BFD_DEP = $$(BFD_DIR)
+BFD_SRC = $(srcdir)/$(BFD_DIR)
 BFD_LIB = ./../../bfd${subdir}/libbfd.a
+BFD_CFLAGS = -I$(BFD_DIR) -I(BFD_SRC)
 
 # All the includes used for CFLAGS and for lint.
 # -I. for config files.
@@ -98,7 +103,7 @@ INCLUDE_CFLAGS = -I. -I${srcdir} -I${srcdir}/config -I$(INCLUDE_DIR)
 CFLAGS = -g
 
 # INTERNAL_CFLAGS is the aggregate of all other *CFLAGS macros.
-INTERNAL_CFLAGS = ${CFLAGS} ${INCLUDE_CFLAGS} ${USER_CFLAGS}
+INTERNAL_CFLAGS = $(CFLAGS) -I$(BFD_DIR) $(INCLUDE_CFLAGS) $(USER_CFLAGS)
 # None of the things in CFLAGS will do any harm, and on some systems
 #  (e.g. SunOS4) it is important to use the MH_CFLAGS.
 LDFLAGS = $(CFLAGS)
@@ -135,17 +140,27 @@ install-info:
 progs:	aload hello
 
 hello:	$(OFILES)
-	ld -N -Ttext 0x40000000 -o hello $(OFILES) -lc
+	$(LD) -N -Ttext 0x40000000 -o hello $(OFILES) -lc
 
 aload:	aload.o
 	$(CC) $(CFLAGS) -o aload aload.o $(CLIBS)
 
 sparc-stub.o: ${srcdir}/../sparc-stub.c
-	${CC} -c ${INTERNAL_CFLAGS} $<
+	$(CC) -c ${INTERNAL_CFLAGS} ${srcdir}/../sparc-stub.c
+
+crt0.o:	crt0.s
+	$(CC) $(CFLAGS) -c ${srcdir}/crt0.s
+
+aload.o: aload.c
+
+hello.o: hello.c
+
+salib.o: salib.c
 
 mostlyclean:
 
 clean:		mostlyclean
+	rm -f *.o aload hello
 
 distclean:	clean
 

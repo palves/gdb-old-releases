@@ -1,6 +1,10 @@
 /* Declarations of internal format of MIPS ECOFF symbols.
    Originally contributed by MIPS Computer Systems and Third Eye Software.
-   Changes contributed by Cygnus Support are in the public domain.  */
+   Changes contributed by Cygnus Support are in the public domain.  
+
+   This file is just aggregated with the files that make up the GNU
+   release; it is not considered part of GAS, GDB, or other GNU
+   programs.  */
 
 /*
  * |-----------------------------------------------------------|
@@ -62,28 +66,28 @@ typedef struct {
 	short	magic;		/* to verify validity of the table */
 	short	vstamp;		/* version stamp */
 	long	ilineMax;	/* number of line number entries */
-	long	cbLine;		/* number of bytes for line number entries */
-	long	cbLineOffset;	/* offset to start of line number entries*/
+	bfd_vma	cbLine;		/* number of bytes for line number entries */
+	bfd_vma	cbLineOffset;	/* offset to start of line number entries*/
 	long	idnMax;		/* max index into dense number table */
-	long	cbDnOffset;	/* offset to start dense number table */
+	bfd_vma	cbDnOffset;	/* offset to start dense number table */
 	long	ipdMax;		/* number of procedures */
-	long	cbPdOffset;	/* offset to procedure descriptor table */
+	bfd_vma	cbPdOffset;	/* offset to procedure descriptor table */
 	long	isymMax;	/* number of local symbols */
-	long	cbSymOffset;	/* offset to start of local symbols*/
+	bfd_vma	cbSymOffset;	/* offset to start of local symbols*/
 	long	ioptMax;	/* max index into optimization symbol entries */
-	long	cbOptOffset;	/* offset to optimization symbol entries */
+	bfd_vma	cbOptOffset;	/* offset to optimization symbol entries */
 	long	iauxMax;	/* number of auxillary symbol entries */
-	long	cbAuxOffset;	/* offset to start of auxillary symbol entries*/
+	bfd_vma	cbAuxOffset;	/* offset to start of auxillary symbol entries*/
 	long	issMax;		/* max index into local strings */
-	long	cbSsOffset;	/* offset to start of local strings */
+	bfd_vma	cbSsOffset;	/* offset to start of local strings */
 	long	issExtMax;	/* max index into external strings */
-	long	cbSsExtOffset;	/* offset to start of external strings */
+	bfd_vma	cbSsExtOffset;	/* offset to start of external strings */
 	long	ifdMax;		/* number of file descriptor entries */
-	long	cbFdOffset;	/* offset to file descriptor table */
+	bfd_vma	cbFdOffset;	/* offset to file descriptor table */
 	long	crfd;		/* number of relative file descriptor entries */
-	long	cbRfdOffset;	/* offset to relative file descriptor table */
+	bfd_vma	cbRfdOffset;	/* offset to relative file descriptor table */
 	long	iextMax;	/* max index into external symbols */
-	long	cbExtOffset;	/* offset to start of external symbol entries*/
+	bfd_vma	cbExtOffset;	/* offset to start of external symbol entries*/
 	/* If you add machine dependent fields, add them here */
 	} HDRR, *pHDRR; 
 #define cbHDRR sizeof(HDRR)
@@ -107,10 +111,10 @@ typedef struct {
  * setup at runtime.
  */
 typedef struct fdr {
-	unsigned long	adr;	/* memory address of beginning of file */
+	bfd_vma	adr;		/* memory address of beginning of file */
 	long	rss;		/* file name (of source, if known) */
 	long	issBase;	/* file's string space */
-	long	cbSs;		/* number of bytes in the ss */
+	bfd_vma	cbSs;		/* number of bytes in the ss */
 	long	isymBase;	/* beginning of symbols */
 	long	csym;		/* count file's of symbols */
 	long	ilineBase;	/* file's line symbols */
@@ -130,8 +134,8 @@ typedef struct fdr {
 				/*	aux's will be in compile host's sex */
 	unsigned glevel : 2;	/* level this file was compiled with */
 	unsigned reserved : 22;  /* reserved for future use */
-	long	cbLineOffset;	/* byte offset from header for this file ln's */
-	long	cbLine;		/* size of lines for this file */
+	bfd_vma	cbLineOffset;	/* byte offset from header for this file ln's */
+	bfd_vma	cbLine;		/* size of lines for this file */
 	} FDR, *pFDR;
 #define cbFDR sizeof(FDR)
 #define fdNil ((pFDR)0)
@@ -150,7 +154,7 @@ typedef struct fdr {
  */
 
 typedef struct pdr {
-	unsigned long	adr;	/* memory address of start of procedure */
+	bfd_vma	adr;		/* memory address of start of procedure */
 	long	isym;		/* start of local symbol entries */
 	long	iline;		/* start of line number entries*/
 	long	regmask;	/* save register mask */
@@ -163,7 +167,13 @@ typedef struct pdr {
 	short	pcreg;		/* offset or reg of return pc */
 	long	lnLow;		/* lowest line in the procedure */
 	long	lnHigh;		/* highest line in the procedure */
-	long	cbLineOffset;	/* byte offset for this procedure from the fd base */
+	bfd_vma	cbLineOffset;	/* byte offset for this procedure from the fd base */
+	/* These fields are new for 64 bit ECOFF.  */
+	unsigned gp_prologue : 8; /* byte size of GP prologue */
+	unsigned gp_used : 1;	/* true if the procedure uses GP */
+	unsigned reg_frame : 1;	/* true if register frame procedure */
+	unsigned reserved : 14;	/* reserved: must be zero */
+	unsigned localoff : 8;	/* offset of local variables from vfp */
 	} PDR, *pPDR;
 #define cbPDR sizeof(PDR)
 #define pdNil ((pPDR) 0)
@@ -243,7 +253,7 @@ typedef struct {
 	unsigned cobol_main:1;	/* symbol is a cobol main procedure */
 	unsigned weakext:1;	/* symbol is weak external */
 	unsigned reserved:13;	/* reserved for future use */
-	short	ifd;		/* where the iss and index fields point into */
+	int	ifd;		/* where the iss and index fields point into */
 	SYMR	asym;		/* symbol for the external */
 	} EXTR, *pEXTR;
 #define extNil ((pEXTR)0)

@@ -31,7 +31,7 @@ set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
     error "$objdir/$subdir/$binfile does not exist."
-    alldone
+    return 0
 }
 
 # Start with a fresh gdb.
@@ -40,6 +40,8 @@ gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load $objdir/$subdir/$binfile
+
+source gdb.t08/comp-info.exp
 
 #
 # Test basic opaque structure handling (statically).
@@ -54,13 +56,25 @@ gdb_load $objdir/$subdir/$binfile
 # in the other file with the pointer to the opaque struct in the file containing
 # "foop".
 
-# XCOFF does not seem to support this sort of cross reference.  See
-# the very end of gcc/xcoffout.h.
-
-# I don't this type of cross reference works for any COFF target
+# Define a procedure to set up an xfail for all targets that do not support
+# this sort of cross reference.
+# Any target gcc that has a DBX_NO_XREFS definition in its config file will
+# not support it.
+# XCOFF does not seem to support it either.  See the very end of gcc/xcoffout.h.
+# Native alpha ecoff doesn't support it either.
+# I don't think this type of cross reference works for any COFF target
 # either.
 
-setup_xfail "rs6000-*-*" "a29k-*-udi"
+proc setup_xfail_on_opaque_pointer {} {
+	global gcc_compiled
+
+	setup_xfail "rs6000-*-*" "a29k-*-udi" "vax-*-*"
+	if {!$gcc_compiled} then {
+		setup_xfail "alpha-*-*"
+	}
+}
+
+setup_xfail_on_opaque_pointer
 send "whatis foop\n"
 expect {
 	-re "whatis foop\r
@@ -73,7 +87,7 @@ $prompt $" { pass "whatis on opaque struct pointer (statically)"}
 
 # Ensure that we know the form of the structure that foop points to.
 
-setup_xfail "rs6000-*-*" "a29k-*-udi"
+setup_xfail_on_opaque_pointer
 send "ptype foop\n"
 expect {
 	-re "ptype foop\r
@@ -136,6 +150,11 @@ $prompt $" { pass "ptype on opaque struct tagname (statically)" }
 # have learned during the static tests.
 #
 
+if [istarget "mips-idt-*"] then {
+    # Restart because IDT/SIM runs out of file descriptors.
+    gdb_exit
+    gdb_start
+}
 gdb_reinitialize_dir $srcdir/$subdir
 if [istarget "a29k-*-udi"] then {
     # FIXME: If PR 2415 is fixed, this is not needed.
@@ -168,7 +187,7 @@ expect {
 # is defined in a different file, but we have a pointer to an instance of
 # the opaque structure in the current file.  Ensure we know it's type.
 
-setup_xfail "rs6000-*-*" "a29k-*-udi"
+setup_xfail_on_opaque_pointer
 send "whatis foop\n"
 expect {
 	-re "whatis foop\r
@@ -181,7 +200,7 @@ $prompt $" { pass "whatis on opaque struct pointer (dynamically)"}
 
 # Ensure that we know the form of the thing foop points to.
 
-setup_xfail "rs6000-*-*" "a29k-*-udi"
+setup_xfail_on_opaque_pointer
 send "ptype foop\n"
 expect {
 	-re "ptype foop\r
@@ -276,7 +295,7 @@ expect {
 
 # Ensure that we know what foop is.
 
-setup_xfail "rs6000-*-*" "a29k-*-udi"
+setup_xfail_on_opaque_pointer
 send "whatis foop\n"
 expect {
 	-re "whatis foop\r
@@ -289,7 +308,7 @@ $prompt $" { pass "whatis on opaque struct pointer (dynamically)"}
 
 # Ensure that we know the form of the thing foop points to.
 
-setup_xfail "rs6000-*-*" "a29k-*-udi"
+setup_xfail_on_opaque_pointer
 send "ptype foop\n"
 expect {
 	-re "ptype foop\r

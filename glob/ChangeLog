@@ -1,3 +1,7 @@
+Fri Oct 22 08:02:52 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* configure.in: Add * to end of all OS names.
+
 Fri Jul  2 18:23:40 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
 	* Makefile.in: Add {mostly,dist,real}clean targets.

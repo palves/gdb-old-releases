@@ -51,7 +51,7 @@ print_insn_alpha(pc, info)
   }
   given = (b[0]) | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
 
-  fprintf(stream, "%08x %2x ", given, (given>>26) & 0x3f);
+  func (stream, "%08x %2x\t", given, (given>>26) & 0x3f);
   
   for (insn = alpha_insn_set;
        insn->name && !found;
@@ -63,45 +63,47 @@ print_insn_alpha(pc, info)
 	  if ((insn->i & MEMORY_FORMAT_MASK) 
 	      ==(given & MEMORY_FORMAT_MASK))
 	    {
-	      fprintf(stream, "%s\t%s, %d(%s)",
+	      func (stream, "%s\t%s, %d(%s)",
 		      insn->name,
 		      alpha_regs[RA(given)],
-		      DISP(given),
+		      OPCODE (given) == 9 ? DISP(given) * 65536 : DISP(given),
 		      alpha_regs[RB(given)]);
 	      found = 1;
 	    }
 	  break;
-	case MEMORY_BRANCH_FORMAT_CODE:
-	  if ((insn->i & MEMORY_BRANCH_FORMAT_MASK) 
-	      == (given & MEMORY_BRANCH_FORMAT_MASK) )
-	    {
-	      fprintf(stream, "%s\t%s, 0x%lx\n",
-		      insn->name,
-		      alpha_regs[RA(given)],
-		      (BDISP(given)*4) + pc);
-	      found = 1;
-	    }
-	  break;
-
 	case BRANCH_FORMAT_CODE:
 	  if ((insn->i & BRANCH_FORMAT_MASK)
 	      == (given & BRANCH_FORMAT_MASK))
 	    {
+	      func (stream, "%s\t%s, ",
+		      insn->name,
+		      alpha_regs[RA(given)]);
+	      (*info->print_address_func) (BDISP(given) * 4 + pc + 4, info);
+	      found = 1;
+	    }
+	  break;
+
+	case MEMORY_BRANCH_FORMAT_CODE:
+	  if ((insn->i & MEMORY_BRANCH_FORMAT_MASK) 
+	      == (given & MEMORY_BRANCH_FORMAT_MASK) )
+	    {
 	      if (given & (1<<15)) 
 		{
-		  fprintf(stream, "%s\t%s, (%s), 1", insn->name,
+		  func (stream, "%s\t%s, (%s), %d", insn->name,
 			  alpha_regs[RA(given)],
 			  alpha_regs[RB(given)],
-			  alpha_regs[RC(given)]);
+			  JUMP_HINT(given));
 		} 
 	      else 
 		{
-		  fprintf(stream, "%s\t%s, (%s), 0x%lx(zero)",
+		  /* The displacement is a hint only, do not put out
+		     a symbolic address.  */
+		  func (stream, "%s\t%s, (%s), 0x%lx", insn->name,
 			  alpha_regs[RA(given)],
 			  alpha_regs[RB(given)],
-			  JUMP_HINT(given) << 2 + pc);
+		          JDISP(given) * 4 + pc + 4);
 		}
-	      found =1 ;
+	      found = 1;
 	    }
 
 	  break;
@@ -112,12 +114,12 @@ print_insn_alpha(pc, info)
 	      if (OP_OPTYPE(insn->i) == OP_OPTYPE(given)) 
 		{
 		  if (OP_IS_CONSTANT(given)) {
-		    fprintf(stream, "%s\t%s, 0x%x, %s", insn->name,
+		    func (stream, "%s\t%s, 0x%x, %s", insn->name,
 			    alpha_regs[RA(given)],
 			    LITERAL(given),
 			    alpha_regs[RC(given)]);
 		  } else {
-		    fprintf(stream, "%s\t%s, %s, %s", insn->name,
+		    func (stream, "%s\t%s, %s, %s", insn->name,
 			    alpha_regs[RA(given)],
 			    alpha_regs[RB(given)],
 			    alpha_regs[RC(given)]);
@@ -131,12 +133,22 @@ print_insn_alpha(pc, info)
 	  if ((insn->i & OPERATE_FORMAT_MASK)
 	      == (given & OPERATE_FORMAT_MASK)) 
 	    {
-	      fprintf(stream, "%s\t%s, %s, %s", insn->name,
+	      func (stream, "%s\t%s, %s, %s", insn->name,
 		      alpha_regs[RA(given)],
 		      alpha_regs[RB(given)],
 		      alpha_regs[RC(given)]);
+	      found = 1;
 	    }
-	  found = 1;
+
+	  break;
+	case PAL_FORMAT_CODE:
+	  if (insn->i == given)
+	    {
+	      func (stream, "call_pal %s", insn->name);
+	      found = 1;
+	    }
+
+	  break;
 	}
     }
     

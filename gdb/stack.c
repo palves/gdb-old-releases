@@ -107,6 +107,25 @@ int selected_frame_level;
 int frame_file_full_name = 0;
 
 
+struct print_stack_frame_args {
+  struct frame_info *fi;
+  int level;
+  int source;
+  int args;
+};
+
+static int print_stack_frame_stub PARAMS ((char *));
+
+/* Pass the args the way catch_errors wants them.  */
+static int
+print_stack_frame_stub (args)
+     char *args;
+{
+  struct print_stack_frame_args *p = (struct print_stack_frame_args *)args;
+  print_frame_info (p->fi, p->level, p->source, p->args);
+  return 0;
+}
+
 /* Print a stack frame briefly.  FRAME should be the frame id
    and LEVEL should be its level in the stack (or -1 for level not defined).
    This prints the level, the function executing, the arguments,
@@ -123,11 +142,14 @@ print_stack_frame (frame, level, source)
      int level;
      int source;
 {
-  struct frame_info *fi;
+  struct print_stack_frame_args args;
 
-  fi = get_frame_info (frame);
+  args.fi = get_frame_info (frame);
+  args.level = level;
+  args.source = source;
+  args.args = 1;
 
-  print_frame_info (fi, level, source, 1);
+  catch_errors (print_stack_frame_stub, (char *)&args, "", RETURN_MASK_ERROR);
 }
 
 struct print_args_args {
@@ -160,7 +182,6 @@ print_frame_info (fi, level, source, args)
   struct symbol *func;
   register char *funname = 0;
   enum language funlang = language_unknown;
-  int numargs;
   char buf[MAX_REGISTER_RAW_SIZE];
   CORE_ADDR sp;
 
@@ -171,18 +192,8 @@ print_frame_info (fi, level, source, args)
 
   /* This is not a perfect test, because if a function alloca's some
      memory, puts some code there, and then jumps into it, then the test
-     will succeed even though there is no call dummy.  A better
-     solution would be to keep track of where the call dummies are.
-     Probably the best way to do that is by setting a breakpoint.c
-     breakpoint at the end of the call dummy (wanted anyway, to clean
-     up wait_for_inferior).  Then we know that the sizeof (CALL_DUMMY)
-     (or some such) bytes before that breakpoint are a call dummy.
-     Only problem I see with this approach is figuring out to get rid
-     of the breakpoint whenever the call dummy vanishes (e.g.
-     return_command, or longjmp out of the called function), which we
-     probably can solve (it's very similar to figuring out when a
-     watchpoint on a local variable goes out of scope if it is being
-     watched via something like a 386 debug register).  */
+     will succeed even though there is no call dummy.  Probably best is
+     to check for a bp_call_dummy breakpoint.  */
   if (PC_IN_CALL_DUMMY (fi->pc, sp, fi->frame))
     {
       /* Do this regardless of SOURCE because we don't have any source
@@ -202,7 +213,16 @@ print_frame_info (fi, level, source, args)
       return;
     }
 
-  sal = find_pc_line (fi->pc, fi->next != NULL);
+  /* If fi is not the innermost frame, that normally means that fi->pc
+     points to *after* the call instruction, and we want to get the line
+     containing the call, never the next line.  But if the next frame is
+     a signal_handler_caller frame, then the next frame was not entered
+     as the result of a call, and we want to get the line containing
+     fi->pc.  */
+  sal =
+    find_pc_line (fi->pc,
+		  fi->next != NULL && fi->next->signal_handler_caller == 0);
+
   func = find_pc_function (fi->pc);
   if (func)
     {
@@ -258,7 +278,7 @@ print_frame_info (fi, level, source, args)
 	printf_filtered ("#%-2d ", level);
       if (addressprint)
 	if (fi->pc != sal.pc || !sal.symtab)
-	  printf_filtered ("%s in ", local_hex_string(fi->pc));
+	  printf_filtered ("%s in ", local_hex_string((unsigned long) fi->pc));
       fprintf_symbol_filtered (stdout, funname ? funname : "??", funlang,
 			       DMGL_NO_OPTS);
       wrap_here ("   ");
@@ -299,7 +319,7 @@ print_frame_info (fi, level, source, args)
       if (!done)
 	{
 	  if (addressprint && mid_statement)
-	    printf_filtered ("%s\t", local_hex_string(fi->pc));
+	    printf_filtered ("%s\t", local_hex_string((unsigned long) fi->pc));
 	  print_source_lines (sal.symtab, sal.line, sal.line + 1, 0);
 	}
       current_source_line = max (sal.line - lines_to_list/2, 1);
@@ -320,9 +340,8 @@ parse_frame_specification (frame_exp)
      char *frame_exp;
 {
   int numargs = 0;
-  int arg1, arg2, arg3;
 #define	MAXARGS	4
-  int args[MAXARGS];
+  CORE_ADDR args[MAXARGS];
   
   if (frame_exp)
     {
@@ -440,7 +459,8 @@ frame_info (addr_exp, from_tty)
     error ("Invalid frame specified.");
 
   fi = get_frame_info (frame);
-  sal = find_pc_line (fi->pc, fi->next != NULL);
+  sal = find_pc_line (fi->pc,
+		      fi->next != NULL && fi->next->signal_handler_caller == 0);
   func = get_frame_function (frame);
   s = find_pc_symtab(fi->pc);
   if (func)
@@ -462,14 +482,14 @@ frame_info (addr_exp, from_tty)
   if (!addr_exp && selected_frame_level >= 0) {
     printf_filtered ("Stack level %d, frame at %s:\n",
 		     selected_frame_level, 
-		     local_hex_string(FRAME_FP(frame)));
+		     local_hex_string((unsigned long) FRAME_FP(frame)));
   } else {
     printf_filtered ("Stack frame at %s:\n",
-		     local_hex_string(FRAME_FP(frame)));
+		     local_hex_string((unsigned long) FRAME_FP(frame)));
   }
   printf_filtered (" %s = %s",
 		   reg_names[PC_REGNUM], 
-		   local_hex_string(fi->pc));
+		   local_hex_string((unsigned long) fi->pc));
 
   wrap_here ("   ");
   if (funname)
@@ -484,7 +504,7 @@ frame_info (addr_exp, from_tty)
   puts_filtered ("; ");
   wrap_here ("    ");
   printf_filtered ("saved %s %s\n", reg_names[PC_REGNUM],
-		   local_hex_string(FRAME_SAVED_PC (frame)));
+		   local_hex_string((unsigned long) FRAME_SAVED_PC (frame)));
 
   {
     int frameless = 0;
@@ -497,13 +517,13 @@ frame_info (addr_exp, from_tty)
 
   if (calling_frame)
     printf_filtered (" called by frame at %s", 
-		     local_hex_string(FRAME_FP (calling_frame)));
+		     local_hex_string((unsigned long) FRAME_FP (calling_frame)));
   if (fi->next && calling_frame)
     puts_filtered (",");
   wrap_here ("   ");
   if (fi->next)
     printf_filtered (" caller of frame at %s",
-		     local_hex_string (fi->next->frame));
+		     local_hex_string ((unsigned long) fi->next->frame));
   if (fi->next || calling_frame)
     puts_filtered ("\n");
   if (s)
@@ -523,7 +543,8 @@ frame_info (addr_exp, from_tty)
 	printf_filtered (" Arglist at unknown address.\n");
     else
       {
-	printf_filtered (" Arglist at %s,", local_hex_string(arg_list));
+	printf_filtered (" Arglist at %s,",
+			 local_hex_string((unsigned long) arg_list));
 
 	FRAME_NUM_ARGS (numargs, fi);
 	if (numargs < 0)
@@ -545,7 +566,8 @@ frame_info (addr_exp, from_tty)
     if (arg_list == 0)
 	printf_filtered (" Locals at unknown address,");
     else
-	printf_filtered (" Locals at %s,", local_hex_string(arg_list));
+	printf_filtered (" Locals at %s,",
+			 local_hex_string((unsigned long) arg_list));
   }
 
 #if defined (FRAME_FIND_SAVED_REGS)  
@@ -553,7 +575,7 @@ frame_info (addr_exp, from_tty)
   /* The sp is special; what's returned isn't the save address, but
      actually the value of the previous frame's sp.  */
   printf_filtered (" Previous frame's sp is %s\n", 
-		   local_hex_string(fsr.regs[SP_REGNUM]));
+		   local_hex_string((unsigned long) fsr.regs[SP_REGNUM]));
   count = 0;
   for (i = 0; i < NUM_REGS; i++)
     if (fsr.regs[i] && i != SP_REGNUM)
@@ -564,7 +586,7 @@ frame_info (addr_exp, from_tty)
 	  puts_filtered (",");
 	wrap_here (" ");
 	printf_filtered (" %s at %s", reg_names[i], 
-			 local_hex_string(fsr.regs[i]));
+			 local_hex_string((unsigned long) fsr.regs[i]));
 	count++;
       }
   if (count)
@@ -686,6 +708,11 @@ backtrace_command (count_exp, from_tty)
     {
       QUIT;
       fi = get_frame_info (frame);
+
+      /* Don't use print_stack_frame; if an error() occurs it probably
+	 means further attempts to backtrace would fail (on the other
+	 hand, perhaps the code does or could be fixed to make sure
+	 the frame->prev field gets set to NULL in that case).  */
       print_frame_info (fi, trailing_level + i, 0, 1);
     }
 
@@ -759,7 +786,7 @@ print_block_frame_labels (b, have_default, stream)
 	  fputs_filtered (SYMBOL_SOURCE_NAME (sym), stream);
 	  if (addressprint)
 	    fprintf_filtered (stream, " %s", 
-			      local_hex_string(SYMBOL_VALUE_ADDRESS (sym)));
+			      local_hex_string((unsigned long) SYMBOL_VALUE_ADDRESS (sym)));
 	  fprintf_filtered (stream, " in file %s, line %d\n",
 			    sal.symtab->filename, sal.line);
 	}
@@ -925,12 +952,14 @@ print_frame_arg_vars (frame, stream)
   for (i = 0; i < nsyms; i++)
     {
       sym = BLOCK_SYM (b, i);
-      if (SYMBOL_CLASS (sym) == LOC_ARG
-	  || SYMBOL_CLASS (sym) == LOC_LOCAL_ARG
-	  || SYMBOL_CLASS (sym) == LOC_REF_ARG
-	  || SYMBOL_CLASS (sym) == LOC_REGPARM
-	  || SYMBOL_CLASS (sym) == LOC_REGPARM_ADDR)
+      switch (SYMBOL_CLASS (sym))
 	{
+	case LOC_ARG:
+	case LOC_LOCAL_ARG:
+	case LOC_REF_ARG:
+	case LOC_REGPARM:
+	case LOC_REGPARM_ADDR:
+	case LOC_BASEREG_ARG:
 	  values_printed = 1;
 	  fputs_filtered (SYMBOL_SOURCE_NAME (sym), stream);
 	  fputs_filtered (" = ", stream);
@@ -950,6 +979,11 @@ print_frame_arg_vars (frame, stream)
 			b, VAR_NAMESPACE, (int *)NULL, (struct symtab **)NULL);
 	  print_variable_value (sym2, frame, stream);
 	  fprintf_filtered (stream, "\n");
+	  break;
+
+	default:
+	  /* Don't worry about things which aren't arguments.  */
+	  break;
 	}
     }
 
@@ -1188,7 +1222,7 @@ return_command (retval_exp, from_tty)
   FRAME_ADDR selected_frame_addr;
   CORE_ADDR selected_frame_pc;
   FRAME frame;
-  value return_value;
+  value return_value = NULL;
 
   if (selected_frame == NULL)
     error ("No selected frame.");
@@ -1196,14 +1230,16 @@ return_command (retval_exp, from_tty)
   selected_frame_addr = FRAME_FP (selected_frame);
   selected_frame_pc = (get_frame_info (selected_frame))->pc;
 
-  /* Compute the return value (if any -- possibly getting errors here).
-     Call VALUE_CONTENTS to make sure we have fully evaluated it, since
-     it might live in the stack frame we're about to pop.  */
+  /* Compute the return value (if any -- possibly getting errors here).  */
 
   if (retval_exp)
     {
       return_value = parse_and_eval (retval_exp);
-      VALUE_CONTENTS (return_value);
+
+      /* Make sure we have fully evaluated it, since
+	 it might live in the stack frame we're about to pop.  */
+      if (VALUE_LAZY (return_value))
+	value_fetch_lazy (return_value);
     }
 
   /* If interactive, require confirmation.  */

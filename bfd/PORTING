@@ -14,11 +14,24 @@ Create a file hosts/h-<host>.
 Porting to a new target
 -----------------------
 Pick a name for your target. Call that <target>.
-You need to create <target>.c and config/mt-<target>.
+Call the name for your CPU architecture <cpu>.
+You need to create <target>.c and config/mt-<target>,
+and add a case for it to a case statement in bfd/config.bfd
+which associates each canonical host type with a BFD host type
+(used as the base of the makefile fragment names), and to the
+table in bfd/configure.in which associates each target vector with
+the .o files it uses.
 
 config/mt-<target> is a Makefile fragment.
-The following usually is enough:
-TDEFINES = -DDEFAULT_VECTOR=<target>_vec
+The following is usually enough:
+DEFAULT_VECTOR=<target>_vec
+SELECT_ARCHITECTURES=bfd_<cpu>_arch
+
+See the list of cpu types in archures.c, or "ls cpu-*.c".
+If your architecture is new, you need to add it to the tables
+in bfd/archures.c, opcodes/configure.in, and binutils/objdump.c.
+
+For more information about .mt and .mh files, see config/README.
 
 The file <target>.c is the hard part.  It implements the
 bfd_target <target>_vec, which includes pointers to

@@ -211,6 +211,7 @@ run_command (args, from_tty)
 
   dont_repeat ();
 
+  /* Shouldn't this be target_has_execution?  FIXME.  */
   if (inferior_pid)
     {
       if (
@@ -393,9 +394,12 @@ which has no line number information.\n", name);
       proceed ((CORE_ADDR) -1, -1, 1);
       if (! stop_step)
 	break;
+
+      /* FIXME: On nexti, this may have already been done (when we hit the
+	 step resume break, I think).  Probably this should be moved to
+	 wait_for_inferior (near the top).  */
 #if defined (SHIFT_INST_REGS)
-      write_register (NNPC_REGNUM, read_register (NPC_REGNUM));
-      write_register (NPC_REGNUM, read_register (PC_REGNUM));
+      SHIFT_INST_REGS();
 #endif
     }
 
@@ -448,10 +452,11 @@ jump_command (arg, from_tty)
 	}
     }
 
-  addr = ADDR_BITS_SET (sal.pc);
+  addr = sal.pc;
 
   if (from_tty)
-    printf_filtered ("Continuing at %s.\n", local_hex_string(addr));
+    printf_filtered ("Continuing at %s.\n",
+		     local_hex_string((unsigned long) addr));
 
   clear_proceed_status ();
   proceed (addr, 0, 0);
@@ -496,6 +501,15 @@ signal_command (signum_exp, from_tty)
   proceed (stop_pc, signum, 0);
 }
 
+/* Call breakpoint_auto_delete on the current contents of the bpstat
+   pointed to by arg (which is really a bpstat *).  */
+void
+breakpoint_auto_delete_contents (arg)
+     PTR arg;
+{
+  breakpoint_auto_delete (*(bpstat *)arg);
+}
+
 /* Execute a "stack dummy", a piece of code stored in the stack
    by the debugger to be executed in the inferior.
 
@@ -508,49 +522,78 @@ signal_command (signum_exp, from_tty)
 
    The dummy's frame is automatically popped whenever that break is hit.
    If that is the first time the program stops, run_stack_dummy
-   returns to its caller with that frame already gone.
-   Otherwise, the caller never gets returned to.
-
-   NAME is a string to print to identify the function which we are calling.
-   It is not guaranteed to be the name of a function, it could be something
-   like "at 0x4370" if a name can't be found for the function.  */
+   returns to its caller with that frame already gone and returns 0.
+   Otherwise, run_stack-dummy returns 1 (the frame will eventually be popped
+   when we do hit that breakpoint).  */
 
 /* DEBUG HOOK:  4 => return instead of letting the stack dummy run.  */
 
 static int stack_dummy_testing = 0;
 
-void
-run_stack_dummy (name, addr, buffer)
-     char *name;
+int
+run_stack_dummy (addr, buffer)
      CORE_ADDR addr;
      char buffer[REGISTER_BYTES];
 {
+  struct cleanup *old_cleanups = make_cleanup (null_cleanup, 0);
+
   /* Now proceed, having reached the desired place.  */
   clear_proceed_status ();
   if (stack_dummy_testing & 4)
     {
       POP_FRAME;
-      return;
+      return(0);
     }
+#ifdef CALL_DUMMY_BREAKPOINT_OFFSET
+  {
+    struct breakpoint *bpt;
+    struct symtab_and_line sal;
+
+#if CALL_DUMMY_LOCATION != AT_ENTRY_POINT
+    sal.pc = addr - CALL_DUMMY_START_OFFSET + CALL_DUMMY_BREAKPOINT_OFFSET;
+#else
+    sal.pc = entry_point_address ();
+#endif
+    sal.symtab = NULL;
+    sal.line = 0;
+
+    /* Set up a FRAME for the dummy frame so we can pass it to
+       set_momentary_breakpoint.  We need to give the breakpoint a
+       frame in case there is only one copy of the dummy (e.g.
+       CALL_DUMMY_LOCATION == AFTER_TEXT_END).  */
+    flush_cached_frames ();
+    set_current_frame (create_new_frame (read_fp (), sal.pc));
+
+    /* If defined, CALL_DUMMY_BREAKPOINT_OFFSET is where we need to put
+       a breakpoint instruction.  If not, the call dummy already has the
+       breakpoint instruction in it.
+
+       addr is the address of the call dummy plus the CALL_DUMMY_START_OFFSET,
+       so we need to subtract the CALL_DUMMY_START_OFFSET.  */
+    bpt = set_momentary_breakpoint (sal,
+				    get_current_frame (),
+				    bp_call_dummy);
+    bpt->disposition = delete;
+
+    /* If all error()s out of proceed ended up calling normal_stop (and
+       perhaps they should; it already does in the special case of error
+       out of resume()), then we wouldn't need this.  */
+    make_cleanup (breakpoint_auto_delete_contents, &stop_bpstat);
+  }
+#endif /* CALL_DUMMY_BREAKPOINT_OFFSET.  */
+
   proceed_to_finish = 1;	/* We want stop_registers, please... */
   proceed (addr, 0, 0);
 
+  discard_cleanups (old_cleanups);
+
   if (!stop_stack_dummy)
-    /* This used to say
-       "The expression which contained the function call has been discarded."
-       It is a hard concept to explain in a few words.  Ideally, GDB would
-       be able to resume evaluation of the expression when the function
-       finally is done executing.  Perhaps someday this will be implemented
-       (it would not be easy).  */
-    error ("\
-The program being debugged stopped while in a function called from GDB.\n\
-When the function (%s) is done executing, GDB will silently\n\
-stop (instead of continuing to evaluate the expression containing\n\
-the function call).", name);
+    return 1;
 
   /* On return, the stack dummy has been popped already.  */
 
   memcpy (buffer, stop_registers, sizeof stop_registers);
+  return 0;
 }
 
 /* Proceed until we reach a different source line with pc greater than
@@ -691,7 +734,7 @@ finish_command (arg, from_tty)
       funcaddr = BLOCK_START (SYMBOL_BLOCK_VALUE (function));
 
       val = value_being_returned (value_type, stop_registers,
-	      using_struct_return (value_of_variable (function),
+	      using_struct_return (value_of_variable (function, NULL),
 				   funcaddr,
 				   value_type,
 		BLOCK_GCC_COMPILED (SYMBOL_BLOCK_VALUE (function))));
@@ -719,7 +762,8 @@ program_info (args, from_tty)
     }
 
   target_files_info ();
-  printf_filtered ("Program stopped at %s.\n", local_hex_string(stop_pc));
+  printf_filtered ("Program stopped at %s.\n",
+		   local_hex_string((unsigned long) stop_pc));
   if (stop_step)
     printf_filtered ("It stopped after being stepped.\n");
   else if (num != 0)
@@ -931,7 +975,6 @@ write_pc (val)
 #endif
 #endif
 #endif
-  pc_changed = 0;
 }
 
 /* Cope with strage ways of getting to the stack and frame pointers */

@@ -150,14 +150,22 @@ set_in_environ (e, var, value)
   vector[i] = s;
 
   /* Certain variables get exported back to the parent (e.g. our) 
-     environment, too.  */
-  if (STREQ(var, "PATH")		/* Object file location */
-   || STREQ (var, "G960BASE") 		/* Intel 960 downloads */
-   || STREQ (var, "G960BIN") 		/* Intel 960 downloads */
-   || STREQ (var, "GNUTARGET")		/* BFD object file type */
-				) {
-    putenv (strsave (s));
-  }
+     environment, too.  FIXME: this is a hideous hack and should not be
+     allowed to live.  What if we want to change the environment we pass to
+     the program without affecting GDB's behavior?  */
+  if (STREQ(var, "PATH"))		/* Object file location */
+    {
+      putenv (strsave (s));
+    }
+
+  /* This is a compatibility hack, since GDB 4.10 and older didn't have
+     `set gnutarget'.  Eventually it should go away, so that (for example)
+     you can debug objdump's handling of GNUTARGET without affecting GDB's
+     behavior.  */
+  if (STREQ (var, "GNUTARGET"))
+    {
+      set_gnutarget (value);
+    }
   return;
 }
 

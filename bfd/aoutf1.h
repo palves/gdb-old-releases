@@ -56,7 +56,7 @@ The name put into the target vector.
 
 */
 
-void (*bfd_error_trap)();
+extern void (*bfd_error_trap)();
 
 /*SUPPRESS558*/
 /*SUPPRESS529*/

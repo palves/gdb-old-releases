@@ -23,7 +23,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "libbfd.h"
 
 static bfd_arch_info_type arch_info_struct[] = 
-  {
+{
   {
     32,	/* 32 bits in a word */
     32,	/* 32 bits in an address */
@@ -33,7 +33,21 @@ static bfd_arch_info_type arch_info_struct[] =
     "mips",
     "mips:3000",
     3,
-    true, /* the standard instruction set */
+    true,
+    bfd_default_compatible, 
+    bfd_default_scan,
+    0,
+  },
+  {
+    32,	/* 32 bits in a word */
+    32,	/* 32 bits in an address */
+    8,	/* 8 bits in a byte */
+    bfd_arch_mips,
+    6000,
+    "mips",
+    "mips:6000",
+    3,
+    false,
     bfd_default_compatible, 
     bfd_default_scan,
     0,
@@ -52,7 +66,7 @@ static bfd_arch_info_type arch_info_struct[] =
     bfd_default_scan ,
     0,
   }
-  };
+};
 
 void DEFUN_VOID(bfd_mips_arch)
 {

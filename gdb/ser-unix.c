@@ -33,7 +33,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 struct hardwire_ttystate
 {
   struct termios termios;
-  pid_t process_group;
 };
 #endif /* termios */
 
@@ -65,13 +64,6 @@ struct hardwire_ttystate
   struct ltchars ltc;
   /* Line discipline flags.  */
   int lmode;
-
-#ifdef SHORT_PGRP
-  /* This is only used for the ultra.  Does it have pid_t?  */
-  short process_group;
-#else
-  int process_group;
-#endif
 };
 #endif /* sgtty */
 
@@ -82,7 +74,7 @@ static int hardwire_readchar PARAMS ((serial_t scb, int timeout));
 static int rate_to_code PARAMS ((int rate));
 static int hardwire_setbaudrate PARAMS ((serial_t scb, int rate));
 static int hardwire_write PARAMS ((serial_t scb, const char *str, int len));
-static void hardwire_restore PARAMS ((serial_t scb));
+/* FIXME: static void hardwire_restore PARAMS ((serial_t scb)); */
 static void hardwire_close PARAMS ((serial_t scb));
 static int get_tty_state PARAMS ((serial_t scb, struct hardwire_ttystate *state));
 static int set_tty_state PARAMS ((serial_t scb, struct hardwire_ttystate *state));
@@ -109,18 +101,11 @@ get_tty_state(scb, state)
      struct hardwire_ttystate *state;
 {
 #ifdef HAVE_TERMIOS
-  pid_t new_process_group;
+  extern int errno;
 
   if (tcgetattr(scb->fd, &state->termios) < 0)
     return -1;
 
-  if (!job_control)
-    return 0;
-
-  new_process_group = tcgetpgrp (scb->fd);
-  if (new_process_group == (pid_t)-1)
-    return -1;
-  state->process_group = new_process_group;
   return 0;
 #endif
 
@@ -140,10 +125,7 @@ get_tty_state(scb, state)
   if (ioctl (scb->fd, TIOCLGET, &state->lmode) < 0)
     return -1;
 
-  if (!job_control)
-    return 0;
-
-  return ioctl (scb->fd, TIOCGPGRP, &state->process_group);
+  return 0;
 #endif
 }
 
@@ -156,10 +138,7 @@ set_tty_state(scb, state)
   if (tcsetattr(scb->fd, TCSANOW, &state->termios) < 0)
     return -1;
 
-  if (!job_control)
-    return 0;
-
-  return tcsetpgrp (scb->fd, state->process_group);
+  return 0;
 #endif
 
 #ifdef HAVE_TERMIO
@@ -172,10 +151,7 @@ set_tty_state(scb, state)
   if (ioctl (scb->fd, TIOCSETN, &state->sgttyb) < 0)
     return -1;
 
-  if (!job_control)
-    return 0;
-
-  return ioctl (scb->fd, TIOCSPGRP, &state->process_group);
+  return 0;
 #endif
 }
 
@@ -260,8 +236,6 @@ hardwire_print_tty_state (scb, ttystate)
   int i;
 
 #ifdef HAVE_TERMIOS
-  printf_filtered ("Process group = %d\n", state->process_group);
-
   printf_filtered ("c_iflag = 0x%x, c_oflag = 0x%x,\n",
 		   state->termios.c_iflag, state->termios.c_oflag);
   printf_filtered ("c_cflag = 0x%x, c_lflag = 0x%x\n",
@@ -290,8 +264,6 @@ hardwire_print_tty_state (scb, ttystate)
 #endif
 
 #ifdef HAVE_SGTTY
-  printf_filtered ("Process group = %d\n", state->process_group);
-
   printf_filtered ("sgttyb.sg_flags = 0x%x.\n", state->sgttyb.sg_flags);
 
   printf_filtered ("tchars: ");
@@ -348,8 +320,6 @@ static int
 hardwire_send_break (scb)
      serial_t scb;
 {
-  int status;
-
 #ifdef HAVE_TERMIOS
   return tcsendbreak (scb->fd, 0);
 #endif
@@ -360,6 +330,7 @@ hardwire_send_break (scb)
 
 #ifdef HAVE_SGTTY
   {
+    int status;
     struct timeval timeout;
 
     status = ioctl (scb->fd, TIOCSBRK, 0);
@@ -428,8 +399,6 @@ wait_for(scb, timeout)
      serial_t scb;
      int timeout;
 {
-  int numfds;
-
 #ifdef HAVE_SGTTY
   struct timeval tv;
   fd_set readfds;
@@ -443,6 +412,8 @@ wait_for(scb, timeout)
 
   while (1)
     {
+      int numfds;
+
       if (timeout >= 0)
 	numfds = select(scb->fd+1, &readfds, 0, 0, &tv);
       else
@@ -491,8 +462,8 @@ wait_for(scb, timeout)
 
 /* Read a character with user-specified timeout.  TIMEOUT is number of seconds
    to wait, or -1 to wait forever.  Use timeout of 0 to effect a poll.  Returns
-   char if successful.  Returns -2 if timeout expired, EOF if line dropped
-   dead, or -3 for any other error (see errno in that case). */
+   char if successful.  Returns SERIAL_TIMEOUT if timeout expired, EOF if line
+   dropped dead, or SERIAL_ERROR for any other error (see errno in that case).  */
 
 static int
 hardwire_readchar(scb, timeout)
@@ -606,18 +577,6 @@ hardwire_setbaudrate(scb, rate)
 }
 
 static int
-hardwire_set_process_group (scb, ttystate, group)
-     serial_t scb;
-     serial_ttystate ttystate;
-     int group;
-{
-#if defined (HAVE_SGTTY) || defined (HAVE_TERMIOS)
-  ((struct hardwire_ttystate *)ttystate)->process_group = group;
-#endif
-  return 0;
-}
-
-static int
 hardwire_write(scb, str, len)
      serial_t scb;
      const char *str;
@@ -665,77 +624,10 @@ static struct serial_ops hardwire_ops =
   hardwire_print_tty_state,
   hardwire_noflush_set_tty_state,
   hardwire_setbaudrate,
-  hardwire_set_process_group
 };
-
-int job_control;
-#if defined (HAVE_TERMIOS)
-#include <unistd.h>
-#endif
-
-/* This is here because this is where we figure out whether we (probably)
-   have job control.  Just using job_control only does part of it because
-   setpgid or setpgrp might not exist on a system without job control.
-   It might be considered misplaced (on the other hand, process groups and
-   job control are closely related to ttys).
-
-   For a more clean implementation, in libiberty, put a setpgid which merely
-   calls setpgrp and a setpgrp which does nothing (any system with job control
-   will have one or the other).  */
-int
-gdb_setpgid ()
-{
-  int retval = 0;
-  if (job_control)
-    {
-#if defined (NEED_POSIX_SETPGID) || defined (HAVE_TERMIOS)
-      /* Do all systems with termios have setpgid?  I hope so.  */
-      /* setpgid (0, 0) is supposed to work and mean the same thing as
-	 this, but on Ultrix 4.2A it fails with EPERM (and
-	 setpgid (getpid (), getpid ()) succeeds).  */
-      retval = setpgid (getpid (), getpid ());
-#else
-#if defined (TIOCGPGRP)
-#if defined(USG) && !defined(SETPGRP_ARGS)
-      retval = setpgrp ();
-#else
-      retval = setpgrp (getpid (), getpid ());
-#endif /* USG */
-#endif /* TIOCGPGRP.  */
-#endif /* NEED_POSIX_SETPGID */
-    }
-  return retval;
-}
 
 void
 _initialize_ser_hardwire ()
 {
   serial_add_interface (&hardwire_ops);
-
-  /* OK, figure out whether we have job control.  */
-
-#if defined (HAVE_TERMIOS)
-  /* Do all systems with termios have the POSIX way of identifying job
-     control?  I hope so.  */
-#ifdef _POSIX_JOB_CONTROL
-  job_control = 1;
-#else
-  job_control = sysconf (_SC_JOB_CONTROL);
-#endif
-#endif /* termios */
-
-#ifdef HAVE_TERMIO
-  /* See comment at top of file about trying to support process groups
-     with termio.  */
-  job_control = 0;
-#endif /* termio */
-
-#ifdef HAVE_SGTTY
-#ifdef TIOCGPGRP
-  job_control = 1;
-#else
-  job_control = 0;
-#endif /* TIOCGPGRP */
-#endif /* sgtty */
-
 }

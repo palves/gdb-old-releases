@@ -339,7 +339,7 @@ DEFUN(convert_sym_type,(sym_pointer, cache_ptr, abfd),
 	    break;
 
 	  default:
-	    printf ("unknown symbol type encountered: %x", name_type);
+	    fprintf (stderr, "unknown symbol type encountered: %x", name_type);
 	  }
 	if (name_type & HP_SYMTYPE_EXTERNAL)
 	  new_type |= N_EXT;
@@ -617,8 +617,8 @@ DEFUN(MY(swap_std_reloc_in), (abfd, bytes, cache_ptr, symbols),
   case HP_RSEGMENT_NOOP:
       break;
   default:
-      printf
-          ("illegal relocation segment type: %x\n", (bytes->r_type[0]));
+      fprintf (stderr, "illegal relocation segment type: %x\n",
+	       (bytes->r_type[0]));
   }
 
   switch (bytes->r_length[0])
@@ -633,7 +633,7 @@ DEFUN(MY(swap_std_reloc_in), (abfd, bytes, cache_ptr, symbols),
       r_length = 2;
       break;
     default:
-      printf("illegal relocation length: %x\n",bytes->r_length[0] );
+      fprintf (stderr, "illegal relocation length: %x\n",bytes->r_length[0] );
       r_length = 0;
     }
 

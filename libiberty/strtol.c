@@ -50,8 +50,10 @@ strtol(s, ptr, base)
   tmp = strtoul(s, &eptr, base);
   if (ptr != NULL)
     *ptr = (char *)((eptr==s) ? (char *)start : eptr);
-  if (errno==ERANGE && tmp==ULONG_MAX)
-    return (minus ? LONG_MIN : LONG_MAX);
-  else
-    return (minus ? (long) -tmp : (long) tmp);
+  if (tmp > (minus ? - (unsigned long) LONG_MIN : (unsigned long) LONG_MAX))
+    {
+      errno = ERANGE;
+      return (minus ? LONG_MIN : LONG_MAX);
+    }
+  return (minus ? (long) -tmp : (long) tmp);
 }

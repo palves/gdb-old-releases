@@ -308,7 +308,7 @@ xfer_core_file (memaddr, myaddr, len)
 	 Actually, we never right.  */
       else
 	{
-	  bzero (myaddr, i);
+	  memset (myaddr, '\0', i);
 	  returnval = EIO;
 	}
 

@@ -804,10 +804,10 @@ identify_source_line (s, line, mid_statement, pc)
   if (line > s->nlines)
     /* Don't index off the end of the line_charpos array.  */
     return 0;
-  printf ("\032\032%s:%d:%d:%s:0x%x\n", s->fullname,
+  printf ("\032\032%s:%d:%d:%s:0x%lx\n", s->fullname,
 	  line, s->line_charpos[line - 1],
 	  mid_statement ? "middle" : "beg",
-	  pc);
+	  (unsigned long) pc);
   current_source_line = line;
   first_line_listed = line;
   last_line_listed = line;
@@ -1025,17 +1025,19 @@ list_command (arg, from_tty)
   if (*arg == '*')
     {
       if (sal.symtab == 0)
-	error ("No source file for address %s.", local_hex_string(sal.pc));
+	error ("No source file for address %s.",
+		local_hex_string((unsigned long) sal.pc));
       sym = find_pc_function (sal.pc);
       if (sym)
 	{
-	  printf_filtered ("%s is in ", local_hex_string(sal.pc));
+	  printf_filtered ("%s is in ",
+			   local_hex_string((unsigned long) sal.pc));
 	  fputs_filtered (SYMBOL_SOURCE_NAME (sym), stdout);
 	  printf_filtered (" (%s:%d).\n", sal.symtab->filename, sal.line);
 	}
       else
 	printf_filtered ("%s is at %s:%d.\n",
-			 local_hex_string(sal.pc), 
+			 local_hex_string((unsigned long) sal.pc), 
 			 sal.symtab->filename, sal.line);
     }
 
@@ -1328,6 +1330,12 @@ _initialize_source ()
   struct cmd_list_element *c;
   current_source_symtab = 0;
   init_source_path ();
+
+  /* The intention is to use POSIX Basic Regular Expressions.
+     Always use the GNU regex routine for consistency across all hosts.
+     Our current GNU regex.c does not have all the POSIX features, so this is
+     just an approximation.  */
+  re_set_syntax (RE_SYNTAX_GREP);
 
   c = add_cmd ("directory", class_files, directory_command,
 	   "Add directory DIR to beginning of search path for source files.\n\

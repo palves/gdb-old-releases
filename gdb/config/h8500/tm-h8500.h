@@ -181,7 +181,7 @@ struct type *h8500_register_virtual_type PARAMS ((int regno));
    into VALBUF.  */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy ((char *)(REGBUF), VALBUF, TYPE_LENGTH(TYPE))
+  memcpy (VALBUF, (char *)(REGBUF), TYPE_LENGTH(TYPE))
 
 
 /* Write into appropriate registers a function return value
@@ -277,7 +277,6 @@ CORE_ADDR h8500_frame_chain (/* FRAME thisframe */);
 typedef unsigned short INSN_WORD;
 
 #define ADDR_BITS_REMOVE(addr) ((addr) & 0xffffff)
-#define ADDR_BITS_SET(addr) (((addr)))
 
 #define read_memory_short(x)  (read_memory_integer(x,2) & 0xffff)
 #define DONT_USE_REMOTE

@@ -94,8 +94,12 @@ extern CORE_ADDR h8300_skip_prologue ();
 
 #define REGISTER_TYPE  unsigned short
 
-/*#  define NUM_REGS 20 /* 20 for fake HW support */
+#if 0
+#  define NUM_REGS 20 /* 20 for fake HW support */
+#else
 #define NUM_REGS 13  
+#endif
+
 #define REGISTER_BYTES (NUM_REGS * 4)
 
 /* Index within `registers' of the first byte of the space for
@@ -181,7 +185,7 @@ extern CORE_ADDR h8300_skip_prologue ();
 /* FIXME: Won't work with both h8/300's.  */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy ((char *)(REGBUF), VALBUF, TYPE_LENGTH(TYPE))
+  memcpy (VALBUF, (char *)(REGBUF), TYPE_LENGTH(TYPE))
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.  Assumes floats are passed
@@ -280,7 +284,6 @@ extern CORE_ADDR h8300_skip_prologue ();
 typedef unsigned short INSN_WORD;
 
 #define ADDR_BITS_REMOVE(addr) ((addr) & 0xffff)
-#define ADDR_BITS_SET(addr) (((addr)))
 
 #define DONT_USE_REMOTE
 

@@ -33,9 +33,11 @@ set binfile "gdbme"
 
 if ![file exists $objdir/$subdir/$binfile] then {
     error "$objdir/$subdir/$binfile does not exist."
-    alldone
+    return 0
 }
 
+gdb_exit
+gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load $objdir/$subdir/$binfile
 
@@ -1520,6 +1522,18 @@ expect {
 		send "print v_unsigned_int == ~0\n"
 		expect {
 		    -re "print.*.\[0-9\]* = 1.*$prompt $" {
+			send "print v_unsigned_int == (unsigned int)~0\n"
+			expect {
+			    -re "print.*.\[0-9\]* = 1.*$prompt $" { pass "print unsigned int == (~0)" }
+			    -re "$prompt $"                      { fail "print unsigned int == (~0)" }
+			    timeout                              { fail "(timeout) print unsigned int == (~0)" }
+			}
+		    }
+		    -re "print.*.\[0-9\]* = 0.*$prompt $" {
+# gdb currently compares all values as long, so this failure probably
+# applies to any configuration where LONGEST is bigger than a target int.
+			setup_xfail "alpha-*-*"
+			fail "print unsigned int == (~0)"
 			send "print v_unsigned_int == (unsigned int)~0\n"
 			expect {
 			    -re "print.*.\[0-9\]* = 1.*$prompt $" { pass "print unsigned int == (~0)" }

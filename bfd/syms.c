@@ -152,6 +152,7 @@ SUBSECTION
 /*
 CODE_FRAGMENT
 
+.
 .typedef struct symbol_cache_entry 
 .{
 .	{* A pointer to the BFD which owns the symbol. This information
@@ -189,11 +190,11 @@ CODE_FRAGMENT
 .
 .	{* The symbol has global scope, and is exported. The value is
 .	   the offset into the section of the data. *}
-.#define BSF_EXPORT	0x04
+.#define BSF_EXPORT	BSF_GLOBAL {* no real difference *}
 .
 .	{* A normal C symbol would be one of:
 .	   <<BSF_LOCAL>>, <<BSF_FORT_COMM>>,  <<BSF_UNDEFINED>> or
-.	   <<BSF_EXPORT|BSD_GLOBAL>> *}
+.	   <<BSF_GLOBAL>> *}
 .
 .	{* The symbol is a debugging record. The value has an arbitary
 .	   meaning. *}
@@ -365,7 +366,7 @@ asymbol *symbol)
   fprintf(file," %c%c%c%c%c%c%c",
 	  (type & BSF_LOCAL)  ? 'l':' ',
 	  (type & BSF_GLOBAL) ? 'g' : ' ',
-	  (type & BSF_EXPORT) ? 'e' : ' ',
+	  (type & BSF_WEAK) ? 'w' : ' ',
 	  (type & BSF_CONSTRUCTOR) ? 'C' : ' ',
 	  (type & BSF_WARNING) ? 'W' : ' ',
 	  (type & BSF_INDIRECT) ? 'I' : ' ',

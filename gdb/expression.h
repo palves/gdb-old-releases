@@ -130,9 +130,15 @@ enum exp_opcode
   OP_LONG,
 /* OP_DOUBLE is similar but takes a double constant instead of a long one.  */
   OP_DOUBLE,
-/* OP_VAR_VALUE takes one struct symbol * in the following exp_element,
-   followed by another OP_VAR_VALUE, making three exp_elements.  */
+
+  /* OP_VAR_VALUE takes one struct block * in the following element,
+     and one struct symbol * in the following exp_element, followed by
+     another OP_VAR_VALUE, making four exp_elements.  If the block is
+     non-NULL, evaluate the symbol relative to the innermost frame
+     executing in that block; if the block is NULL use the selected frame.  */
+
   OP_VAR_VALUE,
+
 /* OP_LAST is followed by an integer in the next exp_element.
    The integer is zero for the last value printed,
    or it is the absolute number of a history element.
@@ -252,6 +258,7 @@ union exp_element
   char string;
   struct type *type;
   struct internalvar *internalvar;
+  struct block *block;
 };
 
 struct expression

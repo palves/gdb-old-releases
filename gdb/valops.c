@@ -81,7 +81,7 @@ allocate_space_in_inferior (len)
 	{
 	  error ("\"malloc\" exists in this program but is not a function.");
 	}
-      val = value_of_variable (sym);
+      val = value_of_variable (sym, NULL);
     }
   else
     {
@@ -463,6 +463,9 @@ value_assign (toval, fromval)
       type = VALUE_TYPE (fromval);
     }
 
+  /* FIXME: This loses if fromval is a different size than toval, for
+     example because fromval got cast in the REGISTER_CONVERTIBLE case
+     above.  */
   val = allocate_value (type);
   memcpy (val, toval, VALUE_CONTENTS_RAW (val) - (char *) val);
   memcpy (VALUE_CONTENTS_RAW (val), VALUE_CONTENTS (fromval),
@@ -498,12 +501,30 @@ value_repeat (arg1, count)
 }
 
 value
-value_of_variable (var)
+value_of_variable (var, b)
      struct symbol *var;
+     struct block *b;
 {
   value val;
+  FRAME fr;
 
-  val = read_var_value (var, (FRAME) 0);
+  if (b == NULL)
+    /* Use selected frame.  */
+    fr = NULL;
+  else
+    {
+      fr = block_innermost_frame (b);
+      if (fr == NULL && symbol_read_needs_frame (var))
+	{
+	  if (BLOCK_FUNCTION (b) != NULL
+	      && SYMBOL_NAME (BLOCK_FUNCTION (b)) != NULL)
+	    error ("No frame is currently executing in block %s.",
+		   SYMBOL_NAME (BLOCK_FUNCTION (b)));
+	  else
+	    error ("No frame is currently executing in specified block");
+	}
+    }
+  val = read_var_value (var, fr);
   if (val == 0)
     error ("Address of symbol \"%s\" is unknown.", SYMBOL_SOURCE_NAME (var));
   return val;
@@ -878,8 +899,8 @@ call_function_by_hand (function, nargs, args)
 
 #if CALL_DUMMY_LOCATION == ON_STACK
   write_memory (start_sp, (char *)dummy1, sizeof dummy);
+#endif /* On stack.  */
 
-#else /* Not on stack.  */
 #if CALL_DUMMY_LOCATION == BEFORE_TEXT_END
   /* Convex Unix prohibits executing in the stack segment. */
   /* Hope there is empty room at the top of the text segment. */
@@ -892,21 +913,26 @@ call_function_by_hand (function, nargs, args)
 	  error ("text segment full -- no place to put call");
     checked = 1;
     sp = old_sp;
-    start_sp = text_end - sizeof dummy;
-    write_memory (start_sp, (char *)dummy1, sizeof dummy);
+    real_pc = text_end - sizeof dummy;
+    write_memory (real_pc, (char *)dummy1, sizeof dummy);
   }
-#else /* After text_end.  */
+#endif /* Before text_end.  */
+
+#if CALL_DUMMY_LOCATION == AFTER_TEXT_END
   {
     extern CORE_ADDR text_end;
     int errcode;
     sp = old_sp;
-    start_sp = text_end;
-    errcode = target_write_memory (start_sp, (char *)dummy1, sizeof dummy);
+    real_pc = text_end;
+    errcode = target_write_memory (real_pc, (char *)dummy1, sizeof dummy);
     if (errcode != 0)
       error ("Cannot write text segment -- call_function failed");
   }
 #endif /* After text_end.  */
-#endif /* Not on stack.  */
+
+#if CALL_DUMMY_LOCATION == AT_ENTRY_POINT
+  real_pc = funaddr;
+#endif /* At entry point.  */
 
 #ifdef lint
   sp = old_sp;		/* It really is used, for some ifdef's... */
@@ -1012,7 +1038,6 @@ call_function_by_hand (function, nargs, args)
      wouldn't happen.  (See store_inferior_registers in sparc-nat.c.)  */
   write_sp (sp);
 
-  /* Figure out the value returned by the function.  */
   {
     char retbuf[REGISTER_BYTES];
     char *name;
@@ -1039,16 +1064,43 @@ call_function_by_hand (function, nargs, args)
 	char format[80];
 	sprintf (format, "at %s", local_hex_format ());
 	name = alloca (80);
-	sprintf (name, format, funaddr);
+	sprintf (name, format, (unsigned long) funaddr);
       }
 
     /* Execute the stack dummy routine, calling FUNCTION.
        When it is done, discard the empty frame
        after storing the contents of all regs into retbuf.  */
-    run_stack_dummy (name, real_pc + CALL_DUMMY_START_OFFSET, retbuf);
+    if (run_stack_dummy (real_pc + CALL_DUMMY_START_OFFSET, retbuf))
+      {
+	/* We stopped somewhere besides the call dummy.  */
+
+	/* If we did the cleanups, we would print a spurious error message
+	   (Unable to restore previously selected frame), would write the
+	   registers from the inf_status (which is wrong), and would do other
+	   wrong things (like set stop_bpstat to the wrong thing).  */
+	discard_cleanups (old_chain);
+	/* Prevent memory leak.  */
+	bpstat_clear (&inf_status.stop_bpstat);
+
+	/* The following error message used to say "The expression
+	   which contained the function call has been discarded."  It
+	   is a hard concept to explain in a few words.  Ideally, GDB
+	   would be able to resume evaluation of the expression when
+	   the function finally is done executing.  Perhaps someday
+	   this will be implemented (it would not be easy).  */
+
+	/* FIXME: Insert a bunch of wrap_here; name can be very long if it's
+	   a C++ name with arguments and stuff.  */
+	error ("\
+The program being debugged stopped while in a function called from GDB.\n\
+When the function (%s) is done executing, GDB will silently\n\
+stop (instead of continuing to evaluate the expression containing\n\
+the function call).", name);
+      }
 
     do_cleanups (old_chain);
 
+    /* Figure out the value returned by the function.  */
     return value_being_returned (value_type, retbuf, struct_return);
   }
 }
@@ -1305,7 +1357,8 @@ search_struct_field (name, arg1, offset, type, looking_for_baseclass)
 /* Helper function used by value_struct_elt to recurse through baseclasses.
    Look for a field NAME in ARG1. Adjust the address of ARG1 by OFFSET bytes,
    and search in it assuming it has (class) type TYPE.
-   If found, return value, else return NULL. */
+   If found, return value, else if name matched and args not return (value)-1,
+   else return NULL. */
 
 static value
 search_struct_method (name, arg1p, args, offset, static_memfuncp, type)
@@ -1315,6 +1368,7 @@ search_struct_method (name, arg1p, args, offset, static_memfuncp, type)
      register struct type *type;
 {
   int i;
+  static int name_matched = 0;
 
   check_stub_type (type);
   for (i = TYPE_NFN_FIELDS (type) - 1; i >= 0; i--)
@@ -1324,6 +1378,7 @@ search_struct_method (name, arg1p, args, offset, static_memfuncp, type)
 	{
 	  int j = TYPE_FN_FIELDLIST_LENGTH (type, i) - 1;
 	  struct fn_field *f = TYPE_FN_FIELDLIST1 (type, i);
+ 	  name_matched = 1; 
 
 	  if (j > 0 && args == 0)
 	    error ("cannot resolve overloaded method `%s'", name);
@@ -1362,14 +1417,19 @@ search_struct_method (name, arg1p, args, offset, static_memfuncp, type)
         }
       v = search_struct_method (name, arg1p, args, base_offset + offset,
 				static_memfuncp, TYPE_BASECLASS (type, i));
-      if (v)
+      if (v == (value) -1)
+	{
+	  name_matched = 1;
+	}
+      else if (v)
 	{
 /* FIXME-bothner:  Why is this commented out?  Why is it here?  */
 /*	  *arg1p = arg1_tmp;*/
 	  return v;
         }
     }
-  return NULL;
+  if (name_matched) return (value) -1;
+  else return NULL;
 }
 
 /* Given *ARGP, a value of type (pointer to a)* structure/union,
@@ -1467,7 +1527,11 @@ value_struct_elt (argp, args, name, static_memfuncp, err)
   else
     v = search_struct_method (name, argp, args, 0, static_memfuncp, t);
 
-  if (v == 0)
+  if (v == (value) -1)
+    {
+	error("Argument list of %s mismatch with component in the structure.", name);
+    }
+  else if (v == 0)
     {
       /* See if user tried to invoke data as function.  If so,
 	 hand it back.  If it's not callable (i.e., a pointer to function),

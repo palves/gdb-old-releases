@@ -61,11 +61,11 @@ print_subexp (exp, pos, stream, prec)
   register char *op_str;
   int assign_modify = 0;
   enum exp_opcode opcode;
-  enum precedence myprec;
+  enum precedence myprec = PREC_NULL;
   /* Set to 1 for a right-associative operator.  */
-  int assoc;
+  int assoc = 0;
   value val;
-  char *tempstr;
+  char *tempstr = NULL;
 
   op_print_tab = exp->language_defn->la_op_print_tab;
   pc = (*pos)++;
@@ -99,8 +99,19 @@ print_subexp (exp, pos, stream, prec)
       return;
 
     case OP_VAR_VALUE:
-      (*pos) += 2;
-      fputs_filtered (SYMBOL_SOURCE_NAME (exp->elts[pc + 1].symbol), stream);
+      {
+	struct block *b;
+	(*pos) += 3;
+	b = exp->elts[pc + 1].block;
+	if (b != NULL
+	    && BLOCK_FUNCTION (b) != NULL
+	    && SYMBOL_SOURCE_NAME (BLOCK_FUNCTION (b)) != NULL)
+	  {
+	    fputs_filtered (SYMBOL_SOURCE_NAME (BLOCK_FUNCTION (b)), stream);
+	    fputs_filtered ("::", stream);
+	  }
+	fputs_filtered (SYMBOL_SOURCE_NAME (exp->elts[pc + 2].symbol), stream);
+      }
       return;
 
     case OP_LAST:
@@ -495,7 +506,8 @@ dump_expression (exp, stream, note)
   char *eltscan;
   int eltsize;
 
-  fprintf_filtered (stream, "Dump of expression @ 0x%x, %s:\n", exp, note);
+  fprintf_filtered (stream, "Dump of expression @ 0x%lx, %s:\n",
+		    (unsigned long) exp, note);
   fprintf_filtered (stream, "\tLanguage %s, %d elements, %d bytes each.\n",
 		    exp->language_defn->la_name, exp -> nelts,
 		    sizeof (union exp_element));

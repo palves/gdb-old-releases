@@ -129,6 +129,9 @@ child_resume (pid, step, signal)
 {
   errno = 0;
 
+  if (pid == -1)
+    pid = inferior_pid;
+
   /* An address of (PTRACE_ARG3_TYPE)1 tells ptrace to continue from where
      it was.  (If GDB wanted it to start some other way, we have already
      written a new PC value to the child.)
@@ -177,6 +180,11 @@ detach (signal)
 }
 #endif /* ATTACH_DETACH */
 
+/* Default the type of the ptrace transfer to int.  */
+#ifndef PTRACE_XFER_TYPE
+#define PTRACE_XFER_TYPE int
+#endif
+
 #if !defined (FETCH_INFERIOR_REGISTERS)
 
 /* KERNEL_U_ADDR is the amount to subtract from u.u_ar0
@@ -232,7 +240,7 @@ fetch_register (regno)
 
   if (CANNOT_FETCH_REGISTER (regno))
     {
-      bzero (buf, REGISTER_RAW_SIZE (regno));	/* Supply zeroes */
+      memset (buf, '\0', REGISTER_RAW_SIZE (regno));	/* Supply zeroes */
       supply_register (regno, buf);
       return;
     }
@@ -240,12 +248,12 @@ fetch_register (regno)
   offset = U_REGS_OFFSET;
 
   regaddr = register_addr (regno, offset);
-  for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (int))
+  for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (PTRACE_XFER_TYPE))
     {
       errno = 0;
-      *(int *) &buf[i] = ptrace (PT_READ_U, inferior_pid,
-				 (PTRACE_ARG3_TYPE) regaddr, 0);
-      regaddr += sizeof (int);
+      *(PTRACE_XFER_TYPE *) &buf[i] = ptrace (PT_READ_U, inferior_pid,
+					      (PTRACE_ARG3_TYPE) regaddr, 0);
+      regaddr += sizeof (PTRACE_XFER_TYPE);
       if (errno != 0)
 	{
 	  sprintf (mess, "reading register %s (#%d)", reg_names[regno], regno);
@@ -284,7 +292,6 @@ store_inferior_registers (regno)
 {
   register unsigned int regaddr;
   char buf[80];
-  extern char registers[];
   register int i;
 
   unsigned int offset = U_REGS_OFFSET;
@@ -292,17 +299,17 @@ store_inferior_registers (regno)
   if (regno >= 0)
     {
       regaddr = register_addr (regno, offset);
-      for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof(int))
+      for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof(PTRACE_XFER_TYPE))
 	{
 	  errno = 0;
 	  ptrace (PT_WRITE_U, inferior_pid, (PTRACE_ARG3_TYPE) regaddr,
-		  *(int *) &registers[REGISTER_BYTE (regno) + i]);
+		  *(PTRACE_XFER_TYPE *) &registers[REGISTER_BYTE (regno) + i]);
 	  if (errno != 0)
 	    {
 	      sprintf (buf, "writing register number %d(%d)", regno, i);
 	      perror_with_name (buf);
 	    }
-	  regaddr += sizeof(int);
+	  regaddr += sizeof(PTRACE_XFER_TYPE);
 	}
     }
   else
@@ -312,17 +319,17 @@ store_inferior_registers (regno)
 	  if (CANNOT_STORE_REGISTER (regno))
 	    continue;
 	  regaddr = register_addr (regno, offset);
-	  for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof(int))
+	  for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof(PTRACE_XFER_TYPE))
 	    {
 	      errno = 0;
 	      ptrace (PT_WRITE_U, inferior_pid, (PTRACE_ARG3_TYPE) regaddr,
-		      *(int *) &registers[REGISTER_BYTE (regno) + i]);
+		      *(PTRACE_XFER_TYPE *) &registers[REGISTER_BYTE (regno) + i]);
 	      if (errno != 0)
 		{
 		  sprintf (buf, "writing register number %d(%d)", regno, i);
 		  perror_with_name (buf);
 		}
-	      regaddr += sizeof(int);
+	      regaddr += sizeof(PTRACE_XFER_TYPE);
 	    }
 	}
     }
@@ -354,18 +361,20 @@ child_xfer_memory (memaddr, myaddr, len, write, target)
 {
   register int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & - sizeof (int);
+  register CORE_ADDR addr = memaddr & - sizeof (PTRACE_XFER_TYPE);
   /* Round ending address up; get number of longwords that makes.  */
   register int count
-    = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);
+    = (((memaddr + len) - addr) + sizeof (PTRACE_XFER_TYPE) - 1)
+      / sizeof (PTRACE_XFER_TYPE);
   /* Allocate buffer of that many longwords.  */
-  register int *buffer = (int *) alloca (count * sizeof (int));
+  register PTRACE_XFER_TYPE *buffer
+    = (PTRACE_XFER_TYPE *) alloca (count * sizeof (PTRACE_XFER_TYPE));
 
   if (write)
     {
       /* Fill start and end extra bytes of buffer with existing memory data.  */
 
-      if (addr != memaddr || len < (int)sizeof (int)) {
+      if (addr != memaddr || len < (int) sizeof (PTRACE_XFER_TYPE)) {
 	/* Need part of initial word -- fetch it.  */
         buffer[0] = ptrace (PT_READ_I, inferior_pid, (PTRACE_ARG3_TYPE) addr,
 			    0);
@@ -375,17 +384,20 @@ child_xfer_memory (memaddr, myaddr, len, write, target)
 	{
 	  buffer[count - 1]
 	    = ptrace (PT_READ_I, inferior_pid,
-		      (PTRACE_ARG3_TYPE) (addr + (count - 1) * sizeof (int)),
+		      ((PTRACE_ARG3_TYPE)
+		       (addr + (count - 1) * sizeof (PTRACE_XFER_TYPE))),
 		      0);
 	}
 
       /* Copy data to be written over corresponding part of buffer */
 
-      memcpy ((char *) buffer + (memaddr & (sizeof (int) - 1)), myaddr, len);
+      memcpy ((char *) buffer + (memaddr & (sizeof (PTRACE_XFER_TYPE) - 1)),
+	      myaddr,
+	      len);
 
       /* Write the entire buffer.  */
 
-      for (i = 0; i < count; i++, addr += sizeof (int))
+      for (i = 0; i < count; i++, addr += sizeof (PTRACE_XFER_TYPE))
 	{
 	  errno = 0;
 	  ptrace (PT_WRITE_D, inferior_pid, (PTRACE_ARG3_TYPE) addr,
@@ -405,7 +417,7 @@ child_xfer_memory (memaddr, myaddr, len, write, target)
   else
     {
       /* Read all the longwords */
-      for (i = 0; i < count; i++, addr += sizeof (int))
+      for (i = 0; i < count; i++, addr += sizeof (PTRACE_XFER_TYPE))
 	{
 	  errno = 0;
 	  buffer[i] = ptrace (PT_READ_I, inferior_pid,
@@ -416,7 +428,9 @@ child_xfer_memory (memaddr, myaddr, len, write, target)
 	}
 
       /* Copy appropriate bytes out of the buffer.  */
-      memcpy (myaddr, (char *) buffer + (memaddr & (sizeof (int) - 1)), len);
+      memcpy (myaddr,
+	      (char *) buffer + (memaddr & (sizeof (PTRACE_XFER_TYPE) - 1)),
+	      len);
     }
   return len;
 }

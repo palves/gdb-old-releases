@@ -1,3 +1,16 @@
+Sat Oct  2 20:42:26 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* dis-asm.h: Move comment to right place.
+
+Mon Aug  9 19:03:35 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* obstack.h (obstack_chunkfun, obstack_freefun): Add defns from
+	previous version.  Are these Cygnus local changes?
+
+Fri Aug  6 17:05:47 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* getopt.h, obstack.h: Update to latest FSF version.
+
 Mon Aug  2 16:37:14 1993  Stu Grossman  (grossman at cygnus.com)
 
 	* coff/i386.h:  Add Lynx magic number.

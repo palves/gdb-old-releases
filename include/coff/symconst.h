@@ -1,6 +1,10 @@
 /* Declarations of constants for internal format of MIPS ECOFF symbols.
    Originally contributed by MIPS Computer Systems and Third Eye Software.
-   Changes contributed by Cygnus Support are in the public domain.  */
+   Changes contributed by Cygnus Support are in the public domain.
+
+   This file is just aggregated with the files that make up the GNU
+   release; it is not considered part of GAS, GDB, or other GNU
+   programs.  */
 
 /*
  * |-----------------------------------------------------------|
@@ -28,6 +32,8 @@
 
 /* magic number fo symheader */
 #define magicSym	0x7009
+/* The Alpha uses this value instead, for some reason.  */
+#define magicSym2	0x1992
 
 /* Language codes */
 #define langC		0	

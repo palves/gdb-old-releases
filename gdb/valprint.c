@@ -331,7 +331,7 @@ print_longest (stream, format, use_local, val_long)
   if ((format == 'd' && (val_long < INT_MIN || val_long > INT_MAX))
       || ((format == 'u' || format == 'x') && val_long > UINT_MAX))
     {
-      fprintf_filtered (stream, "0x%x%08x", vtop, vbot);
+      fprintf_filtered (stream, "0x%lx%08lx", vtop, vbot);
       return;
     }
 #endif
@@ -686,7 +686,6 @@ val_print_string (addr, len, stream)
     unsigned int len;
     FILE *stream;
 {
-  int first_addr_err = 0;	/* Nonzero if first address out of bounds. */
   int force_ellipsis = 0;	/* Force ellipsis to be printed if nonzero. */
   int errcode;			/* Errno returned from bad reads. */
   unsigned int fetchlimit;	/* Maximum number of bytes to fetch. */
@@ -696,7 +695,7 @@ val_print_string (addr, len, stream)
   char *buffer = NULL;		/* Dynamically growable fetch buffer. */
   char *bufptr;			/* Pointer to next available byte in buffer. */
   char *limit;			/* First location past end of fetch buffer. */
-  struct cleanup *old_chain;	/* Top of the old cleanup chain. */
+  struct cleanup *old_chain = NULL; /* Top of the old cleanup chain. */
   char peekchar;		/* Place into which we can read one char. */
 
   /* First we need to figure out the limit on the number of characters we are
@@ -799,11 +798,14 @@ val_print_string (addr, len, stream)
     {
       if (errcode == EIO)
 	{
-	  fprintf_filtered (stream, " <Address 0x%x out of bounds>", addr);
+	  fprintf_filtered (stream,
+			    " <Address 0x%lx out of bounds>",
+			    (unsigned long) addr);
 	}
       else
 	{
-	  error ("Error reading memory address 0x%x: %s.", addr,
+	  error ("Error reading memory address 0x%lx: %s.",
+		 (unsigned long) addr,
 		 safe_strerror (errcode));
 	}
     }
@@ -973,8 +975,9 @@ _initialize_valprint ()
 		  "Generic command for setting how things print.",
 		  &setprintlist, "set print ", 0, &setlist);
   add_alias_cmd ("p", "print", no_class, 1, &setlist); 
-  add_alias_cmd ("pr", "print", no_class, 1, &setlist); /* prefer set print
-														   to     set prompt */
+  /* prefer set print to set prompt */ 
+  add_alias_cmd ("pr", "print", no_class, 1, &setlist);
+
   add_prefix_cmd ("print", no_class, show_print,
 		  "Generic command for showing print settings.",
 		  &showprintlist, "show print ", 0, &showlist);

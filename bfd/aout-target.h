@@ -93,7 +93,11 @@ DEFUN(MY(object_p),(abfd),
     return 0;
   }
 
+#ifdef NO_SWAP_MAGIC
+  memcpy (&exec.a_info, exec_bytes.e_info, sizeof(exec.a_info));
+#else
   exec.a_info = bfd_h_get_32 (abfd, exec_bytes.e_info);
+#endif /* NO_SWAP_MAGIC */
 
   if (N_BADMAG (exec)) return 0;
 #ifdef MACHTYPE_OK
@@ -367,19 +371,19 @@ bfd_target MY(vec) =
   15,				/* ar_max_namelen */
   3,				/* minimum alignment */
 #ifdef TARGET_IS_BIG_ENDIAN_P
-  _do_getb64, _do_getb_signed_64, _do_putb64,
-     _do_getb32, _do_getb_signed_32, _do_putb32,
-     _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
-  _do_getb64, _do_getb_signed_64, _do_putb64,
-     _do_getb32, _do_getb_signed_32, _do_putb32,
-     _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
+  bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+     bfd_getb32, bfd_getb_signed_32, bfd_putb32,
+     bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* data */
+  bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+     bfd_getb32, bfd_getb_signed_32, bfd_putb32,
+     bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* hdrs */
 #else
-  _do_getl64, _do_getl_signed_64, _do_putl64,
-     _do_getl32, _do_getl_signed_32, _do_putl32,
-     _do_getl16, _do_getl_signed_16, _do_putl16, /* data */
-  _do_getl64, _do_getl_signed_64, _do_putl64,
-     _do_getl32, _do_getl_signed_32, _do_putl32,
-     _do_getl16, _do_getl_signed_16, _do_putl16, /* hdrs */
+  bfd_getl64, bfd_getl_signed_64, bfd_putl64,
+     bfd_getl32, bfd_getl_signed_32, bfd_putl32,
+     bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* data */
+  bfd_getl64, bfd_getl_signed_64, bfd_putl64,
+     bfd_getl32, bfd_getl_signed_32, bfd_putl32,
+     bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* hdrs */
 #endif
     {_bfd_dummy_target, MY_object_p, /* bfd_check_format */
        bfd_generic_archive_p, MY_core_file_p},

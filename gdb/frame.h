@@ -98,7 +98,7 @@ struct frame_info
     int signal_handler_caller;
 
     /* Anything extra for this structure that may have been defined
-       in the machine depedent files. */
+       in the machine dependent files. */
 #ifdef EXTRA_FRAME_INFO
     EXTRA_FRAME_INFO
 #endif
@@ -156,17 +156,6 @@ struct frame_saved_regs
 
 #endif	/* FRAME_CHAIN_VALID */
 
-/* If we encounter a request to use base register addressing of variables
-   on a machine for which gdb has not been configured to support such
-   access, report the failure to support this access mode. */
-
-#if !defined (FRAME_GET_BASEREG_VALUE)
-
-#define FRAME_GET_BASEREG_VALUE(frame, regno) \
-  (error ("Missing valid method for finding contents of base register."),0)
-
-#endif
-
 /* The stack frame that the user has specified for commands to act on.
    Note that one cannot assume this is the address of valid data.  */
 
@@ -223,31 +212,27 @@ get_frame_pc PARAMS ((FRAME));
 extern CORE_ADDR
 get_pc_function_start PARAMS ((CORE_ADDR));
 
-extern struct block *
-block_for_pc PARAMS ((CORE_ADDR));
+extern struct block * block_for_pc PARAMS ((CORE_ADDR));
 
-extern int
-frameless_look_for_prologue PARAMS ((FRAME));
+extern int frameless_look_for_prologue PARAMS ((FRAME));
 
-extern void
-print_frame_args PARAMS ((struct symbol *, struct frame_info *, int, FILE *));
+extern void print_frame_args PARAMS ((struct symbol *, struct frame_info *,
+				      int, FILE *));
 
-extern FRAME
-find_relative_frame PARAMS ((FRAME, int*));
+extern FRAME find_relative_frame PARAMS ((FRAME, int*));
 
-extern void
-print_stack_frame PARAMS ((FRAME, int, int));
+extern void print_stack_frame PARAMS ((FRAME, int, int));
 
-extern void
-select_frame PARAMS ((FRAME, int));
+extern void select_frame PARAMS ((FRAME, int));
 
-extern void
-record_selected_frame PARAMS ((FRAME_ADDR *, int *));
+extern void record_selected_frame PARAMS ((FRAME_ADDR *, int *));
 
-extern void
-print_frame_info PARAMS ((struct frame_info *, int, int, int));
+extern void print_frame_info PARAMS ((struct frame_info *, int, int, int));
 
-extern CORE_ADDR
-find_saved_register PARAMS ((FRAME, int));
+extern CORE_ADDR find_saved_register PARAMS ((FRAME, int));
+
+extern FRAME block_innermost_frame PARAMS ((struct block *));
+
+extern CORE_ADDR sigtramp_saved_pc PARAMS ((FRAME));
 
 #endif /* !defined (FRAME_H)  */

@@ -1,6 +1,1125 @@
+Mon Oct 25 18:59:45 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* som.c (hppa_object_setup):  Set SEC_CODE for .text section so
+	that GDB can figure out text_start and text_end.
+
+Fri Oct 22 07:51:51 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* configure.host, config.bfd: Add * to end of all OS names.
+
+Wed Oct 20 10:28:27 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* hosts/i386bsd.h [__bsdi__]: Define HOST_DATA_START_ADDR.
+
+Mon Oct 18 18:03:20 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* Makefile.in:  Add dependancy for elf.o to make Sun make happy
+	when using VPATH.
+
+Thu Oct 14 01:10:35 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* reloc.c (bfd_perform_relocation): Add comments attempting to
+	explain PC relative relocations.
+
+	* coffcode.h (styp_to_sec_flags): Don't set SEC_DEBUGGING until it
+	is made to work.
+	(coff_compute_section_file_positions): Remove check for
+	USE_DISCARDED_SECTIONS_COUNT.
+	* coff-i386.c: Don't define USE_DISCARDED_SECTIONS_COUNT.  Basing
+	it on host defines is wrong.
+
+	* ecoff.c (ecoff_bfd_seclet_link): Don't link a .reginfo section.
+	(ecoff_write_object_contents): Don't require the .reginfo section
+	to be a particular size.
+
+Wed Oct 13 18:39:03 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* Makefile.in (dep-in): New rule, for editing dependencies into
+	Makefile.in in $(srcdir).  Use move-if-change.
+	(.dep1, dep): Use move-if-change.
+	(CFILES): Add coff-apollo.c.
+
+	Sun Oct 10 18:02:56 1993  Troy Rollo (troy@cbme.unsw.EDU.AU)
+
+	* Makefile.in: Recognise new file, coff-apollo.o
+
+	* coff-apollo.c: New file
+
+	* coffcode.h: Recognise apollo magic numbers and writable text
+
+	* coffswap.h: Swap Apollo optional header entries
+
+	* config.bfd: Add line for Apollo
+
+	* configure.host: Replace apollo68b and apollo68v with Apollo
+
+	* configure.in: Recognise apollocoff_vec
+
+	* targets.c: Likewise
+
+	* config/apollo.mh, config/apollo.mt: New files
+
+	* hosts/apollo68.h: Remove inclusion of strings.h
+
+Wed Oct 13 14:28:17 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* coff-i386.c (i3coff_object_p): Now static.
+
+	* Makefile.in: Updated dependencies.
+	(.dep, .dep1, dep.sed): New targets, to make "make dep" work
+	better.
+	* dep-in.sed: New file.
+
+	* m68klynx-cf.c (ONLY_DECLARE_RELOCS): Define, to avoid name
+	conflicts when "--with-targets=all".
+	* coff-m68k.c (m68kcoff_howto_table, m68k_rtype2howto,
+	m68k_howto2rtype): Rename via macros to keep namespace clean.
+	* configure.in: For m68klynx_coff_vec, include coff-m68k.o for
+	now.
+
+Tue Oct 12 17:03:27 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* elf32-mips.c: Extensive additions to do relocations and to
+	handle MIPS specific sections.
+	* libelf.h (elf_backend_data): Pass fourth argument to
+	elf_backend_section_from_bfd_section to permit it to control the
+	section index to use.
+	(elf_obj_tdata): Add gp and gp_size fields.
+	(elf_gp, elf_gp_size): New accessor macros.
+	* elfcode.h: Removed a number of unused local variables.
+	(elf_fake_sections): Clear section header before calling
+	elf_backend_fake_sections, not after.
+	(prep_headers): Return true at end.
+	(elf_section_from_bfd_section): Pass retval argument to
+	elf_backend_section_from_bfd_section.
+	* elf32-hppa.c (elf32_hppa_backend_section_from_bfd_section):
+	Accept and ignore new retval argument.
+	* bfd.c: Include libelf.h.
+	(bfd_set_gp_size): Handle ELF targets.
+	* Makefile.in (bfd.o): Depends upon libelf.h.
+	(elf32-mips.o): Depends upon $(INCDIR)/elf/mips.h.
+
+Mon Oct 11 17:25:18 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ecoff.c (ecoff_mkobject): Check bfd_make_section return value.
+	(ecoff_mkobject_hook): New function.
+	(ecoff_new_section_hook, ecoff_sizeof_headers,
+	ecoff_compute_section_file_positions, ecoff_set_section_contents,
+	ecoff_write_object_contents): Handle dummy REGINFO section.
+	(ecoff_get_section_contents): New function to handle reading
+	REGINFO section.
+	* libecoff.h (ecoff_get_section_contents): Change from macro
+	definition to function prototype.
+	(ecoff_mkobject_hook): New prototype.
+	* coff-alpha.c (alpha_ecoff_mkobject_hook): Removed.
+	(alpha_ecoff_backend_data): Use ecoff_mkobject_hook.
+	* coff-mips.c (mips_ecoff_mkobject_hook): Removed.
+	(mips_ecoff_backend_data): Use ecoff_mkobject_hook.
+
+Fri Oct  8 15:25:33 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* libbfd.c (bfd_get*32, bfd_get*64):  Prevent ANSI sign extension
+	by casting the most significant byte to bfd_vma.
+
+Fri Oct  8 02:34:21 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* configure.in:  Do not define SELECT_VECS, SELECT_ARCHITECTURES
+	if configuring --with-targets=all.
+
+Thu Oct  7 17:34:07 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* aoutx.h (howto_table_std): Correct the "size" field in some
+	entries.
+
+	* reloc.c (reloc_howto_type): Change documentation to dispel any
+	notion that the "size" field is a power-of-two indicator.
+
+Thu Oct  7 10:50:38 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
+
+       * coffswap.h: (bfd_swap_reloc_in): a symndx is signed.
+
+	Make support for relaxing more generic.
+	* reloc16.c: Add new target entry - bfd_coff_reloc16_estimate,
+	fix bit rot.
+	* libcoff.h, libcoff-in.h: declarations. Prototypes
+	* coffcode.h (bfd_coff_std_swap_table): Add calls to
+	coff_reloc_16_extra_cases and coff_reloc16_estimate.
+	(dummy_reloc16_estimate): New function.
+	* coff-h8300.c (h8300_reloc16_estimate): New function
+
+Thu Oct  7 14:24:13 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* elfcode.h (EALIGN): Define, dependent on ARCH_SIZE.
+	(align_file_position): New function.
+	(elf_locate_sh): Disabled function deleted.
+	(assign_file_positions_for_symtab_and_strtabs): Align position,
+	then place symtab, then do other sections.
+	(map_program_segments): Align program header.
+	(assign_file_positions_except_relocs): Align section headers.
+	(assign_file_positions_for_relocs): Align relocation sections.
+
+Tue Oct  5 10:44:32 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* configure.host: Recognize hppa*-*-hiux* (currently synonym for hpux).
+	Change other hppa entries to use -*- not -hp-.
+	* config.bfd: Recognize hppa*-*-hiux* (currently synonym for hpux).
+
+	* coff-rs6000.c, cpu-rs6000.c, rs6000-core.c: Change non-ASCII
+	characters in comment to octal escapes.
+
+Sun Oct  3 12:35:15 1993  Stan Shebs  (shebs@rtl.cygnus.com)
+
+	* coff-i386lynx.c: Removed, name too long.
+	* i386lynx-cf.c: New file, was coff-i386lynx.c.
+	* configure.in: Reflect file name changes.
+	* Makefile.in: Mention Lynx-related files.
+
+	* i386lynx.c (lynx_32_swap_ext_reloc_in): get reloc bits in i386
+	Lynx-specific way.
+
+	* m68klynx-cf.c: New file, defines coff format for M68K LynxOS.
+	* m68klynx.c: Remove coff vector definition, now in m68klynx-cf.c.
+
+	* coffcode.h (sec_to_styp_flags): Set section flag to STYP_INFO
+	for .stab, .stabstr and .debug sections, and set SEC_DEBUGGING for
+	sections of type STYP_INFO.  (from Minh Tran-Le)
+	(coff_compute_section_file_positions): Add discarded_sections_count
+	to abfd->section_count, which helps `strip' keep the size
+	of the executable header constant.
+	* coff-i386.c (discarded_sections_count): New variable, initialized
+	to zero.  For use by `strip'.  Currently being used only in aix386
+	coff, but may be useful for other coff systems.  (from Minh Tran-Le)
+
+	* coffswap.h (coff_swap_filehdr_out): Added a missing cast.
+
+	* archive.c: Cosmetic improvements.
+	* opncls.c: Cosmetic improvements.
+	(new_bfd): Removed redundant structure slot init.
+
+Sat Oct  2 18:48:17 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* config/news-mips.mh, hosts/news-mips.h: New files.
+	* configure.host: Use news-mips for mips-sony-bsd*.
+
+Fri Oct  1 13:14:17 1993  Stan Shebs  (shebs@rtl.cygnus.com)
+
+	* configure.in: i386lynx_coff_vec requires coff-i386lynx.o.
+	* coff-i386lynx.c: New file, defines Lynx target vector and name,
+	includes coff-i386.c.
+	* coff-i386.c (i386coff_vec): Allow redefinition of target vector
+	symbol and name, if TARGET_SYM and/or TARGET_NAME are defined.
+	* i386lynx.c: Remove coff vector definition entirely.
+	(lynx_32_swap_ext_reloc_in): Define.
+	(lynx_32_swap_std_reloc_in): Define, get reloc bits in i386
+	Lynx-specific way.
+	(lynx_32_swap_ext_reloc_out): Define.
+	(lynx_32_swap_std_reloc_out): Define.
+	(lynx_32_slurp_reloc_table): Define, call Lynx swapping fns.
+	(lynx_32_squirt_out_relocs): Define, call Lynx swapping fns.
+	(lynx_32_canonicalize_reloc): Define, call Lynx swapping fns.
+	(WRITE_HEADERS): Define, call Lynx swapping fns.
+
+	* config/i386-lynx.mt (SELECT_VECS): Remove redundant vector.
+
+Thu Sep 30 17:50:52 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* reloc.c (bfd_reloc_code_type): Add linkage-table relative
+	relocations of size 8, 16, 32.  Sort generic relocs by type rather
+	than size.  Added a little documentation too.
+
+	* aoutx.h (howto_table_std): Add BASE16 and BASE32 relocs.
+	(TABLE_SIZE): New macro.
+	(reloc_type_lookup): Handle BFD_RELOC_{16,32}_BASEREL for std
+	relocs.
+	(swap_std_reloc_out): Write baserel relocs correctly.
+	(swap_std_reloc_in): Handle r_baserel field.  Assert that
+	r_jmptable and r_relative fields are clear, and that the computed
+	index does refer to a defined entry of the howto table.
+
+Tue Sep 28 14:47:46 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* section.c (bfd_make_section_anyway): New function.
+	* section.c: Change comments to say several sections can have
+	the same name.
+	* bfd-in2.h: Re-generate to reflect above change.
+	* coffgen.c (make_a_section_from_file): Call bfd_make_section_anyway
+	if still no section after the bfd_coff_make_section_hook.
+	* coffcode.h: Add comment about TWO_DATA_SECS.
+
+Tue Sep 28 03:22:24 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* ecoff.c (ecoff_slurp_symbolic_info):  Always determine raw_size
+	explicitly.
+	* ecoff.c (ecoff_sec_to_styp_flags, ecoff_styp_to_sec_flags):  Handle
+	.fini section.
+
+Mon Sep 27 18:29:18 1993  Stan Shebs  (shebs@rtl.cygnus.com)
+
+	* config.bfd configure.host: Match on *-lynxos* for LynxOS,
+	add m68*-*-lynxos*.
+	* configure.in : Replaced i386lynx_vec with i386lynx_aout_vec
+	and i386lynx_coff_vec.
+	Added m68klynx_aout_vec and m68klynx_coff_vec.
+	* targets.c (target_vector): Removed i386lynx_vec, added
+	{i386,m68k}lynx_{aout,coff}_vec.
+	* i386lynx.c: Added copy of i386coff.c, renamed bfd target to
+	i386lynx_coff_vec.
+	* m68klynx.c: New file.
+	* config/i386-lynx.mt: Replaced i386lynx_vec with i386lynx_aout_vec
+	and i386lynx_coff_vec.
+	* config/m68k-lynx.mt: New file.
+	* hosts/i386lynx.h: Added definition of cfree as free (from Eichin).
+	* hosts/m68klynx.h: New file.
+
+Mon Sep 27 18:00:41 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* archive.c: Define offsetof here.
+	* hosts/*.h: Don't define it here.
+
+Mon Sep 27 19:09:27 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* elfcode.h (bfd_section_from_shdr): Set filepos for SHT_STRTAB
+	section.
+
+Fri Sep 24 15:47:40 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* hpux-core.c: Add comment about hpux version 7.
+
+Fri Sep 24 16:50:26 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* lynx-core.c (lynx_core_file_p):  Change per-thread register
+	section names from .regXXX to .reg/XXX to avoid parsing ambiguity
+	in gdb/corelow.c.  Create alias .reg section for the currently
+	running thread.
+
+Fri Sep 24 13:22:32 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* libecoff.h (ecoff_backend_data): Removed big_magic and
+	little_magic fields.
+	* coff-alpha.c (alpha_ecoff_backend_data): Removed initialization
+	of big_magic and little_magic.
+	* coff-mips.c (mips_ecoff_bad_format_hook): Make sure magic number
+	matches endianess of bfd.
+	(mips_ecoff_backend_data): Removed initialization of big_magic and
+	little_magic.
+	* ecoff.c (ecoff_set_arch_mach_hook): Set MIPS machine number
+	based on magic number.  Support r4000 magic numbers.
+	(ecoff_get_magic): New function.
+	(ecoff_write_object_contents): Use ecoff_get_magic, not fields in
+	the backend structure.
+	* cpu-mips.c (arch_info_struct): Added case for r6000.
+
+	For MIPS configurations put both big and little endian versions in
+	the list of targets; the code is getting compiled in anyhow.
+	* bigmips.mt (SELECT_VECS): Define to be ecoff_little_vec.
+	* decstation.mt (SELECT_VECS): Define to be ecoff_big_vec.
+	* mipsbelf.mt (SELECT_VECS): Define to be bfd_elf32_littlemips_vec.
+	* mipslelf.mt (SELECT_VECS): Define to be bfd_elf32_bitmips_vec.
+	* riscos.mt (SELECT_VECS): Define to be ecoff_little_vec.
+
+Fri Sep 24 00:42:23 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* osf-core.c:  New file for OSF/1 core file support.
+	* config/alphaosf.mh (HDEFINES):  Add -DOSF_CORE.
+	(HDEPFILES):  Set to osf-core.o.
+	* bfd-in2.h (union tdata):  Add osf_core_data member.
+	* targets.c:  If OSF_CORE is defined, add osf_core_vec to target list.
+	* Makefile.in (OPTIONAL_BACKENDS):  Add osf-core.o.
+	(osf-core.o):  New dependency.
+
+Thu Sep 23 21:04:53 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* TODO: Remove note about making --with-bfd-targets use canonical
+	target configuration name (already done); reword item about
+	separating reading and writing stuff to not refer to a
+	non-existent item.
+
+	* ecoff.h (ecoff_set_arch_mach_hook): Accept MIPS_MAGIC_LITTLE2
+	and MIPS_MAGIC_BIG2.
+
+Thu Sep 23 11:06:34 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* gen-aout.c (main): Output newline after end of comment, not
+	before.  (Reported by Jonathan Stone,
+	jonathan@oscar.stanford.edu).
+
+Thu Sep 23 10:48:27 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* archive.c (compute_and_write_armap): Put weak symbols in the
+	armap.
+
+	* elfcode.h (fix_up_strtabs): Set sh_entsize for the .stab
+	section, not the .stabstr section.  Set the type of the .stabstr
+	section to SHT_STRTAB.
+	(elf_section_from_bfd_section): Handle SHT_STRTAB sections.
+
+	* section.c (SEC_DEBUGGING): New section flag.
+	* elfcode.h (bfd_section_from_shdr): If section is SHT_PROGBITS,
+	and the name starts with .debug, .line or .stab, set
+	SEC_DEBUGGING.  If SHT_STRTAB, check for .debug and .stab.
+	* elf32-target.h (TARGET_BIG_SYM, TARGET_LITTLE_SYM): Added
+	SEC_DEBUGGING to section_flags.
+	* elf64-target.h (TARGET_BIG_SYM, TARGET_LITTLE_SYM): Added
+	SEC_DEBUGGING and SEC_CODE to section_flags.
+	* bfd-in2.h: Updated.
+
+Wed Sep 22 16:34:14 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* bfd.c (tdata): Add lynx_core_data.
+
+	* ecoff.c (ecoff_compute_section_file_positions): Set filepos for
+	sections with SEC_LOAD set, even if SEC_HAS_CONTENTS is clear.
+	(ecoff_write_object_contents): Don't set scnptr to zero just
+	because size of section is zero.  Needed for Irix 4.0.5F.
+
+Wed Sep 22 09:49:32 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* config.bfd: Use i960-bout, not i960-coff for i960-*-nindy*.
+
+Wed Sep 22 07:34:09 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* Makefile.in (OPTIONAL_BACKENDS):  Add lynx-core.o.
+	* bfd-in2.h (tdata):  Add lynx_core_data;
+	* config.bfd configure.host:  Get rid of superfluous netbsd and
+	lynxos entries.
+	* configure.in:  Add lynx-core.o to Lynx config.
+	* i386lynx.c:  Add defs for core file support.
+	* lynx-core.c:  New file with Lynx core file support.
+	* hosts/i386lynx.h:  Move lots of host specific includes to here.
+	Add def of HOST_LYNX.  Remove unnecessary defs.
+
+Mon Sep 20 19:18:10 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* elfcode.h (bfd_section_from_shdr): Only set SEC_DATA for a
+	SHF_PROGBITS or SHT_STRTAB section if SEC_ALLOC is set.  Never set
+	SEC_DATA for a SHF_NOBITS section.
+
+	* nlm32-i386.c (nlm_i386_mangle_relocs): Check SEC_LOAD rather
+	than SEC_CODE | SEC_DATA.  Add some casts to avoid warnings.
+	* nlmcode.h: Add some casts to avoid warnings.
+	(nlm_write_object_contents): Ignore relocs for sections that are
+	neither code nor data.  Just use the symbol value for debugging
+	symbols; don't offset by the section vma.
+
+Fri Sep 17 18:08:55 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* reloc.c (bfd_perform_relocation): Don't return an error when
+	performing a reloc against an undefined weak symbol.
+	* syms.c (bfd_print_symbol_vandf): Show value of BSF_WEAK rather
+	than obsolete BSF_EXPORT.
+
+Fri Sep 17 02:04:31 1993  John Gilmore  (gnu@cygnus.com)
+
+	* hosts/{alphaosf.h, amix.h, apollo68.h, apollov68.h,
+	decstation.h, delta88.h, dgux.h, dose.h, go32.h, harris.h,
+	hp300.h, hp300bsd.h, hppabsd.h, hppahpux.h, i386aix.h, i386bsd.h,
+	i386linux.h, i386lynx.h, i386v.h, i386v4.h, irix3.h, irix4.h,
+	mipsbsd.h, ncr3000.h, rs6000.h, rtbsd.h, solaris2.h, sparc-ll.h,
+	std-host.h, stratus.h, sun3.h, sysv4.h, tahoe.h, ultra3.h,
+	vaxult.h, vaxult2.h, we32k.h}:  Make sure that "offsetof" is
+	defined on all hosts, now that archive.c uses it.
+
+Thu Sep 16 18:20:30 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* elfcode.h (elf_map_symbols): Create section symbols for all
+	sections, not just allocated sections; debugging sections can have
+	relocs.
+	(elf_symbol_from_bfd_symbol): If there is an output section, use
+	the section index from that rather than the input section.
+
+Thu Sep 16 12:20:50 1993  Ken Raeburn  (raeburn@cygnus.com)
+
+	* libbfd-in.h (bfd_flush, bfd_stat): Reflect John's changes to
+	libbfd.h, which is regenerated from this file.
+
+	* bfd-in.h (symtype): Deleted typedef.
+
+Wed Sep 15 11:48:37 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* libbfd.c (COERCExx): Cast x to bfd_signed_vma before doing the
+	xor and subtract.  Otherwise it will not sign extend if the type
+	of bfd_vma is larger than int.
+
+	* ecoffswap.h (ecoff_swap_pdr_in): Get regoffset, iopt, fregoffset
+	and frameoffset as signed numbers.  From Peter Schauer.
+
+Tue Sep 14 18:20:36 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* elf32-i386.c (elf_howto_table): Add bfd_elf_generic_reloc
+	special function for all reloc entries.
+	* elf32-target.h (TARGET_LITTLE_SYM): Add SEC_CODE to
+	section_flags.
+	* libelf.h (elf_symbol_type): Remove desc, type and other fields.
+	* Makefile.in (elf32-*.o): These depend upon elf32-target.h.
+
+Tue Sep 14 14:34:45 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
+
+	* libbfd-in.h (struct artdata):  Add armap_timestamp and
+	armap_datepos here too.
+
+Mon Sep 13 21:03:18 1993  John Gilmore  (gnu@cacophony.cygnus.com)
+
+	Improve timestamp support in BSD archive files to avoid linker
+	warnings.
+
+	* libbfd.h (struct artdata):  Add armap_timestamp and armap_datepos.
+	(bfd_flush, bfd_stat):  Add prototypes.
+	* libbfd.c (bfd_flush):  Add, does fflush on a BFD.
+	(bfd_stat):  Add, does fstat on a BFD.
+
+	* archive.c (_bfd_write_archive_contents): At end of file writing,
+	verify and possibly update the timestamp in the armap, if a BSD
+	archive.  FIXME!  Kludge recognizes BSD archive, rather than
+	vectoring properly.  Should add to xvec.
+	(compute_and_write_armap):  Move prototype to top, avoid PROTO.
+	(bsd_write_armap): Save timestamp and file location thereof, when
+	writing the armap in a BSD file.
+	(bsd_update_armap_timestamp):  New function to check and
+	rewrite the timestamp.
+
+	* hosts/std-host.h (offsetof):  Define, if not already, for archive.c.
+	
+Sat Sep 11 18:13:42 1993  Jim Kingdon  (kingdon@poseidon.cygnus.com)
+
+	* hosts/i386sco.h: Define a bunch of stuff for core files.
+	* sco-core.c: Remove, replace by trad-core.c.
+	* trad-core.c: If HOST_STACK_START_ADDR is defined, use it.
+	* config/i386sco.mh: Use trad-core not sco-core.
+	* hosts/i386isc.h, config/i386isc.mh: Remove.
+	* configure.host: Use i386sco for isc.
+	* config/i386-sco.mt: Remove, identical to i386-coff.mt.
+	* config.bfd: Use i386-coff not i386-sco.
+
+	* config.bfd: Recognize i[34]86-*-solaris2* specifically rather
+	than using *-*-solaris2* (i486-unknown-solaris2 is i386-elf, not
+	i486-elf which doesn't exist).
+
+Fri Sep 10 12:56:36 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* coffswap.h (coff_swap_aouthdr_out): For ALPHAECOFF, force
+	padding field to zero.
+
+	* config.bfd (i[34]86-*-netbsd*): New target; use i386-netbsd.
+	* configure.in: Remove bogus netbsd386 handling.
+
+	* coff-mips.c: Don't warn about overflow for MIPS_R_JMPADDR reloc.
+	Correct overflow detection requires matching the upper four bits
+	of the destination against the PC.
+
+Thu Sep  9 16:57:46 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* configure.in: Make 64-bit stuff work with "--with-targets=all".
+
+Tue Sep  7 14:17:02 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* libbfd-in.h: Removed swapping routines declarations.
+	* bfd-in.h: Added swapping routine declarations, and renamed them
+	from _do_* to bfd_*.
+	* libbfd.c: Renamed swapping routines from _do_* to _bfd_*.
+	* Changed all callers.
+	* libbfd.h, bfd-in2.h: Rebuilt.
+
+Mon Sep  6 15:28:07 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* elf32-i386.c (elf_howto_table): Set pcrel_offset to true for
+	R_386_PC32.
+
+Fri Sep  3 13:06:12 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* configure.in: Reorganized setting of makefile variables so
+	64-bit stuff works again.
+
+	* libbfd-in.h (_do_get*, _do_put*): Renamed via macros to clean up
+	namespace.
+
+	* libelf.h (elf32_symbol_type, elf64_symbol_type): Deleted
+	"native_elf_sym" field, merged to make new type "elf_symbol_type".
+	(struct elf_obj_tdata): Field symbols is now elf_symbol_type*.
+	Deleted field raw_syms.
+	(obj_symbols): Remove cast.
+	(obj_raw_syms): Deleted.
+	* elfcode.h (elf_slurp_symbol_table): Don't set raw_syms or
+	native_elf_sym fields.
+	* elf32-hppa.c: Changed uses of elf32_symbol_type to
+	elf_symbol_type.
+
+	From Pete Hoogenboom and Jeff Law:
+
+	* elf32-hppa.c (ELF_MAXPAGESIZE): Define.
+
+	* elf32-hppa.c (elf_hppa_tc_symbol): If the argument relocation
+	bits are zero (e.g., they specify no relocations), then do not
+	even bother adding their entries to the symextn section.
+
+	* elf32-hppa.c (elf_hppa_tc_symbol): Any function, regardless
+	of scope can have an argument relocation stub.
+
+	* elf32-hppa.c: (Elf32_hppa_Stub_description):  Rename this
+	structure and type to elf32_hppa_stub_description.  This makes
+	it consistent with the GNU coding conventions.
+	(elf32_hppa_stub_description): Added a 'next' field to allow
+	linking of stub description structures.
+	(elf32_hppa_stub_description): Added a 'stub_listP' field to
+	keep track of individual stubs.
+	(Elf32_hppa_Stub_list, Elf32_hppa_Stub_list_struct):  Removed.
+	Combined with the elf32_hppa_stub_description structure.
+	(elf32_hppa_stub_name_list):  New type to keep track of
+	individual stubs.
+	(add_stub):  Removed.
+	(add_stub_by_name): New function.
+	(find_stub_by_name): New function.
+	(hppa_elf_build_arg_reloc_stub): Allow reusing stubs that
+	already exist.
+	(hppa_elf_build_long_branch_stub): Allow reusing stubs that
+	already exist.
+
+	* elf32-hppa.c: (retval_mismatches):  The direction of argument
+	relocation was reversed.
+	(hppa_elf_build_arg_reloc_stub): Return address was not being
+	restored.
+	(hppa_elf_arg_reloc_needed_p): Add argument containing caller
+	argument relocation bits so this function can be used in the check
+	for plabel stubs.
+	(hppa_elf_stub_check): Pass caller argument relocation bits into
+	hppa_elf_arg_reloc_needed_p().
+	(hppa_look_for_stubs_in_section): Add check for plabel stubs and
+	pass caller argument relocation bits into
+	hppa_elf_arg_reloc_needed_p().
+
+Thu Sep  2 00:59:55 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* libhppa.h (hppa_field_adjust): Remove unused `init_value' variable.
+
+	* hosts/delta88v4.h: New for SVR4.
+	* configure.hosts: Use it.
+
+Wed Sep  1 14:23:32 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* libaout.h, netbsd386.c: Change M_I386 to M_386_NETBSD.  M_I386
+	is an SCO pre-define.
+
+Tue Aug 31 12:50:19 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* nlmcode.h (nlm_object_p): Set HAS_SYMS if there are external
+	references.
+	(nlm_swap_auxiliary_headers_{in,out}): The copyright length is
+	only one byte.
+	(nlm_get_symtab_upper_bound): Include debugging symbols in symbol
+	count.
+	(nlm_slurp_symbol_table): Make symlength unsigned.  Read debugging
+	symbols as BFD local symbols.
+	(nlm_write_object_contents): Don't bother writing out exported
+	symbols more than once; they now appear in the symbol table more
+	than once (with and without a prefix) if necessary.  Set offset
+	values to be non-zero as NLMLINK does.
+
+Tue Aug 31 12:07:43 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* libhppa.h: Restore #undefs of e_fsel and other e_* symbols.
+
+Fri Aug 27 16:43:35 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* section.c (struct sec): Move position of user_set_vma, and
+	document it.
+	(SEC_BALIGN): Disable for now.  I don't think it's currently used.
+
+	* elf32-hppa.c (elf_hppa_howto_table): Now static.
+	(symext_rootP, symext_lastP, global_value, GOT_value,
+	global_symbol, global_sym_defined, symextn_contents,
+	symextn_contents_real_size, elf_hppa_stub_rootP,
+	elf32_hppa_symextn_map, elf32_hppa_symextn_map_size): Rely on
+	default initialization.
+	(hppa_elf_gen_reloc_type): Macro "UNDEFINED" doesn't need a
+	trailing semicolon.
+	(hppa_look_for_stubs_in_section): Introduce temporaries to make
+	code more readable in 80 columns.
+
+	* libhppa.h (all functions): Now inline under GNU C.
+
+	More patches from Jeff Law:
+
+	* elf32-hppa.c (AR_WARN): Give argument which caused the
+	invalid argument relocation.
+	(AR_UNIMP): Delete unused macro.
+	(hppa_elf_set_section_contents): Always return a value.
+	(elf32_hppa_backend_table_processing): Likewise.
+	(elf32_hppa_backend_section_processing: Likewise.
+
+	* som.c: New file containing SOM specific code extracted
+	from hppa.c
+
+	* som.h: New file containing SOM specific code extracted
+	from libhppa.h
+
+	* hppa.c: Deleted.
+
+	* libhppa.h: Delete SOM specific code.  Add generic PA
+	code which can be shared by both SOM and ELF backends.
+
+	* Makefile.in: Replace hppa.c with som.c.  elf32-hppa.o
+	depends on libhppa.h now.
+
+	* configure.in (hppa_vec): Needs som.o module instead of 
+	hppa.o.
+
+	* elf32-hppa.c: Include libhppa.h.  Do not define
+	BYTES_IN_WORD.
+
+	* elf32-hppa.h (hppa_reloc_field_selector_type): Delete
+	now lives in libhppa.h.
+	(hppa_reloc_field_selector_type_alt): Likewise.
+
+	* hosts/hppabsd.h: Include <stdlib.h> and <unistd.h>.  Do not
+	define malloc or free.
+
+	* config/hppa-elf.mt (SELECT_ARCHITECTURES): Don't define
+	SELECT_VECS.
+
+	* elf32-hppa.c (hppa_elf_relocate_unwind_table): Delete unused 
+	variables.
+	(elf_hppa_reloc_type_lookup): Likewise.
+	(elf_hppa_tc_make_sections): Likewise.
+	(hppa_elf_arg_reloc_needed_p): Likewise.
+	(hppa_elf_build_long_branch_stub): Likewise.
+	(elf_reloc_map): Delete, no longer used.
+	(elf_hppa_reloc_map): Likewise.
+	(elf32_hppa_symextn_map_max_size): Likewise.
+	(elf32_hppa_get_sym_extn): Abort if type is bogus.
+
+	* elf32-hppa.c (elf32_hppa_backend_fake_sections): Add processing
+	of the .hppa_unwind section.
+
+Wed Aug 25 16:13:49 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* config.bfd: recognize m88110.
+
+Tue Aug 24 16:32:35 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	Merged changes from Jeff Law and Pete Hoogenboom at Utah:
+
+	* elfcode.h (elf_section_from_bfd_section): Add detection of
+	SHT_NOTE sections.
+
+	* elf32-hppa.c:
+	(hppa_elf_build_long_branch_stub,hppa_elf_long_branch_needed_p):
+	New functions for support of long branch stubs.
+	(hppa_elf_stub_check,hppa_look_for_stubs_in_section):  Add
+	check for long branch stubs.
+	(hppa_look_for_stubs):  Unused function.  Removed.
+	(hppa_elf_set_section_contents): Implement a PA/ELF-specific
+	version of bfd_set_section_contents.
+	(hppa_elf_long_branch_needed_p): Only output debugging diagnostics
+	when BFD is configured for debugging.
+
+	* elf32-hppa.c: (elf32_hppa_get_symextn_chain):  New function
+	to return a list of symbols that have non-zero argument
+	relocation bits.
+	(hppa_elf_stub_finish): Make sure stub generation is done only
+	once.
+
+	* elf32-hppa.c: (hppa_elf_stub_reloc):  New function for
+	generation relocation entries within a stub.
+	(hppa_elf_build_arg_reloc_stub): Corrections to argument
+	relocation stubs.
+
+	* elf32-hppa.c: New #define's for argument relocation types.
+	(mismatches, retval_mismatches): Updated to reflect new
+	argument relocation types.
+	(CURRENT_STUB_OFFSET): New macro.
+
+	* elfcode.h (map_program_segments): Set the PF_X bit for data
+	segments.
+
+	* elf32-hppa.c: (elf_hppa_howto_table): Add
+	R_HPPA_STUB_CALL_17 for support of linker stub generation.
+	(hppa_elf_reloc): Add support of R_HPPA_STUB_CALL_17
+	relocation type.
+
+	* elf32-hppa.h: (elf32_hppa_reloc_type): Add
+	R_HPPA_STUB_CALL_17 for support of linker stub generation.
+
+	* hppa_stubs.h: Add new instructions that are used in linker
+	stub generation.
+
+	* elf32-hppa.c (hppa_elf_relocate_unwind_table): The offsets in an
+	unwind descriptor were incorrect.
+
+	* libelf.h (bfd_elf_find_section): Declare.
+
+	* elf32-hppa.c: (elf32_hppa_backend_symbol_processing):  New
+	function in place of global_sym field in elf_backend_data
+	structure.
+	(elf32_hppa_backend_symbol_table_processing,
+	elf32_hppa_backend_section_processing,
+	elf32_hppa_backend_fake_sections,
+	elf32_hppa_backend_section_from_shdr,
+	elf32_hppa_backend_section_from_bfd_section):  New functions to
+	provide support of symbol extension sections and argument
+	relocation stubs.
+	(elf_info_to_howto):  Remove call to abort().
+
+	* elf32-target.h:  Support for special processing by the backend.
+	(struct elf_backend_data):  Added elf_backend_symbol_processing,
+	elf_backend_symbol_table_processing,
+	elf_backend_section_processing, elf_backend_section_from_shdr,
+	elf_backend_fake_sections, and
+	elf_backend_section_from_bfd_section fields.
+	* elfcode.h: (bfd_section_from_shdr): Add a check for
+	processor-specific section types.
+	(elf_fake_sections):  Add a check for processor-specific
+	section types.
+	(bfd_elf32_write_object_contents):  Add a check to see if
+	there is any final section processing to be done by the
+	backend.
+	(elf_section_from_bfd_section):  Add a check for
+	processor-specific section types.
+	(elf_slurp_symbol_table):  Remove reference to global_sym in the
+	elf_backend_data structure.  Replace it with a call to
+	elf_backend_symbol_processing.
+	* libelf.h: Remove global_sym field in the elf_backend_data
+	structure.  Replace it with a series of backend-specific
+	functions.
+
+	* elf32-hppa.c (hppa_elf_stub_branch_reloc): The formal argument
+	stub_sym should be called target_sym.
+	(hppa_elf_build_arg_reloc_stub): Refer to the stub bfd (abfd)
+	rather than the output bfd (output_bfd).
+	(hppa_elf_reloc): Get rid of references to the global_sym field in
+	the elf_backend_data structure.
+
+	* elfcode.h (elf_fake_sections): Check the correct condition for
+	.bss.  Also, detect the existence of a .note section.
+
+	* elf32-hppa.c (hppa_elf_relocate_insn): r_format argument should
+	have been r_field.
+
+	* hosts/hppabsd.h (HOST_MACHINE_ARCH): Reference to bfd_arch_m68k
+	should be a reference to bfd_arch_hppa.
+
+	* hppa.c (hppa_vec): Replace bfd_false with _bfd_dummy_target in
+	the bfd_check_format structure to avoid a type mismatch.
+
+Mon Aug 23 1993  Sean Fagan  (sef@cygnus.com)
+		 and Jim Kingdon  (kingdon@cygnus.com)
+
+	Add NetBSD support:
+	* netbsd386.c: New file.
+	* aoutx.h: Make sym_is_debugger_info true for N_FN.
+	* Makefile.in, aout-target.h, config.bfd, configure.host, configure.in,
+	libaout.h, targets.c: Other changes.
+
+Fri Aug 20 17:04:59 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* config/m88k-elf.mt: New file.
+	* config.bfd: Use it for m88*-*-sysv4*.
+
+Fri Aug 20 15:16:58 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* elfcode.h (elf_build_phdrs): Unused function deleted.
+	(bfd_shdr_from_section): Ditto.
+	(write_relocs): Don't change section contents for addend.
+	(elf_locate_sh): Return type is now always elf_internal_shdr,
+	since the other types were really aliases for this type anyways.
+	Don't compile this function, since it is static and doesn't appear
+	to be used in this file.
+	(sym_is_global): Return non-zero for weak symbols.  Abort if
+	section pointer is null.
+	(swap_out_syms): Reorder tests so function symbols can be weak.
+	(elf_slurp_symbol_table): Don't use BSF_EXPORT.
+	(elf_slurp_reloca_table): Make RELOC_PROCESSING section smaller by
+	extracting out some common code.  Abort if BFD section symbol has
+	null name.
+	(elf_slurp_reloc_table): Translate ELF section symbols into BFD
+	section symbols.  Don't read section contents to fill in addend
+	field.
+
+	* elf32-i386.c (elf_howto_table): All partial_inplace fields
+	should be "true".
+
+	* Merged from OSF:
+
+	Tue Jun 15 14:38:32 1993  Michael Meissner  (meissner@osf.org)
+
+	* libelf.h (struct Elf_Sym_Extra): New structure to contain ELF
+	specific information for a symbol.  Put in elf_sym_num, which
+	gives the external symbol number in the elf object file, since
+	local symbols must come before global symbols.
+	(elf_sym_extra): New macro.
+	(elf_symtab_map): Delete, in favor of using Elf_Sym_Extra.
+	* elfcode.h (elf_map_symbols): Use Elf_Sym_Extra to map internal
+	symbol number to external number.  Store the address of the
+	Elf_Sym_Extra field for the symbol in the udata field.
+	(elf_write_object_contents): Use Elf_Sym_Extra to map out symbols.
+
+	Sun Jun 20 16:30:11 1993  Michael Meissner  (meissner@osf.org)
+
+	* elfcode.h (elf_obj_tdata): Add field to count the size of the
+	array of pointers to section symbols.
+	(elf_map_symbols): Bump the max index of the section symbols so
+	that we don't overwrite memory.  Store the max index into the
+	elf_obj_tdata field.
+
+	Sat Jun 19 10:12:27 1993  Michael Meissner  (meissner@osf.org)
+
+	* elfcode.h (elf_obj_tdata): Add pointer to an array of pointers
+	to the section symbols we created.  Remove unused field
+	internal_syms.
+	(elf_map_symbols): Fill in array of pointers to section symbols.
+	Only create section symbols for sections that have SEC_ALLOC set,
+	and have non-zero size.
+	(elf_symbol_from_bfd_symbol): If udata is NULL, and this is a
+	section symbol, look up the section in the list of section
+	symbols, and set the udata pointer appropriately.  Otherwise, if
+	udata is still NULL, fail an assertion, and use 0, instead of
+	dropping core.
+
+Fri Aug 20 12:18:05 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* config.bfd (mips-*-elfl*, mips-*-elf*): New targets, using
+	mipslelf and mipsbelf respectively.
+	* config/mipslelf.mt, config/mipsbelf.mt: New files.
+	* elf32-mips.c: Added some reloc information.
+	* configure.in: Fixed error message.
+
+	* ecoff.c (ECOFF_LONG_SIZE): Removed.  Just use constants.
+
+Thu Aug 19 09:45:51 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* Makefile.in (BFD_LIBS, ALL_MACHINES, BFD32_BACKENDS, BFD64_BACKENDS,
+	OPTIONAL_BACKENDS): Alphabetize entries and add a few missing ones.
+	* archures.c: Alphabetize decls.
+
+	* configure.in, targets.c: Add missing vectors to the tables.
+	* targets.c (target_vector) [!SELECT_VECS]: Add DEFAULT_VECTOR.
+	Remove hp300bsd_vec due to clash with sunos_big_vec.
+
+Tue Aug 17 18:12:32 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* hosts/i386{mach3,osf1mk}.h: New files, for Mach hosting.
+	* hosts/i386mach.h: removed, replaced by i386osf1mk.h.
+	* config/i386mach3.mt, i386mach3.c: New files, for Mach a.out format.
+	* Makefile.in, configure.host, config.bfd: Corresponding changes.
+	* hosts/decstation.h: Include <sys/param.h> not <machine/param.h>.
+
+Tue Aug 17 15:19:41 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* coffgen.c (coff_section_symbol): If section's output_section is
+	not yet set, point to itself.  This is needed because this is
+	called on the output file, not the input file.
+
+	* coff-rs6000.c (dummy_reloc, RTYPE2HOWTO): Set howto field to a
+	dummy value, rather than leaving it NULL.
+
+	* archures.c (bfd_default_set_arch_mach): Set bfd_error on
+	failure.
+	* aoutx.h (NAME(aout,set_arch_mach)): Check return value of
+	bfd_default_set_arch_mach.
+
+Tue Aug 17 09:42:16 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* config.bfd (cpu): Extract from canonical name with sed.
+	* configure.in: Don't pass it.
+
+Sun Aug 15 20:45:45 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* bfd-in.h: Remove {BYTE,WORD,LONG}_SIZE; they are pointless and
+	BYTE_SIZE conflicts with a Mach header.
+	* ecoff.c: Change LONG_SIZE to ECOFF_LONG_SIZE and define it.
+
+	* configure.host: Make sure all OS fields end in *.
+
+Fri Aug 13 16:33:33 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ecoff.c (ecoff_slurp_reloc_table): Use bfd_abs_section for
+	RELOC_SECTION_NONE and RELOC_SECTION_ABS.  If a reloc section
+	doesn't exist, don't try to create it.
+
+	* nlmcode.h (nlm_write_object_contents): procedure offsets are
+	from start of code segment, not start of file.
+	* config/i386-nlm.mt (DEFAULT_VECTOR): It's nlm32_i386_vec, not
+	bfd_nlm32_i386_vec.
+	* configure.in (SELECT_VECS switch): Likewise.
+
+Thu Aug 12 10:32:47 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* format.c (bfd_check_format): If the target matches the default
+	target, set match_count to 1, to ignore any previous matches.
+
+	* Makefile.in (BFD32_BACKENDS): Remove srec.o, add reloc16.o.
+
+	* configure.in: Add reloc16.o when we add
+	coff-h8300.o, coff-h8500.o, coff-sh.o, coff-z8k.o.
+	Makefile.in (BFD_LIBS): Remove reloc16.o.
+
+	* config/u68k-coff.mt: Fix typo, DEFAULT_TARGET for
+	DEFAULT_VECTOR. 
+
+	* config/h8300-coff.mt, h8500-coff.mt, sh-coff.mt, st2000.mt,
+	z8k-coff.mt (DEFAULT_VECTOR): Define.  Don't explicitly add
+	S-records via SELECT_VECS.
+
+	* targets.c (target_vector), Makefile.in (BFD_LIBS): Always
+	support S-records, for convenience.
+
+Thu Aug 12 08:30:05 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* coff-alpha.c (alpha_howto_table, alpha_finish_reloc,
+	alpha_ecoff_swap_reloc_{in,out}, alpha_bfd_reloc_type_lookup):
+	Read and write Alpha relocs.  Can't process them yet.
+	* ecoff.c (ecoff_slurp_reloc_table): Recognize new reloc sections.
+	If the section does not already exist, create it.
+
+	* ecoffswap.h (ecoff_swap_pdr_{in,out}): Handle new fields defined
+	on the Alpha.
+
+	* libecoff.h (ecoff_backend_data): Added constructor_reloc and
+	finish_reloc fields.
+	* ecoff.c: Move MIPS reloc support from here...
+	* coff-mips.c: to here.
+	* ecoff.c (ecoff_set_symbol_info): Get constructor reloc howto
+	from backend.
+	(ecoff_slurp_reloc_table): Removed MIPS specific stuff.  Call
+	finish_reloc backend function.
+	(ecoff_write_object_contents): Removed MIPS specific assertions.
+	* coff-mips.c (mips_finish_reloc): New function.
+	(mips_ecoff_backend_data): Fill in new fields.
+	* coff-alpha.c (alpha_ecoff_backend_data): Use NULL for new
+	fields.
+	* targets.c: Added extern for ecoffalpha_little_vec.
+
+	* bfd.c (_bfd_host_big_endian): Removed.
+	* bfd-in.h (HOST_BYTE_ORDER_BIG_P, bfd_header_twiddle_required):
+	Removed.
+	* bfd-in2.h: Regenerated.
+
+Wed Aug 11 12:11:23 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* config.bfd: New file, broken out of configure.in.
+	* configure.in: Use it, and use standard target names for
+	--with-targets, replacing --with-bfd-targets.
+
+	* archures.c (archures_init_table): Add bfd_sh_arch.
+
+	* configure.in: Include coff-m68k.o for m68kcoffun_vec.
+	Include nlm32.o and nlm.o for bfd_nlm32_i386_vec.
+	Fix error in error message.
+
+	* oasys.c: Make bfd_error_vector extern.
+
+	* configure.in: Include stab-syms.o for a.out/b.out targets
+	and hp300{bsd,hpux}.
+
+Wed Aug 11 06:40:51 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* nlmcode.h (nlm_compute_section_file_positions): Add the .bss
+	section before setting output_has_begun.
+	(nlm_set_section_contents): Remove argument names from
+	mangle_relocs_func prototype.
+	(nlm_write_object_contents): Remove shadowing local variable.
+	Don't write out debugging symbols if debugInfoOffset is -1.  Add
+	the codeImageOffset to the start, exit, and check procedure
+	offsets.
+	* nlm32-i386.c (nlm_i386_write_reloc, nlm_i386_mangle_relocs):
+	Don't check partial_inplace field; its value is irrelevant.
+
+	* Base use of sco-core on host, not target.
+	* configure.host (i[34]86-*-sco*): Use i386sco rather than i386v.
+	* config/i386-sco.mt (TDEFINES): Removed.
+	* config/i386sco.mh: New file to use sco-core.
+	* hosts/i386sco.h: New file; just includes hosts/i386v.h.
+
+	* ecoffswap.h (ecoff_swap_{hdr,ext}_{in,out}): Use signed
+	conversions for some fields.
+
+Tue Aug 10 13:32:23 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ecoff.c (ecoff_gprel_reloc): If _gp is not defined, give an
+	error rather than aborting.
+
+	* libnlm.h (struct nlm_backend_data): Added mach field.
+	(nlm_machine): New accessor macro.
+	* nlm.c (nlm_mkobject): Set architecture and machine from backend
+	information.
+	* nlm32-i386.c (nlm32_i386_backend): Initialize new mach field.
+
+Tue Aug 10 09:31:18 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* configure.in: Replace calls to sort with shell code
+	to uniq the lists.
+
+Tue Aug 10 06:23:16 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* configure.in: Include aout32.o for any a.out/b.out formats.
+
+Mon Aug  9 09:37:18 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* config/i386-linux.mt (SELECT_VECS): Support bfd_elf32_i386_vec.
+	* config/m68k-elf.mt (SELECT_VECS): Support m68kcoff_vec.
+	* config/i386-elf.mt (SELECT_VECS): Support i386coff_vec.
+	* config/hppa-elf.mt (SELECT_VECS): Support hppa_vec.
+	* config/sparc-elf.mt (SELECT_VECS): Support sunos_big_vec.
+	* config/i386-sco.mt (SELECT_VECS): Don't define; Ian says it was
+	just a hack.
+
+Mon Aug  9 13:15:00 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* config/m88k-coff.mt (DEFAULT_VEC -> DEFAULT_VECTOR): renamed.
+
+Mon Aug  9 14:26:45 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* syms.c (BSF_EXPORT): Now same as BSF_GLOBAL.
+
+	* bfd.c (bfd_scan_vma): New function.
+
+Mon Aug  9 11:29:53 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* bfd-in.h (bfd_get_architecture, bfd_get_machine): Removed
+	obsolete macros.
+	* bfd-in2.h: Updated.
+
+	* ecoff.c (ecoff_slurp_armap): Correct bug in initialization of
+	stringbase.
+
+Sun Aug  8 12:21:13 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* configure.in: Remove unneeded test.
+
 Sun Aug  8 12:41:22 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
 	* Makefile.in ({dist,real}clean): Use $(MAKE), not make.
+
+Sat Aug  7 09:14:21 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* config/st2000.mt (TDEFINES): Don't define MRI; not used.
+
+	* PORTING, TODO, config/README: Update to reflect below changes.
+
+	* configure.in: Replace MINIMIZE and --with-minimal-bfd with
+	--with-bfd-targets="target1,target2,..." and the special target
+	"all" to get the previous default behavior.
+	Figure out which architecture and backend .o files are needed from
+	DEFAULT_VECTOR, SELECT_VECS, and SELECT_ARCHITECTURES as set in
+	the .mt files.  Define TDEFAULTS based on them, also.
+
+	* Makefile.in: Remove references to MINIMIZE.
+	* archures.c, targets.c: Ditto.
+
+	* config/*.mt: Define DEFAULT_VECTOR, SELECT_VECS, and
+	SELECT_ARCHITECTURES as variables rather than as -D arguments to
+	TDEFAULTS.
+
+	* config/a29k-coff.mt,alphaosf.mt, i386-sco.mt, i960-bout.mt,
+	i960-coff.mt (TDEFAULTS): Don't put the default vector in
+	SELECT_VECS manually; it's automatic now.
+
+	* config/i386-sco.mt (TDEFAULTS): Don't put &sco_core_vec in
+	SELECT_VECS manually; -DSCO_CORE does it automatically now.
+
+	* config/h8300-coff.mt,h8500-coff.mt,sh-coff.mt,st2000.mt,z8k-coff.mt
+	(TDEFAULTS): Don't define BFD; not used.
+
+	* config/hppaosf.mh (HDEFINES): Don't define SELECT_ARCHITECTURES;
+	this is a host, not a target.
 
 Sat Aug  7 05:28:03 1993  Fred Fish  (fnf@deneb.cygnus.com)
 
@@ -14,23 +1133,198 @@ Sat Aug  7 05:28:03 1993  Fred Fish  (fnf@deneb.cygnus.com)
 	to note that the problem is even more serious than just leaked
 	memory.  Replace goto with more traditional return.
 
+Fri Aug  6 12:00:03 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	Fix incorrect or useless makefile variable definitions:
+	* config/news.mt, config/u68k-coff.mt (TDEFAULTS): Use this to
+	define DEFAULT_VECTOR, instead of TDEFINES.
+	* config/i386aix.mh (MINIMIZE): Don't define.
+	* config/hppaosf.mh (MINIMIZE): Don't conditionalize.
+	* config/rs6000.mh (ALLOCA),
+	* config/i386v.mh (ALLOCA),
+	* config/i386linux.mh (ALLOCA),
+	* config/i386isc.mh (ALLOCA),
+	* config/go32.mh (EXTRALIBS): Don't define; not used.
+	* config/solaris2.mh (HDEFINES): Renamed from H_DEFINES.
+	* config/alphaosf.mt (TDEFINES): Set it, not HDEFINES.
+	* config/z8k-coff.mt (CC): Don't define.  It's a target, not a host.
+
+	* config/.Sanitize (Things-to-keep): Add README.
+	* config/README: New file, explaining the variables.
+
+	* targets.c (target_vector): Add hp300_bsd_vec.
+	* Makefile.in (BFD32_BACKENDS, CFILES): Add hp300bsd.
+	(hp300bsd.o): New rule.
+
+Fri Aug  6 15:13:22 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* libelf.h (NAME): Provide a default definition, that's neither
+	for 32 bits nor for 64.
+
+	Tue Jun 15 14:38:32 1993  Michael Meissner  (meissner@osf.org)
+
+	* libelf.h (elf_hash): Change declaration to bfd_elf_hash, since
+	that is what is in elf.c.
+
+Fri Aug  6 12:28:38 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ecoff.c (ecoff_set_symbol_info): Removed special handling for
+	scBss and scSBss symbols, since it was wrong.
+
+	* Makefile.in (coff-mips.o, coff-alpha.o): Don't depend on
+	coffcode.h.
+
+	* coffcode.h (sec_to_styp_flags): Inspired by mb@tti.COM (Michael
+	Bloom): Only set STYP_BSS for SEC_ALLOC sections.
+
+	* ecoff.c (ecoff_slurp_armap): From Arne Henrik Juul
+	<arnej@kari.fm.unit.no>: Handle a COFF style armap.
+
 Fri Aug  6 09:59:45 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
 	* hpux-core.c: Cast return value from bfd_zalloc.
 
-Thu Aug  5 10:07:43 1993  Fred Fish  (fnf@cygnus.com)
+Thu Aug  5 13:22:44 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
 
-	* Makefile.in (ofiles): Delete references to ofiles2 and ofiles3.
-	* Makefile.in (do_clean): Delete ofiles.
+	* aoutx.h (log2): Delete i387-specific code.
+
+	* Makefile.in (BFD_LIBS): Always include elf.o.
+	(BFD32_BACKENDS): Don't include elf.o here.
+	(ofiles): Delete references to ofiles2 and ofiles3.
+	(do_clean): Delete ofiles.
+	(BFDIN_H): Changed references to $(srcdir)/bfd-in2.h.
+	(stmp-bfd.h): Use bfd.h-new as temporary name, not bfd.h2.
+	(headers): Use bfd-in2.h-new as temporary name, not bfd.h-new.
+
+	* bfd-in.h: Reworded comment to make it clear that bfd-in2.h is a
+	generated file.
+
+	* reloc.c (enum bfd_reloc_code_real): Added i386-elf reloc types
+	(from Meissner's additions to bfd-in2.h).
+
+	* elf32-i386.c (ELF_MAXPAGESIZE): Define.
+
+	Merged:
+
+	Wed Jun 23 06:05:58 1993  Michael Meissner  (meissner@osf.org)
+
+	* elfcode.h (elf_write_object_contents): Don't drop core if
+	elf_symbol_from returns a NULL pointer when processing a non-elf
+	symbol, use a 0 size instead.
+
+	Tue Jun 15 14:38:32 1993  Michael Meissner  (meissner@osf.org)
+
+	* elfcode.h (elf_hash): Delete macro mapping elf_hash to
+	bfd_elf32_hash, since the hash table is independent of the 32/64
+	bit system.
+
+	* libelf.h (elf_hash): Change declaration to bfd_elf_hash, since
+	that is what is in elf.c.
+
+	Sat Jun 19 10:12:27 1993  Michael Meissner  (meissner@osf.org)
+
+	* elf32-i386.h (reloc_type): Reformat spacing.
+	(elf_howto_table): Add the rest of the 386/ELF relocations.
+	(elf_i386_reloc_type_lookup): Ditto.
+	(elf_i386_info_to_howto): Ditto.
+	(elf_i386_info_to_howto_rel): Ditto.
+
+Thu Aug  5 10:07:43 1993  Fred Fish  (fnf@cygnus.com)
 
 	* nlmcode.h (nlm_get_reloc_upper_bound):  Test return value
 	of nlm_slurp_symbol_table as boolean, not pointer.
 	* nlmcode.h (nlm_canonicalize_reloc):  Test return value
 	of nlm_slurp_reloc_fixups as boolean, not pointer.
 
-Tue Aug  3 15:27:22 1993  Fred Fish  (fnf@deneb.cygnus.com)
+Wed Aug  4 16:22:55 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
+
+	* config/go32.mh: remove HDEFINES; since __MSDOS__ and __GO32__
+	are now predefined by GCC
+
+Wed Aug  4 16:06:29 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* coffgen.c (coff_print_symbol): Add the section offset to the
+	line number address, so it's printed the same way as the function
+	address.  Only showed up for line numbers that aren't in the first
+	section (.text).
+
+Wed Aug  4 08:33:55 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* libnlm.h (nlm_backend_data): Added nlm_mangle_relocs.
+	(nlm_mangle_relocs_func): New macro.
+	* nlm32-i386.c (nlm_i386_write_reloc): Rewrote correctly.
+	(nlm_i386_mangle_relocs): New function.
+	* nlmcode.h (nlm_compute_section_file_positions): Move all common
+	symbols into the .bss section.
+	(nlm_set_section_contents): Call the mangle_relocs function.
+	(nlm_write_object_contents): Treat a reloc against any defined
+	symbol as an internal reloc.  Fix bug in external reloc counting.
+	Get the offset and debugging type right for .bss symbols.  Only
+	output debugging symbols for defined symbols.
+
+	* coff-h8500.c (rtype2howto): Do an fprintf to stderr rather than
+	using printf.
+	* coff-z8k.c (rtype2howto): Likewise.
+	* coffcode.h (dummy_reloc16_extra_cases): Likewise.
+	* elf32-i386.c (TRACE): Likewise.
+	* hp300hpux.c (convert_sym_type, swap_std_reloc_in): Likewise.
+	* rs6000-core.c (rs6000coff_get_section_contents): Likewise.
+	* coffgen.c (coff_print_symbol): Do an fprintf to the file
+	argument rather than using printf.
+
+Tue Aug  3 18:17:25 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* coffswap.h: Added macros used when accessing several fields;
+	default is the same as before.
+	(coff_swap_aouthdr_{in,out}): Handle the Alpha ECOFF fields.
+	* coff-alpha.c: Defined macros to use the right sizes in
+	coffswap.h.
+	* libecoff.h: Backend information is now in target vector, not
+	BFD.  Start of backend information is COFF backend information.
+	* coff-alpha.c, coff-mips.c: Changed accordingly.
+	* ecoff.c (ecoff_mkobject): New function.
+	(ARMAP_START): Changed into backend information, since Alpha uses
+	a different name.
+	(ecoff_slurp_armap): Don't overlay archive header.
+	* bfd.c: Include libcoff.h.
+
+Tue Aug  3 16:33:11 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* Makefile.in (install): Fix sh syntax error.
+
+	* aoutf1.h: Make bfd_error_trap extern; it's defined in bfd.c.
+
+Tue Aug  3 15:19:09 1993  Fred Fish  (fnf@deneb.cygnus.com)
 
 	* nlm_slurp_symbol_table: Don't use '&' on arrays.
+
+Tue Aug  3 11:06:28 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* ecoff.c: New file for generic ECOFF functions.
+	* ecoffswap.h: New file for ECOFF swapping functions which differ
+	only slightly for different targets.
+	* libecoff.h: Added prototypes for ecoff.c functions.
+	(ecoff_backend_data): New structure.
+	(ecoff_tdata): Added backend_data field.  Changed external data
+	pointers to be PTR rather than to a particular struct.
+	(ecoff_symbol_struct): Moved in from coff-mips.c.
+	* coff-alpha.c, coff-mips.c: Moved common functions into ecoff.c.
+	Added ECOFF backend structures.  Include ecoffswap.h.
+	* coff-msym.c: Removed; superseded by ecoffswap.h.
+	* bfd.c: Include coff/internal.h.
+	* Makefile.in (BFD_LIBS): Removed coff-mips.o and coff-msym.o.
+	Added ecoff.o.
+	(BFD64_BACKENDS): Added coff-alpha.o.
+	(CFILES): Removed coff-msym.c.  Added ecoff.c.
+	(bfd.o): Added dependency on $(INCDIR)/coff/sym.h.
+	(coff-mips.o): Added dependency on ecoffswap.h and coff/ecoff.h.
+	(ecoff.o, coff-alpha.o): New targets.
+	(coff-msym.o): Removed target.
+
+Mon Aug  2 23:33:38 1993  John Gilmore  (gnu@cygnus.com)
+
+	* elf32-hppa.h, hosts/*:  Remove (one more time) all occurrances
+	of EXFUN in the BFD sources.  Heave ho!
 
 Mon Aug  2 16:45:57 1993  Stu Grossman  (grossman at cygnus.com)
 
@@ -393,6 +1687,9 @@ Fri Jul  9 00:43:06 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 	* aoutf1.h: Add definition of MACHTYPE_OK.
 
 Thu Jul  8 14:37:44 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* reloc.c (bfd_perform_relocation): Don't subtract the addend
+	again for coff.
 
 	* syms.c, bfd-in2.h: Doc fix.
 

@@ -295,6 +295,8 @@ compare_lte (lte1, lte2)
 /* Give a line table with function entries are marked, arrange its functions
    in assending order and strip off function entry markers and return it in
    a newly created table. If the old one is good enough, return the old one. */
+/* FIXME: I think all this stuff can be replaced by just passing
+   sort_linevec = 1 to end_symtab.  */
 
 static struct linetable *
 arrange_linetable (oldLineTb)
@@ -424,7 +426,7 @@ struct coff_symbol *cs;
   if (inclLength == 0) {
     inclTable = (InclTable*) 
 	xmalloc (sizeof (InclTable) * INITIAL_INCLUDE_TABLE_LENGTH);
-    bzero (inclTable, sizeof (InclTable) * INITIAL_INCLUDE_TABLE_LENGTH);
+    memset (inclTable, '\0', sizeof (InclTable) * INITIAL_INCLUDE_TABLE_LENGTH);
     inclLength = INITIAL_INCLUDE_TABLE_LENGTH;
     inclIndx = 0;
   }
@@ -432,8 +434,8 @@ struct coff_symbol *cs;
     inclLength += INITIAL_INCLUDE_TABLE_LENGTH;
     inclTable = (InclTable*) 
 	xrealloc (inclTable, sizeof (InclTable) * inclLength);
-    bzero (inclTable+inclLength-INITIAL_INCLUDE_TABLE_LENGTH, 
-			sizeof (InclTable)*INITIAL_INCLUDE_TABLE_LENGTH);
+    memset (inclTable+inclLength-INITIAL_INCLUDE_TABLE_LENGTH, 
+			'\0', sizeof (InclTable)*INITIAL_INCLUDE_TABLE_LENGTH);
   }
 
   inclTable [inclIndx].name  = cs->c_name;
@@ -488,7 +490,7 @@ process_linenos (start, end)
   if (!(offset = first_fun_line_offset))
     goto return_after_cleanup;
 
-  bzero (&main_subfile, sizeof (main_subfile));
+  memset (&main_subfile, '\0', sizeof (main_subfile));
   first_fun_line_offset = 0;
 
   if (inclIndx == 0)
@@ -517,7 +519,7 @@ process_linenos (start, end)
       tmpSubfile = inclTable[ii].subfile = (struct subfile*) 
       				xmalloc (sizeof (struct subfile));
 
-      bzero (tmpSubfile, sizeof (struct subfile));
+      memset (tmpSubfile, '\0', sizeof (struct subfile));
       firstLine = &(inclTable[ii].funStartLine);
 
       /* enter include file's lines now. */
@@ -617,7 +619,7 @@ return_after_cleanup:
   inclIndx = 0;
 
   /* start with a fresh subfile structure for the next file. */
-  bzero (&main_subfile, sizeof (struct subfile));
+  memset (&main_subfile, '\0', sizeof (struct subfile));
 }
 
 void
@@ -715,7 +717,7 @@ retrieve_tracebackinfo (abfd, textsec, cs)
 
   int functionstart = cs->c_value - textsec->vma;
 
-  bzero (&tbInfo, sizeof (tbInfo));
+  memset (&tbInfo, '\0', sizeof (tbInfo));
 
   /* keep reading blocks of data from the text section, until finding a zero
      word and a traceback table. */
@@ -1555,7 +1557,7 @@ process_xcoff_symbol (cs, objfile)
   if (name[0] == '.')
     ++name;
 
-  bzero (sym, sizeof (struct symbol));
+  memset (sym, '\0', sizeof (struct symbol));
 
   /* default assumptions */
   SYMBOL_VALUE (sym) = cs->c_value;
@@ -1596,19 +1598,26 @@ process_xcoff_symbol (cs, objfile)
       break;
 #endif
 
-    case C_DECL:      			/* a type decleration?? */
-
-      sym = define_symbol (cs->c_value, cs->c_name, 0, 0, objfile);
-      if (sym != NULL)
-	SYMBOL_SECTION (sym) = cs->c_secnum;
-      return sym;
-
     case C_GSYM:
       add_stab_to_list (name, &global_stabs);
       break;
 
+    case C_BCOMM:
+      common_block_start (cs->c_name, objfile);
+      break;
+
+    case C_ECOMM:
+      common_block_end (objfile);
+      break;
+
+    default:
+      complain (&storclass_complaint, cs->c_sclass);
+      /* FALLTHROUGH */
+
+    case C_DECL:
     case C_PSYM:
     case C_RPSYM:
+    case C_ECOML:
 
       sym = define_symbol (cs->c_value, cs->c_name, 0, 0, objfile);
       if (sym != NULL)
@@ -1622,10 +1631,10 @@ process_xcoff_symbol (cs, objfile)
 	/* If we are going to use Sun dbx's define_symbol(), we need to
 	   massage our stab string a little. Change 'V' type to 'S' to be
 	   comparible with Sun. */
-        /* FIXME: I believe this is to avoid a Sun-specific hack somewhere.
+        /* FIXME: Is this to avoid a Sun-specific hack somewhere?
 	   Needs more investigation.  */
 
-	if (*name == ':' || (pp = (char *) index (name, ':')) == NULL)
+	if (*name == ':' || (pp = (char *) strchr(name, ':')) == NULL)
 	  return NULL;
 
 	++pp;
@@ -1692,10 +1701,6 @@ process_xcoff_symbol (cs, objfile)
 	  complain (&rsym_complaint, name);
 	  return NULL;
 	}
-
-    default	:
-      complain (&storclass_complaint, cs->c_sclass);
-      return NULL;
     }
   }
   return sym2;
@@ -1942,7 +1947,7 @@ init_stringtab(abfd, offset, objfile)
   if (strtbl == NULL)
     return -1;
 
-  bcopy(&length, strtbl, sizeof length);
+  memcpy(strtbl, &length, sizeof length);
   if (length == sizeof length)
     return 0;
 

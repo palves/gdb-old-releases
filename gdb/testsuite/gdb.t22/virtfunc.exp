@@ -32,12 +32,12 @@ proc test_ptype_of_classes {} {
 
     set passcount 0
 
+    # This used to be a fail if it printed "struct" not "class".  But
+    # since this struct doesn't use any special C++ features, it is
+    # considered right for GDB to print it as "struct".
     send "ptype VA\n"
-# This used to be a fail if it printed "struct" not "class".  But
-# since this struct doesn't use any special C++ features, it is
-# considered right for GDB to print it as "struct".
     expect {
-	-re "type = (class|struct) VA \{\[\r\n\t \]*\
+	-re "type = (struct|class) VA \{\[\r\n\t \]*\
 int va;\r\n\}\r\n$prompt $" {
 	    incr passcount
 	}
@@ -74,6 +74,13 @@ int va;\r\n\}\r\n$prompt $" {
 	-re "type = class A : public virtual V \{\[\r\n\t \]*private:\[\r\n\t \]*V \*_vb\\\$V;\[\r\n\t \]*int a;\[\r\n\t \]*public:\[\r\n\t \]*virtual int f\(void\);\[\r\n\t \]*\}\r\n$prompt $" {
 	    incr passcount
 	}
+	-re "type = class A : public virtual V \{\[\r\n\t \]*private:\[\r\n\t \]*V \*_vb\\\$FOO;\[\r\n\t \]*int a;\[\r\n\t \]*public:\[\r\n\t \]*virtual int f\(void\);\[\r\n\t \]*\}\r\n$prompt $" {
+	    # This happens because the type is defined only after it is
+	    # too late.
+	    fail "ptype A (known failure with gcc cygnus-2.4.5-930417)"
+	    # Many of the rest of these tests have the same problem.
+	    return 0
+	}
 	-re "type = struct A \{\[\r\n \t\]*struct V V;\[\r\n \t\]*struct V \*_vb\\\$V;\[\r\n \t\]*int a;\[\r\n \t\]*\}\r\n$prompt $" {
 	    fail "ptype A"
 	}
@@ -94,6 +101,8 @@ int va;\r\n\}\r\n$prompt $" {
     }
 
     send "ptype C\n"
+    # The latest gcc/gdb combo leaves the class name out when it prints
+    # the type.  Accept this as an expected fail.
     expect {
 	-re "type = class C : public virtual V \{\[\r\n\t \]*private:\[\r\n\t \]*V \*_vb\\\$V;\[\r\n\t \]*public:\[\r\n\t \]*int c;\[\r\n\t \]*\}\r\n$prompt $" {
 	    incr passcount
@@ -202,6 +211,8 @@ int va;\r\n\}\r\n$prompt $" {
     }
 
     send "ptype c\n"
+    # The latest gcc/gdb combo leaves the class name out when it prints
+    # type type.  Accept this as an expected fail.
     expect {
 	-re "type = class C : public virtual V \{\[\r\n\t \]*private:\[\r\n\t \]*V \*_vb\\\$V;\[\r\n\t \]*public:\[\r\n\t \]*int c;\[\r\n\t \]*\}\r\n$prompt $" {
 	    incr passcount
@@ -417,17 +428,24 @@ int va;\r\n\}\r\n$prompt $" {
 proc test_virtual_calls {} {
     global prompt
     global GDB
+    global timeout
+
+    set otimeout $timeout
+    set timeout 600
 
     set passcount 0
 
     send "print pAe->f()\n"
     expect {
 	-re ".* = 20\r\n$prompt $" { incr passcount }
-	-re "Cannot invoke functions on this machine.*$prompt $"
-	    { fail "print pAe->f() FIXME" }
-	-re "Structure has no component named f.*$prompt $" {
-	    setup_xfail "*-*-*"
-	    fail "print pAe->f()"
+	-re "Cannot invoke functions on this machine.*$prompt $" {
+	    fail "Cannot call functions on this machine"
+	    return 0
+	}
+	-re ".*Cannot access memory at address 0x8.*$prompt $" {
+	    fail "Calling virtual functions \
+(known failure with gcc cygnus-2.4.5-930417)"
+	    return 0
 	}
 	-re ".*$prompt $" { fail "print pAe->f()" }
 	timeout { fail "print pAe->f() (timeout)" }
@@ -437,12 +455,6 @@ proc test_virtual_calls {} {
     send "print pAa->f()\n"
     expect {
 	-re ".* = 1\r\n$prompt $" { incr passcount }
-	-re "Cannot invoke functions on this machine.*$prompt $"
-	    { fail "print pAa->f() FIXME" }
-	-re "Structure has no component named f.*$prompt $" {
-	    setup_xfail "*-*-*"
-	    fail "print pAa->f()"
-	}
 	-re ".*$prompt $" { fail "print pAa->f()" }
 	timeout { fail "print pAa->f() (timeout)" }
 	eof { fail "print pAa->f() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -452,12 +464,6 @@ proc test_virtual_calls {} {
     setup_xfail "*-*-*"
     expect {
 	-re ".* = 202\r\n$prompt $" { incr passcount }
-	-re "Cannot invoke functions on this machine.*$prompt $"
-	    { fail "print pDe->vg() FIXME" }
-	-re "Structure has no component named vg.*$prompt $" {
-	    setup_xfail "*-*-*"
-	    fail "print pDe->vg()"
-	}
 	-re ".*$prompt $" { fail "print pDe->vg()" }
 	timeout { fail "print pDe->vg() (timeout)" }
 	eof { fail "print pDe->vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -466,12 +472,6 @@ proc test_virtual_calls {} {
     send "print pADe->vg()\n"
     expect {
 	-re ".* = 202\r\n$prompt $" { incr passcount }
-	-re "Cannot invoke functions on this machine.*$prompt $"
-	    { fail "print pADe->vg() FIXME" }
-	-re "Structure has no component named vg.*$prompt $" {
-	    setup_xfail "*-*-*"
-	    fail "print pADe->vg()"
-	}
 	-re ".*$prompt $" { fail "print pADe->vg()" }
 	timeout { fail "print pADe->vg() (timeout)" }
 	eof { fail "print pADe->vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -481,12 +481,6 @@ proc test_virtual_calls {} {
     setup_xfail "*-*-*"
     expect {
 	-re ".* = 101\r\n$prompt $" { incr passcount }
-	-re "Cannot invoke functions on this machine.*$prompt $"
-	    { fail "print pDd->vg() FIXME" }
-	-re "Structure has no component named vg.*$prompt $" {
-	    setup_xfail "*-*-*"
-	    fail "print pDd->vg()"
-	}
 	-re ".*$prompt $" { fail "print pDd->vg()" }
 	timeout { fail "print pDd->vg() (timeout)" }
 	eof { fail "print pDd->vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -496,12 +490,6 @@ proc test_virtual_calls {} {
     setup_xfail "*-*-*"
     expect {
 	-re ".* = 411\r\n$prompt $" { incr passcount }
-	-re "Cannot invoke functions on this machine.*$prompt $"
-	    { fail "print pEe->vvb() FIXME" }
-	-re "Structure has no component named vvb.*$prompt $" {
-	    setup_xfail "*-*-*"
-	    fail "print pEe->vvb()"
-	}
 	-re ".*$prompt $" { fail "print pEe->vvb()" }
 	timeout { fail "print pEe->vvb() (timeout)" }
 	eof { fail "print pEe->vvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -510,12 +498,6 @@ proc test_virtual_calls {} {
     send "print pVB->vvb()\n"
     expect {
 	-re ".* = 407\r\n$prompt $" { incr passcount }
-	-re "Cannot invoke functions on this machine.*$prompt $"
-	    { fail "print pVb->vvb() FIXME" }
-	-re "Structure has no component named vvb.*$prompt $" {
-	    setup_xfail "*-*-*"
-	    fail "print pVB->vvb()"
-	}
 	-re ".*$prompt $" { fail "print pVB->vvb()" }
 	timeout { fail "print pVB->vvb() (timeout)" }
 	eof { fail "print pVB->vvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -525,12 +507,6 @@ proc test_virtual_calls {} {
     setup_xfail "*-*-*"
     expect {
 	-re ".* = 411\r\n$prompt $" { incr passcount }
-	-re "Cannot invoke functions on this machine.*$prompt $"
-	    { fail "print pBe->vvb() FIXME" }
-	-re "Structure has no component named vvb.*$prompt $" {
-	    setup_xfail "*-*-*"
-	    fail "print pBe->vvb()"
-	}
 	-re ".*$prompt $" { fail "print pBe->vvb()" }
 	timeout { fail "print pBe->vvb() (timeout)" }
 	eof { fail "print pBe->vvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -540,12 +516,6 @@ proc test_virtual_calls {} {
     setup_xfail "*-*-*"
     expect {
 	-re ".* = 411\r\n$prompt $" { incr passcount }
-	-re "Cannot invoke functions on this machine.*$prompt $"
-	    { fail "print pDe->vvb() FIXME" }
-	-re "Structure has no component named vvb.*$prompt $" {
-	    setup_xfail "*-*-*"
-	    fail "print pDe->vvb()"
-	}
 	-re ".*$prompt $" { fail "print pDe->vvb()" }
 	timeout { fail "print pDe->vvb() (timeout)" }
 	eof { fail "print pDe->vvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -555,12 +525,6 @@ proc test_virtual_calls {} {
     setup_xfail "*-*-*"
     expect {
 	-re ".* = 282\r\n$prompt $" { incr passcount }
-	-re "Cannot invoke functions on this machine.*$prompt $"
-	    { fail "print pEe->vd() FIXME" }
-	-re "Structure has no component named vd.*$prompt $" {
-	    setup_xfail "*-*-*"
-	    fail "print pEe->vd()"
-	}
 	-re ".*$prompt $" { fail "print pEe->vd()" }
 	timeout { fail "print pEe->vd() (timeout)" }
 	eof { fail "print pEe->vd() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -570,12 +534,6 @@ proc test_virtual_calls {} {
     setup_xfail "*-*-*"
     expect {
 	-re ".* = 311\r\n$prompt $" { incr passcount }
-	-re "Cannot invoke functions on this machine.*$prompt $"
-	    { fail "print pEe->fvb() FIXME" }
-	-re "Structure has no component named fvb.*$prompt $" {
-	    setup_xfail "*-*-*"
-	    fail "print pEe->fvb()"
-	}
 	-re ".*$prompt $" { fail "print pEe->fvb()" }
 	timeout { fail "print pEe->fvb() (timeout)" }
 	eof { fail "print pEe->fvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -585,16 +543,12 @@ proc test_virtual_calls {} {
     setup_xfail "*-*-*"
     expect {
 	-re ".* = 102\r\n$prompt $" { incr passcount }
-	-re "Cannot invoke functions on this machine.*$prompt $"
-	    { fail "print pEe->D::vg() FIXME" }
-	-re "There is no field named vg.*$prompt $" {
-	    setup_xfail "*-*-*"
-	    fail "print pEe->D::vg()"
-	}
 	-re ".*$prompt $" { fail "print pEe->D::vg()" }
 	timeout { fail "print pEe->D::vg() (timeout)" }
 	eof { fail "print pEe->D::vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
     }
+
+    set timeout $otimeout
 
     if $passcount then {
 	pass "$passcount correct virtual function calls"

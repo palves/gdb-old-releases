@@ -213,13 +213,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    to virtual format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)	\
-   bcopy ((FROM), (TO), REGISTER_RAW_SIZE (REGNUM));
+   memcpy ((TO), (FROM), REGISTER_RAW_SIZE (REGNUM));
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-  bcopy ((FROM), (TO), REGISTER_RAW_SIZE (REGNUM));
+  memcpy ((TO), (FROM), REGISTER_RAW_SIZE (REGNUM));
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -238,9 +238,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    into VALBUF.  */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy (&((char *) REGBUF) [REGISTER_BYTE (S0_REGNUM) + \
+  memcpy (VALBUF, &((char *) REGBUF) [REGISTER_BYTE (S0_REGNUM) + \
 			     8 - TYPE_LENGTH (TYPE)],\
-	 VALBUF, TYPE_LENGTH (TYPE))
+	 TYPE_LENGTH (TYPE))
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.  */
@@ -355,7 +355,7 @@ extern struct value *value_of_trapped_internalvar ();
   register CORE_ADDR frame_fp =						\
       read_memory_integer ((frame_info)->frame + 8, 4);			\
   register CORE_ADDR next_addr;						\
-  bzero (&frame_saved_regs, sizeof frame_saved_regs);			\
+  memset (&frame_saved_regs, '\0', sizeof frame_saved_regs);			\
   (frame_saved_regs).regs[PC_REGNUM] = (frame_info)->frame + 0;		\
   (frame_saved_regs).regs[PS_REGNUM] = (frame_info)->frame + 4;		\
   (frame_saved_regs).regs[FP_REGNUM] = (frame_info)->frame + 8;		\

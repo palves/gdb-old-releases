@@ -33,9 +33,11 @@ set binfile "gdbme"
 
 if ![file exists $objdir/$subdir/$binfile] then {
     error "$objdir/$subdir/$binfile does not exist."
-    alldone
+    return 0
 }
 
+gdb_exit
+gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load $objdir/$subdir/$binfile
 
@@ -47,6 +49,24 @@ send "set print sevenbit-strings\n" ; expect -re "$prompt $"
 if ![runto main] then {
     error "couldn't run to breakpoint"
     continue
+}
+
+# Determine expected output for unsigned long variables,
+# the output varies with sizeof (unsigned long).
+
+set ulong_minus_1 4294967295
+set ulong_minus_456 4294966840
+send "print sizeof (unsigned long)\n"
+expect {
+    -re ".\[0-9\]* = 4.*$prompt $" {}
+    -re ".\[0-9\]* = 8.*$prompt $" {
+	set ulong_minus_1 18446744073709551615
+	set ulong_minus_456 18446744073709551160
+    }
+    -re ".*$prompt $" {
+	 fail "getting sizeof unsigned long"
+    }
+    default	{ fail "(timeout) getting sizeof unsigned long" }
 }
 
 #
@@ -926,7 +946,7 @@ expect {
 	{
 	send "print v_unsigned_long\n"
 	expect {
-	    -re ".\[0-9\]* = 4294967295.*$prompt $"       { pass "set variable unsigned long=~0 (minus)" }
+	    -re ".\[0-9\]* = $ulong_minus_1.*$prompt $"       { pass "set variable unsigned long=~0 (minus)" }
 	    -re "$prompt $"                      { fail "set variable unsigned long=~0 (minus)" }
 	    timeout                              { fail "(timeout) set variable unsigned long=~0 (minus)" }
 	}
@@ -1282,7 +1302,7 @@ expect {
 	{
 	send "print v_unsigned_long_array\n"
 	expect {
-	    -re "print.*.\[0-9\]* =.*\{123,.*4294966840\}.*$prompt $"       { pass "set variable unsigned long array" }
+	    -re "print.*.\[0-9\]* =.*\{123,.*$ulong_minus_456\}.*$prompt $"       { pass "set variable unsigned long array" }
 	    -re "$prompt $"                      { fail "set variable unsigned long array" }
 	    timeout                              { fail "(timeout) set variable unsigned long array" }
 	}
@@ -1676,10 +1696,10 @@ expect {
     -re "set.*$prompt $" {
 	send "print v_unsigned_long_array\n"
 	expect {
-	    -re "print.*.\[0-9\]* =.*\{123,.*4294966840\}.*$prompt $" {
+	    -re "print.*.\[0-9\]* =.*\{123,.*$ulong_minus_456\}.*$prompt $" {
 		send "print *(v_unsigned_long_pointer+1)\n"
 		expect {
-		    -re "print.*.\[0-9\]* = 4294966840.*$prompt $"    { pass "set variable unsigned long pointer" }
+		    -re "print.*.\[0-9\]* = $ulong_minus_456.*$prompt $"    { pass "set variable unsigned long pointer" }
 		    -re "$prompt $"                { fail "set variable unsigned long pointer" }
 		    timeout                              { fail "(timeout) set variable unsigned long pointer" }
 

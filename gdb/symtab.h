@@ -85,8 +85,9 @@ struct general_symbol_info
   /* Which section is this symbol in?  This is an index into
      section_offsets for this objfile.  Negative means that the symbol
      does not get relocated relative to a section.
-     Disclaimer: currently this is just used for xcoff, so don't expect
-     all symbol-reading code to set it correctly.  */
+     Disclaimer: currently this is just used for xcoff, so don't
+     expect all symbol-reading code to set it correctly (the ELF code
+     also tries to set it correctly).  */
 
   int section;
 };
@@ -515,6 +516,25 @@ enum address_class
 
   LOC_LOCAL_ARG,
 
+  /* Value is at SYMBOL_VALUE offset from the current value of
+     register number SYMBOL_BASEREG.  This exists mainly for the same
+     things that LOC_LOCAL and LOC_ARG do; but we need to do this
+     instead because on 88k DWARF gives us the offset from the
+     frame/stack pointer, rather than the offset from the "canonical
+     frame address" used by COFF, stabs, etc., and we don't know how
+     to convert between these until we start examining prologues.
+
+     Note that LOC_BASEREG is much less general than a DWARF expression.
+     We don't need the generality (at least not yet), and storing a general
+     DWARF expression would presumably take up more space than the existing
+     scheme.  */
+
+  LOC_BASEREG,
+
+  /* Same as LOC_BASEREG but it is an argument.  */
+
+  LOC_BASEREG_ARG,
+
   /* The variable does not actually exist in the program.
      The value is ignored.  */
 
@@ -551,12 +571,8 @@ struct symbol
 
   union
     {
-      /* for OP_BASEREG in DWARF location specs */
-      struct
-	{
-	  short regno_valid;	/* 0 == regno invalid; !0 == regno valid */
-	  short regno;		/* base register number {0, 1, 2, ...} */
-	} basereg;
+      /* Used by LOC_BASEREG and LOC_BASEREG_ARG.  */
+      short basereg;
     }
   aux_value;
 
@@ -566,19 +582,7 @@ struct symbol
 #define SYMBOL_CLASS(symbol)		(symbol)->class
 #define SYMBOL_TYPE(symbol)		(symbol)->type
 #define SYMBOL_LINE(symbol)		(symbol)->line
-#define SYMBOL_BASEREG(symbol)		(symbol)->aux_value.basereg.regno
-
-/* This currently fails because some symbols are not being initialized
-   to zero on allocation, and no code is currently setting this value.
-   Basereg handling will probably change significantly in the next release.
-   FIXME -fnf */
-
-#if 0
-#define SYMBOL_BASEREG_VALID(symbol) (symbol)->aux_value.basereg.regno_valid
-#else
-#define SYMBOL_BASEREG_VALID(symbol) 0
-#endif
-
+#define SYMBOL_BASEREG(symbol)		(symbol)->aux_value.basereg
 
 /* A partial_symbol records the name, namespace, and address class of
    symbols whose types we have not parsed yet.  For functions, it also
@@ -628,26 +632,27 @@ struct linetable_entry
   CORE_ADDR pc;
 };
 
-/* The order of entries in the linetable is significant.
+/* The order of entries in the linetable is significant.  They should
+   be sorted by increasing values of the pc field.  If there is more than
+   one entry for a given pc, then I'm not sure what should happen (and
+   I not sure whether we currently handle it the best way).
 
-   It should generally be in ascending line number order.  Line table
-   entries for a function at lines 10-40 should come before entries
-   for a function at lines 50-70.
-
-   A for statement looks like this
+   Example: a C for statement generally looks like this
 
    	10	0x100	- for the init/test part of a for stmt.
    	20	0x200
    	30	0x300
    	10	0x400	- for the increment part of a for stmt.
 
-   FIXME: this description is incomplete.  coffread.c is said to get
-   the linetable order wrong (would arrange_linenos from xcoffread.c
-   work for normal COFF too?).  */
+   */
 
 struct linetable
 {
   int nitems;
+
+  /* Actually NITEMS elements.  If you don't like this use of the
+     `struct hack', you can shove it up your ANSI (seriously, if the
+     committee tells us how to do it, we can probably go along).  */
   struct linetable_entry item[1];
 };
 
@@ -676,7 +681,7 @@ struct section_offsets
 
 #define	ANOFFSET(secoff, whichone)	(secoff->offsets[whichone])
 
-/* Each source file is represented by a struct symtab. 
+/* Each source file or header is represented by a struct symtab. 
    These objects are chained through the `next' field.  */
 
 struct symtab
@@ -686,12 +691,14 @@ struct symtab
 
     struct symtab *next;
 
-    /* List of all symbol scope blocks for this symtab.  */
+    /* List of all symbol scope blocks for this symtab.  May be shared
+       between different symtabs (and normally is for all the symtabs
+       in a given compilation unit).  */
 
     struct blockvector *blockvector;
 
     /* Table mapping core addresses to line numbers for this file.
-       Can be NULL if none.  */
+       Can be NULL if none.  Never shared between different symtabs.  */
 
     struct linetable *linetable;
 
@@ -718,7 +725,8 @@ struct symtab
        free_contents => do a tree walk and free each object.
        free_nothing => do nothing; some other symtab will free
          the data this one uses.
-      free_linetable => free just the linetable.  */
+      free_linetable => free just the linetable.  FIXME: Is this redundant
+      with the primary field?  */
 
     enum free_code
       {

@@ -11,7 +11,10 @@ gdbme: gdbme0.o gdbme1.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o gdbme gdbme0.o gdbme1.o $(LIBS)
 
 gdbme0.o: gdbme0.c
+	$(CC) $(CFLAGS) -c $(srcdir)/gdbme0.c
+
 gdbme1.o: gdbme1.c
+	$(CC) $(CFLAGS) -c $(srcdir)/gdbme1.c
 
 clean mostlyclean:
 	-rm -f *.o gdbme *.diff *~ *.bad core foo

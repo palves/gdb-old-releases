@@ -1,8 +1,10 @@
 /* Main header file for the bfd library -- portable access to object files.
-   ==> The bfd.h file is generated from bfd-in.h and various .c files; if you
-   ==> change it, your changes will probably be lost.
    Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
+
+** NOTE: bfd.h and bfd-in2.h are GENERATED files.  Don't change them;
+** instead, change bfd-in.h or the other BFD source files processed to
+** generate these files.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -184,9 +186,6 @@ typedef enum bfd_symclass {
 	      bfd_symclass_debugger, /* some debugger symbol */
 	      bfd_symclass_undefined /* none known */
 	    } symclass;
-
-
-typedef int symtype;		/* Who knows, yet? */
 
 
 /* general purpose part of a symbol;
@@ -383,11 +382,6 @@ CAT(NAME,_bfd_make_debug_symbol)
 
 /* User program access to BFD facilities */
 
-extern CONST short _bfd_host_big_endian;
-#define HOST_BYTE_ORDER_BIG_P	(*(char *)&_bfd_host_big_endian)
-
-/* The bfd itself */
-
 /* Cast from const char * to char * so that caller can assign to
    a char * without a warning.  */
 #define bfd_get_filename(abfd) ((char *) (abfd)->filename)
@@ -398,9 +392,6 @@ extern CONST short _bfd_host_big_endian;
 #define bfd_applicable_section_flags(abfd) ((abfd)->xvec->section_flags)
 #define bfd_my_archive(abfd) ((abfd)->my_archive)
 #define bfd_has_map(abfd) ((abfd)->has_armap)
-#define bfd_header_twiddle_required(abfd) \
-        ((((abfd)->xvec->header_byteorder_big_p)		\
-	  != (boolean)HOST_BYTE_ORDER_BIG_P) ? true:false)
 
 #define bfd_valid_reloc_types(abfd) ((abfd)->xvec->valid_reloc_types)
 #define bfd_usrdata(abfd) ((abfd)->usrdata)
@@ -409,14 +400,29 @@ extern CONST short _bfd_host_big_endian;
 #define bfd_get_symcount(abfd) ((abfd)->symcount)
 #define bfd_get_outsymbols(abfd) ((abfd)->outsymbols)
 #define bfd_count_sections(abfd) ((abfd)->section_count)
-#define bfd_get_architecture(abfd) ((abfd)->obj_arch)
-#define bfd_get_machine(abfd) ((abfd)->obj_machine)
 
 #define bfd_get_symbol_leading_char(abfd) ((abfd)->xvec->symbol_leading_char)
 
-#define BYTE_SIZE 1
-#define SHORT_SIZE 2
-#define LONG_SIZE 4
+/* Byte swapping routines.  */
+
+bfd_vma		bfd_getb64	   PARAMS ((unsigned char *));
+bfd_vma 	bfd_getl64	   PARAMS ((unsigned char *));
+bfd_signed_vma	bfd_getb_signed_64 PARAMS ((unsigned char *));
+bfd_signed_vma	bfd_getl_signed_64 PARAMS ((unsigned char *));
+bfd_vma		bfd_getb32	   PARAMS ((unsigned char *));
+bfd_vma		bfd_getl32	   PARAMS ((unsigned char *));
+bfd_signed_vma	bfd_getb_signed_32 PARAMS ((unsigned char *));
+bfd_signed_vma	bfd_getl_signed_32 PARAMS ((unsigned char *));
+bfd_vma		bfd_getb16	   PARAMS ((unsigned char *));
+bfd_vma		bfd_getl16	   PARAMS ((unsigned char *));
+bfd_signed_vma	bfd_getb_signed_16 PARAMS ((unsigned char *));
+bfd_signed_vma	bfd_getl_signed_16 PARAMS ((unsigned char *));
+void		bfd_putb64	   PARAMS ((bfd_vma, unsigned char *));
+void		bfd_putl64	   PARAMS ((bfd_vma, unsigned char *));
+void		bfd_putb32	   PARAMS ((bfd_vma, unsigned char *));
+void		bfd_putl32	   PARAMS ((bfd_vma, unsigned char *));
+void		bfd_putb16	   PARAMS ((bfd_vma, unsigned char *));
+void		bfd_putl16	   PARAMS ((bfd_vma, unsigned char *));
 
 /* And more from the source.  */
 void 
@@ -528,7 +534,6 @@ typedef struct sec
 
     CONST char *name;
 
-
          /* Which section is it 0.nth      */
 
    int index;                      
@@ -548,36 +553,31 @@ typedef struct sec
          /* Tells the OS to allocate space for this section when loaded.
            This would clear for a section containing debug information
            only. */
-          
-
 #define SEC_ALLOC      0x001
+          
          /* Tells the OS to load the section from the file when loading.
            This would be clear for a .bss section */
-
 #define SEC_LOAD       0x002
+
          /* The section contains data still to be relocated, so there will
            be some relocation information too. */
-
 #define SEC_RELOC      0x004
 
-         /* Obsolete ? */
-
+#if 0    /* Obsolete ? */
 #define SEC_BALIGN     0x008
+#endif
 
          /* A signal to the OS that the section contains read only
           data. */
 #define SEC_READONLY   0x010
 
          /* The section contains code only. */
-
 #define SEC_CODE       0x020
 
          /* The section contains data only. */
-
-#define SEC_DATA        0x040
+#define SEC_DATA       0x040
 
          /* The section will reside in ROM. */
-
 #define SEC_ROM        0x080
 
          /* The section contains constructor information. This section
@@ -586,57 +586,63 @@ typedef struct sec
            which should be used in a constructor list, it creates a new
            section for the type of name (eg <<__CTOR_LIST__>>), attaches
            the symbol to it and builds a relocation. To build the lists
-           of constructors, all the linker has to to is catenate all the
+           of constructors, all the linker has to do is catenate all the
            sections called <<__CTOR_LIST__>> and relocte the data
            contained within - exactly the operations it would peform on
            standard data. */
-
 #define SEC_CONSTRUCTOR 0x100
 
          /* The section is a constuctor, and should be placed at the
-          end of the . */
-
+          end of the text, data, or bss section(?). */
 #define SEC_CONSTRUCTOR_TEXT 0x1100
-
 #define SEC_CONSTRUCTOR_DATA 0x2100
-
 #define SEC_CONSTRUCTOR_BSS  0x3100
 
          /* The section has contents - a data section could be
            <<SEC_ALLOC>> | <<SEC_HAS_CONTENTS>>, a debug section could be
            <<SEC_HAS_CONTENTS>> */
-
 #define SEC_HAS_CONTENTS 0x200
 
          /* An instruction to the linker not to output sections
           containing this flag even if they have information which
           would normally be written. */
-
 #define SEC_NEVER_LOAD 0x400
 
          /* The section is a shared library section.  The linker must leave
            these completely alone, as the vma and size are used when
            the executable is loaded. */
-
 #define SEC_SHARED_LIBRARY 0x800
 
          /* The section is a common section (symbols may be defined
            multiple times, the value of a symbol is the amount of
            space it requires, and the largest symbol value is the one
-           used).  Most targets have exactly one of these (.bss), but
-           ECOFF has two. */
-
+           used).  Most targets have exactly one of these (which we
+	    translate to bfd_com_section), but ECOFF has two. */
 #define SEC_IS_COMMON 0x8000
 
+         /* The section contains only debugging information.  For
+           example, this is set for ELF .debug and .stab sections.
+           strip tests this flag to see if a section can be
+           discarded. */
+#define SEC_DEBUGGING 0x10000
+
+	 /*  End of section flags.  */
+
         /*  The virtual memory address of the section - where it will be
-           at run time - the symbols are relocated against this */
+           at run time.  The symbols are relocated against this.  The
+	    user_set_vma flag is maintained by bfd; if it's not set, the
+	    backend can assign addresses (for example, in <<a.out>>, where
+	    the default address for <<.data>> is dependent on the specific
+	    target and various flags).  */
+
    bfd_vma vma;
+   boolean user_set_vma;
 
         /*  The load address of the section - where it would be in a
-           rom image, really only used for writing section header information */
-   bfd_vma lma;
+           rom image, really only used for writing section header
+	    information. */
 
-   boolean user_set_vma;
+   bfd_vma lma;
 
          /* The size of the section in bytes, as it will be output.
            contains a value even if the section has no contents (eg, the
@@ -681,9 +687,9 @@ typedef struct sec
    unsigned reloc_count;
 
          /* Information below is back end specific - and not always used
-           or updated 
+           or updated.  */
 
-           File position of section data    */
+         /* File position of section data    */
 
    file_ptr filepos;      
         
@@ -733,29 +739,33 @@ typedef struct sec
 	  /* A symbol which points at this section only */
    struct symbol_cache_entry *symbol;  
    struct symbol_cache_entry **symbol_ptr_ptr;
+
    struct bfd_seclet *seclets_head;
    struct bfd_seclet *seclets_tail;
 } asection ;
 
 
+     /* These sections are global, and are managed by BFD.  The application
+       and target back end are not permitted to change the values in
+	these sections.  */
 #define BFD_ABS_SECTION_NAME "*ABS*"
 #define BFD_UND_SECTION_NAME "*UND*"
 #define BFD_COM_SECTION_NAME "*COM*"
 #define BFD_IND_SECTION_NAME "*IND*"
 
      /* the absolute section */
- extern   asection bfd_abs_section;
+extern asection bfd_abs_section;
      /* Pointer to the undefined section */
- extern   asection bfd_und_section;
+extern asection bfd_und_section;
      /* Pointer to the common section */
- extern asection bfd_com_section;
+extern asection bfd_com_section;
      /* Pointer to the indirect section */
- extern asection bfd_ind_section;
+extern asection bfd_ind_section;
 
- extern struct symbol_cache_entry *bfd_abs_symbol;
- extern struct symbol_cache_entry *bfd_com_symbol;
- extern struct symbol_cache_entry *bfd_und_symbol;
- extern struct symbol_cache_entry *bfd_ind_symbol;
+extern struct symbol_cache_entry *bfd_abs_symbol;
+extern struct symbol_cache_entry *bfd_com_symbol;
+extern struct symbol_cache_entry *bfd_und_symbol;
+extern struct symbol_cache_entry *bfd_ind_symbol;
 #define bfd_get_section_size_before_reloc(section) \
      (section->reloc_done ? (abort(),1): (section)->_raw_size)
 #define bfd_get_section_size_after_reloc(section) \
@@ -766,7 +776,10 @@ bfd_get_section_by_name PARAMS ((bfd *abfd, CONST char *name));
 asection *
 bfd_make_section_old_way PARAMS ((bfd *, CONST char *name));
 
-asection * 
+asection *
+bfd_make_section_anyway PARAMS ((bfd *, CONST char *name));
+
+asection *
 bfd_make_section PARAMS ((bfd *, CONST char *name));
 
 boolean 
@@ -987,9 +1000,17 @@ typedef CONST struct reloc_howto_struct
            unwanted data from the relocation.  */
   unsigned int rightshift;
 
-        /*  The size of the item to be relocated - 0, is one byte, 1 is 2
-           bytes, 2 is four bytes.  A negative value indicates that the
-	    result is to be subtracted from the data.  */
+	 /*  The size of the item to be relocated.  This is *not* a
+	    power-of-two measure.
+		 0 : one byte
+		 1 : two bytes
+		 2 : four bytes
+		 3 : nothing done (unless special_function is nonzero)
+		 4 : eight bytes
+		-2 : two bytes, result should be subtracted from the
+		     data instead of added
+	    There is currently no trivial way to extract a "number of
+	    bytes" from a howto pointer.  */
   int size;
 
         /*  The number of bits in the item to be relocated.  This is used
@@ -1084,48 +1105,44 @@ bfd_perform_relocation
     bfd *output_bfd));
 
 typedef enum bfd_reloc_code_real 
-
 {
-	 /* 64 bits wide, simple reloc */
+   /* Basic absolute relocations */
   BFD_RELOC_64,
-	 /* 64 bits, PC-relative */
-  BFD_RELOC_64_PCREL,
-
-        /* 32 bits wide, simple reloc */
   BFD_RELOC_32,
-	 /* 32 bits, PC-relative */
-  BFD_RELOC_32_PCREL,
-
-        /* 16 bits wide, simple reloc */
   BFD_RELOC_16,        
-	 /* 16 bits, PC-relative */
-  BFD_RELOC_16_PCREL,
-
-        /* 8 bits wide, simple */
   BFD_RELOC_8,
-        /* 8 bits wide, pc relative */
+
+   /* PC-relative relocations */
+  BFD_RELOC_64_PCREL,
+  BFD_RELOC_32_PCREL,
+  BFD_RELOC_24_PCREL,     /* used by i960 */
+  BFD_RELOC_16_PCREL,
   BFD_RELOC_8_PCREL,
-        /* 8 bits wide, but used to form an address like 0xffnn */
-  BFD_RELOC_8_FFnn,
 
-        /* The type of reloc used to build a contructor table - at the
-          moment probably a 32 bit wide abs address, but the cpu can
-          choose. */
+   /* Linkage-table relative */
+  BFD_RELOC_32_BASEREL,
+  BFD_RELOC_16_BASEREL,
+  BFD_RELOC_8_BASEREL,
 
+   /* The type of reloc used to build a contructor table - at the moment
+     probably a 32 bit wide abs address, but the cpu can choose. */
   BFD_RELOC_CTOR,
 
-	 /* High 22 bits of 32-bit value; simple reloc.  */
+   /* 8 bits wide, but used to form an address like 0xffnn */
+  BFD_RELOC_8_FFnn,
+
+   /* 32-bit pc-relative, shifted right 2 bits (i.e., 30-bit
+     word displacement, e.g. for SPARC) */
+  BFD_RELOC_32_PCREL_S2,
+
+   /* High 22 bits of 32-bit value, placed into lower 22 bits of
+     target word; simple reloc.  */
   BFD_RELOC_HI22,
-	 /* Low 10 bits.  */
+   /* Low 10 bits.  */
   BFD_RELOC_LO10,
 
-	 /* Reloc types used for i960/b.out.  */
-  BFD_RELOC_24_PCREL,
+   /* Reloc types used for i960/b.out.  */
   BFD_RELOC_I960_CALLJ,
-
-	 /* 32-bit pc-relative, shifted right 2 bits (i.e., 30-bit
-	   word displacement, e.g. for SPARC) */
-  BFD_RELOC_32_PCREL_S2,
 
    /* now for the sparc/elf codes */
   BFD_RELOC_NONE,		 /* actually used */
@@ -1144,42 +1161,42 @@ typedef enum bfd_reloc_code_real
   BFD_RELOC_SPARC_RELATIVE,
   BFD_RELOC_SPARC_UA32,
 
-   /* this one is a.out specific? */
+   /* these are a.out specific? */
   BFD_RELOC_SPARC_BASE13,
   BFD_RELOC_SPARC_BASE22,
 
 
-        /* Bits 27..2 of the relocation address shifted right 2 bits;
-         simple reloc otherwise.  */
+   /* Bits 27..2 of the relocation address shifted right 2 bits;
+     simple reloc otherwise.  */
   BFD_RELOC_MIPS_JMP,
 
-        /* signed 16-bit pc-relative, shifted right 2 bits (e.g. for MIPS) */
+   /* signed 16-bit pc-relative, shifted right 2 bits (e.g. for MIPS) */
   BFD_RELOC_16_PCREL_S2,
 
-        /* High 16 bits of 32-bit value; simple reloc.  */
+   /* High 16 bits of 32-bit value; simple reloc.  */
   BFD_RELOC_HI16,
-        /* High 16 bits of 32-bit value but the low 16 bits will be sign
-          extended and added to form the final result.  If the low 16
-          bits form a negative number, we need to add one to the high value
-          to compensate for the borrow when the low bits are added.  */
+   /* High 16 bits of 32-bit value but the low 16 bits will be sign
+     extended and added to form the final result.  If the low 16
+     bits form a negative number, we need to add one to the high value
+     to compensate for the borrow when the low bits are added.  */
   BFD_RELOC_HI16_S,
-        /* Low 16 bits.  */
+   /* Low 16 bits.  */
   BFD_RELOC_LO16,
 
-	 /* 16 bit relocation relative to the global pointer.  */
+   /* 16 bit relocation relative to the global pointer.  */
   BFD_RELOC_MIPS_GPREL,
 
-        /* These are, so far, specific to HPPA processors.  I'm not sure that
-	   some don't duplicate other reloc types, such as BFD_RELOC_32 and
-	   _32_PCREL.  Also, many more were in the list I got that don't
-	   fit in well in the model BFD uses, so I've omitted them for now.
-	   If we do make this reloc type get used for code that really does
-	   implement the funky reloc types, they'll have to be added to this
-	   list.   */
+   /* These are, so far, specific to HPPA processors.  I'm not sure that some
+     don't duplicate other reloc types, such as BFD_RELOC_32 and _32_PCREL.
+     Also, many more were in the list I got that don't fit in well in the
+     model BFD uses, so I've omitted them for now.  If we do make this reloc
+     type get used for code that really does implement the funky reloc types,
+     they'll have to be added to this list.  */
   BFD_RELOC_HPPA_32,
   BFD_RELOC_HPPA_11,
   BFD_RELOC_HPPA_14,
   BFD_RELOC_HPPA_17,
+
   BFD_RELOC_HPPA_L21,
   BFD_RELOC_HPPA_R11,
   BFD_RELOC_HPPA_R14,
@@ -1195,6 +1212,7 @@ typedef enum bfd_reloc_code_real
   BFD_RELOC_HPPA_LR21,
   BFD_RELOC_HPPA_RR14,
   BFD_RELOC_HPPA_RR17,
+
   BFD_RELOC_HPPA_GOTOFF_11,
   BFD_RELOC_HPPA_GOTOFF_14,
   BFD_RELOC_HPPA_GOTOFF_L21,
@@ -1208,12 +1226,14 @@ typedef enum bfd_reloc_code_real
   BFD_RELOC_HPPA_GOTOFF_RD14,
   BFD_RELOC_HPPA_GOTOFF_LR21,
   BFD_RELOC_HPPA_GOTOFF_RR14,
+
   BFD_RELOC_HPPA_DLT_32,
   BFD_RELOC_HPPA_DLT_11,
   BFD_RELOC_HPPA_DLT_14,
   BFD_RELOC_HPPA_DLT_L21,
   BFD_RELOC_HPPA_DLT_R11,
   BFD_RELOC_HPPA_DLT_R14,
+
   BFD_RELOC_HPPA_ABS_CALL_11,
   BFD_RELOC_HPPA_ABS_CALL_14,
   BFD_RELOC_HPPA_ABS_CALL_17,
@@ -1232,6 +1252,7 @@ typedef enum bfd_reloc_code_real
   BFD_RELOC_HPPA_ABS_CALL_LR21,
   BFD_RELOC_HPPA_ABS_CALL_RR14,
   BFD_RELOC_HPPA_ABS_CALL_RR17,
+
   BFD_RELOC_HPPA_PCREL_CALL_11,
   BFD_RELOC_HPPA_PCREL_CALL_12,
   BFD_RELOC_HPPA_PCREL_CALL_14,
@@ -1251,14 +1272,26 @@ typedef enum bfd_reloc_code_real
   BFD_RELOC_HPPA_PCREL_CALL_LR21,
   BFD_RELOC_HPPA_PCREL_CALL_RR14,
   BFD_RELOC_HPPA_PCREL_CALL_RR17,
+
   BFD_RELOC_HPPA_PLABEL_32,
   BFD_RELOC_HPPA_PLABEL_11,
   BFD_RELOC_HPPA_PLABEL_14,
   BFD_RELOC_HPPA_PLABEL_L21,
   BFD_RELOC_HPPA_PLABEL_R11,
   BFD_RELOC_HPPA_PLABEL_R14,
+
   BFD_RELOC_HPPA_UNWIND_ENTRY,
   BFD_RELOC_HPPA_UNWIND_ENTRIES,
+
+   /* i386/elf relocations */
+  BFD_RELOC_386_GOT32,
+  BFD_RELOC_386_PLT32,
+  BFD_RELOC_386_COPY,
+  BFD_RELOC_386_GLOB_DAT,
+  BFD_RELOC_386_JUMP_SLOT,
+  BFD_RELOC_386_RELATIVE,
+  BFD_RELOC_386_GOTOFF,
+  BFD_RELOC_386_GOTPC,
 
    /* this must be the highest numeric value */
   BFD_RELOC_UNUSED
@@ -1266,6 +1299,7 @@ typedef enum bfd_reloc_code_real
 CONST struct reloc_howto_struct *
 
 bfd_reloc_type_lookup  PARAMS ((bfd *abfd, bfd_reloc_code_real_type code));
+
 
 typedef struct symbol_cache_entry 
 {
@@ -1304,11 +1338,11 @@ typedef struct symbol_cache_entry
 
 	 /* The symbol has global scope, and is exported. The value is
 	   the offset into the section of the data. */
-#define BSF_EXPORT	0x04
+#define BSF_EXPORT	BSF_GLOBAL  /* no real difference */
 
 	 /* A normal C symbol would be one of:
 	   <<BSF_LOCAL>>, <<BSF_FORT_COMM>>,  <<BSF_UNDEFINED>> or
-	   <<BSF_EXPORT|BSD_GLOBAL>> */
+	   <<BSF_GLOBAL>> */
 
 	 /* The symbol is a debugging record. The value has an arbitary
 	   meaning. */
@@ -1323,7 +1357,7 @@ typedef struct symbol_cache_entry
 #define BSF_KEEP_G      0x40
 
 	 /* A weak global symbol, overridable without warnings by
-	    a regular global symbol of the same name.  */
+	   a regular global symbol of the same name.  */
 #define BSF_WEAK        0x80
 
         /* This symbol was created to point to a section, e.g. ELF's
@@ -1522,6 +1556,8 @@ struct _bfd
       struct hppa_data_struct *hppa_data;
       struct hpux_core_struct *hpux_core_data;
       struct sgi_core_struct *sgi_core_data;
+      struct lynx_core_struct *lynx_core_data;
+      struct osf_core_struct *osf_core_data;
       PTR any;
       } tdata;
   
@@ -1568,6 +1604,9 @@ bfd_get_gp_size PARAMS ((bfd *));
 
 void 
 bfd_set_gp_size PARAMS ((bfd *, int));
+
+bfd_vma 
+bfd_scan_vma PARAMS ((CONST char *string, CONST char **end, int base));
 
 #define bfd_sizeof_headers(abfd, reloc) \
      BFD_SEND (abfd, _bfd_sizeof_headers, (abfd, reloc))

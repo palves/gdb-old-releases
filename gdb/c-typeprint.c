@@ -306,6 +306,7 @@ c_type_print_varspec_prefix (type, stream, show, passed_a_ptr)
     case TYPE_CODE_SET:
     case TYPE_CODE_RANGE:
     case TYPE_CODE_STRING:
+    case TYPE_CODE_BITSTRING:
       /* These types need no prefix.  They are listed here so that
 	 gcc -Wall will reveal any types that haven't been handled.  */
       break;
@@ -429,6 +430,7 @@ c_type_print_varspec_suffix (type, stream, show, passed_a_ptr, demangled_args)
     case TYPE_CODE_SET:
     case TYPE_CODE_RANGE:
     case TYPE_CODE_STRING:
+    case TYPE_CODE_BITSTRING:
       /* These types do not need a suffix.  They are listed so that
 	 gcc -Wall will report types that may not have been considered.  */
       break;
@@ -439,13 +441,16 @@ c_type_print_varspec_suffix (type, stream, show, passed_a_ptr, demangled_args)
    function value or array element), or the description of a
    structure or union.
 
-   SHOW nonzero means don't print this type as just its name;
-   show its real definition even if it has a name.
-   SHOW zero means print just typename or struct tag if there is one
-   SHOW negative means abbreviate structure elements.
-   SHOW is decremented for printing of structure elements.
+   SHOW positive means print details about the type (e.g. enum values),
+   and print structure elements passing SHOW - 1 for show.
+   SHOW zero means just print the type name or struct tag if there is one.
+   If there is no name, print something sensible but concise like
+   "struct {...}".
+   SHOW negative means the same things as SHOW zero.  The difference is that
+   zero is used for printing structure elements and -1 is used for the
+   "whatis" command.  But I don't see any need to distinguish.
 
-   LEVEL is the depth to indent by.
+   LEVEL is the number of spaces to indent by.
    We increase it for some recursive calls.  */
 
 void
@@ -516,7 +521,7 @@ c_type_print_base (type, stream, show, level)
 	    fputs_filtered (" ", stream);
 	}
       wrap_here ("    ");
-      if (show < 0)
+      if (show <= 0)
 	{
 	  /* If we just printed a tag name, no need to print anything else.  */
 	  if (TYPE_TAG_NAME (type) == NULL)
@@ -675,15 +680,24 @@ c_type_print_base (type, stream, show, level)
 		      /* Build something we can demangle.  */
 		      mangled_name = gdb_mangle_name (type, i, j);
 		      demangled_name =
-			  cplus_demangle (mangled_name,
-					  DMGL_ANSI | DMGL_PARAMS);
+			cplus_demangle (mangled_name,
+					DMGL_ANSI | DMGL_PARAMS);
 		      if (demangled_name == NULL)
 			fprintf_filtered (stream, "<badly mangled name %s>",
-			    mangled_name);
-		      else 
+					  mangled_name);
+		      else
 			{
-			  fprintf_filtered (stream, "%s",
-			      strchr (demangled_name, ':') + 2);
+			  char *demangled_no_class =
+			    strchr (demangled_name, ':');
+
+			  if (demangled_no_class == NULL)
+			    demangled_no_class = demangled_name;
+			  else
+			    {
+			      if (*++demangled_no_class == ':')
+				++demangled_no_class;
+			    }
+			  fputs_filtered (demangled_no_class, stream);
 			  free (demangled_name);
 			}
 		      free (mangled_name);
@@ -716,7 +730,7 @@ c_type_print_base (type, stream, show, level)
 	}
 
       wrap_here ("    ");
-      if (show < 0)
+      if (show <= 0)
 	{
 	  /* If we just printed a tag name, no need to print anything else.  */
 	  if (TYPE_TAG_NAME (type) == NULL)

@@ -44,6 +44,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 EXTERN struct symbol *global_sym_chain[HASHSIZE];
 
+extern void common_block_start PARAMS ((char *, struct objfile *));
+extern void common_block_end PARAMS ((struct objfile *));
+
 /* Kludge for xcoffread.c */
 
 struct pending_stabs
@@ -54,15 +57,6 @@ struct pending_stabs
 };
 
 EXTERN struct pending_stabs *global_stabs;
-
-/* List of symbols declared since the last BCOMM.  This list is a tail
-   of local_symbols.  When ECOMM is seen, the symbols on the list
-   are noted so their proper addresses can be filled in later,
-   using the common block base address gotten from the assembler
-   stabs.  */
-
-EXTERN struct pending *common_block;
-EXTERN int common_block_i;
 
 /* The type code that process_one_symbol saw on its previous invocation.
    Used to detect pairs of N_SO symbols. */
@@ -152,20 +146,7 @@ extern void
 add_undefined_type PARAMS ((struct type *));
 
 extern struct symbol *
-define_symbol PARAMS ((unsigned int, char *, int, int, struct objfile *));
-
-extern struct partial_symtab *
-start_psymtab PARAMS ((struct objfile *, struct section_offsets *, char *,
-		       CORE_ADDR, int, struct partial_symbol *,
-		       struct partial_symbol *));
-
-extern void
-end_psymtab PARAMS ((struct partial_symtab *, char **, int, int, CORE_ADDR,
-		     struct partial_symtab **, int));
-
-extern void
-process_one_symbol PARAMS ((int, int, CORE_ADDR, char *,
-			    struct section_offsets *, struct objfile *));
+define_symbol PARAMS ((CORE_ADDR, char *, int, int, struct objfile *));
 
 extern void
 stabsread_init PARAMS ((void));
@@ -181,5 +162,33 @@ end_stabs PARAMS ((void));
 
 extern void
 finish_global_stabs PARAMS ((struct objfile *objfile));
+
+/* Functions exported by dbxread.c.  These are not in stabsread.h because
+   they are only used by some stabs readers.  */
+
+extern struct partial_symtab *
+start_psymtab PARAMS ((struct objfile *, struct section_offsets *, char *,
+		       CORE_ADDR, int, struct partial_symbol *,
+		       struct partial_symbol *));
+
+extern struct partial_symtab *
+end_psymtab PARAMS ((struct partial_symtab *, char **, int, int, CORE_ADDR,
+		     struct partial_symtab **, int));
+
+extern void
+process_one_symbol PARAMS ((int, int, CORE_ADDR, char *,
+			    struct section_offsets *, struct objfile *));
+
+extern void
+elfstab_build_psymtabs PARAMS ((struct objfile *objfile,
+				struct section_offsets *section_offsets,
+				int mainline,
+				file_ptr staboff, unsigned int stabsize,
+				file_ptr stabstroffset,
+				unsigned int stabstrsize));
+
+extern void
+pastab_build_psymtabs PARAMS ((struct objfile *, struct section_offsets *,
+			       int));
 
 #undef EXTERN

@@ -2,16 +2,16 @@
    Copyright (C) 1988, 1992 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
+under the terms of the GNU Library General Public License as published by the
 Free Software Foundation; either version 2, or (at your option) any
 later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GNU Library General Public License for more details.
 
-You should have received a copy of the GNU General Public License
+You should have received a copy of the GNU Library General Public License
 along with this program; if not, write to the Free Software
 Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
@@ -41,7 +41,7 @@ as the first argument.
 
 One motivation for this package is the problem of growing char strings
 in symbol tables.  Unless you are "fascist pig with a read-only mind"
-[Gosper's immortal quote from HAKMEM item 154, out of context] you
+--Gosper's immortal quote from HAKMEM item 154, out of context--you
 would not like to put any arbitrary upper limit on the length of your
 symbols.
 
@@ -121,8 +121,14 @@ Summary:
 
 #if defined (__STDC__) && ! defined (offsetof)
 #if defined (__GNUC__) && defined (IN_GCC)
-/* While building GCC, the stddef.h that goes with GCC has this name.  */
+/* On Next machine, the system's stddef.h screws up if included
+   after we have defined just ptrdiff_t, so include all of gstddef.h.
+   Otherwise, define just ptrdiff_t, which is all we need.  */
+#ifndef __NeXT__
 #define __need_ptrdiff_t
+#endif
+
+/* While building GCC, the stddef.h that goes with GCC has this name.  */
 #include "gstddef.h"
 #else
 #include <stddef.h>
@@ -295,7 +301,7 @@ __extension__								\
    int __len = (length);						\
    ((__o->next_free + __len > __o->chunk_limit)				\
     ? (_obstack_newchunk (__o, __len), 0) : 0);				\
-   memcpy (__o->next_free, where, __len);				\
+   bcopy (where, __o->next_free, __len);				\
    __o->next_free += __len;						\
    (void) 0; })
 
@@ -305,7 +311,7 @@ __extension__								\
    int __len = (length);						\
    ((__o->next_free + __len + 1 > __o->chunk_limit)			\
     ? (_obstack_newchunk (__o, __len + 1), 0) : 0),			\
-   memcpy (__o->next_free, where, __len),				\
+   bcopy (where, __o->next_free, __len),				\
    __o->next_free += __len,						\
    *(__o->next_free)++ = 0;						\
    (void) 0; })
@@ -405,14 +411,14 @@ __extension__								\
 ( (h)->temp = (length),							\
   (((h)->next_free + (h)->temp > (h)->chunk_limit)			\
    ? (_obstack_newchunk ((h), (h)->temp), 0) : 0),			\
-  memcpy ((h)->next_free, where, (h)->temp),				\
+  bcopy (where, (h)->next_free, (h)->temp),				\
   (h)->next_free += (h)->temp)
 
 #define obstack_grow0(h,where,length)					\
 ( (h)->temp = (length),							\
   (((h)->next_free + (h)->temp + 1 > (h)->chunk_limit)			\
    ? (_obstack_newchunk ((h), (h)->temp + 1), 0) : 0),			\
-  memcpy ((h)->next_free, where, (h)->temp),				\
+  bcopy (where, (h)->next_free, (h)->temp),				\
   (h)->next_free += (h)->temp,						\
   *((h)->next_free)++ = 0)
 

@@ -153,7 +153,7 @@ typedef struct nlm_internal_variable_header
      keyword in NLMLINK plus the null byte terminator.  The descriptionText
      can be up to NLM_MAX_DESCRIPTION_LENGTH characters. */
      
-  char descriptionLength;
+  unsigned char descriptionLength;
   char descriptionText[NLM_MAX_DESCRIPTION_LENGTH + 1];
 
   /* The stackSize field contains the size of the stack in bytes, as
@@ -178,7 +178,7 @@ typedef struct nlm_internal_variable_header
      keyword in NLMLINK, and can be up to NLM_MAX_SCREEN_NAME_LENGTH
      characters. */
 
-  char screenNameLength;
+  unsigned char screenNameLength;
   char screenName[NLM_MAX_SCREEN_NAME_LENGTH + 1];
 
   /* The threadNameLength field contains the length of the actual text stored
@@ -187,7 +187,7 @@ typedef struct nlm_internal_variable_header
      keyword in NLMLINK, and can be up to NLM_MAX_THREAD_NAME_LENGTH
      characters. */
 
-  char threadNameLength;
+  unsigned char threadNameLength;
   char threadName[NLM_MAX_THREAD_NAME_LENGTH + 1];
 
 } Nlm_Internal_Variable_Header;
@@ -221,7 +221,7 @@ typedef struct nlm_internal_copyright_header
 {
   /* The header is recognized by "CoPyRiGhT=" in the stamp field. */
   char stamp[10];
-  char copyrightMessageLength;
+  unsigned char copyrightMessageLength;
   char copyrightMessage[NLM_MAX_COPYRIGHT_MESSAGE_LENGTH];
 } Nlm_Internal_Copyright_Header;
 

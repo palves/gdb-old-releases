@@ -282,7 +282,7 @@ read_inferior_memory (memaddr, myaddr, len)
       len -= i;
     }
   if (errno) 
-    bzero (myaddr, len);
+    memset (myaddr, '\0', len);
   return errno;
 }
 
@@ -306,6 +306,9 @@ write_inferior_memory (memaddr, myaddr, len)
    and started up.  We must do a pattach to grab it for debugging.
 
    Also, intercept the CONT command by altering its dispatch address.  */
+/* FIXME: This used to be called from a macro CREATE_INFERIOR_HOOK.
+   But now init_trace_fun is in the same place.  So re-write this to
+   use the init_trace_fun (making convex a debugging target).  */
 
 create_inferior_hook (pid)
     int pid;
@@ -391,7 +394,7 @@ read_vector_register (reg)
       ps.pi_thread = inferior_thread;
       ioctl (inferior_fd, PIXRDVREGS, &ps);
       if (errno)
-	bzero (&vector_registers, sizeof vector_registers);
+	memset (&vector_registers, '\0', sizeof vector_registers);
     }
   else if (corechan >= 0)
     {
@@ -747,11 +750,11 @@ select_thread (thread)
   if (thread == inferior_thread)
     return;
 
-  bcopy (registers, thread_regs[inferior_thread], REGISTER_BYTES);
+  memcpy (thread_regs[inferior_thread], registers, REGISTER_BYTES);
   ps.pi_thread = inferior_thread = thread;
   if (have_inferior_p ())
     ioctl (inferior_fd, PISETRWTID, &ps);
-  bcopy (thread_regs[thread], registers, REGISTER_BYTES);
+  memcpy (registers, thread_regs[thread], REGISTER_BYTES);
 }
   
 /* Routine to set or clear a psw bit in the psw and also all psws

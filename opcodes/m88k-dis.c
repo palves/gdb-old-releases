@@ -23,9 +23,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "dis-asm.h"
 #include "opcode/m88k.h"
 
-/* FIXME: Uses the internal bfd swapping routines.  */
-#include "libbfd.h"
-
 INSTAB  *hashtable[HASHVAL] = {0};
 
 static int
@@ -73,7 +70,7 @@ print_insn_m88k (memaddr, info)
       return -1;
     }
 
-  return m88kdis (memaddr, _do_getb32 (buffer), info);
+  return m88kdis (memaddr, bfd_getb32 (buffer), info);
 }
 
 /*
@@ -94,12 +91,12 @@ m88kdis (pc, instruction, info)
   unsigned int opcode;
   INSTAB *entry_ptr;
   int opmask;
-  int class;
+  unsigned int class;
 
   if (! ihashtab_initialized)
     init_disasm ();
 
-  /* create a the appropriate mask to isolate the opcode */
+  /* create the appropriate mask to isolate the opcode */
   opmask = DEFMASK;
   class = instruction & DEFMASK;
   if ((class >= SFU0) && (class <= SFU7))
@@ -127,7 +124,7 @@ m88kdis (pc, instruction, info)
     (*info->fprintf_func) (info->stream, "word\t%08x", instruction);
   else
     {
-      (*info->fprintf_func) (info->stream, "%s ", entry_ptr->mnemonic);
+      (*info->fprintf_func) (info->stream, "%s", entry_ptr->mnemonic);
       printop (info, &(entry_ptr->op1), instruction, pc, 1);
       printop (info, &(entry_ptr->op2), instruction, pc, 0);
       printop (info, &(entry_ptr->op3), instruction, pc, 0);
@@ -216,12 +213,22 @@ printop (info, opptr, inst, pc, first)
 			     UEXT (inst, opptr->offset, opptr->width));
       break;
 
+    case XREG:
+      (*info->fprintf_func) (info->stream, "x%d",
+			     UEXT (inst, opptr->offset, opptr->width));
+      break;
+
     case HEX:
       extracted_field = UEXT (inst, opptr->offset, opptr->width);
       if (extracted_field == 0)
 	(*info->fprintf_func) (info->stream, "0");
       else
 	(*info->fprintf_func) (info->stream, "0x%02x", extracted_field);
+      break;
+
+    case DEC:
+      extracted_field = UEXT (inst, opptr->offset, opptr->width);
+      (*info->fprintf_func) (info->stream, "%d", extracted_field);
       break;
 
     case CONDMASK:

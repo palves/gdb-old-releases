@@ -67,6 +67,10 @@ LEX = `if [ -f $${rootme}/flex/flex ] ; \
 	then echo $${rootme}/flex/flex ; \
 	else echo flex ; fi`
 
+M4 = `if [ -f $${rootme}/m4/m4 ] ; \
+	then echo $${rootme}/m4/m4 ; \
+	else echo m4 ; fi`
+
 MAKEINFO = `if [ -f $${rootme}/texinfo/makeinfo/makeinfo ] ; \
 	then echo $${rootme}/texinfo/makeinfo/makeinfo ; \
 	else echo makeinfo ; fi`
@@ -137,7 +141,7 @@ AS_FOR_TARGET = ` \
   fi`
 
 AR_FOR_TARGET = ` \
-  if [ -f $${rootme}/binutils/Makefile ] ; then \
+  if [ -f $${rootme}/binutils/ar ] ; then \
     echo $${rootme}/binutils/ar ; \
   else \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
@@ -148,7 +152,7 @@ AR_FOR_TARGET = ` \
   fi`
 
 RANLIB_FOR_TARGET = ` \
-  if [ -f $${rootme}/binutils/Makefile ] ; then \
+  if [ -f $${rootme}/binutils/ranlib ] ; then \
     echo $${rootme}/binutils/ranlib ; \
   else \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
@@ -181,8 +185,6 @@ XTRAFLAGS = ` \
      echo ; \
   fi`
 
-PRMS = all-prms
-
 #### host and target specific makefile fragments come in here.
 ###
 
@@ -206,10 +208,10 @@ BASE_FLAGS_TO_PASS = \
 	"INSTALL_XFORM=$(INSTALL_XFORM)" \
 	"LDFLAGS=$(LDFLAGS)" \
 	"LEX=$(LEX)" \
+	"M4=$(M4)" \
 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
 	"MUNCH_NM=$(MUNCH_NM)" \
 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
-	"PRMS=$(PRMS)" \
 	"RANLIB_FOR_TARGET=$(RANLIB_FOR_TARGET)" \
 	"EXPECT=$(EXPECT)" \
 	"RUNTEST=$(RUNTEST)" \
@@ -288,6 +290,7 @@ ALL_MODULES = \
 	all-cvs \
 	all-dejagnu \
 	all-diff \
+	all-dosutils \
 	all-etc \
 	all-fileutils \
 	all-find \
@@ -307,6 +310,7 @@ ALL_MODULES = \
 	all-make \
 	all-mmalloc \
 	all-opcodes \
+	all-pagas \
 	all-patch \
 	all-prms \
 	all-rcs \
@@ -355,6 +359,7 @@ CHECK_MODULES = \
 	check-make \
 	check-mmcheckoc \
 	check-opcodes \
+	check-pagas \
 	check-patch \
 	check-prms \
 	check-rcs \
@@ -403,6 +408,7 @@ INSTALL_MODULES = \
 	install-make \
 	install-mmalloc \
 	install-opcodes \
+	install-pagas \
 	install-patch \
 	install-prms \
 	install-rcs \
@@ -425,6 +431,7 @@ INSTALL_MODULES = \
 ALL_X11_MODULES = \
 	all-emacs \
 	all-expect \
+	all-gash \
 	all-tclX \
 	all-tk
 
@@ -433,6 +440,7 @@ ALL_X11_MODULES = \
 CHECK_X11_MODULES = \
 	check-emacs \
 	check-expect \
+	check-gash \
 	check-tclX \
 	check-tk
 
@@ -441,12 +449,14 @@ CHECK_X11_MODULES = \
 INSTALL_X11_MODULES = \
 	install-emacs \
 	install-expect \
+	install-gash \
 	install-tclX \
 	install-tk
 
 # This is a list of the targets for all of the modules which are compiled
 # using $(TARGET_FLAGS_TO_PASS).
 ALL_TARGET_MODULES = \
+	all-libio \
 	all-libg++ \
 	all-newlib \
 	all-xiberty
@@ -454,6 +464,7 @@ ALL_TARGET_MODULES = \
 # This is a list of the check targets for all of the modules which are
 # compiled using $(TARGET_FLAGS_TO_PASS).
 CHECK_TARGET_MODULES = \
+	check-libio \
 	check-libg++ \
 	check-newlib \
 	check-xiberty
@@ -461,13 +472,14 @@ CHECK_TARGET_MODULES = \
 # This is a list of the install targets for all of the modules which are
 # compiled using $(TARGET_FLAGS_TO_PASS).
 INSTALL_TARGET_MODULES = \
+	install-libio \
 	install-libg++ \
 	install-newlib \
 	install-xiberty
 
 # This is a shell case of all modules which are compiled using
 # $(TARGET_FLAGS_TO_PASS), used in the do-X rule.
-TARGET_LIBS = libg++ | newlib | xiberty
+TARGET_LIBS = libio | libg++ | newlib | xiberty
 
 # The first rule in the file had better be this one.  Don't put any above it.
 all: all.normal
@@ -609,7 +621,7 @@ gcc-no-fixedincludes:
 	  mv gcc/include gcc/tmp-include 2>/dev/null; \
 	  mkdir gcc/include; \
 	  cp $(srcdir)/gcc/gsyslimits.h gcc/include/syslimits.h; \
-	  touch gcc/stmp-fixinc; \
+	  touch gcc/stmp-fixinc gcc/stmp-fixproto; \
 	  rm -f gcc/stmp-headers gcc/stmp-int-hdrs; \
 	  rootme=`pwd`; export rootme; \
 	  srcroot=`cd $(srcdir); pwd` ; export srcroot; \
@@ -773,7 +785,7 @@ install-gcc:
 	fi
 
 # This is a list of inter-dependencies among modules.
-all-autoconf:
+all-autoconf: all-m4
 all-bfd:
 all-binutils: all-libiberty all-opcodes all-bfd all-flex
 all-byacc:
@@ -787,31 +799,33 @@ all-fileutils: all-libiberty
 all-find:
 all-flex: all-libiberty all-byacc
 all-gas: all-libiberty all-opcodes all-bfd
+all-gash: all-tcl
 all-gawk:
-all-gcc: all-libiberty all-byacc all-binutils all-gas
+all-gcc: all-libiberty all-byacc all-binutils all-gas all-pagas
 all-gdb: all-libiberty all-opcodes all-bfd all-mmalloc all-readline all-glob all-byacc all-sim
 all-glob:
 all-gprof: all-libiberty all-bfd
-all-grep:
+all-grep: all-libiberty
 all-gzip: all-libiberty
 all-hello: all-libiberty
 all-indent:
 all-ispell: all-emacs
 all-ld: all-libiberty all-bfd all-byacc all-flex
-all-libg++: all-gas all-ld all-gcc all-xiberty all-newlib
+all-libg++: all-gas all-pagas all-ld all-gcc all-xiberty all-newlib all-libio
+all-libio: all-gas all-pagas all-ld all-gcc all-xiberty all-newlib 
 all-libiberty:
 all-m4: all-libiberty
 all-make: all-libiberty
 all-mmalloc:
-all-newlib: all-binutils all-gas all-gcc
+all-newlib: all-binutils all-gas all-pagas all-gcc
 all-opcodes: all-bfd
 all-patch:
-all-prms:
+all-prms: all-libiberty
 all-rcs:
 all-readline:
 all-recode: all-libiberty
-all-sed:
-all-send-pr:
+all-sed: all-libiberty
+all-send-pr: all-prms
 all-shellutils:
 all-sim: all-libiberty all-bfd
 all-tar: all-libiberty
@@ -906,7 +920,6 @@ GDB_SUPPORT_FILES= $(GDB_SUPPORT_DIRS)
 
 .PHONY: setup-dirs-gdb gdb.tar.gz make-gdb.tar.gz
 setup-dirs-gdb:
-	rm -rf `find . -name CVS -print` no-such-file
 	./configure sun4
 	$(MAKE) clean
 	./configure -rm sun4
@@ -1065,7 +1078,7 @@ gas+binutils.tar.gz: $(DIST_SUPPORT) $(GASB_SUPPORT_DIRS) gas
 	$(MAKE) -f Makefile.in taz SUPPORT_FILES="$(GASB_SUPPORT_DIRS)" TOOL=gas
 
 .PHONY: libg++.tar.gz
-LIBGXX_SUPPORT_DIRS=include libiberty xiberty
+LIBGXX_SUPPORT_DIRS=include libio libiberty xiberty
 libg++.tar.gz: $(DIST_SUPPORT) libg++
 	$(MAKE) -f Makefile.in taz SUPPORT_FILES="$(LIBGXX_SUPPORT_DIRS)" TOOL=libg++
 

@@ -492,7 +492,7 @@ bton (s)
   return n;
 }
 
-static char table[1 << 16];
+static unsigned char table[1 << 16];
 
 /* Take an opcode expand all varying fields in it out and fill all the
   right entries in 'table' with the opcode index*/

@@ -21,35 +21,28 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "frame.h"
 #include "inferior.h"
 #include "value.h"
-
-#ifdef USG
-#include <sys/types.h>
-#endif
-
-#include <sys/param.h>
-#include <sys/dir.h>
-#include <signal.h>
 #include "gdbcore.h"
-#include <sys/user.h>
-#ifndef USER			/* added to support BCS ptrace_user */
-
-#define USER ptrace_user
-#endif
-#include <sys/ioctl.h>
-#include <fcntl.h>
-
-#include <sys/file.h>
-#include <sys/stat.h>
 
 #include "symtab.h"
 #include "setjmp.h"
 #include "value.h"
+#include "ieee-float.h"	/* for ext_format & friends */
 
 /* Size of an instruction */
 #define	BYTES_PER_88K_INSN	4
 
 void frame_find_saved_regs ();
 
+/* is this target an m88110?  Otherwise assume m88100.  This has
+   relevance for the ways in which we screw with instruction pointers.  */ 
+int target_is_m88110 = 0;
+
+/* FIXME: this is really just a guess based on m88110 being big
+   endian. */
+const struct ext_format ext_format_m88110 = {
+/* tot sbyte smask expbyte	manbyte */
+   10, 0,    0x80, 0,1,		4,8		/* m88110 */
+};
 
 /* Given a GDB frame, determine the address of the calling function's frame.
    This will be used to create a new GDB frame struct, and then
@@ -86,15 +79,6 @@ frameless_function_invocation (frame)
     return 0;			/* Frameful -- return addr saved somewhere */
   else
     return 1;			/* Frameless -- no saved return address */
-}
-
-int
-frame_chain_valid (chain, thisframe)
-     CORE_ADDR chain;
-     struct frame_info *thisframe;
-{
-  return (chain != 0
-       && !inside_entry_file (FRAME_SAVED_PC (thisframe)));
 }
 
 void
@@ -151,7 +135,7 @@ struct pic_prologue_code {
 
 static struct pic_prologue_code pic_prologue_code [] = {
 /* FIXME -- until this is translated to hex, we won't match it... */
-	0xffffffff, 0,
+  { 0xffffffff, 0 },
 					/* or r10,r1,0  (if not saved) */
 					/* bsr.n LabN */
 					/* or.u r25,r0,const */
@@ -166,7 +150,7 @@ static struct pic_prologue_code pic_prologue_code [] = {
    of the instruction.  PWORD2 is ignored -- a remnant of the original
    i960 version.  */
 
-#define NEXT_PROLOGUE_INSN(addr, lim, pword1, pword2) \
+#define NEXT_PROLOGUE_INSN(addr, lim, pword1) \
   (((addr) < (lim)) ? next_insn (addr, pword1) : 0)
 
 /* Read the m88k instruction at 'memaddr' and return the address of 
@@ -179,15 +163,13 @@ next_insn (memaddr, pword1)
      unsigned long *pword1;
      CORE_ADDR memaddr;
 {
-  unsigned long buf[1];
-
   *pword1 = read_memory_integer (memaddr, BYTES_PER_88K_INSN);
   return memaddr + BYTES_PER_88K_INSN;
 }
 
 /* Read a register from frames called by us (or from the hardware regs).  */
 
-int
+static int
 read_next_frame_reg(fi, regno)
      FRAME fi;
      int regno;
@@ -220,15 +202,15 @@ examine_prologue (ip, limit, frame_sp, fsr, fi)
   register CORE_ADDR next_ip;
   register int src;
   register struct pic_prologue_code *pcode;
-  unsigned int insn1, insn2;
+  unsigned int insn;
   int size, offset;
   char must_adjust[32];		/* If set, must adjust offsets in fsr */
   int sp_offset = -1;		/* -1 means not set (valid must be mult of 8) */
   int fp_offset = -1;		/* -1 means not set */
   CORE_ADDR frame_fp;
 
-  bzero (must_adjust, sizeof (must_adjust));
-  next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn1, &insn2);
+  memset (must_adjust, '\0', sizeof (must_adjust));
+  next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn);
 
   /* Accept move of incoming registers to other registers, using
      "or rd,rs,0" or "or.u rd,rs,0" or "or rd,r0,rs" or "or rd,rs,r0".
@@ -243,9 +225,9 @@ examine_prologue (ip, limit, frame_sp, fsr, fi)
 #define	OR_REG_MOVE2_INSN	0xF4005800	/* or rd,rs,r0 */
 #define	OR_REG_MOVE2_MASK	0xFC00FFFF
   while (next_ip && 
-	 ((insn1 & OR_MOVE_MASK) == OR_MOVE_INSN ||
-	  (insn1 & OR_REG_MOVE1_MASK) == OR_REG_MOVE1_INSN ||
-	  (insn1 & OR_REG_MOVE2_MASK) == OR_REG_MOVE2_INSN
+	 ((insn & OR_MOVE_MASK) == OR_MOVE_INSN ||
+	  (insn & OR_REG_MOVE1_MASK) == OR_REG_MOVE1_INSN ||
+	  (insn & OR_REG_MOVE2_MASK) == OR_REG_MOVE2_INSN
 	 )
 	)
     {
@@ -253,7 +235,7 @@ examine_prologue (ip, limit, frame_sp, fsr, fi)
  	 has already been reflected in what the compiler tells us is the
 	 location of these parameters.  */
       ip = next_ip;
-      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn1, &insn2);
+      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn);
     }
 
   /* Accept an optional "subu sp,sp,n" to set up the stack pointer.  */
@@ -262,11 +244,11 @@ examine_prologue (ip, limit, frame_sp, fsr, fi)
 #define	SUBU_SP_MASK	0xffff0007	/* Note offset must be mult. of 8 */
 #define	SUBU_OFFSET(x)	((unsigned)(x & 0xFFFF))
   if (next_ip &&
-      ((insn1 & SUBU_SP_MASK) == SUBU_SP_INSN))	/* subu r31, r31, N */
+      ((insn & SUBU_SP_MASK) == SUBU_SP_INSN))	/* subu r31, r31, N */
     {
-      sp_offset = -SUBU_OFFSET (insn1);
+      sp_offset = -SUBU_OFFSET (insn);
       ip = next_ip;
-      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn1, &insn2);
+      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn);
     }
 
   /* The function must start with a stack-pointer adjustment, or
@@ -291,15 +273,15 @@ examine_prologue (ip, limit, frame_sp, fsr, fi)
 
   while (next_ip)
     {
-           if ((insn1 & ST_STACK_MASK)  == ST_STACK_INSN)
+           if ((insn & ST_STACK_MASK)  == ST_STACK_INSN)
  	size = 1;
-      else if ((insn1 & STD_STACK_MASK) == STD_STACK_INSN)
+      else if ((insn & STD_STACK_MASK) == STD_STACK_INSN)
 	size = 2;
       else
 	break;
 
-      src = ST_SRC (insn1);
-      offset = ST_OFFSET (insn1);
+      src = ST_SRC (insn);
+      offset = ST_OFFSET (insn);
       while (size--)
 	{
 	  must_adjust[src] = 1;
@@ -307,7 +289,7 @@ examine_prologue (ip, limit, frame_sp, fsr, fi)
 	  offset += 4;
 	}
       ip = next_ip;
-      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn1, &insn2);
+      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn);
     }
 
   /* Accept an optional "addu r30,r31,n" to set up the frame pointer.  */
@@ -316,11 +298,11 @@ examine_prologue (ip, limit, frame_sp, fsr, fi)
 #define	ADDU_FP_MASK	0xffff0000
 #define	ADDU_OFFSET(x)	((unsigned)(x & 0xFFFF))
   if (next_ip &&
-      ((insn1 & ADDU_FP_MASK) == ADDU_FP_INSN))	/* addu r30, r31, N */
+      ((insn & ADDU_FP_MASK) == ADDU_FP_INSN))	/* addu r30, r31, N */
     {
-      fp_offset = ADDU_OFFSET (insn1);
+      fp_offset = ADDU_OFFSET (insn);
       ip = next_ip;
-      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn1, &insn2);
+      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn);
     }
 
   /* Accept the PIC prologue code if present.  */
@@ -333,11 +315,11 @@ examine_prologue (ip, limit, frame_sp, fsr, fi)
     size-=2;
   }
 
-  while (size-- && next_ip && (pcode->insn == (pcode->mask & insn1)))
+  while (size-- && next_ip && (pcode->insn == (pcode->mask & insn)))
     {
       pcode++;
       ip = next_ip;
-      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn1, &insn2);
+      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn);
     }
 
   /* Accept moves of parameter registers to other registers, using
@@ -353,9 +335,9 @@ examine_prologue (ip, limit, frame_sp, fsr, fi)
 #define	OR_REG_MOVE2_INSN	0xF4005800	/* or rd,rs,r0 */
 #define	OR_REG_MOVE2_MASK	0xFC00FFFF
   while (next_ip && 
-	 ((insn1 & OR_MOVE_MASK) == OR_MOVE_INSN ||
-	  (insn1 & OR_REG_MOVE1_MASK) == OR_REG_MOVE1_INSN ||
-	  (insn1 & OR_REG_MOVE2_MASK) == OR_REG_MOVE2_INSN
+	 ((insn & OR_MOVE_MASK) == OR_MOVE_INSN ||
+	  (insn & OR_REG_MOVE1_MASK) == OR_REG_MOVE1_INSN ||
+	  (insn & OR_REG_MOVE2_MASK) == OR_REG_MOVE2_INSN
 	 )
 	)
     {
@@ -363,7 +345,7 @@ examine_prologue (ip, limit, frame_sp, fsr, fi)
  	 has already been reflected in what the compiler tells us is the
 	 location of these parameters.  */
       ip = next_ip;
-      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn1, &insn2);
+      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn);
     }
 
   /* We're done with the prologue.  If we don't care about the stack
@@ -373,24 +355,32 @@ examine_prologue (ip, limit, frame_sp, fsr, fi)
   if (fi == 0)
     return ip;
 
-  /* OK, now we have:
-	sp_offset	original negative displacement of SP
-	fp_offset	positive displacement between new SP and new FP, or -1
-	fsr->regs[0..31]	offset from original SP where reg is stored
-	must_adjust[0..31]	set if corresp. offset was set
+  /*
+     OK, now we have:
 
-     The current SP (frame_sp) might not be the original new SP as set
-     by the function prologue, if alloca has been called.  This can
-     only occur if fp_offset is set, though (the compiler allocates an
-     FP when it sees alloca).  In that case, we have the FP,
-     and can calculate the original new SP from the FP.
+     	sp_offset	original (before any alloca calls) displacement of SP
+			(will be negative).
 
-     Then, we figure out where the arguments and locals are, and
-     relocate the offsets in fsr->regs to absolute addresses.  */
+	fp_offset	displacement from original SP to the FP for this frame
+			or -1.
+
+	fsr->regs[0..31]	displacement from original SP to the stack
+				location where reg[0..31] is stored.
+
+	must_adjust[0..31]	set if corresponding offset was set.
+
+     If alloca has been called between the function prologue and the current
+     IP, then the current SP (frame_sp) will not be the original SP as set by
+     the function prologue.  If the current SP is not the original SP, then the
+     compiler will have allocated an FP for this frame, fp_offset will be set,
+     and we can use it to calculate the original SP.
+
+     Then, we figure out where the arguments and locals are, and relocate the
+     offsets in fsr->regs to absolute addresses.  */
 
   if (fp_offset != -1) {
     /* We have a frame pointer, so get it, and base our calc's on it.  */
-    frame_fp = (CORE_ADDR) read_next_frame_reg (fi->next, FP_REGNUM);
+    frame_fp = (CORE_ADDR) read_next_frame_reg (fi->next, ACTUAL_FP_REGNUM);
     frame_sp = frame_fp - fp_offset;
   } else {
     /* We have no frame pointer, therefore frame_sp is still the same value
@@ -467,9 +457,6 @@ frame_find_saved_regs (fi, fsr)
      struct frame_info *fi;
      struct frame_saved_regs *fsr;
 {
-  register CORE_ADDR next_addr;
-  register CORE_ADDR *saved_regs;
-  register int regnum;
   register struct frame_saved_regs *cache_fsr;
   extern struct obstack frame_cache_obstack;
   CORE_ADDR ip;
@@ -481,7 +468,7 @@ frame_find_saved_regs (fi, fsr)
       cache_fsr = (struct frame_saved_regs *)
 		  obstack_alloc (&frame_cache_obstack,
 				 sizeof (struct frame_saved_regs));
-      bzero (cache_fsr, sizeof (struct frame_saved_regs));
+      memset (cache_fsr, '\0', sizeof (struct frame_saved_regs));
       fi->fsr = cache_fsr;
 
       /* Find the start and end of the function prologue.  If the PC
@@ -509,9 +496,7 @@ CORE_ADDR
 frame_locals_address (fi)
      struct frame_info *fi;
 {
-  register FRAME frame;
   struct frame_saved_regs fsr;
-  CORE_ADDR ap;
 
   if (fi->args_pointer)	/* Cached value is likely there.  */
     return fi->args_pointer;
@@ -530,9 +515,7 @@ CORE_ADDR
 frame_args_address (fi)
      struct frame_info *fi;
 {
-  register FRAME frame;
   struct frame_saved_regs fsr;
-  CORE_ADDR ap;
 
   if (fi->args_pointer)		/* Cached value is likely there.  */
     return fi->args_pointer;
@@ -556,7 +539,8 @@ frame_saved_pc (frame)
   return read_next_frame_reg(frame, SRP_REGNUM);
 }
 
-
+#if 0
+/* I believe this is all obsolete call dummy stuff.  */
 static int
 pushed_size (prev_words, v)
      int prev_words;
@@ -713,7 +697,9 @@ push_parameters (return_type, struct_conv, nargs, args)
  
            write_register (SP_REGNUM, rv_addr); /* push space onto the stack */
            write_register (SRA_REGNUM, rv_addr);/* set return value register */
+	   break;
          }
+       default: break;
      }
  
    /* Here we make a pre-pass on the whole parameter list to figure out exactly
@@ -760,13 +746,6 @@ push_parameters (return_type, struct_conv, nargs, args)
 }
 
 void
-pop_frame ()
-{
-  error ("Feature not implemented for the m88k yet.");
-  return;
-}
-
-void
 collect_returned_value (rval, value_type, struct_return, nargs, args)
      value *rval;
      struct type *value_type;
@@ -776,50 +755,112 @@ collect_returned_value (rval, value_type, struct_return, nargs, args)
 {
   char retbuf[REGISTER_BYTES];
 
-  bcopy (registers, retbuf, REGISTER_BYTES);
+  memcpy (retbuf, registers, REGISTER_BYTES);
   *rval = value_being_returned (value_type, retbuf, struct_return);
   return;
 }
+#endif /* 0 */
 
-#if 0
-/* Now handled in a machine independent way with CALL_DUMMY_LOCATION.  */
- /* Stuff a breakpoint instruction onto the stack (or elsewhere if the stack
-    is not a good place for it).  Return the address at which the instruction
-    got stuffed, or zero if we were unable to stuff it anywhere.  */
-  
-CORE_ADDR
-push_breakpoint ()
+/*start of lines added by kev*/
+
+#define DUMMY_FRAME_SIZE 192
+
+static void
+write_word (sp, word)
+     CORE_ADDR sp;
+     REGISTER_TYPE word;
 {
-  static char breakpoint_insn[] = BREAKPOINT;
-  extern CORE_ADDR text_end;	/* of inferior */
-  static char readback_buffer[] = BREAKPOINT;
-  int i;
- 
-  /* With a little bit of luck, we can just stash the breakpoint instruction
-     in the word just beyond the end of normal text space.  For systems on
-     which the hardware will not allow us to execute out of the stack segment,
-     we have to hope that we *are* at least allowed to effectively extend the
-     text segment by one word.  If the actual end of user's the text segment
-     happens to fall right at a page boundary this trick may fail.  Note that
-     we check for this by reading after writing, and comparing in order to
-     be sure that the write worked.  */
+  register int len = sizeof (REGISTER_TYPE);
+  char buffer[MAX_REGISTER_RAW_SIZE];
 
-  write_memory (text_end, &breakpoint_insn, 4);
-
-  /* Fill the readback buffer with some garbage which is certain to be
-     unequal to the breakpoint insn.  That way we can tell if the
-     following read doesn't actually succeed.  */
-
-  for (i = 0; i < sizeof (readback_buffer); i++)
-    readback_buffer[i] = ~ readback_buffer[i];	/* Invert the bits */
-
-  /* Now check that the breakpoint insn was successfully installed.  */
-
-  read_memory (text_end, readback_buffer, sizeof (readback_buffer));
-  for (i = 0; i < sizeof (readback_buffer); i++)
-    if (readback_buffer[i] != breakpoint_insn[i])
-      return 0;		/* Failed to install! */
-
-  return text_end;
+  store_unsigned_integer (buffer, len, word);
+  write_memory (sp, buffer, len);
 }
-#endif
+
+void
+m88k_push_dummy_frame()
+{
+  register CORE_ADDR sp = read_register (SP_REGNUM);
+  register int rn;
+  int offset;
+
+  sp -= DUMMY_FRAME_SIZE;	/* allocate a bunch of space */
+
+  for (rn = 0, offset = 0; rn <= SP_REGNUM; rn++, offset+=4)
+    write_word (sp+offset, read_register(rn));
+  
+  write_word (sp+offset, read_register (SXIP_REGNUM));
+  offset += 4;
+
+  write_word (sp+offset, read_register (SNIP_REGNUM));
+  offset += 4;
+
+  write_word (sp+offset, read_register (SFIP_REGNUM));
+  offset += 4;
+
+  write_word (sp+offset, read_register (PSR_REGNUM));
+  offset += 4;
+
+  write_word (sp+offset, read_register (FPSR_REGNUM));
+  offset += 4;
+
+  write_word (sp+offset, read_register (FPCR_REGNUM));
+  offset += 4;
+
+  write_register (SP_REGNUM, sp);
+  write_register (ACTUAL_FP_REGNUM, sp);
+}
+
+void
+pop_frame ()
+{
+  register FRAME frame = get_current_frame ();
+  register CORE_ADDR fp;
+  register int regnum;
+  struct frame_saved_regs fsr;
+  struct frame_info *fi;
+
+  fi = get_frame_info (frame);
+  fp = fi -> frame;
+  get_frame_saved_regs (fi, &fsr);
+
+  if (PC_IN_CALL_DUMMY (read_pc(), read_register(SP_REGNUM), FRAME_FP(fi)))
+    {
+      /* FIXME: I think get_frame_saved_regs should be handling this so
+	 that we can deal with the saved registers properly (e.g. frame
+	 1 is a call dummy, the user types "frame 2" and then "print $ps").  */
+      register CORE_ADDR sp = read_register (ACTUAL_FP_REGNUM);
+      int offset;
+
+      for (regnum = 0, offset = 0; regnum <= SP_REGNUM; regnum++, offset+=4)
+	(void) write_register (regnum, read_memory_integer (sp+offset, 4));
+  
+      write_register (SXIP_REGNUM, read_memory_integer (sp+offset, 4));
+      offset += 4;
+
+      write_register (SNIP_REGNUM, read_memory_integer (sp+offset, 4));
+      offset += 4;
+
+      write_register (SFIP_REGNUM, read_memory_integer (sp+offset, 4));
+      offset += 4;
+
+      write_register (PSR_REGNUM, read_memory_integer (sp+offset, 4));
+      offset += 4;
+
+      write_register (FPSR_REGNUM, read_memory_integer (sp+offset, 4));
+      offset += 4;
+
+      write_register (FPCR_REGNUM, read_memory_integer (sp+offset, 4));
+      offset += 4;
+
+    }
+  else 
+    {
+      for (regnum = FP_REGNUM ; regnum > 0 ; regnum--)
+	  if (fsr.regs[regnum])
+	      write_register (regnum,
+			      read_memory_integer (fsr.regs[regnum], 4));
+      write_pc(frame_saved_pc(frame));
+    }
+  reinit_frame_cache ();
+}

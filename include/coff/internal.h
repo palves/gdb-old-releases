@@ -14,7 +14,7 @@ struct internal_filehdr
   unsigned short f_magic;	/* magic number			*/
   unsigned short f_nscns;	/* number of sections		*/
   long f_timdat;		/* time & date stamp		*/
-  long f_symptr;		/* file pointer to symtab	*/
+  bfd_vma f_symptr;		/* file pointer to symtab	*/
   long f_nsyms;			/* number of symtab entries	*/
   unsigned short f_opthdr;	/* sizeof(optional hdr)		*/
   unsigned short f_flags;	/* flags			*/
@@ -47,12 +47,12 @@ struct internal_aouthdr
 {
   short magic;			/* type of file				*/
   short vstamp;			/* version stamp			*/
-  unsigned long tsize;		/* text size in bytes, padded to FW bdry*/
-  unsigned long dsize;		/* initialized data "  "		*/
-  unsigned long bsize;		/* uninitialized data "   "		*/
-  unsigned long entry;		/* entry pt.				*/
-  unsigned long text_start;	/* base of text used for this file */
-  unsigned long data_start;	/* base of data used for this file */
+  bfd_vma tsize;		/* text size in bytes, padded to FW bdry*/
+  bfd_vma dsize;		/* initialized data "  "		*/
+  bfd_vma bsize;		/* uninitialized data "   "		*/
+  bfd_vma entry;		/* entry pt.				*/
+  bfd_vma text_start;		/* base of text used for this file */
+  bfd_vma data_start;		/* base of data used for this file */
 
   /* i960 stuff */
   unsigned long tagentries;	/* number of tag entries to follow */
@@ -70,11 +70,17 @@ struct internal_aouthdr
   short o_modtype;		/* Module type field, 1R,RE,RO	*/
   unsigned long o_maxstack;	/* max stack size allowed.	*/
 
-  /* MIPS ECOFF stuff */
-  unsigned long bss_start;	/* Base of bss section.		*/
-  unsigned long gp_value;	/* GP register value.		*/
+  /* ECOFF stuff */
+  bfd_vma bss_start;		/* Base of bss section.		*/
+  bfd_vma gp_value;		/* GP register value.		*/
   unsigned long gprmask;	/* General registers used.	*/
   unsigned long cprmask[4];	/* Coprocessor registers used.	*/
+  unsigned long fprmask;	/* Floating pointer registers used.  */
+
+  /* Apollo stuff */
+  long o_inlib;
+  long o_sri;
+  long vid[2];
 };
 
 /********************** STORAGE CLASSES **********************/
@@ -153,12 +159,12 @@ struct internal_aouthdr
 struct internal_scnhdr
 {
   char s_name[8];		/* section name			*/
-  long s_paddr;			/* physical address, aliased s_nlib */
-  long s_vaddr;			/* virtual address		*/
-  long s_size;			/* section size			*/
-  long s_scnptr;		/* file ptr to raw data for section */
-  long s_relptr;		/* file ptr to relocation	*/
-  long s_lnnoptr;		/* file ptr to line numbers	*/
+  bfd_vma s_paddr;		/* physical address, aliased s_nlib */
+  bfd_vma s_vaddr;		/* virtual address		*/
+  bfd_vma s_size;		/* section size			*/
+  bfd_vma s_scnptr;		/* file ptr to raw data for section */
+  bfd_vma s_relptr;		/* file ptr to relocation	*/
+  bfd_vma s_lnnoptr;		/* file ptr to line numbers	*/
   unsigned long s_nreloc;	/* number of relocation entries	*/
   unsigned long s_nlnno;	/* number of line number entries*/
   long s_flags;			/* flags			*/
@@ -429,12 +435,12 @@ union internal_auxent
 
 struct internal_reloc
 {
-  long r_vaddr;			/* Virtual address of reference */
+  bfd_vma r_vaddr;		/* Virtual address of reference */
   long r_symndx;		/* Index into symbol table	*/
   unsigned short r_type;	/* Relocation type		*/
-  unsigned char r_size;		/* Used on RS/6000		*/
-  unsigned long r_offset;
-
+  unsigned char r_size;		/* Used by RS/6000 and ECOFF	*/
+  unsigned char r_extern;	/* Used by ECOFF		*/
+  unsigned long r_offset;	/* Used by RS/6000 and ECOFF	*/
 };
 
 #define R_RELBYTE	017
@@ -443,6 +449,7 @@ struct internal_reloc
 #define R_PCRWORD	023
 #define R_PCRLONG	024
 
+#define	R_DIR16		01
 #define R_DIR32		06
 #define	R_PCLONG	020
 #define R_RELBYTE	017

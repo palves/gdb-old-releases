@@ -5,16 +5,24 @@ CFLAGS = -g
 
 .PHONY: all clean mostlyclean distclean realclean
 
-all: gdbme
+all: gdbme comp-info.exp
 
-gdbme: gdbme0.o gdbme1.o
-	$(CC) $(CFLAGS) $(LDFLAGS) -o gdbme gdbme0.o gdbme1.o $(LIBS)
+# We want to make sure comp-info.exp reflects the way that gdbme was compiled;
+# that's why this isn't a separate rule.
+gdbme comp-info.exp: gdbme0.o gdbme1.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o gdbme.tmp gdbme0.o gdbme1.o $(LIBS)
+	$(CC) $(CFLAGS) -E $(srcdir)/comp-info.c >comp-info.tmp
+	mv comp-info.tmp comp-info.exp
+	mv gdbme.tmp gdbme
 
 gdbme0.o: gdbme0.c
+	$(CC) $(CFLAGS) -c $(srcdir)/gdbme0.c
+
 gdbme1.o: gdbme1.c
+	$(CC) $(CFLAGS) -c $(srcdir)/gdbme1.c
 
 clean mostlyclean:
-	-rm -f *.o gdbme *.diff *~ *.bad core foo
+	-rm -f *.o gdbme *.diff *~ *.bad core foo *.tmp comp-info.exp
 
 distclean realclean: clean
 	-rm -f Makefile config.status

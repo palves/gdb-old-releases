@@ -11,6 +11,7 @@ gdbme: gdbme.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o gdbme gdbme.o $(LIBS)
 
 gdbme.o: gdbme.c
+	$(CC) $(CFLAGS) -c $(srcdir)/gdbme.c
 
 # Create a core file named "corefile" rather than just "core", to
 # avoid problems with sys admin types that like to regularly prune all

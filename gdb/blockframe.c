@@ -45,6 +45,12 @@ inside_entry_file (addr)
     return 1;
   if (symfile_objfile == 0)
     return 0;
+#if CALL_DUMMY_LOCATION == AT_ENTRY_POINT
+  /* Do not stop backtracing if the pc is in the call dummy
+     at the entry point.  */
+  if (PC_IN_CALL_DUMMY (addr, 0, 0))
+    return 0;
+#endif
   return (addr >= symfile_objfile -> ei.entry_file_lowpc &&
 	  addr <  symfile_objfile -> ei.entry_file_highpc);
 }
@@ -85,6 +91,12 @@ CORE_ADDR pc;
     return 1;
   if (symfile_objfile == 0)
     return 0;
+#if CALL_DUMMY_LOCATION == AT_ENTRY_POINT
+  /* Do not stop backtracing if the pc is in the call dummy
+     at the entry point.  */
+  if (PC_IN_CALL_DUMMY (pc, 0, 0))
+    return 0;
+#endif
   return (symfile_objfile -> ei.entry_func_lowpc  <= pc &&
 	  symfile_objfile -> ei.entry_func_highpc > pc);
 }
@@ -124,6 +136,7 @@ create_new_frame (addr, pc)
      CORE_ADDR pc;
 {
   struct frame_info *fci;	/* Same type as FRAME */
+  char *name;
 
   fci = (struct frame_info *)
     obstack_alloc (&frame_cache_obstack,
@@ -134,7 +147,8 @@ create_new_frame (addr, pc)
   fci->prev = (struct frame_info *) 0;
   fci->frame = addr;
   fci->pc = pc;
-  fci->signal_handler_caller = IN_SIGTRAMP (fci->pc, (char *)NULL);
+  find_pc_partial_function (pc, &name, (CORE_ADDR *)NULL,(CORE_ADDR *)NULL);
+  fci->signal_handler_caller = IN_SIGTRAMP (fci->pc, name);
 
 #ifdef INIT_EXTRA_FRAME_INFO
   INIT_EXTRA_FRAME_INFO (0, fci);
@@ -184,10 +198,17 @@ flush_cached_frames ()
 void
 reinit_frame_cache ()
 {
-  FRAME fr = current_frame;
   flush_cached_frames ();
-  if (fr)
-    set_current_frame ( create_new_frame (read_fp (), read_pc ()));
+  if (target_has_stack)
+    {
+      set_current_frame (create_new_frame (read_fp (), read_pc ()));
+      select_frame (get_current_frame (), 0);
+    }
+  else
+    {
+      set_current_frame (0);
+      select_frame ((FRAME) 0, -1);
+    }
 }
 
 /* Return a structure containing various interesting information
@@ -260,9 +281,10 @@ struct frame_info *
 get_prev_frame_info (next_frame)
      FRAME next_frame;
 {
-  FRAME_ADDR address;
+  FRAME_ADDR address = 0;
   struct frame_info *prev;
   int fromleaf = 0;
+  char *name;
 
   /* If the requested entry is in the cache, return it.
      Otherwise, figure out what the address should be for the entry
@@ -270,10 +292,16 @@ get_prev_frame_info (next_frame)
 
   if (!next_frame)
     {
+#if 0
+      /* This screws value_of_variable, which just wants a nice clean
+	 NULL return from block_innermost_frame if there are no frames.
+	 I don't think I've ever seen this message happen otherwise.
+	 And returning NULL here is a perfectly legitimate thing to do.  */
       if (!current_frame)
 	{
 	  error ("You haven't set up a process's stack to examine.");
 	}
+#endif
 
       return current_frame;
     }
@@ -382,7 +410,9 @@ get_prev_frame_info (next_frame)
      (see tm-sparc.h).  We want the pc saved in the inferior frame. */
   INIT_FRAME_PC(fromleaf, prev);
 
-  if (IN_SIGTRAMP (prev->pc, (char *)NULL))
+  find_pc_partial_function (prev->pc, &name,
+			    (CORE_ADDR *)NULL,(CORE_ADDR *)NULL);
+  if (IN_SIGTRAMP (prev->pc, name))
     prev->signal_handler_caller = 1;
 
   return prev;
@@ -422,12 +452,13 @@ get_frame_block (frame)
   fi = get_frame_info (frame);
 
   pc = fi->pc;
-  if (fi->next != 0)
-    /* We are not in the innermost frame.  We need to subtract one to
-       get the correct block, in case the call instruction was the
-       last instruction of the block.  If there are any machines on
-       which the saved pc does not point to after the call insn, we
-       probably want to make fi->pc point after the call insn anyway.  */
+  if (fi->next != 0 && fi->next->signal_handler_caller == 0)
+    /* We are not in the innermost frame and we were not interrupted
+       by a signal.  We need to subtract one to get the correct block,
+       in case the call instruction was the last instruction of the block.
+       If there are any machines on which the saved pc does not point to
+       after the call insn, we probably want to make fi->pc point after
+       the call insn anyway.  */
     --pc;
   return block_for_pc (pc);
 }
@@ -600,6 +631,7 @@ find_pc_partial_function (pc, name, address, endaddr)
   struct symbol *f;
   struct minimal_symbol *msymbol;
   struct partial_symbol *psb;
+  struct obj_section *sec;
 
   if (pc >= cache_pc_function_low && pc < cache_pc_function_high)
     goto return_cached_value;
@@ -617,103 +649,101 @@ find_pc_partial_function (pc, name, address, endaddr)
     }
 #endif
 
+  msymbol = lookup_minimal_symbol_by_pc (pc);
   pst = find_pc_psymtab (pc);
   if (pst)
     {
       /* Need to read the symbols to get a good value for the end address.  */
       if (endaddr != NULL && !pst->readin)
-	PSYMTAB_TO_SYMTAB (pst);
+	{
+	  /* Need to get the terminal in case symbol-reading produces
+	     output.  */
+	  target_terminal_ours_for_output ();
+	  PSYMTAB_TO_SYMTAB (pst);
+	}
 
       if (pst->readin)
 	{
-	  /* The information we want has already been read in.
-	     We can go to the already readin symbols and we'll get
-	     the best possible answer.  */
+	  /* Checking whether the msymbol has a larger value is for the
+	     "pathological" case mentioned in print_frame_info.  */
 	  f = find_pc_function (pc);
-	  if (!f)
+	  if (f != NULL
+	      && (msymbol == NULL
+		  || (BLOCK_START (SYMBOL_BLOCK_VALUE (f))
+		      >= SYMBOL_VALUE_ADDRESS (msymbol))))
 	    {
-	    return_error:
-	      /* No available symbol.  */
-	      if (name != NULL)
-		*name = 0;
-	      if (address != NULL)
-		*address = 0;
-	      if (endaddr != NULL)
-		*endaddr = 0;
-	      return 0;
+	      cache_pc_function_low = BLOCK_START (SYMBOL_BLOCK_VALUE (f));
+	      cache_pc_function_high = BLOCK_END (SYMBOL_BLOCK_VALUE (f));
+	      cache_pc_function_name = SYMBOL_NAME (f);
+	      goto return_cached_value;
 	    }
-
-	  cache_pc_function_low = BLOCK_START (SYMBOL_BLOCK_VALUE (f));
-	  cache_pc_function_high = BLOCK_END (SYMBOL_BLOCK_VALUE (f));
-	  cache_pc_function_name = SYMBOL_NAME (f);
-	  goto return_cached_value;
 	}
-
-      /* Get the information from a combination of the pst
-	 (static symbols), and the minimal symbol table (extern
-	 symbols).  */
-      msymbol = lookup_minimal_symbol_by_pc (pc);
-      psb = find_pc_psymbol (pst, pc);
-
-      if (!psb && (msymbol == NULL))
+      else
 	{
-	  goto return_error;
-	}
-      if (psb
-	  && (msymbol == NULL ||
-	      (SYMBOL_VALUE_ADDRESS (psb) >= SYMBOL_VALUE_ADDRESS (msymbol))))
-	{
-	  /* This case isn't being cached currently. */
-	  if (address)
-	    *address = SYMBOL_VALUE_ADDRESS (psb);
-	  if (name)
-	    *name = SYMBOL_NAME (psb);
-	  /* endaddr non-NULL can't happen here.  */
-	  return 1;
+	  /* Now that static symbols go in the minimal symbol table, perhaps
+	     we could just ignore the partial symbols.  But at least for now
+	     we use the partial or minimal symbol, whichever is larger.  */
+	  psb = find_pc_psymbol (pst, pc);
+
+	  if (psb
+	      && (msymbol == NULL ||
+		  (SYMBOL_VALUE_ADDRESS (psb)
+		   >= SYMBOL_VALUE_ADDRESS (msymbol))))
+	    {
+	      /* This case isn't being cached currently. */
+	      if (address)
+		*address = SYMBOL_VALUE_ADDRESS (psb);
+	      if (name)
+		*name = SYMBOL_NAME (psb);
+	      /* endaddr non-NULL can't happen here.  */
+	      return 1;
+	    }
 	}
     }
-  else
-    /* Must be in the minimal symbol table.  */
+
+  /* Not in the normal symbol tables, see if the pc is in a known section.
+     If it's not, then give up.  This ensures that anything beyond the end
+     of the text seg doesn't appear to be part of the last function in the
+     text segment.  */
+
+  sec = find_pc_section (pc);
+
+  if (!sec)
+    msymbol = NULL;
+
+  /* Must be in the minimal symbol table.  */
+  if (msymbol == NULL)
     {
-      msymbol = lookup_minimal_symbol_by_pc (pc);
-      if (msymbol == NULL)
-	goto return_error;
+      /* No available symbol.  */
+      if (name != NULL)
+	*name = 0;
+      if (address != NULL)
+	*address = 0;
+      if (endaddr != NULL)
+	*endaddr = 0;
+      return 0;
     }
 
-  /* I believe the purpose of this check is to make sure that anything
-     beyond the end of the text segment does not appear as part of the
-     last function of the text segment.  It assumes that there is something
-     other than a mst_text symbol after the text segment.  It is broken in
-     various cases, so anything relying on this behavior (there might be
-     some places) should be using find_pc_section or some such instead.  */
+  /* See if we're in a transfer table for Sun shared libs.  */
+
   if (msymbol -> type == mst_text)
     cache_pc_function_low = SYMBOL_VALUE_ADDRESS (msymbol);
   else
     /* It is a transfer table for Sun shared libraries.  */
     cache_pc_function_low = pc - FUNCTION_START_OFFSET;
+
   cache_pc_function_name = SYMBOL_NAME (msymbol);
 
-  if (SYMBOL_NAME (msymbol + 1) != NULL)
-    /* This might be part of a different segment, which might be a bad
-       idea.  Perhaps we should be using the smaller of this address or the
-       endaddr from find_pc_section.  */
+  /* Use the lesser of the next minimal symbol, or the end of the section, as
+     the end of the function.  */
+
+  if (SYMBOL_NAME (msymbol + 1) != NULL
+      && SYMBOL_VALUE_ADDRESS (msymbol + 1) < sec->endaddr)
     cache_pc_function_high = SYMBOL_VALUE_ADDRESS (msymbol + 1);
   else
-    {
-      /* We got the start address from the last msymbol in the objfile.
-	 So the end address is the end of the section.  */
-      struct obj_section *sec;
-
-      sec = find_pc_section (pc);
-      if (sec == NULL)
-	{
-	  /* Don't know if this can happen but if it does, then just say
-	     that the function is 1 byte long.  */
-	  cache_pc_function_high = cache_pc_function_low + 1;
-	}
-      else
-	cache_pc_function_high = sec->endaddr;
-    }
+    /* We got the start address from the last msymbol in the objfile.
+       So the end address is the end of the section.  */
+    cache_pc_function_high = sec->endaddr;
 
  return_cached_value:
   if (address)
@@ -725,10 +755,8 @@ find_pc_partial_function (pc, name, address, endaddr)
   return 1;
 }
 
-/* Return the innermost stack frame executing inside of the specified block,
-   or zero if there is no such frame.  */
-
-#if 0	/* Currently unused */
+/* Return the innermost stack frame executing inside of BLOCK,
+   or NULL if there is no such frame.  If BLOCK is NULL, just return NULL.  */
 
 FRAME
 block_innermost_frame (block)
@@ -736,8 +764,14 @@ block_innermost_frame (block)
 {
   struct frame_info *fi;
   register FRAME frame;
-  register CORE_ADDR start = BLOCK_START (block);
-  register CORE_ADDR end = BLOCK_END (block);
+  register CORE_ADDR start;
+  register CORE_ADDR end;
+
+  if (block == NULL)
+    return NULL;
+
+  start = BLOCK_START (block);
+  end = BLOCK_END (block);
 
   frame = 0;
   while (1)
@@ -751,7 +785,34 @@ block_innermost_frame (block)
     }
 }
 
-#endif	/* 0 */
+#ifdef SIGCONTEXT_PC_OFFSET
+/* Get saved user PC for sigtramp from sigcontext for BSD style sigtramp.  */
+
+CORE_ADDR
+sigtramp_saved_pc (frame)
+     FRAME frame;
+{
+  CORE_ADDR sigcontext_addr;
+  char buf[TARGET_PTR_BIT / TARGET_CHAR_BIT];
+  int ptrbytes = TARGET_PTR_BIT / TARGET_CHAR_BIT;
+  int sigcontext_offs = (2 * TARGET_INT_BIT) / TARGET_CHAR_BIT;
+
+  /* Get sigcontext address, it is the third parameter on the stack.  */
+  if (frame->next)
+    sigcontext_addr = read_memory_integer (FRAME_ARGS_ADDRESS (frame->next)
+					    + FRAME_ARGS_SKIP + sigcontext_offs,
+					   ptrbytes);
+  else
+    sigcontext_addr = read_memory_integer (read_register (SP_REGNUM)
+					    + sigcontext_offs,
+					   ptrbytes);
+
+  /* Don't cause a memory_error when accessing sigcontext in case the stack
+     layout has changed or the stack is corrupt.  */
+  target_read_memory (sigcontext_addr + SIGCONTEXT_PC_OFFSET, buf, ptrbytes);
+  return extract_unsigned_integer (buf, ptrbytes);
+}
+#endif /* SIGCONTEXT_PC_OFFSET */
 
 void
 _initialize_blockframe ()

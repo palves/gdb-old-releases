@@ -18,8 +18,11 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include "ieee-float.h"
+
 /* g++ support is not yet included.  */
 
+/* Define the bit, byte, and word ordering of the machine.  */
 #define TARGET_BYTE_ORDER BIG_ENDIAN
 
 /* We cache information about saved registers in the frame structure,
@@ -52,7 +55,7 @@ extern void init_extra_frame_info ();
    to reach some "real" code.  */
 
 #define SKIP_PROLOGUE(frompc)   \
-	skip_prologue (frompc)
+	{ (frompc) = skip_prologue (frompc); }
 extern CORE_ADDR skip_prologue ();
 
 /* The m88k kernel aligns all instructions on 4-byte boundaries.  The
@@ -63,7 +66,6 @@ extern CORE_ADDR skip_prologue ();
    of an instruction.  Shrug.  */
 
 #define ADDR_BITS_REMOVE(addr) ((addr) & ~3)
-#define ADDR_BITS_SET(addr) (((addr) | 0x00000002) - 4)
 
 /* Immediately after a function call, return the saved pc.
    Can't always go through the frames for this because on some machines
@@ -106,76 +108,110 @@ extern CORE_ADDR skip_prologue ();
 
 /* Number of machine registers */
 
-#define NUM_REGS 38
+#define GP_REGS (38)
+#define FP_REGS (32)
+#define NUM_REGS (GP_REGS + FP_REGS)
 
 /* Initializer for an array of names of registers.
    There should be NUM_REGS strings in this initializer.  */
 
 #define REGISTER_NAMES {\
- 	"r0",\
-	"r1",\
-	"r2",\
-	"r3",\
-	"r4",\
-	"r5",\
-	"r6",\
-	"r7",\
-	"r8",\
-	"r9",\
-	"r10",\
-	"r11",\
-	"r12",\
-	"r13",\
-	"r14",\
-	"r15",\
-	"r16",\
-	"r17",\
-	"r18",\
-	"r19",\
-	"r20",\
-	"r21",\
-	"r22",\
-	"r23",\
-	"r24",\
-	"r25",\
-	"r26",\
-	"r27",\
-	"r28",\
-	"r29",\
-	"r30",\
-	"r31",\
-	"psr",\
-	"fpsr",\
-	"fpcr",\
-	"sxip",\
-	"snip",\
-	"sfip",\
-	"vbr",\
-	"dmt0",\
-	"dmd0",\
-	"dma0",\
-	"dmt1",\
-	"dmd1",\
-	"dma1",\
-	"dmt2",\
-	"dmd2",\
-	"dma2",\
-	"sr0",\
-	"sr1",\
-	"sr2",\
-	"sr3",\
-	"fpecr",\
-	"fphs1",\
-	"fpls1",\
-	"fphs2",\
-	"fpls2",\
-	"fppt",\
-	"fprh",\
-	"fprl",\
-	"fpit",\
-	"fpsr",\
-	"fpcr",\
-	}
+			  "r0",\
+			  "r1",\
+			  "r2",\
+			  "r3",\
+			  "r4",\
+			  "r5",\
+			  "r6",\
+			  "r7",\
+			  "r8",\
+			  "r9",\
+			  "r10",\
+			  "r11",\
+			  "r12",\
+			  "r13",\
+			  "r14",\
+			  "r15",\
+			  "r16",\
+			  "r17",\
+			  "r18",\
+			  "r19",\
+			  "r20",\
+			  "r21",\
+			  "r22",\
+			  "r23",\
+			  "r24",\
+			  "r25",\
+			  "r26",\
+			  "r27",\
+			  "r28",\
+			  "r29",\
+			  "r30",\
+			  "r31",\
+			  "psr",\
+			  "fpsr",\
+			  "fpcr",\
+			  "sxip",\
+			  "snip",\
+			  "sfip",\
+			  "x0",\
+			  "x1",\
+			  "x2",\
+			  "x3",\
+			  "x4",\
+			  "x5",\
+			  "x6",\
+			  "x7",\
+			  "x8",\
+			  "x9",\
+			  "x10",\
+			  "x11",\
+			  "x12",\
+			  "x13",\
+			  "x14",\
+			  "x15",\
+			  "x16",\
+			  "x17",\
+			  "x18",\
+			  "x19",\
+			  "x20",\
+			  "x21",\
+			  "x22",\
+			  "x23",\
+			  "x24",\
+			  "x25",\
+			  "x26",\
+			  "x27",\
+			  "x28",\
+			  "x29",\
+			  "x30",\
+			  "x31",\
+			  "vbr",\
+			  "dmt0",\
+			  "dmd0",\
+			  "dma0",\
+			  "dmt1",\
+			  "dmd1",\
+			  "dma1",\
+			  "dmt2",\
+			  "dmd2",\
+			  "dma2",\
+			  "sr0",\
+			  "sr1",\
+			  "sr2",\
+			  "sr3",\
+			  "fpecr",\
+			  "fphs1",\
+			  "fpls1",\
+			  "fphs2",\
+			  "fpls2",\
+			  "fppt",\
+			  "fprh",\
+			  "fprl",\
+			  "fpit",\
+			  "fpsr",\
+			  "fpcr",\
+		      }
 
 
 /* Register numbers of various important registers.
@@ -185,20 +221,73 @@ extern CORE_ADDR skip_prologue ();
    to be actual register numbers as far as the user is concerned
    but do serve to get the desired values when passed to read_register.  */
 
+#define R0_REGNUM 0		/* Contains the constant zero */
 #define SRP_REGNUM 1		/* Contains subroutine return pointer */
 #define RV_REGNUM 2		/* Contains simple return values */
 #define SRA_REGNUM 12		/* Contains address of struct return values */
-#define FP_REGNUM 31		/* Reg fetched to locate frame when pgm stops */
 #define SP_REGNUM 31		/* Contains address of top of stack */
-#define SXIP_REGNUM 35		/* Contains Shadow Execute Instruction Pointer */
-#define SNIP_REGNUM 36		/* Contains Shadow Next Instruction Pointer */
+
+/* Instruction pointer notes...
+
+   On the m88100:
+
+   * cr04 = sxip.  On exception, contains the excepting pc (probably).
+   On rte, is ignored.
+
+   * cr05 = snip.  On exception, contains the NPC (next pc).  On rte,
+   pc is loaded from here.
+
+   * cr06 = sfip.  On exception, contains the NNPC (next next pc).  On
+   rte, the NPC is loaded from here.
+
+   * lower two bits of each are flag bits.  Bit 1 is V means address
+   is valid.  If address is not valid, bit 0 is ignored.  Otherwise,
+   bit 0 is E and asks for an exception to be taken if this
+   instruction is executed.
+
+   On the m88110:
+
+   * cr04 = exip.  On exception, contains the address of the excepting
+   pc (always).  On rte, pc is loaded from here.  Bit 0, aka the D
+   bit, is a flag saying that the offending instruction was in a
+   branch delay slot.  If set, then cr05 contains the NPC.
+
+   * cr05 = enip.  On exception, if the instruction pointed to by cr04
+   was in a delay slot as indicated by the bit 0 of cr04, aka the D
+   bit, the cr05 contains the NPC.  Otherwise ignored.
+
+   * cr06 is invalid  */
+
+#define SXIP_REGNUM 35		/* On m88100, Contains Shadow Execute
+				   Instruction Pointer.  */
+#define SNIP_REGNUM 36		/* On m88100, Contains Shadow Next
+				   Instruction Pointer.  */
+#define SFIP_REGNUM 37		/* On m88100, Contains Shadow Fetched
+				   Intruction pointer.  */
+
+#define EXIP_REGNUM 35		/* On m88110, Contains Exception
+				   Executing Instruction Pointer.  */
+#define ENIP_REGNUM 36		/* On m88110, Contains the Exception
+				   Next Instruction Pointer.  */
+
 #define PC_REGNUM SXIP_REGNUM	/* Program Counter */
 #define NPC_REGNUM SNIP_REGNUM	/* Next Program Counter */
+#define NNPC_REGNUM SFIP_REGNUM /* Next Next Program Counter */
+
 #define PSR_REGNUM 32           /* Processor Status Register */
 #define FPSR_REGNUM 33		/* Floating Point Status Register */
 #define FPCR_REGNUM 34		/* Floating Point Control Register */
-#define SFIP_REGNUM 37		/* Contains Shadow Fetched Intruction pointer */
-#define NNPC_REGNUM SFIP_REGNUM /* Next Next Program Counter */
+#define XFP_REGNUM 38		/* First Extended Float Register */
+#define X0_REGNUM XFP_REGNUM	/* Which also contains the constant zero */
+
+/* This is rather a confusing lie.  Our m88k port using a stack pointer value
+   for the frame address.  Hence, the frame address and the frame pointer are
+   only indirectly related.  The value of this macro is the register number
+   fetched by the machine "independent" portions of gdb when they want to know
+   about a frame address.  Thus, we lie here and claim that FP_REGNUM is
+   SP_REGNUM.  */
+#define FP_REGNUM SP_REGNUM	/* Reg fetched to locate frame when pgm stops */
+#define ACTUAL_FP_REGNUM 30
 
 /* PSR status bit definitions.  */
 
@@ -212,81 +301,128 @@ extern CORE_ADDR skip_prologue ();
 #define PSR_IND			0x00000002
 #define PSR_SFRZ		0x00000001
 
-/* BCS requires that the SXIP_REGNUM (or PC_REGNUM) contain the address
-   of the next instr to be executed when a breakpoint occurs.  Because
-   the kernel gets the next instr (SNIP_REGNUM), the instr in SNIP needs
-   to be put back into SFIP, and the instr in SXIP should be shifted
-   to SNIP */
 
-/* Are you sitting down?  It turns out that the 88K BCS (binary compatibility
-  standard) folks originally felt that the debugger should be responsible
-  for backing up the IPs, not the kernel (as is usually done).  Well, they
-  have reversed their decision, and in future releases our kernel will be
-  handling the backing up of the IPs.  So, eventually, we won't need to
-  do the SHIFT_INST_REGS stuff.  But, for now, since there are 88K systems out
-  there that do need the debugger to do the IP shifting, and since there
-  will be systems where the kernel does the shifting, the code is a little
-  more complex than perhaps it needs to be (we still go inside SHIFT_INST_REGS,
-  and if the shifting hasn't occurred then gdb goes ahead and shifts).  */
 
-#define SHIFT_INST_REGS
+/* The following two comments come from the days prior to the m88110
+   port.  The m88110 handles the instruction pointers differently.  I
+   do not know what any m88110 kernels do as the m88110 port I'm
+   working with is for an embedded system.  rich@cygnus.com
+   13-sept-93.  */
 
-/* Number of bytes of storage in the actual machine representation
-   for register N.  */
+/* BCS requires that the SXIP_REGNUM (or PC_REGNUM) contain the
+   address of the next instr to be executed when a breakpoint occurs.
+   Because the kernel gets the next instr (SNIP_REGNUM), the instr in
+   SNIP needs to be put back into SFIP, and the instr in SXIP should
+   be shifted to SNIP */
 
-#define REGISTER_RAW_SIZE(N) 4
+/* Are you sitting down?  It turns out that the 88K BCS (binary
+   compatibility standard) folks originally felt that the debugger
+   should be responsible for backing up the IPs, not the kernel (as is
+   usually done).  Well, they have reversed their decision, and in
+   future releases our kernel will be handling the backing up of the
+   IPs.  So, eventually, we won't need to do the SHIFT_INST_REGS
+   stuff.  But, for now, since there are 88K systems out there that do
+   need the debugger to do the IP shifting, and since there will be
+   systems where the kernel does the shifting, the code is a little
+   more complex than perhaps it needs to be (we still go inside
+   SHIFT_INST_REGS, and if the shifting hasn't occurred then gdb goes
+   ahead and shifts).  */
 
-/* Total amount of space needed to store our copies of the machine's
-   register state, the array `registers'.  */
+extern int target_is_m88110;
+#define SHIFT_INST_REGS() \
+if (!target_is_m88110) \
+{ \
+    CORE_ADDR pc = read_register (PC_REGNUM); \
+    CORE_ADDR npc = read_register (NPC_REGNUM); \
+    if (pc != npc) \
+    { \
+	write_register (NNPC_REGNUM, npc); \
+	write_register (NPC_REGNUM, pc); \
+    } \
+}
 
-#define REGISTER_BYTES (NUM_REGS * REGISTER_RAW_SIZE(0))
+    /* Storing the following registers is a no-op. */
+#define CANNOT_STORE_REGISTER(regno)	(((regno) == R0_REGNUM) \
+					 || ((regno) == X0_REGNUM))
 
-/* Index within `registers' of the first byte of the space for
-   register N.  */
+  /* Number of bytes of storage in the actual machine representation
+     for register N.  On the m88k,  the general purpose registers are 4
+     bytes and the 88110 extended registers are 10 bytes. */
 
-#define REGISTER_BYTE(N) ((N)*REGISTER_RAW_SIZE(0))
+#define REGISTER_RAW_SIZE(N) ((N) < XFP_REGNUM ? 4 : 10)
 
-/* Number of bytes of storage in the program's representation
-   for register N. */
+  /* Total amount of space needed to store our copies of the machine's
+     register state, the array `registers'.  */
 
-#define REGISTER_VIRTUAL_SIZE(N) (REGISTER_RAW_SIZE(N))
+#define REGISTER_BYTES ((GP_REGS * REGISTER_RAW_SIZE(0)) \
+			+ (FP_REGS * REGISTER_RAW_SIZE(XFP_REGNUM)))
 
-/* Largest value REGISTER_RAW_SIZE can have.  */
+  /* Index within `registers' of the first byte of the space for
+     register N.  */
 
-#define MAX_REGISTER_RAW_SIZE (REGISTER_RAW_SIZE(0))
+#define REGISTER_BYTE(N) (((N) * REGISTER_RAW_SIZE(0)) \
+			  + ((N) >= XFP_REGNUM \
+			     ? (((N) - XFP_REGNUM) \
+				* REGISTER_RAW_SIZE(XFP_REGNUM)) \
+			     : 0))
 
-/* Largest value REGISTER_VIRTUAL_SIZE can have.
-/* Are FPS1, FPS2, FPR "virtual" regisers? */
+  /* Number of bytes of storage in the program's representation for
+     register N.  On the m88k, all registers are 4 bytes excepting the
+     m88110 extended registers which are 8 byte doubles. */
 
-#define MAX_REGISTER_VIRTUAL_SIZE (REGISTER_RAW_SIZE(0))
+#define REGISTER_VIRTUAL_SIZE(N) ((N) < XFP_REGNUM ? 4 : 8)
 
-/* Nonzero if register N requires conversion
-   from raw format to virtual format.  */
+  /* Largest value REGISTER_RAW_SIZE can have.  */
 
-#define REGISTER_CONVERTIBLE(N) (0)
+#define MAX_REGISTER_RAW_SIZE (REGISTER_RAW_SIZE(XFP_REGNUM))
 
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
+  /* Largest value REGISTER_VIRTUAL_SIZE can have.
+     Are FPS1, FPS2, FPR "virtual" regisers? */
 
+#define MAX_REGISTER_VIRTUAL_SIZE (REGISTER_RAW_SIZE(XFP_REGNUM))
+
+  /* Nonzero if register N requires conversion
+     from raw format to virtual format.  */
+
+#define REGISTER_CONVERTIBLE(N) ((N) >= XFP_REGNUM)
+
+  /* Convert data from raw format for register REGNUM
+     to virtual format for register REGNUM.  */
+
+  extern const struct ext_format ext_format_m88110;
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO) \
-  {bcopy ((FROM), (TO), REGISTER_RAW_SIZE (REGNUM));}
+{ \
+  if ((REGNUM) < XFP_REGNUM) \
+    memcpy ((TO), (FROM), REGISTER_RAW_SIZE (REGNUM)); \
+      else ieee_extended_to_double(&ext_format_m88110, \
+				   (FROM), (double *)(TO)); \
+}
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO) \
-  {bcopy ((FROM), (TO), REGISTER_RAW_SIZE (REGNUM));}
+{ \
+    if ((REGNUM) < XFP_REGNUM) \
+      memcpy ((TO), (FROM), REGISTER_RAW_SIZE (REGNUM)); \
+	else double_to_ieee_extended (&ext_format_m88110, \
+				      (double *)(FROM), (TO)); \
+}
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
 
-#define REGISTER_VIRTUAL_TYPE(N) (builtin_type_int)
+#define REGISTER_VIRTUAL_TYPE(N) \
+((N) >= XFP_REGNUM \
+ ? builtin_type_double \
+ : ((N) == PC_REGNUM || (N) == FP_REGNUM || (N) == SP_REGNUM \
+    ? lookup_pointer_type (builtin_type_void) : builtin_type_int))
 
 /* The 88k call/return conventions call for "small" values to be returned
    into consecutive registers starting from r2.  */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy (&(((char *)REGBUF)[REGISTER_BYTE(RV_REGNUM)]), (VALBUF), TYPE_LENGTH (TYPE))
+  memcpy ((VALBUF), &(((char *)REGBUF)[REGISTER_BYTE(RV_REGNUM)]), TYPE_LENGTH (TYPE))
 
 #define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) (*(int *)(REGBUF))
 
@@ -316,9 +452,6 @@ extern int frameless_function_invocation ();
 
 #define FRAME_CHAIN(thisframe) \
 	frame_chain (thisframe)
-
-#define FRAME_CHAIN_VALID(chain, thisframe)	\
-	frame_chain_valid (chain, thisframe)
 
 #define	FRAMELESS_FUNCTION_INVOCATION(frame, fromleaf)	\
 	fromleaf = frameless_function_invocation (frame)
@@ -373,25 +506,119 @@ extern CORE_ADDR frame_locals_address ();
 
    We could manage to locate values for all of the so called "preserved"
    registers (some of which may get saved within any particular frame) but
-   that would require decoding all of the tdesc information.  Tht would be
+   that would require decoding all of the tdesc information.  That would be
    nice information for GDB to have, but it is not strictly manditory if we
    can live without the ability to look at values within (or backup to)
    previous frames.
 */
 
+struct frame_saved_regs;
+struct frame_info;
+
+void frame_find_saved_regs PARAMS((struct frame_info *fi,
+				   struct frame_saved_regs *fsr));
+
 #define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs) \
         frame_find_saved_regs (frame_info, &frame_saved_regs)
 
 
-/* There is not currently a functioning way to call functions in the
-   inferior.  */
-
-/* But if there was this is where we'd put the call dummy.  */
-/* #define CALL_DUMMY_LOCATION AFTER_TEXT_END */
-
-/* When popping a frame on the 88k (say when doing a return command), the
-   calling function only expects to have the "preserved" registers restored.
-   Thus, those are the only ones that we even try to restore here.   */
-
 #define POP_FRAME pop_frame ()
 extern void pop_frame ();
+
+/* Call function stuff contributed by Kevin Buettner of Motorola.  */
+
+#define CALL_DUMMY_LOCATION AFTER_TEXT_END
+
+extern void m88k_push_dummy_frame();
+#define PUSH_DUMMY_FRAME	m88k_push_dummy_frame()
+
+#define CALL_DUMMY { 				\
+0x67ff00c0,	/*   0:   subu	#sp,#sp,0xc0 */ \
+0x243f0004,	/*   4:   st	#r1,#sp,0x4 */ \
+0x245f0008,	/*   8:   st	#r2,#sp,0x8 */ \
+0x247f000c,	/*   c:   st	#r3,#sp,0xc */ \
+0x249f0010,	/*  10:   st	#r4,#sp,0x10 */ \
+0x24bf0014,	/*  14:   st	#r5,#sp,0x14 */ \
+0x24df0018,	/*  18:   st	#r6,#sp,0x18 */ \
+0x24ff001c,	/*  1c:   st	#r7,#sp,0x1c */ \
+0x251f0020,	/*  20:   st	#r8,#sp,0x20 */ \
+0x253f0024,	/*  24:   st	#r9,#sp,0x24 */ \
+0x255f0028,	/*  28:   st	#r10,#sp,0x28 */ \
+0x257f002c,	/*  2c:   st	#r11,#sp,0x2c */ \
+0x259f0030,	/*  30:   st	#r12,#sp,0x30 */ \
+0x25bf0034,	/*  34:   st	#r13,#sp,0x34 */ \
+0x25df0038,	/*  38:   st	#r14,#sp,0x38 */ \
+0x25ff003c,	/*  3c:   st	#r15,#sp,0x3c */ \
+0x261f0040,	/*  40:   st	#r16,#sp,0x40 */ \
+0x263f0044,	/*  44:   st	#r17,#sp,0x44 */ \
+0x265f0048,	/*  48:   st	#r18,#sp,0x48 */ \
+0x267f004c,	/*  4c:   st	#r19,#sp,0x4c */ \
+0x269f0050,	/*  50:   st	#r20,#sp,0x50 */ \
+0x26bf0054,	/*  54:   st	#r21,#sp,0x54 */ \
+0x26df0058,	/*  58:   st	#r22,#sp,0x58 */ \
+0x26ff005c,	/*  5c:   st	#r23,#sp,0x5c */ \
+0x271f0060,	/*  60:   st	#r24,#sp,0x60 */ \
+0x273f0064,	/*  64:   st	#r25,#sp,0x64 */ \
+0x275f0068,	/*  68:   st	#r26,#sp,0x68 */ \
+0x277f006c,	/*  6c:   st	#r27,#sp,0x6c */ \
+0x279f0070,	/*  70:   st	#r28,#sp,0x70 */ \
+0x27bf0074,	/*  74:   st	#r29,#sp,0x74 */ \
+0x27df0078,	/*  78:   st	#r30,#sp,0x78 */ \
+0x63df0000,	/*  7c:   addu	#r30,#sp,0x0 */ \
+0x145f0000,	/*  80:   ld	#r2,#sp,0x0 */ \
+0x147f0004,	/*  84:   ld	#r3,#sp,0x4 */ \
+0x149f0008,	/*  88:   ld	#r4,#sp,0x8 */ \
+0x14bf000c,	/*  8c:   ld	#r5,#sp,0xc */ \
+0x14df0010,	/*  90:   ld	#r6,#sp,0x10 */ \
+0x14ff0014,	/*  94:   ld	#r7,#sp,0x14 */ \
+0x151f0018,	/*  98:   ld	#r8,#sp,0x18 */ \
+0x153f001c,	/*  9c:   ld	#r9,#sp,0x1c */ \
+0x5c200000,	/*  a0:   or.u	#r1,#r0,0x0 */ \
+0x58210000,	/*  a4:   or	#r1,#r1,0x0 */ \
+0xf400c801,	/*  a8:   jsr	#r1 */ \
+0xf000d1ff	/*  ac:   tb0	0x0,#r0,0x1ff */ \
+}
+
+#define CALL_DUMMY_START_OFFSET 0x80
+#define CALL_DUMMY_LENGTH 0xb0
+
+/* FIXME: byteswapping.  */
+#define FIX_CALL_DUMMY(dummy, pc, fun, nargs, args, type, gcc_p)	\
+{ 									\
+  *(unsigned long *)((char *) (dummy) + 0xa0) |=			\
+	(((unsigned long) (fun)) >> 16);				\
+  *(unsigned long *)((char *) (dummy) + 0xa4) |=			\
+	(((unsigned long) (fun)) & 0xffff);				\
+  pc = text_end;							\
+}
+
+#define STACK_ALIGN(addr) (((addr)+7) & -8)
+
+#define STORE_STRUCT_RETURN(addr, sp) \
+    write_register (SRA_REGNUM, (addr))
+
+#define NEED_TEXT_START_END 1
+
+/* According to the MC88100 RISC Microprocessor User's Manual, section
+   6.4.3.1.2:
+
+   	... can be made to return to a particular instruction by placing a
+	valid instruction address in the SNIP and the next sequential
+	instruction address in the SFIP (with V bits set and E bits clear).
+	The rte resumes execution at the instruction pointed to by the 
+	SNIP, then the SFIP.
+
+   The E bit is the least significant bit (bit 0).  The V (valid) bit is
+   bit 1.  This is why we logical or 2 into the values we are writing
+   below.  It turns out that SXIP plays no role when returning from an
+   exception so nothing special has to be done with it.  We could even
+   (presumably) give it a totally bogus value.
+
+   -- Kevin Buettner
+*/
+ 
+#define TARGET_WRITE_PC(val)	{				\
+  write_register(SXIP_REGNUM, (long) val);			\
+  write_register(SNIP_REGNUM, (long) val | 2);			\
+  write_register(SFIP_REGNUM, ((long) val | 2) + 4);		\
+}

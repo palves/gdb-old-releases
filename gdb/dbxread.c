@@ -212,9 +212,6 @@ free_header_files PARAMS ((void));
 static void
 init_header_files PARAMS ((void));
 
-static struct pending *
-copy_pending PARAMS ((struct pending *, int, struct pending *));
-
 static void
 read_ofile_symtab PARAMS ((struct partial_symtab *));
 
@@ -407,8 +404,8 @@ explicit_lookup_type (real_filenum, index)
       f->length *= 2;
       f->vector = (struct type **)
 	xrealloc (f->vector, f->length * sizeof (struct type *));
-      bzero (&f->vector[f->length / 2],
-	     f->length * sizeof (struct type *) / 2);
+      memset (&f->vector[f->length / 2],
+	     '\0', f->length * sizeof (struct type *) / 2);
     }
   return &f->vector[index];
 }
@@ -594,7 +591,7 @@ dbx_symfile_init (objfile)
   unsigned char size_temp[DBX_STRINGTAB_SIZE_SIZE];
 
   /* Allocate struct to keep track of the symfile */
-  objfile->sym_private = (PTR)
+  objfile->sym_stab_info = (PTR)
     xmmalloc (objfile -> md, sizeof (struct dbx_symfile_info));
 
   /* FIXME POKING INSIDE BFD DATA STRUCTURES */
@@ -696,9 +693,9 @@ static void
 dbx_symfile_finish (objfile)
      struct objfile *objfile;
 {
-  if (objfile->sym_private != NULL)
+  if (objfile->sym_stab_info != NULL)
     {
-      mfree (objfile -> md, objfile->sym_private);
+      mfree (objfile -> md, objfile->sym_stab_info);
     }
   free_header_files ();
 }
@@ -1049,19 +1046,12 @@ start_psymtab (objfile, section_offsets,
   return result;
 }
 
-/* Close off the current usage of a partial_symbol table entry.  This
-   involves setting the correct number of includes (with a realloc),
-   setting the high text mark, setting the symbol length in the
-   executable, and setting the length of the global and static lists
-   of psymbols.
+/* Close off the current usage of PST.  
+   Returns PST or NULL if the partial symtab was empty and thrown away.
 
-   The global symbols and static symbols are then seperately sorted.
+   FIXME:  List variables and peculiarities of same.  */
 
-   Then the partial symtab is put on the global list.
-   *** List variables and peculiarities of same. ***
-   */
-
-void
+struct partial_symtab *
 end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
 	     capping_text, dependency_list, number_dependencies)
      struct partial_symtab *pst;
@@ -1121,7 +1111,7 @@ end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
 
     if (minsym) {
       pst->texthigh = SYMBOL_VALUE_ADDRESS (minsym) +
-	(int) MSYMBOL_INFO (minsym);
+	(long) MSYMBOL_INFO (minsym);
     } else {
       /* This file ends with a static function, and it's
 	 difficult to imagine how hard it would be to track down
@@ -1245,7 +1235,11 @@ end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
 
     pst->next = pst->objfile->free_psymtabs;
     pst->objfile->free_psymtabs = pst;
+
+    /* Indicate that psymtab was thrown away.  */
+    pst = (struct partial_symtab *)NULL;
   }
+  return pst;
 }
 
 static void
@@ -1359,7 +1353,6 @@ read_ofile_symtab (pst)
   unsigned char type;
   unsigned max_symnum;
   register bfd *abfd;
-  struct symtab *rtn;
   struct objfile *objfile;
   int sym_offset;		/* Offset to start of symbols to read */
   int sym_size;			/* Size of symbols to read */
@@ -1551,7 +1544,7 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
 
   /* If this is nonzero, we've seen a non-gcc N_OPT symbol for this source
      file.  Used to detect the SunPRO solaris compiler.  */
-  int n_opt_found;
+  static int n_opt_found;
 
   /* The stab type used for the definition of the last function.
      N_STSYM or N_GSYM for SunOS4 acc; N_FUN for other compilers.  */
@@ -1767,38 +1760,12 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
       break;
 
     case N_BCOMM:
-      if (common_block)
-	{
-	  static struct complaint msg = {
-	    "Invalid symbol data: common within common at symtab pos %d",
-	    0, 0};
-	  complain (&msg, symnum);
-	}
-      common_block = local_symbols;
-      common_block_i = local_symbols ? local_symbols->nsyms : 0;
+      common_block_start (name, objfile);
       break;
 
     case N_ECOMM:
-      /* Symbols declared since the BCOMM are to have the common block
-	 start address added in when we know it.  common_block points to
-	 the first symbol after the BCOMM in the local_symbols list;
-	 copy the list and hang it off the symbol for the common block name
-	 for later fixup.  */
-      {
-	int i;
-	struct symbol *sym =
-	  (struct symbol *) xmmalloc (objfile -> md, sizeof (struct symbol));
-	memset (sym, 0, sizeof *sym);
-	SYMBOL_NAME (sym) = savestring (name, strlen (name));
-	SYMBOL_CLASS (sym) = LOC_BLOCK;
-	SYMBOL_NAMESPACE (sym) = (enum namespace)((long)
-	  copy_pending (local_symbols, common_block_i, common_block));
-	i = hashname (SYMBOL_NAME (sym));
-	SYMBOL_VALUE_CHAIN (sym) = global_sym_chain[i];
-	global_sym_chain[i] = sym;
-	common_block = 0;
-	break;
-      }
+      common_block_end (objfile);
+      break;
 
     /* The following symbol types need to have the appropriate offset added
        to their value; then we process symbol definitions in the name.  */
@@ -1806,9 +1773,10 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
     case N_STSYM:		/* Static symbol in data seg */
     case N_LCSYM:		/* Static symbol in BSS seg */
     case N_ROSYM:		/* Static symbol in Read-only data seg */
-     /* HORRID HACK DEPT.  However, it's Sun's furgin' fault.  FIXME.
-	Solaris2's stabs-in-coff makes *most* symbols relative
-	but leaves a few absolute.  N_STSYM and friends sit on the fence.
+     /* HORRID HACK DEPT.  However, it's Sun's furgin' fault.
+	Solaris2's stabs-in-elf makes *most* symbols relative
+	but leaves a few absolute (at least for Solaris 2.1 and version
+	2.0.1 of the SunPRO compiler).  N_STSYM and friends sit on the fence.
 	.stab "foo:S...",N_STSYM 	is absolute (ld relocates it)
 	.stab "foo:V...",N_STSYM	is relative (section base subtracted).
 	This leaves us no choice but to search for the 'S' or 'V'...
@@ -1819,10 +1787,9 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
 	p = strchr (name, ':');
 	if (p != 0 && p[1] == 'S')
 	  {
-	    /* FIXME!  We relocate it by the TEXT offset, in case the
-	       whole module moved in memory.  But this is wrong, since
-	       the sections can side around independently.  */
-	    valu += ANOFFSET (section_offsets, SECT_OFF_TEXT);
+	    /* The linker relocated it.  There used to be a kludge here
+	       to add the text offset, but that will break if we ever
+	       start using the text offset (currently it is always zero).  */
 	    goto define_a_symbol;
 	  }
 	/* Since it's not the kludge case, re-dispatch to the right handler. */
@@ -1869,7 +1836,8 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
     case N_NBBSS:
     case N_NBSTS:
     case N_NBLCS:
-      complain (&unknown_symtype_complaint, local_hex_string(type));
+      complain (&unknown_symtype_complaint,
+		local_hex_string((unsigned long) type));
       /* FALLTHROUGH */
 
     /* The following symbol types don't need the address field relocated,
@@ -1914,6 +1882,15 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
 		 function in an object file), or somewhere in the
 		 previous function. This means that we can use the
 		 minimal symbol table to get the address.  */
+
+	      /* On solaris up to 2.2, the N_FUN stab gets relocated.
+		 On Solaris 2.3, ld no longer relocates stabs (which
+		 is good), and the N_FUN's value is now always zero.
+		 The following code can't deal with this, because
+		 last_pc_address depends on getting the address from a
+		 N_SLINE or some such and in Solaris those are function
+		 relative.  Best fix is probably to create a Ttext.text symbol
+		 and handle this like Ddata.data and so on.  */
 
 	      if (type == N_GSYM || type == N_STSYM)
 		{
@@ -2001,32 +1978,85 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
   previous_stab_code = type;
 }
 
-/* Copy a pending list, used to record the contents of a common
-   block for later fixup.  We copy the symbols starting with all
-   symbols in BEG, and ending with the symbols which are in 
-   END at index ENDI.  */
-static struct pending *
-copy_pending (beg, endi, end)
-    struct pending *beg;
-    int endi;
-    struct pending *end;
+/* FIXME: The only difference between this and elfstab_build_psymtabs is
+   the call to install_minimal_symbols for elf.  If the differences are
+   really that small, the code should be shared.  */
+
+/* Scan and build partial symbols for an coff symbol file.
+   The coff file has already been processed to get its minimal symbols.
+
+   This routine is the equivalent of dbx_symfile_init and dbx_symfile_read
+   rolled into one.
+
+   OBJFILE is the object file we are reading symbols from.
+   ADDR is the address relative to which the symbols are (e.g.
+   the base address of the text segment).
+   MAINLINE is true if we are reading the main symbol
+   table (as opposed to a shared lib or dynamically loaded file).
+   STABOFFSET and STABSIZE define the location in OBJFILE where the .stab
+   section exists.
+   STABSTROFFSET and STABSTRSIZE define the location in OBJFILE where the
+   .stabstr section exists.
+
+   This routine is mostly copied from dbx_symfile_init and dbx_symfile_read,
+   adjusted for coff details. */
+
+void
+coffstab_build_psymtabs (objfile, section_offsets, mainline, 
+			       staboffset, stabsize,
+			       stabstroffset, stabstrsize)
+      struct objfile *objfile;
+      struct section_offsets *section_offsets;
+      int mainline;
+      file_ptr staboffset;
+      unsigned int stabsize;
+      file_ptr stabstroffset;
+      unsigned int stabstrsize;
 {
-  struct pending *new = 0;
-  struct pending *next;
-  int j;
+  int val;
+  bfd *sym_bfd = objfile->obfd;
+  char *name = bfd_get_filename (sym_bfd);
+  struct dbx_symfile_info *info;
 
-  /* Copy all the struct pendings before end.  */
-  for (next = beg; next != NULL && next != end; next = next->next)
-    {
-      for (j = 0; j < next->nsyms; j++)
-	add_symbol_to_list (next->symbol[j], &new);
-    }
+  /* There is already a dbx_symfile_info allocated by our caller.
+     It might even contain some info from the coff symtab to help us.  */
+  info = (struct dbx_symfile_info *) objfile->sym_stab_info;
 
-  /* Copy however much of END we need.  */
-  for (j = endi; j < end->nsyms; j++)
-    add_symbol_to_list (end->symbol[j], &new);
+  DBX_TEXT_SECT (objfile) = bfd_get_section_by_name (sym_bfd, ".text");
+  if (!DBX_TEXT_SECT (objfile))
+    error ("Can't find .text section in symbol file");
 
-  return new;
+#define	COFF_STABS_SYMBOL_SIZE	12	/* XXX FIXME XXX */
+  DBX_SYMBOL_SIZE    (objfile) = COFF_STABS_SYMBOL_SIZE;
+  DBX_SYMCOUNT       (objfile) = stabsize / DBX_SYMBOL_SIZE (objfile);
+  DBX_STRINGTAB_SIZE (objfile) = stabstrsize;
+  DBX_SYMTAB_OFFSET  (objfile) = staboffset;
+  
+  if (stabstrsize > bfd_get_size (sym_bfd))
+    error ("ridiculous string table size: %d bytes", stabstrsize);
+  DBX_STRINGTAB (objfile) = (char *)
+    obstack_alloc (&objfile->psymbol_obstack, stabstrsize+1);
+
+  /* Now read in the string table in one big gulp.  */
+
+  val = bfd_seek (sym_bfd, stabstroffset, SEEK_SET);
+  if (val < 0)
+    perror_with_name (name);
+  val = bfd_read (DBX_STRINGTAB (objfile), stabstrsize, 1, sym_bfd);
+  if (val != stabstrsize)
+    perror_with_name (name);
+
+  stabsread_new_init ();
+  buildsym_new_init ();
+  free_header_files ();
+  init_header_files ();
+
+  processing_acc_compilation = 1;
+
+  /* In a coff file, we've already installed the minimal symbols that came
+     from the coff (non-stab) symbol table, so always act like an
+     incremental load here. */
+  dbx_symfile_read (objfile, section_offsets, 0);
 }
 
 /* Scan and build partial symbols for an ELF symbol file.
@@ -2068,7 +2098,7 @@ elfstab_build_psymtabs (objfile, section_offsets, mainline,
 
   /* There is already a dbx_symfile_info allocated by our caller.
      It might even contain some info from the ELF symtab to help us.  */
-  info = (struct dbx_symfile_info *) objfile->sym_private;
+  info = (struct dbx_symfile_info *) objfile->sym_stab_info;
 
   DBX_TEXT_SECT (objfile) = bfd_get_section_by_name (sym_bfd, ".text");
   if (!DBX_TEXT_SECT (objfile))
@@ -2080,8 +2110,7 @@ elfstab_build_psymtabs (objfile, section_offsets, mainline,
   DBX_STRINGTAB_SIZE (objfile) = stabstrsize;
   DBX_SYMTAB_OFFSET  (objfile) = staboffset;
   
-  if (stabstrsize < 0	/* FIXME:  stabstrsize is unsigned; never true! */
-      || stabstrsize > bfd_get_size (sym_bfd))
+  if (stabstrsize > bfd_get_size (sym_bfd))
     error ("ridiculous string table size: %d bytes", stabstrsize);
   DBX_STRINGTAB (objfile) = (char *)
     obstack_alloc (&objfile->psymbol_obstack, stabstrsize+1);
@@ -2159,7 +2188,7 @@ dbx_symfile_offsets (objfile, addr)
 }
 
 /* Register our willingness to decode symbols for SunOS and a.out and
-   b.out files handled by BFD... */
+   NetBSD and b.out files handled by BFD... */
 static struct sym_fns sunos_sym_fns =
 {
   "sunOs",		/* sym_name: name or name prefix of BFD target type */

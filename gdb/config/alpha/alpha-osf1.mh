@@ -2,11 +2,10 @@
 XDEPFILES= 
 XM_FILE= xm-alpha.h
 NAT_FILE= nm-alpha.h
-NATDEPFILES= infptrace.o inftarg.o corelow.o alpha-nat.o fork-child.o
+NATDEPFILES= infptrace.o inftarg.o corelow.o alpha-nat.o fork-child.o osfsolib.o
 
 MMALLOC = 
 MMALLOC_DISABLE = -DNO_MMALLOC 
-MH_CFLAGS = -non_shared -DHOST_64_BIT="long"
 MUNCH_DEFINE=-B
 
 

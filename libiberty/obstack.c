@@ -1,23 +1,35 @@
 /* obstack.c - subroutines used implicitly by object stack macros
-   Copyright (C) 1988 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1993 Free Software Foundation, Inc.
 
-This file is part of the libiberty library.
-Libiberty is free software; you can redistribute it and/or
-modify it under the terms of the GNU Library General Public
-License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU Library General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
 
-Libiberty is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Library General Public License for more details.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Library General Public License for more details.
 
-You should have received a copy of the GNU Library General Public
-License along with libiberty; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.  */
+You should have received a copy of the GNU Library General Public License
+along with this program; if not, write to the Free Software
+Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "obstack.h"
+
+/* This is just to get __GNU_LIBRARY__ defined.  */
+#include <stdio.h>
+
+/* Comment out all this code if we are using the GNU C Library, and are not
+   actually compiling the library itself.  This code is part of the GNU C
+   Library, but also included in many other GNU distributions.  Compiling
+   and linking in this code is a waste when using the GNU C library
+   (especially if it is a shared library).  Rather than having every GNU
+   program understand `configure --with-gnu-libc' and omit the object files,
+   it is simpler to just do this in the source for each such file.  */
+
+#if defined (_LIBC) || !defined (__GNU_LIBRARY__)
+
 
 #ifdef __STDC__
 #define POINTER void *
@@ -230,6 +242,12 @@ _obstack_newchunk (h, length)
    This is here for debugging.
    If you use it in a program, you are probably losing.  */
 
+#ifdef __STDC__
+/* Suppress -Wmissing-prototypes warning.  We don't want to declare this in
+   obstack.h because it is just for debugging.  */
+int _obstack_allocated_p (struct obstack *h, POINTER obj);
+#endif
+
 int
 _obstack_allocated_p (h, obj)
      struct obstack *h;
@@ -438,3 +456,5 @@ POINTER (obstack_copy0) (obstack, pointer, length)
 #endif /* __STDC__ */
 
 #endif /* 0 */
+
+#endif	/* _LIBC or not __GNU_LIBRARY__.  */

@@ -53,6 +53,7 @@ gdbme: gdbme.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o gdbme gdbme.o $(LIBS)
 
 gdbme.o: gdbme.c
+	$(CC) $(CFLAGS) -c $(srcdir)/gdbme.c
 
 clean mostlyclean:
 	-rm -f *.o gdbme *.diff *~ *.bad core foo $(EXECUTABLES)

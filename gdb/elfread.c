@@ -20,12 +20,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
 #include "bfd.h"
+#include <time.h> /* For time_t in libbfd.h.  */
+#include <sys/types.h> /* For time_t, if not in time.h.  */
 #include "libbfd.h"		/* For bfd_elf_find_section */
 #include "libelf.h"
 #include "symtab.h"
 #include "symfile.h"
 #include "objfiles.h"
 #include "buildsym.h"
+#include "stabsread.h"
 #include "gdb-stabs.h"
 #include "complaints.h"
 #include <string.h>
@@ -74,7 +77,7 @@ static void
 elf_symtab_read PARAMS ((bfd *,  CORE_ADDR, struct objfile *));
 
 static void
-free_elfinfo PARAMS ((PTR));
+free_elfinfo PARAMS ((void *));
 
 static struct section_offsets *
 elf_symfile_offsets PARAMS ((struct objfile *, CORE_ADDR));
@@ -85,7 +88,7 @@ record_minimal_symbol_and_info PARAMS ((char *, CORE_ADDR,
 					struct objfile *));
 
 static void
-elf_locate_sections PARAMS ((bfd *, asection *, PTR));
+elf_locate_sections PARAMS ((bfd *, asection *, void *));
 
 /* We are called once per section from elf_symfile_read.  We
    need to examine each section we are passed, check to see
@@ -101,7 +104,10 @@ elf_locate_sections PARAMS ((bfd *, asection *, PTR));
    We also recognize the ".stab" sections used by the Sun compilers
    released with Solaris 2.
 
-   FIXME:  The section names should not be hardwired strings. */
+   FIXME: The section names should not be hardwired strings (what
+   should they be?  I don't think most object file formats have enough
+   section flags to specify what kind of debug section it is
+   -kingdon).  */
 
 static void
 elf_locate_sections (ignore_abfd, sectp, eip)
@@ -170,8 +176,31 @@ record_minimal_symbol_and_info (name, address, ms_type, info, objfile)
      char *info;		/* FIXME, is this really char *? */
      struct objfile *objfile;
 {
+  int section;
+
+  /* Guess the section from the type.  This is likely to be wrong in
+     some cases.  */
+  switch (ms_type)
+    {
+    case mst_text:
+    case mst_file_text:
+      section = SECT_OFF_TEXT;
+      break;
+    case mst_data:
+    case mst_file_data:
+      section = SECT_OFF_DATA;
+      break;
+    case mst_bss:
+    case mst_file_bss:
+      section = SECT_OFF_BSS;
+      break;
+    default:
+      section = -1;
+      break;
+    }
+
   name = obsavestring (name, strlen (name), &objfile -> symbol_obstack);
-  prim_record_minimal_symbol_and_info (name, address, ms_type, info, -1);
+  prim_record_minimal_symbol_and_info (name, address, ms_type, info, section);
 }
 
 /*
@@ -215,128 +244,180 @@ elf_symtab_read (abfd, addr, objfile)
   struct cleanup *back_to;
   CORE_ADDR symaddr;
   enum minimal_symbol_type ms_type;
-  /* If sectinfo is nonzero, it contains section info that should end up
+  /* If sectinfo is nonNULL, it contains section info that should end up
      filed in the objfile.  */
-  struct stab_section_info *sectinfo = 0;
+  struct stab_section_info *sectinfo = NULL;
   /* If filesym is nonzero, it points to a file symbol, but we haven't
      seen any section info for it yet.  */
   asymbol *filesym = 0;
   struct dbx_symfile_info *dbx = (struct dbx_symfile_info *)
-				 objfile->sym_private;
+				 objfile->sym_stab_info;
+  unsigned long size;
   
   storage_needed = get_symtab_upper_bound (abfd);
-
   if (storage_needed > 0)
     {
       symbol_table = (asymbol **) xmalloc (storage_needed);
       back_to = make_cleanup (free, symbol_table);
       number_of_symbols = bfd_canonicalize_symtab (abfd, symbol_table); 
-  
       for (i = 0; i < number_of_symbols; i++)
 	{
 	  sym = symbol_table[i];
-	  /* Select global/weak symbols that are defined in a specific section.
-	     Note that bfd now puts abs symbols in their own section, so
-	     all symbols we are interested in will have a section. */
-	  if ((sym -> flags & (BSF_GLOBAL | BSF_WEAK))
-	      && (sym -> section != NULL))
+	  if (sym -> name == NULL || *sym -> name == '\0')
 	    {
+	      /* Skip names that don't exist (shouldn't happen), or names
+		 that are null strings (may happen). */
+	      continue;
+	    }
+	  if (sym -> flags & BSF_FILE)
+	    {
+	      /* STT_FILE debugging symbol that helps stabs-in-elf debugging.
+		 Chain any old one onto the objfile; remember new sym.  */
+	      if (sectinfo != NULL)
+		{
+		  sectinfo -> next = dbx -> stab_section_info;
+		  dbx -> stab_section_info = sectinfo;
+		  sectinfo = NULL;
+		}
+	      filesym = sym;
+	    }
+	  else if (sym -> flags & (BSF_GLOBAL | BSF_LOCAL | BSF_WEAK))
+	    {
+	      /* Select global/local/weak symbols.  Note that bfd puts abs
+		 symbols in their own section, so all symbols we are
+		 interested in will have a section. */
 	      /* Bfd symbols are section relative. */
 	      symaddr = sym -> value + sym -> section -> vma;
 	      /* Relocate all non-absolute symbols by base address.  */
 	      if (sym -> section != &bfd_abs_section)
-		symaddr += addr;
-
+		{
+		  symaddr += addr;
+		}
 	      /* For non-absolute symbols, use the type of the section
 		 they are relative to, to intuit text/data.  Bfd provides
 		 no way of figuring this out for absolute symbols. */
-	      if (sym -> section -> flags & SEC_CODE)
+	      if (sym -> section == &bfd_abs_section)
 		{
-		  ms_type = mst_text;
+		  ms_type = mst_abs;
 		}
-	      else if (sym -> section -> flags & SEC_DATA)
+	      else if (sym -> section -> flags & SEC_CODE)
 		{
-		  ms_type = mst_data;
+		  if (sym -> flags & BSF_GLOBAL)
+		    {
+		      ms_type = mst_text;
+		    }
+		  else if (sym->name[0] == '.' && sym->name[1] == 'L')
+		    /* Looks like a compiler-generated label.  Skip it.
+		       The assembler should be skipping these (to keep
+		       executables small), but apparently with gcc on the
+		       delta m88k SVR4, it loses.  So to have us check too
+		       should be harmless (but I encourage people to fix this
+		       in the assembler instead of adding checks here).  */
+		    continue;
+		  else
+		    {
+		      ms_type = mst_file_text;
+		    }
+		}
+	      else if (sym -> section -> flags & SEC_ALLOC)
+		{
+		  if (sym -> flags & BSF_GLOBAL)
+		    {
+		      if (sym -> section -> flags & SEC_LOAD)
+			{
+			  ms_type = mst_data;
+			}
+		      else
+			{
+			  ms_type = mst_bss;
+			}
+		    }
+		  else if (sym -> flags & BSF_LOCAL)
+		    {
+		      /* Named Local variable in a Data section.  Check its
+			 name for stabs-in-elf.  The STREQ macro checks the
+			 first character inline, so we only actually do a
+			 strcmp function call on names that start with 'B'
+			 or 'D' */
+		      index = SECT_OFF_MAX;
+		      if (STREQ ("Bbss.bss", sym -> name))
+			{
+			  index = SECT_OFF_BSS;
+			}
+		      else if (STREQ ("Ddata.data", sym -> name))
+			{
+			  index = SECT_OFF_DATA;
+			}
+		      else if (STREQ ("Drodata.rodata", sym -> name))
+			{
+			  index = SECT_OFF_RODATA;
+			}
+		      if (index != SECT_OFF_MAX)
+			{
+			  /* Found a special local symbol.  Allocate a
+			     sectinfo, if needed, and fill it in.  */
+			  if (sectinfo == NULL)
+			    {
+			      sectinfo = (struct stab_section_info *)
+				xmmalloc (objfile -> md, sizeof (*sectinfo));
+			      memset ((PTR) sectinfo, 0, sizeof (*sectinfo));
+			      if (filesym == NULL)
+				{
+				  complain (&section_info_complaint,
+					    sym -> name);
+				}
+			      else
+				{
+				  sectinfo -> filename =
+				    (char *) filesym -> name;
+				}
+			    }
+			  if (sectinfo -> sections[index] != 0)
+			    {
+			      complain (&section_info_dup_complaint,
+					sectinfo -> filename);
+			    }
+			  /* Bfd symbols are section relative. */
+			  symaddr = sym -> value + sym -> section -> vma;
+			  /* Relocate non-absolute symbols by base address.  */
+			  if (sym -> section != &bfd_abs_section)
+			    {
+			      symaddr += addr;
+			    }
+			  sectinfo -> sections[index] = symaddr;
+			  /* The special local symbols don't go in the
+			     minimal symbol table, so ignore this one. */
+			  continue;
+			}
+		      /* Not a special stabs-in-elf symbol, do regular
+			 symbol processing. */
+		      if (sym -> section -> flags & SEC_LOAD)
+			{
+			  ms_type = mst_file_data;
+			}
+		      else
+			{
+			  ms_type = mst_file_bss;
+			}
+		    }
+		  else
+		    {
+		      ms_type = mst_unknown;
+		    }
 		}
 	      else
 		{
 		  /* FIXME:  Solaris2 shared libraries include lots of
 		     odd "absolute" and "undefined" symbols, that play 
 		     hob with actions like finding what function the PC
-		     is in.  Ignore them if they aren't text or data.  */
+		     is in.  Ignore them if they aren't text, data, or bss.  */
 		  /* ms_type = mst_unknown; */
 		  continue;		/* Skip this symbol. */
 		}
 	      /* Pass symbol size field in via BFD.  FIXME!!!  */
-	      {
-		elf32_symbol_type *esym = (elf32_symbol_type *) sym;
-		unsigned long size = esym->internal_elf_sym.st_size;
-		record_minimal_symbol_and_info ((char *) sym -> name, symaddr,
-						ms_type, (PTR) size, objfile);
-	      }
-	    }
-
-	  /* See if this is a debugging symbol that helps Solaris
-	     stabs-in-elf debugging.  */
-
-	  else if (sym->flags & BSF_FILE)
-	    {
-	      /* Chain any old one onto the objfile; remember new sym.  */
-	      if (sectinfo)
-		{
-		    sectinfo->next = dbx->stab_section_info;
-		    dbx->stab_section_info = sectinfo;
-		    sectinfo = 0;
-		}
-	      filesym = sym;
-	    }
-	  else if ((sym->flags & BSF_LOCAL) &&
-		   (sym->section) &&
-		   (sym->section->flags & SEC_DATA) &&
-		   (sym->name))
-	    {
-	      /* Named Local variable in a Data section.  Check its name.  */
-	      index = -1;
-	      switch (sym->name[1])
-		{
-		  case 'b':
-			if (STREQ ("Bbss.bss", sym->name))
-			  index = SECT_OFF_BSS;
-			break;
-		  case 'd':
-			if (STREQ ("Ddata.data", sym->name))
-			  index = SECT_OFF_DATA;
-			break;
-		  case 'r':
-			if (STREQ ("Drodata.rodata", sym->name))
-			  index = SECT_OFF_RODATA;
-			break;
-		}
-	      if (index > 0)
-		{
-		  /* We have some new info.  Allocate a sectinfo, if
-		     needed, and fill it in.  */
-		  if (!sectinfo)
-		    {
-		      sectinfo = (struct stab_section_info *)
-				 xmmalloc (objfile -> md,
-					   sizeof (*sectinfo));
-		      memset ((PTR) sectinfo, 0, sizeof (*sectinfo));
-		      if (!filesym)
-			complain (&section_info_complaint, sym->name);
-		      else
-			sectinfo->filename = (char *)filesym->name;
-		    }
-		  if (sectinfo->sections[index])
-		    complain (&section_info_dup_complaint, sectinfo->filename);
-
-		  /* Bfd symbols are section relative. */
-		  symaddr = sym -> value + sym -> section -> vma;
-		  /* Relocate all non-absolute symbols by base address.  */
-		  if (sym -> section != &bfd_abs_section)
-		      symaddr += addr;
-		  sectinfo->sections[index] = symaddr;
-		}
+	      size = ((elf_symbol_type *) sym) -> internal_elf_sym.st_size;
+	      record_minimal_symbol_and_info ((char *) sym -> name, symaddr,
+					      ms_type, (PTR) size, objfile);
 	    }
 	}
       do_cleanups (back_to);
@@ -391,13 +472,13 @@ elf_symfile_read (objfile, section_offsets, mainline)
   memset ((char *) &ei, 0, sizeof (ei));
 
   /* Allocate struct to keep track of the symfile */
-  objfile->sym_private = (PTR)
+  objfile->sym_stab_info = (PTR)
     xmmalloc (objfile -> md, sizeof (struct dbx_symfile_info));
-  memset ((char *) objfile->sym_private, 0, sizeof (struct dbx_symfile_info));
+  memset ((char *) objfile->sym_stab_info, 0, sizeof (struct dbx_symfile_info));
   make_cleanup (free_elfinfo, (PTR) objfile);
 
   /* Process the normal ELF symbol table first.  This may write some 
-     chain of info into the dbx_symfile_info in objfile->sym_private,
+     chain of info into the dbx_symfile_info in objfile->sym_stab_info,
      which can later be used by elfstab_offset_sections.  */
 
   /* FIXME, should take a section_offsets param, not just an offset.  */
@@ -454,7 +535,7 @@ elf_symfile_read (objfile, section_offsets, mainline)
   do_cleanups (back_to);
 }
 
-/* This cleans up the objfile's sym_private pointer, and the chain of
+/* This cleans up the objfile's sym_stab_info pointer, and the chain of
    stab_section_info's, that might be dangling from it.  */
 
 static void
@@ -463,7 +544,7 @@ free_elfinfo (objp)
 {
   struct objfile *objfile = (struct objfile *)objp;
   struct dbx_symfile_info *dbxinfo = (struct dbx_symfile_info *)
-				     objfile->sym_private;
+				     objfile->sym_stab_info;
   struct stab_section_info *ssi, *nssi;
 
   ssi = dbxinfo->stab_section_info;
@@ -501,9 +582,9 @@ static void
 elf_symfile_finish (objfile)
      struct objfile *objfile;
 {
-  if (objfile -> sym_private != NULL)
+  if (objfile -> sym_stab_info != NULL)
     {
-      mfree (objfile -> md, objfile -> sym_private);
+      mfree (objfile -> md, objfile -> sym_stab_info);
     }
 }
 
@@ -561,7 +642,7 @@ elfstab_offset_sections (objfile, pst)
 {
   char *filename = pst->filename;
   struct dbx_symfile_info *dbx = (struct dbx_symfile_info *)
-				 objfile->sym_private;
+				 objfile->sym_stab_info;
   struct stab_section_info *maybe = dbx->stab_section_info;
   struct stab_section_info *questionable = 0;
   int i;

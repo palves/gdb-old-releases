@@ -171,7 +171,7 @@ extern CORE_ADDR mz8k_skip_prologue PARAMS ((CORE_ADDR ip));
 
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy(REGBUF + REGISTER_BYTE(2), VALBUF, TYPE_LENGTH(TYPE));
+  memcpy(VALBUF, REGBUF + REGISTER_BYTE(2), TYPE_LENGTH(TYPE));
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format. */
@@ -271,8 +271,8 @@ extern CORE_ADDR mz8k_skip_prologue PARAMS ((CORE_ADDR ip));
    We use the BFD routines to store a big-endian value of known size.  */
 
 #define FIX_CALL_DUMMY(dummyname, pc, fun, nargs, args, type, gcc_p)     \
-{ _do_putb32 (fun,     (char *) dummyname + CALL_DUMMY_START_OFFSET + 2);  \
-  _do_putb32 (nargs*4, (char *) dummyname + CALL_DUMMY_START_OFFSET + 8); }
+{ bfd_putb32 (fun,     (char *) dummyname + CALL_DUMMY_START_OFFSET + 2);  \
+  bfd_putb32 (nargs*4, (char *) dummyname + CALL_DUMMY_START_OFFSET + 8); }
 
 /* Push an empty stack frame, to record the current PC, etc.  */
 
@@ -291,7 +291,6 @@ extern void z8k_pop_frame PARAMS ((void));
 #define SP_ARG0 (1 * 4)
 
 #define ADDR_BITS_REMOVE(x) addr_bits_remove(x)
-#define ADDR_BITS_SET(x) addr_bits_set(x)
 int z8001_mode;
 #define BIG (z8001_mode)
 

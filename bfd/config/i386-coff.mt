@@ -1,2 +1,4 @@
 # Target:  Intel 386 running coff.
-TDEFAULTS = -DDEFAULT_VECTOR=i386coff_vec
+
+DEFAULT_VECTOR=i386coff_vec
+SELECT_ARCHITECTURES=bfd_i386_arch

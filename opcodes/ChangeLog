@@ -1,7 +1,141 @@
+Tue Oct 19 12:39:25 1993  Jeffrey A Law  (law@cs.utah.edu)
+
+	* hppa-dis.c (print_insn_hppa): Do not emit a space after
+	movb instructions.  Any necessary space will be emitted by
+	the code to handle nullification completers.
+
+Wed Oct 13 16:19:07 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: Moved l.d down so that it disassembles as ldc1.
+
+Fri Oct  8 02:34:21 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* alpha-opc.h:  Add ldl_l, fix typo for ldq_u.
+	* alpha-dis.c (print_insn_alpha):  Add code for PAL_FORMAT_CODE.
+
+Tue Oct  5 17:47:53 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: Correct lwu opcode value (book had it wrong).
+
+Thu Sep 30 11:26:18 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
+
+	* z8k-dis.c (FETCH_DATA): get just the right amount of data.
+	(unpack_instr): Cope with ARG_IMM4M1 type instructions.
+
+Wed Sep 29 16:24:49 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* m88k-dis.c (m88kdis): comment change.  Remove space after
+	  printing mnemonic.
+	  (printop): handle new arg types DEC and XREG for m88110.
+
+Tue Sep 28 19:20:16 1993  Jeffrey A Law (law@snake.cs.utah.edu)
+
+	* hppa-dis.c (print_insn_hppa): Handle 'z' operand
+	type for absolute branch addresses.  Delete special
+	"ble" and "be" code in 'W' operand code.
+
+Fri Sep 24 14:08:33 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: Set hazard information correctly for branch
+	likely instructions.
+
+Fri Sep 17 04:41:17 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* alpha-dis.c (print_insn_alpha), alpha-opc.h:  Fix bugs, use
+	info->fprintf_func for printing and info->print_address_func for
+	address output.
+
+Wed Sep 15 12:12:07 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: Set INSN_TRAP for tXX instructions.
+
+Thu Sep  9 10:11:27 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: From davidj@ICSI.Berkeley.EDU (David Johnson):
+	Corrected second case of "b" for disassembler.
+
+Tue Sep  7 14:25:15 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-dis.c, m88k-dis.c: Don't include libbfd.h.  Changed calls
+	to BFD swapping routines to correspond to BFD name changes.
+
+Thu Sep  2 10:35:25 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: Change div machine instruction to be z,s,t rather
+	than s,t.  Change div macro to be d,v,t rather than d,s,t.
+	Likewise for divu, ddiv, ddivu.  Added z,s,t case for drem, dremu,
+	rem and remu which generates only the corresponding div
+	instruction.  This is for compatibility with the MIPS assembler,
+	which only generates the simple machine instruction when an
+	explicit destination of $0 is used.
+	* mips-dis.c (print_insn_arg): Handle 'z' (always register zero).
+
+Thu Aug 26 17:41:44 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: From davidj@ICSI.Berkeley.EDU (David Johnson): Set
+	WR_31 hazard for bal, bgezal, bltzal.
+
+Thu Aug 26 17:20:02 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* hppa-dis.c (print_insn_hppa): Use print function
+	from within the disassemble_info, not fprintf_filtered.
+
+Wed Aug 25 13:51:40 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* hppa-dis.c (print_insn_hppa): Handle '|' like '>'.  (From Jeff
+	Law, law@cs.utah.edu.)
+
+Mon Aug 23 12:44:05 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c ("absu"): Removed.
+	("dabs"): Added.
+
+Fri Aug 20 10:52:52 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: Added r6000 and r4000 instructions and macros.
+	Changed hazard information to distinguish between memory load
+	delays and coprocessor load delays.
+
+Wed Aug 18 15:39:23 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: li.d uses "T,L", not "S,F".  Added li.s.
+
+Tue Aug 17 09:44:42 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* configure.in: Don't pass cpu to config.bfd.
+
+Tue Aug 17 12:23:52 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* m88k-dis.c (m88kdis): Make class unsigned.
+
+Thu Aug 12 15:08:18 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* alpha-dis.c (print_insn_alpha): One branch format case was
+	missing the instruction name.
+
+Wed Aug 11 19:29:39 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* Makefile.in (ALL_MACHINES): Renamed from DIS_LIBS.
+	Add the arch-specific auxiliary files.
+	(OFILES): Remove the arch-specific auxiliary files
+	and use BFD_MACHINES instead of DIS_LIBS.
+	* configure.in: Set BFD_MACHINES based on --with-targets option.
+
+Thu Aug 12 12:04:53 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: Added lwc1 E,A(b) to go with lwc1 T,A(b).  Similarly
+	for swc1.
+
 Sun Aug  8 15:09:30 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
 	* sparc-opc.c: Change CONST to const to deal with gcc
 	-Dconst=__const -traditional.
+
+Fri Aug  6 10:58:55 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: From davidj@ICSI.Berkeley.EDU (David Johnson): Took
+	coprocessor instructions out of #if 0, and made them use new
+	argument type "C".
 
 Thu Aug  5 17:11:06 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 

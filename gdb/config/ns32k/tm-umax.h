@@ -17,6 +17,8 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+/* This is also included by tm-ns32km3.h, as well as being used by umax.  */
+
 #define TARGET_BYTE_ORDER LITTLE_ENDIAN
 
 /* Need to get function ends by adding this to epilogue address from .bf
@@ -50,7 +52,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Address of end of stack space.  */
 
+#ifndef STACK_END_ADDR
 #define STACK_END_ADDR (0xfffff000)
+#endif
 
 /* Stack grows downward.  */
 
@@ -70,6 +74,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define ABOUT_TO_RETURN(pc) (read_memory_integer (pc, 1) == 0x12)
 
+#ifndef INVALID_FLOAT
 #ifndef NaN
 #include <nan.h>
 #endif NaN
@@ -80,6 +85,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	 ((s == sizeof (float))?	\
 		NaF (*(float *) p) :	\
 		NaD (*(double *) p))
+#endif /* INVALID_FLOAT */
 
 /* Say how long (ordinary) registers are.  */
 
@@ -159,13 +165,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    to virtual format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)	\
-  bcopy ((FROM), (TO), REGISTER_VIRTUAL_SIZE(REGNUM));
+  memcpy ((TO), (FROM), REGISTER_VIRTUAL_SIZE(REGNUM));
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-  bcopy ((FROM), (TO), REGISTER_VIRTUAL_SIZE(REGNUM));
+  memcpy ((TO), (FROM), REGISTER_VIRTUAL_SIZE(REGNUM));
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -192,7 +198,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    into VALBUF.  */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy (REGBUF+REGISTER_BYTE (TYPE_CODE (TYPE) == TYPE_CODE_FLT ? FP0_REGNUM : 0), VALBUF, TYPE_LENGTH (TYPE))
+  memcpy (VALBUF, REGBUF+REGISTER_BYTE (TYPE_CODE (TYPE) == TYPE_CODE_FLT ? FP0_REGNUM : 0), TYPE_LENGTH (TYPE))
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.  */
@@ -295,7 +301,7 @@ extern CORE_ADDR ns32k_get_enter_addr ();
   register CORE_ADDR	enter_addr;				\
   register CORE_ADDR	next_addr;				\
 								\
-  bzero (&(frame_saved_regs), sizeof (frame_saved_regs));	\
+  memset (&(frame_saved_regs), '\0', sizeof (frame_saved_regs));	\
   enter_addr = ns32k_get_enter_addr ((frame_info)->pc);		\
   if (enter_addr > 1)						\
     {								\

@@ -34,7 +34,8 @@ FILE *bfd_open_file PARAMS ((bfd *));
 
 /* Return a new BFD.  All BFD's are allocated through this routine.  */
 
-bfd *new_bfd PARAMS ((void))
+bfd *
+new_bfd PARAMS ((void))
 {
   bfd *nbfd;
 
@@ -58,26 +59,27 @@ bfd *new_bfd PARAMS ((void))
   nbfd->output_has_begun = false;
   nbfd->section_count = 0;
   nbfd->usrdata = (PTR)NULL;
-  nbfd->sections = (asection *)NULL;
   nbfd->cacheable = false;
   nbfd->flags = NO_FLAGS;
   nbfd->mtime_set = false;
-
 
   return nbfd;
 }
 
 /* Allocate a new BFD as a member of archive OBFD.  */
 
-bfd *new_bfd_contained_in(obfd)
-bfd *obfd;
+bfd *
+new_bfd_contained_in (obfd)
+     bfd *obfd;
 {
-	bfd *nbfd = new_bfd();
-	nbfd->xvec = obfd->xvec;
-	nbfd->my_archive = obfd;
-	nbfd->direction = read_direction;
-	nbfd->target_defaulted = obfd->target_defaulted;
-	return nbfd;
+  bfd *nbfd;
+
+  nbfd = new_bfd();
+  nbfd->xvec = obfd->xvec;
+  nbfd->my_archive = obfd;
+  nbfd->direction = read_direction;
+  nbfd->target_defaulted = obfd->target_defaulted;
+  return nbfd;
 }
 
 /*

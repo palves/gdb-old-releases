@@ -346,6 +346,7 @@ location	:	access_name
 access_name	:	LOCATION_NAME
 			{
 			  write_exp_elt_opcode (OP_VAR_VALUE);
+			  write_exp_elt_block (NULL);
 			  write_exp_elt_sym ($1.sym);
 			  write_exp_elt_opcode (OP_VAR_VALUE);
 			}
@@ -477,6 +478,7 @@ value_name	:	synonym_name
 		|	GENERAL_PROCEDURE_NAME
 			{
 			  write_exp_elt_opcode (OP_VAR_VALUE);
+			  write_exp_elt_block (NULL);
 			  write_exp_elt_sym ($1.sym);
 			  write_exp_elt_opcode (OP_VAR_VALUE);
 			}
@@ -1212,7 +1214,6 @@ match_float_literal ()
   char *tokptr = lexptr;
   char *buf;
   char *copy;
-  char ch;
   double dval;
   extern double strtod ();
   
@@ -1927,8 +1928,11 @@ yylex ()
 	      case LOC_ARG:
 	      case LOC_REF_ARG:
 	      case LOC_REGPARM:
+	      case LOC_REGPARM_ADDR:
 	      case LOC_LOCAL:
 	      case LOC_LOCAL_ARG:
+	      case LOC_BASEREG:
+	      case LOC_BASEREG_ARG:
 		if (innermost_block == NULL
 		    || contained_in (block_found, innermost_block))
 		  {

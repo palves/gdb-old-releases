@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%% gdb-refcard.tex %%%%%%%%%%%%%%%%
 
 %This file is TeX source for a reference card describing GDB, the GNU debugger.
-%$Id: refcard.tex,v 1.99 1993/07/01 21:59:02 pesch Exp $
+%$Id: refcard.tex,v 1.99.8.1 1993/10/19 21:35:56 pesch Exp $
 %Copyright (C) 1991, 1992 Free Software Foundation, Inc.
 %Permission is granted to make and distribute verbatim copies of
 %this reference provided the copyright notices and permission notices
@@ -33,6 +33,27 @@
 %
 %                                +1 415 903 1400
 %
+%
+%
+% 22-AUG-1993 Andreas Vogel
+%
+%   Modifications made in order to handle different papersizes correctly.
+%   You only have to set the total width and height of the paper, the
+%   horizontal and vertical margin space measured from *paper edge*
+%   and the interline and interspec spacing.
+%   In order to support a new papersize, you have to fiddle with the
+%   latter four dimensions. Just try out a few values.
+%   All other values will be computed at process time so it should be
+%   quite easy to support different paper sizes - only four values to
+%   guess :-)
+%
+%   To find the configuration places, just search for the string
+%   "CONFIGURATION".
+%
+%   Andreas Vogel (av@ssw.de)
+%
+%
+%
 % Uncomment the following `magnification' command if you want to print
 % out in a larger font.  Caution!  You may need larger paper.  You had
 % best avoid using 3-column output if you try this.  See the ``Three
@@ -52,32 +73,84 @@
 % share omitted due to obsolescence
 % set check range/type omitted at least til code is in GDB.
 %
-{%
-\def\$#1${{#1}}%   Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.99 $}%
-}%
 %-------------------- Three column format -----------------------
 
 %%%% --- To disable three column format, comment out this entire section
 
 % Three-column format for landscape printing
 
-\newdimen\fullhsize
-\newdimen\secskip \newdimen\itmwid \newdimen\dfnwid 
-\newdimen\lskip                                     % used in \def\sec
 %-------- Papersize defs:
-% Dimensions for landscape printing on 8.5x11in ("US letter") paper
 
-% We want output .25 inch *from paper edge*; i.e. -.75in from TeX default
-\hoffset=-0.75in \voffset=-0.75in
-\fullhsize=10.5in \hsize=3.3in
-\vsize=8in
+\newdimen\totalwidth \newdimen\totalheight
+\newdimen\hmargin    \newdimen\vmargin
+\newdimen\secskip    \newdimen\lskip
+\newdimen\barwidth   \newdimen\barheight
+\newdimen\intersecwidth
 
-% Units for \sec definition
-\secskip=1pc % space between refcard secs
-\itmwid=1.1in  % width of halign col 1
-\dfnwid=2.1in  % width of halign col 2
-\lskip=2pt     % extra skip between \sec entries
+%%
+%%  START CONFIGURATION - PAPERSIZE DEFINITIONS
+%------- Papersize params:
+%%  US letter paper (8.5x11in)
+%%
+\totalwidth=11in    % total width of paper
+\totalheight=8.5in  % total height of paper
+\hmargin=.25in      % horizontal margin width
+\vmargin=.25in      % vertical margin width
+\secskip=1pc        % space between refcard secs
+\lskip=2pt          % extra skip between \sec entries
+%------- end papersize params
+%%
+%%  change according to personal taste, not papersize dependent
+%%
+\barwidth=.1pt       % width of the cropmark bar
+\barheight=2pt       % height of the cropmark bar
+\intersecwidth=0.5em % width between \itmwid and \dfnwid
+%%
+%%  END CONFIGURATION - PAPERSIZE DEFINITIONS
+%%
+
+%%
+%%  values to be computed - nothing to configure
+%%
+\newdimen\fullhsize     % width of area without margins
+\newdimen\itmwid        % width of item column
+\newdimen\dfnwid        % width of definition column
+\newdimen\temp          % only for temporary use
+
+%%
+%%  adjust the offsets so the margins are measured *from paper edge*
+%%
+\hoffset=-1in \advance \hoffset by \hmargin
+\voffset=-1in \advance \voffset by \vmargin
+
+%%
+%%  fullhsize = totalwidth - (2 * hmargin)
+%%
+\fullhsize=\totalwidth
+\temp=\hmargin \multiply \temp by 2 \advance \fullhsize by -\temp
+
+%%
+%%  hsize = (fullhsize - (4 * hmargin) - (2 * barwidth)) / 3
+%%
+\hsize=\fullhsize
+\temp=\hmargin \multiply \temp by 4 \advance \hsize by -\temp
+\temp=\barwidth \multiply \temp by 2 \advance \hsize by -\temp
+\divide \hsize by 3
+
+%%
+%%  vsize = totalheight - (2 * vmargin)
+%%
+\vsize=\totalheight
+\temp=\vmargin \multiply \temp by 2 \advance \vsize by -\temp
+
+%%
+%%  itmwid = (hsize - intersecwidth) * 1/3
+%%  dfnwid = (hsize - intersecwidth) * 2/3
+%%
+\temp=\hsize \advance \temp by -\intersecwidth \divide \temp by 3
+\itmwid=\temp
+\dfnwid=\hsize \advance \dfnwid by -\itmwid
+
 %-------- end papersize defs
 
 
@@ -93,27 +166,35 @@
          \fi
 %         \ifnum\outputpenalty>-20000 \else\dosupereject\fi
       }
-%
-%ALTERNATIVE FOLDING GUIDES:
-%
-%For NO printed folding guide, comment out other \def\vdecor's and uncomment:
-%\def\vdecor{\hskip .2in plus1fil}
-%
-%For SOLID LINE folding guide, comment out other \def\vdecor's and uncomment:
-%\def\vdecor{\hskip .1in plus1fil \vrule width .1pt \hskip .1in plus1fil}
-%
-%For SMALL MARKS NEAR TOP AND BOTTOM as folding guide,
-%comment out other \def\vdecor's and uncomment:
-\def\vdecor{\hskip .1in plus1fil 
-\vbox to \vsize{\hbox to .1pt{\vrule height 2pt width .1pt}\vfill
-\hbox to .1pt{\vrule height 2pt width .1pt}}
-\hskip .1in plus1fil}
-%
-%END OF ALTERNATIVES FOR FOLDING GUIDES
-%
+
+%%
+%%  START CONFIGURATION - ALTERNATIVE FOLDING GUIDES
+%%
+%%  For NO printed folding guide,
+%%  comment out other \def\vdecor's and uncomment:
+
+%\def\vdecor{\hskip\hmargin plus1fil\hskip\barwidth plus1fil\hskip\hmargin plus1fil}
+
+%%  For SOLID LINE folding guide,
+%%  comment out other \def\vdecor's and uncomment:
+
+%\def\vdecor{\hskip\hmargin plus1fil \vrule width \barwidth \hskip\hmargin plus1fil}
+
+%%  For SMALL MARKS NEAR TOP AND BOTTOM as folding guide,
+%%  comment out other \def\vdecor's and uncomment:
+
+\def\vdecor{\hskip\hmargin plus1fil
+\vbox to \vsize{\hbox to \barwidth{\vrule height\barheight width\barwidth}\vfill
+\hbox to \barwidth{\vrule height\barheight width\barwidth}}%THIS PERCENT SIGN IS ESSENTIAL
+\hskip\hmargin plus1fil}
+
+%%
+%%  END CONFIGURATION - ALTERNATIVES FOR FOLDING GUIDES
+%%
+
 \def\tripleformat{\shipout\vbox{\fulline{\box\leftcolumn\vdecor
-                                         \box\centercolumn\vdecor
-                                         \columnbox}
+					 \box\centercolumn\vdecor
+					 \columnbox}
 			       }
                  \advancepageno}
 \def\columnbox{\leftline{\pagebody}}
@@ -146,14 +227,13 @@
 \def\opt#1{{\brm[{\rm #1}]}}
 \def\xtra#1{\noalign{\smallskip{\tt#1}}}
 %
-% dimensions secskip, itmwid, dfnwid, lskip from refpaper input file
 \long\def\sec#1;#2\endsec{\vskip \secskip
 \halign{%
 %COL 1 (of halign):
 \vtop{\hsize=\itmwid\tt
 ##\par\vskip \lskip }\hfil
 %COL 2 (of halign):
-&\vtop{\hsize=\dfnwid\hangafter=1\hangindent=0.5em
+&\vtop{\hsize=\dfnwid\hangafter=1\hangindent=\intersecwidth
 \rm ##\par\vskip \lskip}\cr
 %Tail of \long\def fills in halign body with \sec args:
 \noalign{{\bbf #1}\vskip \lskip}
@@ -231,8 +311,8 @@ one or more arguments}
 break \opt{\it file\tt:}{\it line}\par
 b \opt{\it file\tt:}{\it line}&set breakpoint at {\it line} number \opt{in \it file}\par 
 eg:\quad{\tt break main.c:37}\quad\cr
-break \opt{\it file\tt:}{\it function}&set breakpoint at {\it
-function} \opt{in \it file}\cr
+break \opt{\it file\tt:}{\it func}&set breakpoint at {\it
+func} \opt{in \it file}\cr
 break +{\it offset}\par
 break -{\it offset}&set break at {\it offset} lines from current stop\cr
 break *{\it addr}&set breakpoint at address {\it addr}\cr
@@ -549,8 +629,8 @@ statement.\cr
 
 \vfill
 {\smrm\parskip=6pt
-\centerline{Copyright \copyright 1991, 1992 Free Software Foundation, Inc.}
-\centerline{Roland Pesch (pesch@cygnus.com), January 1992---\manvers}
+\centerline{Copyright \copyright 1991, 1992, 1993 Free Software Foundation, Inc.}
+\centerline{Roland Pesch (pesch@cygnus.com)}
 \centerline{The author assumes no responsibility for any errors on this card.}
 
 This card may be freely distributed under the terms of the GNU

@@ -1,2 +1,4 @@
 # Target:  Sony NEWS
-TDEFINES = -DDEFAULT_VECTOR=newsos3_vec
+
+DEFAULT_VECTOR=newsos3_vec
+SELECT_ARCHITECTURES=bfd_m68k_arch

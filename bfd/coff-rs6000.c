@@ -1,6 +1,11 @@
 /* BFD back-end for IBM RS/6000 "XCOFF" files.
    Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
-   Written by Metin G. Ozisik, Mimi Phûông-Thåo Võ, and John Gilmore.
+   FIXME: Can someone provide a transliteration of this name into ASCII?
+   Using the following chars caused a compiler warning on HIUX (so I replaced
+   them with octal escapes), and isn't useful without an understanding of what
+   character set it is.
+   Written by Metin G. Ozisik, Mimi Ph\373\364ng-Th\345o V\365, 
+     and John Gilmore.
    Archive support from Damon A. Permezel.
    Contributed by IBM Corporation and Cygnus Support.
 
@@ -40,7 +45,23 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* The main body of code is in coffcode.h.  */
 
 /* Can't read rs6000 relocs */
-#define RTYPE2HOWTO(a,b)
+static reloc_howto_type dummy_reloc =
+  HOWTO (0,			/* type */
+	 0,			/* rightshift */
+	 0,			/* size (0 = byte, 1 = short, 2 = long) */
+	 8,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont, /* complain_on_overflow */
+	 0,			/* special_function */
+	 "UNKNOWN",		/* name */
+	 false,			/* partial_inplace */
+	 0,			/* src_mask */
+	 0,			/* dst_mask */
+	 false);		/* pcrel_offset */
+
+#define RTYPE2HOWTO(cache_ptr, dst) cache_ptr->howto = &dummy_reloc;
+
 #include "coffcode.h"
 
 #define	coff_archive_p		bfd_generic_archive_p
@@ -326,12 +347,12 @@ bfd_target rs6000coff_vec =
   15,				/* ar_max_namelen??? FIXMEmgo */
   3,				/* default alignment power */
 
-  _do_getb64, _do_getb_signed_64, _do_putb64,
-     _do_getb32, _do_getb_signed_32, _do_putb32,
-     _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
-  _do_getb64, _do_getb_signed_64, _do_putb64,
-     _do_getb32, _do_getb_signed_32, _do_putb32,
-     _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
+  bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+     bfd_getb32, bfd_getb_signed_32, bfd_putb32,
+     bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* data */
+  bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+     bfd_getb32, bfd_getb_signed_32, bfd_putb32,
+     bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* hdrs */
 
   {_bfd_dummy_target, coff_object_p, 	/* bfd_check_format */
      coff_archive_p,

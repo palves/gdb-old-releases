@@ -6,10 +6,10 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.10.
+   This is Edition 4.09, August 1993, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.11.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
+   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
@@ -33,7 +33,7 @@ Debugging with GDB
 
    This file describes GDB, the GNU symbolic debugger.
 
-   This is Edition 4.09, April 1993, for GDB Version 4.10.
+   This is Edition 4.09, August 1993, for GDB Version 4.11.
 
 * Menu:
 
@@ -98,7 +98,10 @@ these) to help you catch bugs in the act:
      correcting the effects of one bug and go on to learn about another.
 
    You can use GDB to debug programs written in C, C++, and Modula-2.
-Fortran support will be added when a GNU Fortran compiler is ready.
+G{No Value For "DBN"} can be used to debug programs written in Fortran,
+although it does not yet support entering expressions, printing values,
+etc.  using Fortran syntax.  It may be necessary to refer to some
+variables with a trailing underscore.
 
 * Menu:
 
@@ -144,14 +147,14 @@ regret, we cannot actually acknowledge everyone here.  The file
 
    So that they may not regard their long labor as thankless, we
 particularly thank those who shepherded GDB through major releases: Fred
-Fish (release 4.9), Stu Grossman and John Gilmore (releases 4.8, 4.7,
-4.6, 4.5, 4.4), John Gilmore (releases 4.3, 4.2, 4.1, 4.0, and 3.9); Jim
-Kingdon (releases 3.5, 3.4, 3.3); and Randy Smith (releases 3.2, 3.1,
-3.0).  As major maintainer of GDB for some period, each contributed
-significantly to the structure, stability, and capabilities of the
-entire debugger.
+Fish (releases 4.11, 4.10, 4.9), Stu Grossman and John Gilmore (releases
+4.8, 4.7, 4.6, 4.5, 4.4), John Gilmore (releases 4.3, 4.2, 4.1, 4.0, and
+3.9); Jim Kingdon (releases 3.5, 3.4, 3.3); and Randy Smith (releases
+3.2, 3.1, 3.0).  As major maintainer of GDB for some period, each
+contributed significantly to the structure, stability, and capabilities
+of the entire debugger.
 
-   Richard Stallman, assisted at various times by Pete TerMaat, Chris
+   Richard Stallman, assisted at various times by Peter TerMaat, Chris
 Hanson, and Richard Mlynarik, handled releases through 2.8.
 
    Michael Tiemann is the author of most of the GNU C++ support in GDB,
@@ -333,7 +336,7 @@ Let us use GDB to try to see what is going on.
       the conditions.
      There is absolutely no warranty for GDB; type "show warranty"
       for details.
-     GDB 4.10, Copyright 1993 Free Software Foundation, Inc...
+     GDB 4.11, Copyright 1993 Free Software Foundation, Inc...
      (gdb)
 
 GDB reads only enough symbol data to know where to find the rest when
@@ -595,19 +598,19 @@ them, so long as enough of the option is present to be unambiguous.
 (If you prefer, you can flag option arguments with `--' rather than
 `-', though we illustrate the more usual convention.)
 
-`-symbols=FILE'
+`-symbols FILE'
 `-s FILE'
      Read symbol table from file FILE.
 
-`-exec=FILE'
+`-exec FILE'
 `-e FILE'
      Use file FILE as the executable file to execute when appropriate,
      and for examining pure data in conjunction with a core dump.
 
-`-se=FILE'
+`-se FILE'
      Read symbol table from file FILE and use it as the executable file.
 
-`-core=FILE'
+`-core FILE'
 `-c FILE'
      Use file FILE as a core dump to examine.
 
@@ -616,12 +619,12 @@ them, so long as enough of the option is present to be unambiguous.
      there is a file in core-dump format named NUMBER, in which case
      `-c' specifies that file as a core dump to read).
 
-`-command=FILE'
+`-command FILE'
 `-x FILE'
      Execute GDB commands from file FILE.  *Note Command files: Command
      Files.
 
-`-directory=DIRECTORY'
+`-directory DIRECTORY'
 `-d DIRECTORY'
      Add DIRECTORY to the path to search for source files.
 
@@ -694,7 +697,7 @@ mode or quiet mode.
      (which is ordinarily issued whenever a program running under GDB
      control terminates) is not issued when running in batch mode.
 
-`-cd=DIRECTORY'
+`-cd DIRECTORY'
      Run GDB using DIRECTORY as its working directory, instead of the
      current directory.
 
@@ -713,7 +716,7 @@ mode or quiet mode.
      Set the line speed (baud rate or bits per second) of any serial
      interface used by GDB for remote debugging.
 
-`-tty=DEVICE'
+`-tty DEVICE'
      Run using DEVICE for your program's standard input and output.
 
 
@@ -1133,7 +1136,7 @@ The *standard input and output.*
    When you issue the `run' command, your program begins to execute
 immediately.  *Note Stopping and continuing: Stopping, for discussion
 of how to arrange for your program to stop.  Once your program has
-stopped, you may calls functions in your program, using the `print' or
+stopped, you may call functions in your program, using the `print' or
 `call' commands.  *Note Examining Data: Data.
 
    If the modification time of your symbol file has changed since the

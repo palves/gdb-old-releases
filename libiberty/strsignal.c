@@ -80,148 +80,148 @@ struct signal_info
 static const struct signal_info signal_table[] =
 {
 #if defined (SIGHUP)
-  SIGHUP, "SIGHUP", "Hangup",
+  {SIGHUP, "SIGHUP", "Hangup"},
 #endif
 #if defined (SIGINT)
-  SIGINT, "SIGINT", "Interrupt",
+  {SIGINT, "SIGINT", "Interrupt"},
 #endif
 #if defined (SIGQUIT)
-  SIGQUIT, "SIGQUIT", "Quit",
+  {SIGQUIT, "SIGQUIT", "Quit"},
 #endif
 #if defined (SIGILL)
-  SIGILL, "SIGILL", "Illegal instruction",
+  {SIGILL, "SIGILL", "Illegal instruction"},
 #endif
 #if defined (SIGTRAP)
-  SIGTRAP, "SIGTRAP", "Trace/breakpoint trap",
+  {SIGTRAP, "SIGTRAP", "Trace/breakpoint trap"},
 #endif
 /* Put SIGIOT before SIGABRT, so that if SIGIOT==SIGABRT then SIGABRT
    overrides SIGIOT.  SIGABRT is in ANSI and POSIX.1, and SIGIOT isn't. */
 #if defined (SIGIOT)
-  SIGIOT, "SIGIOT", "IOT trap",
+  {SIGIOT, "SIGIOT", "IOT trap"},
 #endif
 #if defined (SIGABRT)
-  SIGABRT, "SIGABRT", "Aborted",
+  {SIGABRT, "SIGABRT", "Aborted"},
 #endif
 #if defined (SIGEMT)
-  SIGEMT, "SIGEMT", "Emulation trap",
+  {SIGEMT, "SIGEMT", "Emulation trap"},
 #endif
 #if defined (SIGFPE)
-  SIGFPE, "SIGFPE", "Arithmetic exception",
+  {SIGFPE, "SIGFPE", "Arithmetic exception"},
 #endif
 #if defined (SIGKILL)
-  SIGKILL, "SIGKILL", "Killed",
+  {SIGKILL, "SIGKILL", "Killed"},
 #endif
 #if defined (SIGBUS)
-  SIGBUS, "SIGBUS", "Bus error",
+  {SIGBUS, "SIGBUS", "Bus error"},
 #endif
 #if defined (SIGSEGV)
-  SIGSEGV, "SIGSEGV", "Segmentation fault",
+  {SIGSEGV, "SIGSEGV", "Segmentation fault"},
 #endif
 #if defined (SIGSYS)
-  SIGSYS, "SIGSYS", "Bad system call",
+  {SIGSYS, "SIGSYS", "Bad system call"},
 #endif
 #if defined (SIGPIPE)
-  SIGPIPE, "SIGPIPE", "Broken pipe",
+  {SIGPIPE, "SIGPIPE", "Broken pipe"},
 #endif
 #if defined (SIGALRM)
-  SIGALRM, "SIGALRM", "Alarm clock",
+  {SIGALRM, "SIGALRM", "Alarm clock"},
 #endif
 #if defined (SIGTERM)
-  SIGTERM, "SIGTERM", "Terminated",
+  {SIGTERM, "SIGTERM", "Terminated"},
 #endif
 #if defined (SIGUSR1)
-  SIGUSR1, "SIGUSR1", "User defined signal 1",
+  {SIGUSR1, "SIGUSR1", "User defined signal 1"},
 #endif
 #if defined (SIGUSR2)
-  SIGUSR2, "SIGUSR2", "User defined signal 2",
+  {SIGUSR2, "SIGUSR2", "User defined signal 2"},
 #endif
 /* Put SIGCLD before SIGCHLD, so that if SIGCLD==SIGCHLD then SIGCHLD
    overrides SIGCLD.  SIGCHLD is in POXIX.1 */
 #if defined (SIGCLD)
-  SIGCLD, "SIGCLD", "Child status changed",
+  {SIGCLD, "SIGCLD", "Child status changed"},
 #endif
 #if defined (SIGCHLD)
-  SIGCHLD, "SIGCHLD", "Child status changed",
+  {SIGCHLD, "SIGCHLD", "Child status changed"},
 #endif
 #if defined (SIGPWR)
-  SIGPWR, "SIGPWR", "Power fail/restart",
+  {SIGPWR, "SIGPWR", "Power fail/restart"},
 #endif
 #if defined (SIGWINCH)
-  SIGWINCH, "SIGWINCH", "Window size changed",
+  {SIGWINCH, "SIGWINCH", "Window size changed"},
 #endif
 #if defined (SIGURG)
-  SIGURG, "SIGURG", "Urgent I/O condition",
+  {SIGURG, "SIGURG", "Urgent I/O condition"},
 #endif
 #if defined (SIGIO)
-  /* "I/O pending has also been suggested, but is misleading since the
+  /* "I/O pending" has also been suggested, but is misleading since the
      signal only happens when the process has asked for it, not everytime
      I/O is pending. */
-  SIGIO, "SIGIO", "I/O possible",
+  {SIGIO, "SIGIO", "I/O possible"},
 #endif
 #if defined (SIGPOLL)
-  SIGPOLL, "SIGPOLL", "Pollable event occurred",
+  {SIGPOLL, "SIGPOLL", "Pollable event occurred"},
 #endif
 #if defined (SIGSTOP)
-  SIGSTOP, "SIGSTOP", "Stopped (signal)",
+  {SIGSTOP, "SIGSTOP", "Stopped (signal)"},
 #endif
 #if defined (SIGTSTP)
-  SIGTSTP, "SIGTSTP", "Stopped (user)",
+  {SIGTSTP, "SIGTSTP", "Stopped (user)"},
 #endif
 #if defined (SIGCONT)
-  SIGCONT, "SIGCONT", "Continued",
+  {SIGCONT, "SIGCONT", "Continued"},
 #endif
 #if defined (SIGTTIN)
-  SIGTTIN, "SIGTTIN", "Stopped (tty input)",
+  {SIGTTIN, "SIGTTIN", "Stopped (tty input)"},
 #endif
 #if defined (SIGTTOU)
-  SIGTTOU, "SIGTTOU", "Stopped (tty output)",
+  {SIGTTOU, "SIGTTOU", "Stopped (tty output)"},
 #endif
 #if defined (SIGVTALRM)
-  SIGVTALRM, "SIGVTALRM", "Virtual timer expired",
+  {SIGVTALRM, "SIGVTALRM", "Virtual timer expired"},
 #endif
 #if defined (SIGPROF)
-  SIGPROF, "SIGPROF", "Profiling timer expired",
+  {SIGPROF, "SIGPROF", "Profiling timer expired"},
 #endif
 #if defined (SIGXCPU)
-  SIGXCPU, "SIGXCPU", "CPU time limit exceeded",
+  {SIGXCPU, "SIGXCPU", "CPU time limit exceeded"},
 #endif
 #if defined (SIGXFSZ)
-  SIGXFSZ, "SIGXFSZ", "File size limit exceeded",
+  {SIGXFSZ, "SIGXFSZ", "File size limit exceeded"},
 #endif
 #if defined (SIGWIND)
-  SIGWIND, "SIGWIND", "SIGWIND",
+  {SIGWIND, "SIGWIND", "SIGWIND"},
 #endif
 #if defined (SIGPHONE)
-  SIGPHONE, "SIGPHONE", "SIGPHONE",
+  {SIGPHONE, "SIGPHONE", "SIGPHONE"},
 #endif
 #if defined (SIGLOST)
-  SIGLOST, "SIGLOST", "Resource lost",
+  {SIGLOST, "SIGLOST", "Resource lost"},
 #endif
 #if defined (SIGWAITING)
-  SIGWAITING, "SIGWAITING", "Process's LWPs are blocked",
+  {SIGWAITING, "SIGWAITING", "Process's LWPs are blocked"},
 #endif
 #if defined (SIGLWP)
-  SIGLWP, "SIGLWP", "Signal LWP",
+  {SIGLWP, "SIGLWP", "Signal LWP"},
 #endif
 #if defined (SIGDANGER)
-  SIGDANGER, "SIGDANGER", "Swap space dangerously low",
+  {SIGDANGER, "SIGDANGER", "Swap space dangerously low"},
 #endif
 #if defined (SIGGRANT)
-  SIGGRANT, "SIGGRANT", "Monitor mode granted",
+  {SIGGRANT, "SIGGRANT", "Monitor mode granted"},
 #endif
 #if defined (SIGRETRACT)
-  SIGRETRACT, "SIGRETRACT", "Need to relinguish monitor mode",
+  {SIGRETRACT, "SIGRETRACT", "Need to relinguish monitor mode"},
 #endif
 #if defined (SIGMSG)
-  SIGMSG, "SIGMSG", "Monitor mode data available",
+  {SIGMSG, "SIGMSG", "Monitor mode data available"},
 #endif
 #if defined (SIGSOUND)
-  SIGSOUND, "SIGSOUND", "Sound completed",
+  {SIGSOUND, "SIGSOUND", "Sound completed"},
 #endif
 #if defined (SIGSAK)
-  SIGSAK, "SIGSAK", "Secure attention",
+  {SIGSAK, "SIGSAK", "Secure attention"},
 #endif
-  0, NULL, NULL
+  {0, NULL, NULL}
 };
 
 /* Translation table allocated and initialized at runtime.  Indexed by the

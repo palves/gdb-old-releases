@@ -26,12 +26,20 @@ static  char udip2soc_c_AMD[]="@(#)udip2soc.c	2.8, AMD";
 */
 #include <stdio.h>
 #include <string.h>
+
+/* Before sys/file.h for Unixware.  */
+#include <sys/types.h>
+
 #include <sys/file.h>
-#include <sys/fcntl.h>
+
+/* This used to say sys/fcntl.h, but the only systems I know of that
+   require that are old (pre-4.3, at least) BSD systems, which we
+   probably don't need to worry about.  */
+#include <fcntl.h>
+
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
@@ -288,8 +296,8 @@ UDIConnect(Config, Session)
 	  }
 
         soc_con[cnt].tip_sockaddr.sa_family = domain;
-        bcopy(soc_con[cnt].tip_string,
-	      soc_con[cnt].tip_sockaddr.sa_data,
+        memcpy(soc_con[cnt].tip_sockaddr.sa_data,
+	      soc_con[cnt].tip_string,
 	      sizeof(soc_con[cnt].tip_sockaddr.sa_data));
     	if (connect(soc_con[cnt].dfe_sd,
 		    &soc_con[cnt].tip_sockaddr,
@@ -364,8 +372,8 @@ UDIConnect(Config, Session)
 	    	dfe_errno = UDIErrorNoSuchConnection;
 		goto tip_failure;
 	      }
-	    bcopy(tip_info_p->h_addr,
-		  (char *)&soc_con[cnt].tip_sockaddr_in.sin_addr,
+	    memcpy((char *)&soc_con[cnt].tip_sockaddr_in.sin_addr,
+		  tip_info_p->h_addr,
 		  tip_info_p->h_length);
 	  }
 	soc_con[cnt].tip_sockaddr_in.sin_port

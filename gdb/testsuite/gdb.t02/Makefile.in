@@ -5,11 +5,11 @@ CFLAGS = -g
 
 .PHONY: all clean mostlyclean distclean realclean
 
-all: gdbme
+all: gdbme comp-info.exp
 
 # We want to make sure comp-info.exp reflects the way that gdbme was compiled;
 # that's why this isn't a separate rule.
-gdbme: gdbme.o
+gdbme comp-info.exp: gdbme.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o gdbme.tmp gdbme.o $(LIBS)
 	$(CC) $(CFLAGS) -E $(srcdir)/comp-info.c >comp-info.tmp
 	mv comp-info.tmp comp-info.exp
@@ -18,6 +18,7 @@ gdbme: gdbme.o
 .PRECIOUS: gdbme comp-info.exp
 
 gdbme.o: gdbme.c
+	$(CC) $(CFLAGS) -c $(srcdir)/gdbme.c
 
 clean mostlyclean:
 	-rm -f *.o gdbme *.diff *~ *.bad core foo *.tmp comp-info.exp

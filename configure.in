@@ -24,7 +24,7 @@
 
 # these libraries are used by various programs built for the host environment
 #
-host_libs="mmalloc libiberty opcodes bfd readline tcl tk tclX"
+host_libs="mmalloc libiberty opcodes bfd readline gash tcl tk tclX"
 
 # these tools are built for the host environment
 #
@@ -32,13 +32,13 @@ host_tools="byacc flex bison binutils ld gas gcc gdb make patch
 	    prms send-pr gprof gdbtest tgas etc expect dejagnu sim
             m4 autoconf ispell grep diff rcs cvs fileutils shellutils
 	    textutils wdiff find emacs uudecode hello tar gzip indent
-	    recode release"
+	    recode release sed utils"
 
 
 # these libraries are built for the target environment, and are built after
 # the host libraries and the host tools (which may be a cross compiler)
 #
-target_libs="libm xiberty newlib libg++"
+target_libs="libm xiberty newlib libio libg++"
 
 
 # these tools are built using the target libs, and are intended to run only
@@ -61,7 +61,7 @@ target_tools="groff"
 # directories to be built in the native environment only
 #
 native_only="autoconf cvs emacs fileutils find grep groff gzip hello indent
-             ispell m4 rcs recode sed shellutils tar textutils tk uudecode wdiff 
+             ispell m4 rcs recode sed shellutils tar textutils gash tk uudecode wdiff 
 	     gprof"
 
 # directories to be built in a cross environment only
@@ -80,34 +80,43 @@ srcname="gnu development package"
 # per-host:
 
 case "${host}" in
-  alpha-dec-osf*)         host_makefile_frag=config/mh-alphaosf ;;
+  m68k-hp-hpux*)	  host_makefile_frag=config/mh-hp300 ;;
   m68k-apollo-sysv*)      host_makefile_frag=config/mh-apollo68 ;;
   m68k-apollo-bsd*)       host_makefile_frag=config/mh-a68bsd ;;
   m88k-motorola-sysv*)    host_makefile_frag=config/mh-delta88;;
   m88k-dg-dgux*)	  host_makefile_frag=config/mh-dgux ;;
-  mips-dec-ultrix*)       host_makefile_frag=config/mh-decstation ;;
-  mips-sgi-irix4*)        host_makefile_frag=config/mh-irix4 ;;
-  mips-sgi-irix3*)        host_makefile_frag=config/mh-sysv ;;
-  mips-*-sysv*)		  host_makefile_frag=config/mh-riscos ;;
+  mips*-dec-ultrix*)      host_makefile_frag=config/mh-decstation ;;
+  mips*-sgi-irix4*)       host_makefile_frag=config/mh-irix4 ;;
+  mips*-sgi-irix3*)       host_makefile_frag=config/mh-sysv ;;
+  mips*-*-sysv*)	  host_makefile_frag=config/mh-riscos ;;
   i[34]86-ncr-sysv4*)     host_makefile_frag=config/mh-ncr3000 ;;
   i[34]86-*-sco*)         host_makefile_frag=config/mh-sco ;;
   i[34]86-*-isc*)	  host_makefile_frag=config/mh-sysv ;;
-  i[34]86-*-linux)        host_makefile_frag=config/mh-linux ;;
+  i[34]86-*-linux*)       host_makefile_frag=config/mh-linux ;;
   i[34]86-*-solaris2*)    host_makefile_frag=config/mh-sysv4 ;;
   i[34]86-*-aix*)	  host_makefile_frag=config/mh-aix386 ;;
   vax-*-ultrix2*)         host_makefile_frag=config/mh-vaxult2 ;;
   *-ibm-aix*)             host_makefile_frag=config/mh-aix ;;
   *-bull-bosx*)           host_makefile_frag=config/mh-aix ;;
-  *-sun-solaris2*)        host_makefile_frag=config/mh-solaris ;;
+  *-*-solaris2*)          host_makefile_frag=config/mh-solaris ;;
   m68k-sun-*)		  host_makefile_frag=config/mh-sun3 ;;
   *-sun-*)		  host_makefile_frag=config/mh-sun ;;
-  *-hp-hpux)              host_makefile_frag=config/mh-hpux ;;
+  *-hp-hpux*)             host_makefile_frag=config/mh-hpux ;;
+  *-*-hiux*)              host_makefile_frag=config/mh-hpux ;;
   *-*-lynxos*)	  	  host_makefile_frag=config/mh-lynxos ;;
   *-*-sysv4*)             host_makefile_frag=config/mh-sysv4 ;;
   *-*-sysv*)              host_makefile_frag=config/mh-sysv ;;
 esac
 
 # per-target:
+
+gasdir=gas
+use_gnu_ld=
+use_gnu_as=
+
+case "${target}" in
+  hppa*-hp-hpux*)	  target_makefile_frag=config/mt-hppa ;;
+esac
 
 # some tools are so dependent upon X11 that if we're not building with X, 
 # it's not even worth trying to configure, much less build, that tool.
@@ -116,7 +125,7 @@ case ${with_x} in
   yes | "")  # the default value for this tree is that X11 is available
 	;;
   no)
-    	configdirs=`echo ${configdirs} | sed -e 's/tk//'`
+    	configdirs=`echo ${configdirs} | sed -e 's/tk//;/gash//'`
 	;;
   *)
     	echo "*** bad value \"${with_x}\" for -with-x flag; ignored" 1>&2
@@ -125,7 +134,7 @@ esac
 
 
 
-# some tools are only suitable for building in a "native" situation.
+# Some tools are only suitable for building in a "native" situation.
 # Those are added when we have a host==target configuration.  For cross
 # toolchains, we add some directories that should only be useful in a
 # cross-compiler.
@@ -145,9 +154,11 @@ else
 fi	
 
 
-# remove more programs from consideration, based on the host or 
+# Remove more programs from consideration, based on the host or 
 # target this usually means that a port of the program doesn't
-# exist yet.
+# exist yet.  This section gets removed for FSF releases,
+# where we want the configure scripts in the subdirectories to
+# complain if the target or host isn't supported.
 
 case "${host}" in
   alpha-dec-osf1)
@@ -165,59 +176,80 @@ esac
 
 case "${target}" in
   alpha-dec-osf1)
-    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//'`
+    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas //'`
     configdirs=`echo ${configdirs} | sed -e 's/gdb//;s/emacs//;s/fileutils//'`
-    configdirs=`echo ${configdirs} | sed -e 's/grep//;s/libg++//'`
+    configdirs=`echo ${configdirs} | sed -e 's/grep//;s/libg++//;s/libio//'`
     ;;	
   h8300*-*-*)
-    configdirs=`echo ${configdirs} | sed -e 's/libg++//'`
+    configdirs=`echo ${configdirs} | sed -e 's/libg++//;s/libio//'`
     ;;
   h8500-*-*)
-    configdirs=`echo ${configdirs} | sed -e 's/libg++//'`
+    configdirs=`echo ${configdirs} | sed -e 's/libg++//;s/libio//'`
     ;;
   hppa*-*-osf)
     # Do configure ld/binutils/gas for this case.
     ;;
   hppa*-*-*)
-    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//'`
+    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas /pagas /;s/shellutils//'`
+    gasdir=pagas
     ;;
   i[34]86-*-go32)
     # add the go32 support tools to the list
     configdirs=`echo go32 ${configdirs}`
     ;;
   rs6000-*-*)
-    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//;s/gprof//'`
+    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas //;s/gprof//'`
     ;;
   mips-*-*)
     configdirs=`echo ${configdirs} | sed -e 's/gprof//'`
     ;;
   sh-*-*)
-    configdirs=`echo gprof ${configdirs}`
+    case "${host}" in
+      i[34]86-*-go32) ;; # don't add gprof
+      *) configdirs=`echo gprof ${configdirs}` ;;
+    esac
+    ;;
+  sparc-*-sunos4*)
+    use_gnu_ld=no
     ;;
   i[34]86-*-sco*)
     configdirs=`echo ${configdirs} | sed -e 's/gprof//'`
     ;;
-  *-*-solaris2*)
-    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/gas//'`
-    ;;
-  *-*-sysv4*)
-    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//'`
+  *-*-sysv4)
+    use_gnu_ld=no
     ;;
   *-*-vms)
     configdirs=`echo ${configdirs} | sed -e 's/bfd//;s/ld//;s/binutils//'`
     ;;
 esac
 
+
 # Set with_gnu_as and with_gnu_ld as appropriate.
-# This is commented out for now.
-#if [ x${with_gnu_as} != xyes ] && echo ${configdirs} | grep gas > /dev/null && [ -d ${srcdir}/gas ]; then
-#  with_gnu_as=yes
-#  withoptions="$withoptions -with-gnu-as"
-#fi
-#if [ x${with_gnu_ld} != xyes ] && echo ${configdirs} | grep ld > /dev/null && [ -d ${srcdir}/ld ]; then
-#  with_gnu_ld=yes
-#  withoptions="$withoptions -with-gnu-ld"
-#fi
+#
+# This is done by determining whether or not the appropriate directory
+# is available, and by checking whether or not specific configurations
+# have requested that this magic not happen.
+# 
+# The command line options always override the explicit settings in 
+# configure.in, and the settings in configure.in override this magic.
+#
+# If the default for a toolchain is to use GNU as and ld, and you don't 
+# want to do that, then you should use the --without-gnu-as and
+# --without-gnu-ld options for the configure script.
+
+if [ x${use_gnu_as} = x ] ; then
+  if [ x${with_gnu_as} != xno ] && echo ${configdirs} | grep "${gasdir} " > /dev/null 2>&1 && [ -d ${srcdir}/${gasdir} ] ; then
+    with_gnu_as=yes
+    withoptions="$withoptions --with-gnu-as"
+  fi
+fi
+
+if [ x${use_gnu_ld} = x ] ; then
+  if [ x${with_gnu_ld} != xno ] && echo ${configdirs} | grep ld > /dev/null 2>&1 && [ -d ${srcdir}/ld ] ; then
+    with_gnu_ld=yes
+    withoptions="$withoptions --with-gnu-ld"
+  fi
+fi
 
 #
 # Local Variables:

@@ -187,8 +187,8 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
     unsigned long reg_mask = 0;
 
     if (start_pc == 0) return NULL;
-    bzero(&temp_proc_desc, sizeof(temp_proc_desc));
-    bzero(&temp_saved_regs, sizeof(struct frame_saved_regs));
+    memset(&temp_proc_desc, '\0', sizeof(temp_proc_desc));
+    memset(&temp_saved_regs, '\0', sizeof(struct frame_saved_regs));
     PROC_LOW_ADDR(&temp_proc_desc) = start_pc;
 
     if (start_pc + 200 < limit_pc) limit_pc = start_pc + 200;
@@ -256,8 +256,23 @@ find_proc_desc(pc, next_frame)
 {
   mips_extra_func_info_t proc_desc;
   struct block *b = block_for_pc(pc);
-  struct symbol *sym =
-      b ? lookup_symbol(MIPS_EFI_SYMBOL_NAME, b, LABEL_NAMESPACE, 0, NULL) : NULL;
+  struct symbol *sym;
+  CORE_ADDR startaddr;
+
+  find_pc_partial_function (pc, NULL, &startaddr, NULL);
+  if (b == NULL)
+    sym = NULL;
+  else
+    {
+      if (startaddr > BLOCK_START (b))
+	/* This is the "pathological" case referred to in a comment in
+	   print_frame_info.  It might be better to move this check into
+	   symbol reading.  */
+	sym = NULL;
+      else
+	sym = lookup_symbol (MIPS_EFI_SYMBOL_NAME, b, LABEL_NAMESPACE,
+			     0, NULL);
+    }
 
   if (sym)
     {
@@ -300,8 +315,11 @@ find_proc_desc(pc, next_frame)
 	      && PROC_HIGH_ADDR(&link->info) > pc)
 	      return &link->info;
 
+      if (startaddr == 0)
+	startaddr = heuristic_proc_start (pc);
+
       proc_desc =
-	heuristic_proc_desc (heuristic_proc_start (pc), pc, next_frame);
+	heuristic_proc_desc (startaddr, pc, next_frame);
     }
   return proc_desc;
 }
@@ -323,8 +341,19 @@ mips_frame_chain(frame)
       return 0;
 
     cached_proc_desc = proc_desc;
-    return read_next_frame_reg(frame, PROC_FRAME_REG(proc_desc))
-      + PROC_FRAME_OFFSET(proc_desc);
+
+    /* If no frame pointer and frame size is zero, we must be at end
+       of stack (or otherwise hosed).  If we don't check frame size,
+       we loop forever if we see a zero size frame.  */
+    if (PROC_FRAME_REG (proc_desc) == SP_REGNUM
+	&& PROC_FRAME_OFFSET (proc_desc) == 0
+	/* The previous frame from a sigtramp frame might be frameless
+	   and have frame size zero.  */
+	&& !frame->signal_handler_caller)
+      return 0;
+    else
+      return read_next_frame_reg(frame, PROC_FRAME_REG(proc_desc))
+	+ PROC_FRAME_OFFSET(proc_desc);
 }
 
 void
@@ -641,60 +670,65 @@ static void
 mips_print_register (regnum, all)
      int regnum, all;
 {
-      unsigned char raw_buffer[MAX_REGISTER_RAW_SIZE];
-      REGISTER_TYPE val;
+  unsigned char raw_buffer[MAX_REGISTER_RAW_SIZE];
+  REGISTER_TYPE val;
 
-      /* Get the data in raw format.  */
-      if (read_relative_register_raw_bytes (regnum, raw_buffer))
-	{
-	  printf_filtered ("%s: [Invalid]", reg_names[regnum]);
-	  return;
-	}
-      
-      /* If an even floating pointer register, also print as double. */
-      if (regnum >= FP0_REGNUM && regnum < FP0_REGNUM+32
-	  && !((regnum-FP0_REGNUM) & 1)) {
-	  char dbuffer[MAX_REGISTER_RAW_SIZE]; 
+  /* Get the data in raw format.  */
+  if (read_relative_register_raw_bytes (regnum, raw_buffer))
+    {
+      printf_filtered ("%s: [Invalid]", reg_names[regnum]);
+      return;
+    }
 
-	  read_relative_register_raw_bytes (regnum, dbuffer);
-	  read_relative_register_raw_bytes (regnum+1, dbuffer+4);
+  /* If an even floating pointer register, also print as double. */
+  if (regnum >= FP0_REGNUM && regnum < FP0_REGNUM+32
+      && !((regnum-FP0_REGNUM) & 1)) {
+    char dbuffer[MAX_REGISTER_RAW_SIZE]; 
+
+    read_relative_register_raw_bytes (regnum, dbuffer);
+    read_relative_register_raw_bytes (regnum+1, dbuffer+4);
 #ifdef REGISTER_CONVERT_TO_TYPE
-          REGISTER_CONVERT_TO_TYPE(regnum, builtin_type_double, dbuffer);
+    REGISTER_CONVERT_TO_TYPE(regnum, builtin_type_double, dbuffer);
 #endif
-	  printf_filtered ("(d%d: ", regnum-FP0_REGNUM);
-	  val_print (builtin_type_double, dbuffer, 0,
-		     stdout, 0, 1, 0, Val_pretty_default);
-	  printf_filtered ("); ");
-      }
-      fputs_filtered (reg_names[regnum], stdout);
-#ifndef NUMERIC_REG_NAMES
-      if (regnum < 32)
-	  printf_filtered ("(r%d): ", regnum);
+    printf_filtered ("(d%d: ", regnum-FP0_REGNUM);
+    val_print (builtin_type_double, dbuffer, 0,
+	       stdout, 0, 1, 0, Val_pretty_default);
+    printf_filtered ("); ");
+  }
+  fputs_filtered (reg_names[regnum], stdout);
+
+  /* The problem with printing numeric register names (r26, etc.) is that
+     the user can't use them on input.  Probably the best solution is to
+     fix it so that either the numeric or the funky (a2, etc.) names
+     are accepted on input.  */
+  if (regnum < 32)
+    printf_filtered ("(r%d): ", regnum);
+  else
+    printf_filtered (": ");
+
+  /* If virtual format is floating, print it that way.  */
+  if (TYPE_CODE (REGISTER_VIRTUAL_TYPE (regnum)) == TYPE_CODE_FLT
+      && ! INVALID_FLOAT (raw_buffer, REGISTER_VIRTUAL_SIZE(regnum))) {
+    val_print (REGISTER_VIRTUAL_TYPE (regnum), raw_buffer, 0,
+	       stdout, 0, 1, 0, Val_pretty_default);
+  }
+  /* Else print as integer in hex.  */
+  else
+    {
+      long val;
+
+      val = extract_signed_integer (raw_buffer,
+				    REGISTER_RAW_SIZE (regnum));
+
+      if (val == 0)
+	printf_filtered ("0");
+      else if (all)
+	/* FIXME: We should be printing this in a fixed field width, so that
+	   registers line up.  */
+	printf_filtered (local_hex_format(), val);
       else
-#endif
-	  printf_filtered (": ");
-
-      /* If virtual format is floating, print it that way.  */
-      if (TYPE_CODE (REGISTER_VIRTUAL_TYPE (regnum)) == TYPE_CODE_FLT
-	  && ! INVALID_FLOAT (raw_buffer, REGISTER_VIRTUAL_SIZE(regnum))) {
-	  val_print (REGISTER_VIRTUAL_TYPE (regnum), raw_buffer, 0,
-		     stdout, 0, 1, 0, Val_pretty_default);
-      }
-      /* Else print as integer in hex.  */
-      else
-	{
-	  long val;
-
-	  val = extract_signed_integer (raw_buffer,
-					REGISTER_RAW_SIZE (regnum));
-
-	  if (val == 0)
-	    printf_filtered ("0");
-	  else if (all)
-	    printf_filtered (local_hex_format(), val);
-	  else
-	    printf_filtered ("%s=%d", local_hex_string(val), val);
-	}
+	printf_filtered ("%s=%ld", local_hex_string(val), val);
+    }
 }
 
 /* Replacement for generic do_registers_info.  */
@@ -739,7 +773,7 @@ mips_frame_num_args(fip)
 	return -1;
 }
 
-/* Does this instruction involve use of a delay slot?  */
+/* Is this a branch with a delay slot?  */
 static int
 is_delayed (insn)
      unsigned long insn;
@@ -749,7 +783,10 @@ is_delayed (insn)
     if (mips_opcodes[i].pinfo != INSN_MACRO
 	&& (insn & mips_opcodes[i].mask) == mips_opcodes[i].match)
       break;
-  return i < NUMOPCODES && (mips_opcodes[i].pinfo & ANY_DELAY);
+  return (i < NUMOPCODES
+	  && (mips_opcodes[i].pinfo & (INSN_UNCOND_BRANCH_DELAY
+				       | INSN_COND_BRANCH_DELAY
+				       | INSN_COND_BRANCH_LIKELY)));
 }
 
 /* To skip prologues, I use this predicate.  Returns either PC itself
@@ -887,12 +924,28 @@ mips_store_return_value (valtype, valbuf)
   write_register_bytes(REGISTER_BYTE (regnum), raw_buffer, TYPE_LENGTH (valtype));
 }
 
-/* Let the user turn off floating point and set the fence post for
-   heuristic_proc_start.  */
+static void reinit_frame_cache_sfunc PARAMS ((char *, int,
+					      struct cmd_list_element *));
+
+/* Just like reinit_frame_cache, but with the right arguments to be
+   callable as an sfunc.  */
+static void
+reinit_frame_cache_sfunc (args, from_tty, c)
+     char *args;
+     int from_tty;
+     struct cmd_list_element *c;
+{
+  reinit_frame_cache ();
+}
 
 void
 _initialize_mips_tdep ()
 {
+  struct cmd_list_element *c;
+
+  /* Let the user turn off floating point and set the fence post for
+     heuristic_proc_start.  */
+
   add_show_from_set
     (add_set_cmd ("mipsfpu", class_support, var_boolean,
 		  (char *) &mips_fpu,
@@ -901,14 +954,19 @@ Turn off to avoid using floating point instructions when calling functions\n\
 or dealing with return values.", &setlist),
      &showlist);
 
-  add_show_from_set
-    (add_set_cmd ("heuristic-fence-post", class_support, var_uinteger,
-		  (char *) &heuristic_fence_post,
-		  "\
+  /* We really would like to have both "0" and "unlimited" work, but
+     command.c doesn't deal with that.  So make it a var_zinteger
+     because the user can always use "999999" or some such for unlimited.  */
+  c = add_set_cmd ("heuristic-fence-post", class_support, var_zinteger,
+		   (char *) &heuristic_fence_post,
+		   "\
 Set the distance searched for the start of a function.\n\
 If you are debugging a stripped executable, GDB needs to search through the\n\
 program for the start of a function.  This command sets the distance of the\n\
 search.  The only need to set it is when debugging a stripped executable.",
-		  &setlist),
-     &showlist);
+		   &setlist);
+  /* We need to throw away the frame cache when we set this, since it
+     might change our ability to get backtraces.  */
+  c->function.sfunc = reinit_frame_cache_sfunc;
+  add_show_from_set (c, &showlist);
 }

@@ -40,10 +40,12 @@ struct external_exec
 /* This indicates a demand-paged executable with the header in the text.
    As far as I know it is only used by 386BSD and/or BSDI.  */
 #define QMAGIC 0314
-#define N_BADMAG(x)	  (N_MAGIC(x) != OMAGIC		\
+# ifndef N_BADMAG
+#  define N_BADMAG(x)	  (N_MAGIC(x) != OMAGIC		\
 			&& N_MAGIC(x) != NMAGIC		\
   			&& N_MAGIC(x) != ZMAGIC \
 		        && N_MAGIC(x) != QMAGIC)
+# endif /* N_BADMAG */
 #endif
 
 #endif

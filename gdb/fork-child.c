@@ -24,8 +24,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "wait.h"
 #include "gdbcore.h"
-#include "serial.h" /* For job_control.  */
-#include "terminal.h"		/* For new_tty */
+#include "terminal.h"
 
 #include <signal.h>
 
@@ -61,6 +60,7 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
   static char default_shell_file[] = SHELL_FILE;
   int len;
   int pending_execs;
+  int terminal_initted;
   /* Set debug_fork then attach to the child while it sleeps, to debug. */
   static int debug_fork = 0;
   /* This is set to the result of setpgrp, which if vforked, will be visible
@@ -238,19 +238,15 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
   /* Restore our environment in case a vforked child clob'd it.  */
   environ = save_our_env;
 
+  init_thread_list();
+
   /* Now that we have a child process, make it our target, and
      initialize anything target-vector-specific that needs initializing.  */
   (*init_trace_fun)(pid);
 
-  init_thread_list();
-
-#ifdef CREATE_INFERIOR_HOOK
-  CREATE_INFERIOR_HOOK (pid);
-#endif  
-
-/* The process was started by the fork that created it,
-   but it will have stopped one instruction after execing the shell.
-   Here we must get it up to actual execution of the real program.  */
+  /* The process was started by the fork that created it,
+     but it will have stopped one instruction after execing the shell.
+     Here we must get it up to actual execution of the real program.  */
 
   inferior_pid = pid;		/* Needed for wait_for_inferior stuff below */
 
@@ -268,12 +264,7 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
 
   init_wait_for_inferior ();
 
-  /* Set up the "saved terminal modes" of the inferior
-     based on what modes we are starting it with.  */
-  target_terminal_init ();
-
-  /* Install inferior's terminal modes.  */
-  target_terminal_inferior ();
+  terminal_initted = 0;
 
   while (1)
     {
@@ -288,6 +279,21 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
       else
 	{
 	  /* We handle SIGTRAP, however; it means child did an exec.  */
+	  if (!terminal_initted)
+	    {
+	      /* Now that the child has exec'd we know it has already set its
+		 process group.  On POSIX systems, tcsetpgrp will fail with
+		 EPERM if we try it before the child's setpgid.  */
+
+	      /* Set up the "saved terminal modes" of the inferior
+		 based on what modes we are starting it with.  */
+	      target_terminal_init ();
+
+	      /* Install inferior's terminal modes.  */
+	      target_terminal_inferior ();
+
+	      terminal_initted = 1;
+	    }
 	  if (0 == --pending_execs)
 	    break;
 	  resume (0, 0);		/* Just make it go on */

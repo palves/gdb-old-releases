@@ -68,8 +68,8 @@ cp_print_class_method (valaddr, type, stream)
      FILE *stream;
 {
   struct type *domain;
-  struct fn_field *f;
-  int j;
+  struct fn_field *f = NULL;
+  int j = 0;
   int len2;
   int offset;
   char *kind = "";
@@ -78,7 +78,13 @@ cp_print_class_method (valaddr, type, stream)
   unsigned len;
   unsigned int i;
 
+  check_stub_type (TYPE_TARGET_TYPE (type));
   domain = TYPE_DOMAIN_TYPE (TYPE_TARGET_TYPE (type));
+  if (domain == (struct type *)NULL)
+    {
+      fprintf_filtered (stream, "<unknown>");
+      return;
+    }
   addr = unpack_pointer (lookup_pointer_type (builtin_type_void), valaddr);
   if (METHOD_PTR_IS_VIRTUAL (addr))
     {
@@ -161,10 +167,16 @@ cp_is_vtbl_ptr_type(type)
      struct type *type;
 {
   char *typename = type_name_no_tag (type);
-  static const char vtbl_ptr_name[] =
+  /* This was what it was for gcc 2.4.5 and earlier.  */
+  static const char vtbl_ptr_name_old[] =
     { CPLUS_MARKER,'v','t','b','l','_','p','t','r','_','t','y','p','e', 0 };
+  /* It was changed to this after 2.4.5.  */
+  static const char vtbl_ptr_name[] =
+    { '_','_','v','t','b','l','_','p','t','r','_','t','y','p','e', 0 };
 
-  return (typename != NULL && STREQ(typename, vtbl_ptr_name));
+  return (typename != NULL
+	  && (STREQ (typename, vtbl_ptr_name)
+	      || STREQ (typename, vtbl_ptr_name_old)));
 }
 
 /* Return truth value for the assertion that TYPE is of the type
@@ -372,7 +384,8 @@ cplus_print_value (type, valaddr, stream, format, recurse, pretty, dont_print)
       fputs_filtered (basename ? basename : "", stream);
       fputs_filtered ("> = ", stream);
       if (err != 0)
-	fprintf_filtered (stream, "<invalid address 0x%x>", baddr);
+	fprintf_filtered (stream,
+			  "<invalid address 0x%lx>", (unsigned long) baddr);
       else
 	cp_print_value_fields (TYPE_BASECLASS (type, i), baddr, stream, format,
 			       recurse, pretty,

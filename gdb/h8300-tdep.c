@@ -153,7 +153,7 @@ frame_find_saved_regs (fi, fsr)
       cache_fsr = (struct frame_saved_regs *)
 	obstack_alloc (&frame_cache_obstack,
 		       sizeof (struct frame_saved_regs));
-      bzero (cache_fsr, sizeof (struct frame_saved_regs));
+      memset (cache_fsr, '\0', sizeof (struct frame_saved_regs));
 
       fi->fsr = cache_fsr;
 
@@ -482,3 +482,14 @@ print_register_hook (regno)
     }
 }
 
+/* This doesn't quite fit either in the simulator or in gdb proper.
+   Perhaps the simulator could return 1 to mean it loaded it and 0 to
+   mean "you deal with it, caller".  */
+
+int 
+sim_load (abfd, prog)
+bfd *abfd;
+char *prog;
+{
+  return sim_load_standard (abfd); 
+}

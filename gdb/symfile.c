@@ -32,6 +32,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "language.h"
 #include "complaints.h"
 #include "demangle.h"
+#include "inferior.h" /* for write_pc */
 
 #include <obstack.h>
 #include <assert.h>
@@ -240,7 +241,7 @@ obsavestring (ptr, size, obstackp)
      struct obstack *obstackp;
 {
   register char *p = (char *) obstack_alloc (obstackp, size + 1);
-  /* Open-coded bcopy--saves function call time.
+  /* Open-coded memcpy--saves function call time.
      These strings are usually short.  */
   {
     register char *p1 = ptr;
@@ -315,6 +316,14 @@ init_entry_point_info (objfile)
       objfile -> ei.entry_file_lowpc = 0;
       objfile -> ei.entry_file_highpc = 0;
     }
+}
+
+/* Get current entry point address.  */
+
+CORE_ADDR
+entry_point_address()
+{
+  return symfile_objfile ? symfile_objfile->ei.entry_point : 0;
 }
 
 /* Remember the lowest-addressed loadable section we've seen.  
@@ -410,10 +419,10 @@ syms_from_objfile (objfile, addr, mainline, verbo)
       else if (0 == bfd_get_section_name (objfile->obfd, lowest_sect)
 	       || !STREQ (".text",
 			      bfd_get_section_name (objfile->obfd, lowest_sect)))
-	warning ("Lowest section in %s is %s at 0x%x",
+	warning ("Lowest section in %s is %s at 0x%lx",
 		 objfile->name,
 		 bfd_section_name (objfile->obfd, lowest_sect),
-		 bfd_section_vma (objfile->obfd, lowest_sect));
+		 (unsigned long) bfd_section_vma (objfile->obfd, lowest_sect));
 
       if (lowest_sect)
 	addr -= bfd_section_vma (objfile->obfd, lowest_sect);
@@ -753,7 +762,7 @@ symfile_bfd_open (name)
   name = absolute_name;		/* Keep 2nd malloc'd copy in bfd */
 				/* It'll be freed in free_objfile(). */
 
-  sym_bfd = bfd_fdopenr (name, NULL, desc);
+  sym_bfd = bfd_fdopenr (name, gnutarget, desc);
   if (!sym_bfd)
     {
       close (desc);
@@ -837,7 +846,7 @@ generic_load (filename, from_tty)
 {
   struct cleanup *old_cleanups;
   asection *s;
-  bfd *loadfile_bfd = bfd_openr (filename,0);
+  bfd *loadfile_bfd = bfd_openr (filename, gnutarget);
   if (loadfile_bfd == NULL)
     {
       perror_with_name (filename);
@@ -871,9 +880,9 @@ generic_load (filename, from_tty)
 
 	      /* Is this really necessary?  I guess it gives the user something
 		 to look at during a long download.  */
-	      printf_filtered ("Loading section %s, size 0x%x vma 0x%x\n",
+	      printf_filtered ("Loading section %s, size 0x%lx vma 0x%lx\n",
 			       bfd_get_section_name (loadfile_bfd, s),
-			       size, vma);
+			       (unsigned long) size, (unsigned long) vma);
 
 	      bfd_get_section_contents (loadfile_bfd, s, buffer, 0, size);
 
@@ -967,7 +976,7 @@ add_symbol_file_command (args, from_tty)
   text_addr = parse_and_eval_address (args);
 
   if (!query ("add symbol table from file \"%s\" at text_addr = %s?\n",
-	      name, local_hex_string (text_addr)))
+	      name, local_hex_string ((unsigned long)text_addr)))
     error ("Not confirmed.");
 
   symbol_file_add (name, 0, text_addr, 0, mapped, readnow);
@@ -1039,13 +1048,13 @@ deduce_language_from_filename (filename)
     ; /* Get default */
   else if (0 == (c = strrchr (filename, '.')))
     ; /* Get default. */
-  else if(STREQ(c,".mod"))
+  else if (STREQ(c,".mod"))
     return language_m2;
-  else if(STREQ(c,".c"))
+  else if (STREQ(c,".c"))
     return language_c;
-  else if(STREQ(c,".cc") || STREQ(c,".C"))
+  else if (STREQ (c,".cc") || STREQ (c,".C") || STREQ (c, ".cxx"))
     return language_cplus;
-  else if(STREQ(c,".ch") || STREQ(c,".c186") || STREQ(c,".c286"))
+  else if (STREQ (c,".ch") || STREQ (c,".c186") || STREQ (c,".c286"))
     return language_chill;
 
   return language_unknown;		/* default */
@@ -1169,8 +1178,8 @@ clear_symtab_users ()
    discarded if symbol reading is successful.  */
 
 #if 0
-  /* FIXME:  As free_named_symtabs is currently a big noop this function
-     is no longer needed.
+/* FIXME:  As free_named_symtabs is currently a big noop this function
+   is no longer needed.  */
 static void
 clear_symtab_users_once PARAMS ((void));
 
@@ -1195,7 +1204,7 @@ static void
 cashier_psymtab (pst)
      struct partial_symtab *pst;
 {
-  struct partial_symtab *ps, *pprev;
+  struct partial_symtab *ps, *pprev = NULL;
   int i;
 
   /* Find its previous psymtab in the chain */

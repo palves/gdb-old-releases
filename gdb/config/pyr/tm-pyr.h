@@ -227,13 +227,13 @@ extern unsigned int last_frame_offset;
    to virtual format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)	\
-  bcopy ((FROM), (TO), 4);
+  memcpy ((TO), (FROM), 4);
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-  bcopy ((FROM), (TO), 4);
+  memcpy ((TO), (FROM), 4);
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -259,7 +259,7 @@ extern unsigned int last_frame_offset;
    correspond to GNU CC's FUNCTION_VALUE rather than FUNCTION_OUTGOING_VALUE.*/
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy (((int *)(REGBUF))+TR0_REGNUM, VALBUF, TYPE_LENGTH (TYPE))
+  memcpy (VALBUF, ((int *)(REGBUF))+TR0_REGNUM, TYPE_LENGTH (TYPE))
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.  */
@@ -400,7 +400,7 @@ do {								\
   register int window_ptr;						\
   FRAME fid = FRAME_INFO_ID (fi_p);					\
   if (!fid) fatal ("Bad frame info struct in FRAME_FIND_SAVED_REGS");	\
-  bzero (&(frame_saved_regs), sizeof (frame_saved_regs));		\
+  memset (&(frame_saved_regs), '\0', sizeof (frame_saved_regs));		\
 									\
   window_ptr = prev_cf_addr = FRAME_FP(fi_p);				\
 									\

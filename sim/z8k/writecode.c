@@ -1110,6 +1110,17 @@ adiv (p)
 }
 
 static void
+doset (p, v)
+opcode_entry_type*p;
+int v;
+{
+  if (v) 
+    emit (" tmp = op_dst | (1<< op_src);\n");
+  else
+    emit (" tmp = op_dst & ~(1<< op_src);\n");
+}
+
+static void
 mult (p)
      opcode_entry_type *p;
 {
@@ -1355,6 +1366,12 @@ info_docode (p)
     case OPC_pop:
     case OPC_popl:
       pop (p);
+      break;
+    case OPC_set:
+      doset (p,1);
+      break;
+    case OPC_res:
+      doset (p,0);
       break;
 
     default:

@@ -61,7 +61,7 @@ struct target_ops
   void 	      (*to_attach) PARAMS ((char *, int));
   void 	      (*to_detach) PARAMS ((char *, int));
   void 	      (*to_resume) PARAMS ((int, int, int));
-  int  	      (*to_wait) PARAMS ((int *));
+  int  	      (*to_wait) PARAMS ((int, int *));
   void 	      (*to_fetch_registers) PARAMS ((int));
   void 	      (*to_store_registers) PARAMS ((int));
   void 	      (*to_prepare_to_store) PARAMS ((void));
@@ -102,7 +102,7 @@ struct target_ops
   void 	      (*to_create_inferior) PARAMS ((char *, char *, char **));
   void 	      (*to_mourn_inferior) PARAMS ((void));
   int	      (*to_can_run) PARAMS ((void));
-  void	      (*to_notice_signals) PARAMS ((void));
+  void	      (*to_notice_signals) PARAMS ((int pid));
   enum strata   to_stratum;
   struct target_ops
     	       *to_next;
@@ -125,7 +125,8 @@ struct target_ops
 
 #define	OPS_MAGIC	3840
 
-/* The ops structure for our "current" target process.  */
+/* The ops structure for our "current" target process.  This should
+   never be NULL.  If there is no target, it points to the dummy_target.  */
 
 extern struct target_ops	*current_target;
 
@@ -179,11 +180,12 @@ target_detach PARAMS ((char *, int));
 #define	target_resume(pid, step, siggnal)	\
 	(*current_target->to_resume) (pid, step, siggnal)
 
-/* Wait for inferior process to do something.  Return pid of child,
-   or -1 in case of error; store status through argument pointer STATUS.  */
+/* Wait for process pid to do something.  Pid = -1 to wait for any pid to do
+   something.  Return pid of child, or -1 in case of error; store status
+   through argument pointer STATUS.  */
 
-#define	target_wait(status)		\
-	(*current_target->to_wait) (status)
+#define	target_wait(pid, status)		\
+	(*current_target->to_wait) (pid, status)
 
 /* Fetch register REGNO, or all regs if regno == -1.  No result.  */
 
@@ -339,8 +341,8 @@ print_section_info PARAMS ((struct target_ops *, bfd *));
 
 /* post process changes to signal handling in the inferior.  */
 
-#define target_notice_signals() \
-  	(*current_target->to_notice_signals) ()
+#define target_notice_signals(pid) \
+  	(*current_target->to_notice_signals) (pid)
 
 /* Pointer to next target in the chain, e.g. a core file and an exec file.  */
 
@@ -370,8 +372,12 @@ print_section_info PARAMS ((struct target_ops *, bfd *));
 #define	target_has_registers	\
 	(current_target->to_has_registers)
 
-/* Does the target have execution?  Can we make it jump (through hoops),
-   or pop its stack a few times?  */
+/* Does the target have execution?  Can we make it jump (through
+   hoops), or pop its stack a few times?  FIXME: If this is to work that
+   way, it needs to check whether an inferior actually exists.
+   remote-udi.c and probably other targets can be the current target
+   when the inferior doesn't actually exist at the moment.  Right now
+   this just tells us whether this target is *capable* of execution.  */
 
 #define	target_has_execution	\
 	(current_target->to_has_execution)
@@ -455,5 +461,5 @@ find_default_create_inferior PARAMS ((char *, char *, char **));
 
 struct target_ops *
 find_core_target PARAMS ((void));
-
+
 #endif	/* !defined (TARGET_H) */

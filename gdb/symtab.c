@@ -156,26 +156,9 @@ lookup_symtab_1 (name)
   /* Same search rules as above apply here, but now we look thru the
      psymtabs.  */
 
-  ALL_PSYMTABS (objfile, ps)
-    if (STREQ (name, ps -> filename))
-      goto got_psymtab;
-
-  if (!slash)
-    ALL_PSYMTABS (objfile, ps)
-      {
-	char *p = ps -> filename;
-	char *tail = strrchr (p, '/');
-
-	if (tail)
-	  p = tail + 1;
-
-	if (STREQ (p, name))
-	  goto got_psymtab;
-      }
-
-  return (NULL);
-
- got_psymtab:
+  ps = lookup_partial_symtab (name);
+  if (!ps)
+    return (NULL);
 
   if (ps -> readin)
     error ("Internal: readin %s pst for `%s' found when no symtab found.",
@@ -211,6 +194,9 @@ lookup_symtab (name)
   if (s) return s;
 
   /* If name not found as specified, see if adding ".c" helps.  */
+  /* Why is this?  Is it just a user convenience?  (If so, it's pretty
+     questionable in the presence of C++, FORTRAN, etc.).  It's not in
+     the GDB manual.  */
 
   copy = (char *) alloca (strlen (name) + 3);
   strcpy (copy, name);
@@ -222,9 +208,9 @@ lookup_symtab (name)
   return 0;
 }
 
-/* Lookup the partial symbol table of a source file named NAME.  This
-   only returns true on an exact match (ie. this semantics are
-   different from lookup_symtab.  */
+/* Lookup the partial symbol table of a source file named NAME.
+   *If* there is no '/' in the name, a match after a '/'
+   in the psymtab filename will also work.  */
 
 struct partial_symtab *
 lookup_partial_symtab (name)
@@ -240,6 +226,22 @@ char *name;
 	  return (pst);
 	}
     }
+
+  /* Now, search for a matching tail (only if name doesn't have any dirs) */
+
+  if (!strchr (name, '/'))
+    ALL_PSYMTABS (objfile, pst)
+      {
+	char *p = pst -> filename;
+	char *tail = strrchr (p, '/');
+
+	if (tail)
+	  p = tail + 1;
+
+	if (STREQ (p, name))
+	  return (pst);
+      }
+
   return (NULL);
 }
 
@@ -258,15 +260,25 @@ gdb_mangle_name (type, i, j)
   char *field_name = TYPE_FN_FIELDLIST_NAME (type, i);
   char *physname = TYPE_FN_FIELD_PHYSNAME (f, j);
   char *newname = type_name_no_tag (type);
-  int is_constructor = newname != NULL && STREQ (field_name, newname);
-  int is_destructor = is_constructor && DESTRUCTOR_PREFIX_P (physname);
+  int is_constructor;
+  int is_destructor = DESTRUCTOR_PREFIX_P (physname);
   /* Need a new type prefix.  */
   char *const_prefix = method->is_const ? "C" : "";
   char *volatile_prefix = method->is_volatile ? "V" : "";
   char buf[20];
-#ifndef GCC_MANGLE_BUG
-  int len = newname == NULL ? 0 : strlen (newname);
+  int len = (newname == NULL ? 0 : strlen (newname));
+  char *opname;
 
+  is_constructor = newname && STREQ(field_name, newname);
+  if (!is_constructor)
+    is_constructor = (physname[0]=='_' && physname[1]=='_' && 
+		(isdigit(physname[2]) || physname[2]=='Q' || physname[2]=='t'));
+  if (!is_constructor)
+    is_constructor = (strncmp(physname, "__ct", 4) == 0); 
+  if (!is_destructor)
+    is_destructor = (strncmp(physname, "__dt", 4) == 0); 
+
+#ifndef GCC_MANGLE_BUG
   if (is_destructor)
     {
       mangled_name = (char*) xmalloc(strlen(physname)+1);
@@ -274,7 +286,16 @@ gdb_mangle_name (type, i, j)
       return mangled_name;
     }
 
-  sprintf (buf, "__%s%s%d", const_prefix, volatile_prefix, len);
+  if (len == 0)
+    {
+      sprintf (buf, "__%s%s", const_prefix, volatile_prefix);
+      if (strcmp(buf, "__") == 0)
+	buf[0] = '\0';
+    }
+  else
+    {
+      sprintf (buf, "__%s%s%d", const_prefix, volatile_prefix, len);
+    }
   mangled_name_len = ((is_constructor ? 0 : strlen (field_name))
 			  + strlen (buf) + len
 			  + strlen (physname)
@@ -305,11 +326,11 @@ gdb_mangle_name (type, i, j)
   strcat (mangled_name, buf);
   /* If the class doesn't have a name, i.e. newname NULL, then we just
      mangle it using 0 for the length of the class.  Thus it gets mangled
-     as something starting with `::' rather than `classname::'.  */
+     as something starting with `::' rather than `classname::'. */ 
   if (newname != NULL)
     strcat (mangled_name, newname);
+
 #else
-  char *opname;
 
   if (is_constructor)
     {
@@ -382,7 +403,7 @@ find_pc_psymbol (psymtab, pc)
      struct partial_symtab *psymtab;
      CORE_ADDR pc;
 {
-  struct partial_symbol *best, *p;
+  struct partial_symbol *best = NULL, *p;
   CORE_ADDR best_pc;
   
   if (!psymtab)
@@ -430,14 +451,12 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
      struct symtab **symtab;
 {
   register struct symbol *sym;
-  register struct symtab *s;
+  register struct symtab *s = NULL;
   register struct partial_symtab *ps;
   struct blockvector *bv;
   register struct objfile *objfile;
   register struct block *b;
   register struct minimal_symbol *msymbol;
-  char *temp;
-  extern char *gdb_completer_word_break_characters;
 
   /* Search specified block and its superiors.  */
 
@@ -899,7 +918,8 @@ lookup_block_symbol (block, name, namespace)
 		  SYMBOL_CLASS (sym) != LOC_LOCAL_ARG &&
 		  SYMBOL_CLASS (sym) != LOC_REF_ARG &&
 		  SYMBOL_CLASS (sym) != LOC_REGPARM &&
-		  SYMBOL_CLASS (sym) != LOC_REGPARM_ADDR)
+		  SYMBOL_CLASS (sym) != LOC_REGPARM_ADDR &&
+		  SYMBOL_CLASS (sym) != LOC_BASEREG_ARG)
 		{
 		  break;
 		}
@@ -973,7 +993,8 @@ find_pc_symtab (pc)
 	   will cause a core dump), but maybe we can successfully
 	   continue, so let's not.  */
 	warning ("\
-(Internal error: pc 0x%x in read in psymtab, but not in symtab.)\n", pc);
+(Internal error: pc 0x%lx in read in psymtab, but not in symtab.)\n",
+	         (unsigned long) pc);
       s = PSYMTAB_TO_SYMTAB (ps);
     }
   return (s);
@@ -992,15 +1013,9 @@ find_pc_symtab (pc)
    code in the middle of a subroutine.  To properly find the end of a line's PC
    range, we must search all symtabs associated with this compilation unit, and
    find the one whose first PC is closer than that of the next line in this
-   symtab.
+   symtab.  */
 
-   FIXME:  We used to complain here about zero length or negative length line
-   tables, but there are two problems with this: (1) some symtabs may not have
-   any line numbers due to gcc -g1 compilation, and (2) this function is called
-   during single stepping, when we don't own the terminal and thus can't
-   produce any output.  One solution might be to implement a mechanism whereby
-   complaints can be queued until we regain control of the terminal.  -fnf
- */
+/* If it's worth the effort, we could be using a binary search.  */
 
 struct symtab_and_line
 find_pc_line (pc, notcurrent)
@@ -1064,8 +1079,12 @@ find_pc_line (pc, notcurrent)
       if (!l)
         continue;
       len = l->nitems;
-      if (len <= 0)		  /* See FIXME above. */
+      if (len <= 0)
 	{
+	  /* I think len can be zero if the symtab lacks line numbers
+	     (e.g. gcc -g1).  (Either that or the LINETABLE is NULL;
+	     I'm not sure which, and maybe it depends on the symbol
+	     reader).  */
 	  continue;
 	}
 
@@ -1328,6 +1347,7 @@ find_line_common (l, lineno, exact_match)
 
       if (item->line == lineno)
 	{
+	  /* Return the first (lowest address) entry which matches.  */
 	  *exact_match = 1;
 	  return i;
 	}
@@ -1461,24 +1481,9 @@ find_methods (t, name, sym_arr)
   int ibase;
   struct symbol *sym_class;
   char *class_name = type_name_no_tag (t);
-  /* Ignore this class if it doesn't have a name.
-     This prevents core dumps, but is just a workaround
-     because we might not find the function in
-     certain cases, such as
-     struct D {virtual int f();}
-     struct C : D {virtual int g();}
-     (in this case g++ 1.35.1- does not put out a name
-     for D as such, it defines type 19 (for example) in
-     the same stab as C, and then does a
-     .stabs "D:T19" and a .stabs "D:t19".
-     Thus
-     "break C::f" should not be looking for field f in
-     the class named D, 
-     but just for the field f in the baseclasses of C
-     (no matter what their names).
-     
-     However, I don't know how to replace the code below
-     that depends on knowing the name of D.  */
+  /* Ignore this class if it doesn't have a name.  This is ugly, but
+     unless we figure out how to get the physname without the name of
+     the class, then the loop can't do any good.  */
   if (class_name
       && (sym_class = lookup_symbol (class_name,
 				     (struct block *)NULL,
@@ -1487,6 +1492,7 @@ find_methods (t, name, sym_arr)
 				     (struct symtab **)NULL)))
     {
       int method_counter;
+      /* FIXME: Shouldn't this just be check_stub_type (t)?  */
       t = SYMBOL_TYPE (sym_class);
       for (method_counter = TYPE_NFN_FIELDS (t) - 1;
 	   method_counter >= 0;
@@ -1509,6 +1515,14 @@ find_methods (t, name, sym_arr)
 		/* Destructor is handled by caller, dont add it to the list */
 		if (DESTRUCTOR_PREFIX_P (phys_name))
 		  continue;
+
+		/* FIXME: Why are we looking this up in the
+		   SYMBOL_BLOCK_VALUE (sym_class)?  It is intended as a hook
+		   for nested types?  If so, it should probably hook to the
+		   type, not the symbol.  mipsread.c is the only symbol
+		   reader which sets the SYMBOL_BLOCK_VALUE for types, and
+		   this is not documented in symtab.h.  -26Aug93.  */
+
 		sym_arr[i1] = lookup_symbol (phys_name,
 					     SYMBOL_BLOCK_VALUE (sym_class),
 					     VAR_NAMESPACE,
@@ -1525,9 +1539,18 @@ find_methods (t, name, sym_arr)
 	      }
 	}
     }
-  /* Only search baseclasses if there is no match yet,
-   * since names in derived classes override those in baseclasses.
-   */
+
+  /* Only search baseclasses if there is no match yet, since names in
+     derived classes override those in baseclasses.
+
+     FIXME: The above is not true; it is only true of member functions
+     if they have the same number of arguments (??? - section 13.1 of the
+     ARM says the function members are not in the same scope but doesn't
+     really spell out the rules in a way I understand.  In any case, if
+     the number of arguments differ this is a case in which we can overload
+     rather than hiding without any problem, and gcc 2.4.5 does overload
+     rather than hiding in this case).  */
+
   if (i1)
     return i1;
   for (ibase = 0; ibase < TYPE_N_BASECLASSES (t); ibase++)
@@ -1770,7 +1793,8 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line, canonical)
 	      t = SYMBOL_TYPE (sym_class);
 	      sym_arr = (struct symbol **) alloca(TYPE_NFN_FIELDS_TOTAL (t) * sizeof(struct symbol*));
 
-	      if (destructor_name_p (copy, t))
+	      /* Cfront objects don't have fieldlists.  */
+	      if (destructor_name_p (copy, t) && TYPE_FN_FIELDLISTS (t) != NULL)
 		{
 		  /* destructors are a special case.  */
 		  struct fn_field *f = TYPE_FN_FIELDLIST1 (t, 0);
@@ -1948,13 +1972,14 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line, canonical)
      Find the next token (everything up to end or next whitespace).  */
 
   p = skip_quoted (*argptr);
+  if (is_quoted && p[-1] != '\'')
+    error ("Unmatched single quote.");
   copy = (char *) alloca (p - *argptr + 1);
   memcpy (copy, *argptr, p - *argptr);
   copy[p - *argptr] = '\0';
   if ((copy[0] == copy [p - *argptr - 1])
       && strchr (gdb_completer_quote_characters, copy[0]) != NULL)
     {
-      char *temp;
       copy [p - *argptr - 1] = '\0';
       copy++;
     }
@@ -2582,8 +2607,8 @@ list_symbols (regexp, class, bpt)
 			      printf_filtered ("\nNon-debugging symbols:\n");
 			      found_in_file = 1;
 			    }
-			  printf_filtered ("	%08x  %s\n",
-					   SYMBOL_VALUE_ADDRESS (msymbol),
+			  printf_filtered ("	%08lx  %s\n",
+					   (unsigned long) SYMBOL_VALUE_ADDRESS (msymbol),
 					   SYMBOL_SOURCE_NAME (msymbol));
 			}
 		    }
@@ -2659,11 +2684,15 @@ static char **return_val;
 
 #define COMPLETION_LIST_ADD_SYMBOL(symbol, sym_text, len, text, word) \
   do { \
-    completion_list_add_name (SYMBOL_NAME (symbol), (sym_text), (len), \
-			      (text), (word)); \
     if (SYMBOL_DEMANGLED_NAME (symbol) != NULL) \
+      /* Put only the mangled name on the list.  */ \
+      /* Advantage:  "b foo<TAB>" completes to "b foo(int, int)" */ \
+      /* Disadvantage:  "b foo__i<TAB>" doesn't complete.  */ \
       completion_list_add_name \
 	(SYMBOL_DEMANGLED_NAME (symbol), (sym_text), (len), (text), (word)); \
+    else \
+      completion_list_add_name \
+	(SYMBOL_NAME (symbol), (sym_text), (len), (text), (word)); \
   } while (0)
 
 /*  Test to see if the symbol specified by SYMNAME (which is already
@@ -2764,7 +2793,7 @@ make_symbol_completion_list (text, word)
   {
     char *p;
     char quote_found;
-    char *quote_pos;
+    char *quote_pos = NULL;
 
     /* First see if this is a quoted string.  */
     quote_found = '\0';

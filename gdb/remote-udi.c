@@ -45,11 +45,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "29k-share/udi/udiproc.h"
 #include "gdbcmd.h"
 #include "bfd.h"
+#include "gdbcore.h" /* For download function */
 
 /* access the register store directly, without going through
    the normal handler functions. This avoids an extra data copy.  */
 
-static int kiodebug;
+extern int remote_debug;
 extern int stop_soon_quietly;           /* for wait_for_inferior */
 extern struct value *call_function_by_hand();
 static void udi_resume PARAMS ((int pid, int step, int sig));
@@ -67,18 +68,11 @@ static int udi_read_inferior_memory PARAMS ((CORE_ADDR memaddr, char *myaddr,
 					     int len));
 static void download PARAMS ((char *load_arg_string, int from_tty));
 char   CoffFileName[100] = "";
-/*
- * Processor types. 
- */
-#define TYPE_UNKNOWN    0
-#define TYPE_A29000     1
-#define TYPE_A29030     2
-#define TYPE_A29050     3
-static  char *processor_name[] = { "Unknown", "Am29000", "Am29030", "Am29050" };
-static  int processor_type=TYPE_UNKNOWN;
-#define FREEZE_MODE     (read_register(CPS_REGNUM) & 0x400)
-#define USE_SHADOW_PC	((processor_type == TYPE_A29050) && FREEZE_MODE) 
 
+#define FREEZE_MODE     (read_register(CPS_REGNUM) & 0x400)
+#define USE_SHADOW_PC	((processor_type == a29k_freeze_mode) && FREEZE_MODE)
+
+/* FIXME: Replace with `set remotedebug'.  Also, seems not to be used.  */
 #define LLOG_FILE "udi.log"
 #if defined (LOG_FILE)
 FILE *log_file;
@@ -186,8 +180,14 @@ udi_create_inferior (execfile, args, env)
 static void
 udi_mourn()
 {
-        pop_target ();                /* Pop back to no-child state */
-        generic_mourn_inferior ();
+#if 0
+  /* Requiring "target udi" each time you run is a major pain.  I suspect
+     this was just blindy copied from remote.c, in which "target" and
+     "run" are combined.  Having a udi target without an inferior seems
+     to work between "target udi" and "run", so why not now?  */
+  pop_target ();                /* Pop back to no-child state */
+#endif
+  generic_mourn_inferior ();
 }
 
 /******************************************************************** UDI_OPEN
@@ -272,31 +272,8 @@ udi_open (name, from_tty)
 	}
     }
 
-  /* Determine the processor revision level */
-  prl = (unsigned int)read_register (CFG_REGNUM) >> 24;
-  if ((prl&0xe0) == 0)
-    {
-      fprintf_filtered (stderr,
-			"Remote debugging Am29000 rev %c\n",'A'+(prl&0x1f));
-      processor_type = TYPE_A29000;
-    }
-  else if ((prl&0xe0) == 0x40)       /* 29030 = 0x4* */
-    {
-      fprintf_filtered (stderr,
-			"Remote debugging Am2903* rev %c\n",'A'+(prl&0x1f));
-      processor_type = TYPE_A29030;
-    }
-  else if ((prl&0xe0) == 0x20)       /* 29050 = 0x2* */
-    {
-      fprintf_filtered (stderr,
-			"Remote debugging Am29050 rev %c\n",'A'+(prl&0x1f));
-      processor_type = TYPE_A29050;
-    }
-  else
-    {
-      processor_type = TYPE_UNKNOWN;
-      fprintf_filtered (stderr,"WARNING: processor type unknown.\n");
-    }
+  a29k_get_processor_type ();
+
   if (UDICreateProcess (&PId))
      fprintf(stderr, "UDICreateProcess() failed\n");
 
@@ -306,9 +283,8 @@ udi_open (name, from_tty)
     error ("UDICapabilities() failed");
   if (from_tty)
     {
-      printf_filtered ("Remote debugging an %s connected via UDI socket,\n\
+      printf_filtered ("Connected via UDI socket,\n\
  DFE-IPC version %x.%x.%x  TIP-IPC version %x.%x.%x  TIP version %x.%x.%x\n %s\n",
-		       processor_name[processor_type],
 		       (DFEIPCId>>8)&0xf, (DFEIPCId>>4)&0xf, DFEIPCId&0xf,
 		       (TIPIPCId>>8)&0xf, (TIPIPCId>>4)&0xf, TIPIPCId&0xf,
 		       (TargetId>>8)&0xf, (TargetId>>4)&0xf, TargetId&0xf,
@@ -430,7 +406,8 @@ udi_resume (pid, step, sig)
    storing status in STATUS just as `wait' would.  */
 
 static int
-udi_wait (status)
+udi_wait (pid, status)
+     int pid;
      WAITTYPE *status;
 {
   UDIInt32	MaxTime;
@@ -460,7 +437,10 @@ udi_wait (status)
 	{
 	case UDIStdoutReady:
 	  if (UDIGetStdout (sbuf, (UDISizeT)SBUF_MAX, &CountDone))
-	    error ("UDIGetStdout() failed in udi_wait");
+	    /* This is said to happen if the program tries to output
+	       a whole bunch of output (more than SBUF_MAX, I would
+	       guess).  It doesn't seem to happen with the simulator.  */
+	    warning ("UDIGetStdout() failed in udi_wait");
 	  fwrite (sbuf, 1, CountDone, stdout);
 	  fflush(stdout);
 	  continue;
@@ -469,11 +449,22 @@ udi_wait (status)
 	  fwrite (sbuf, 1, CountDone, stderr);
 	  fflush(stderr);
 	  continue;
+
 	case UDIStdinNeeded:
-	  scanf ("%s", sbuf);
-	  i = strlen (sbuf);
-	  UDIPutStdin (sbuf, (UDISizeT)i, &CountDone);
-	  continue;
+	  {
+	    int ch;
+	    i = 0;
+	    do
+	      {
+		ch = getchar ();
+		if (ch == EOF)
+		  break;
+		sbuf[i++] = ch;
+	      } while (i < SBUF_MAX && ch != '\n');
+	    UDIPutStdin (sbuf, (UDISizeT)i, &CountDone);
+	    continue;
+	  }
+
 	case UDIRunning:
 	  /* In spite of the fact that we told UDIWait to wait forever, it will
 	     return spuriously sometimes.  */
@@ -568,8 +559,57 @@ udi_wait (status)
 
   timeout = old_timeout;	/* Restore original timeout value */
   immediate_quit = old_immediate_quit;
-  return 0;
+  return inferior_pid;
 }
+
+#if 0
+/* Handy for debugging */
+udi_pc()
+{
+  UDIResource	From;
+  UDIUInt32	*To;
+  UDICount	Count;
+  UDISizeT	Size = 4;
+  UDICount	CountDone;
+  UDIBool	HostEndian = 0;
+  UDIError	err;
+  int pc[2];
+  unsigned long myregs[256];
+  int i;
+
+  From.Space = UDI29KPC;
+  From.Offset = 0;
+  To = (UDIUInt32 *)pc;
+  Count = 2;
+
+  err = UDIRead(From, To, Count, Size, &CountDone, HostEndian);
+
+  printf ("err = %d, CountDone = %d, pc[0] = 0x%x, pc[1] = 0x%x\n",
+	  err, CountDone, pc[0], pc[1]);
+
+  udi_fetch_registers(-1);
+
+  printf("other pc1 = 0x%x, pc0 = 0x%x\n", *(int *)&registers[4 * PC_REGNUM],
+	  *(int *)&registers[4 * NPC_REGNUM]);
+
+  /* Now, read all the registers globally */
+
+  From.Space = UDI29KGlobalRegs;
+  From.Offset = 0;
+  err = UDIRead(From, myregs, 256, 4, &CountDone, HostEndian);
+
+  printf ("err = %d, CountDone = %d\n", err, CountDone);
+
+  printf("\n");
+
+  for (i = 0; i < 256; i += 2)
+    printf("%d:\t%#10x\t%11d\t%#10x\t%11d\n", i, myregs[i], myregs[i],
+	   myregs[i+1], myregs[i+1]);
+  printf("\n");
+
+  return pc[0];
+}
+#endif
 
 /********************************************************** UDI_FETCH_REGISTERS
  * Read a remote register 'regno'. 
@@ -674,7 +714,7 @@ int	regno;
       register_valid[i] = 1;
   }
 
-  if (kiodebug)
+  if (remote_debug)
     {
       printf("Fetching all registers\n");
       printf("Fetching PC0 = 0x%x, PC1 = 0x%x, PC2 = 0x%x\n",
@@ -715,7 +755,7 @@ int regno;
       return;
     }
 
-  if (kiodebug)
+  if (remote_debug)
     {
       printf("Storing all registers\n");
       printf("PC0 = 0x%x, PC1 = 0x%x, PC2 = 0x%x\n", read_register(NPC_REGNUM),
@@ -783,6 +823,15 @@ int regno;
     To.Offset = 10;				/* PC0 */
   if(UDIWrite(From, To, Count, Size, &CountDone, HostEndian))
     error("UDIWrite() failed in udi_store_regisetrs");
+
+/* PC1 via UDI29KPC */
+
+  From = (UDIUInt32 *)&registers[4 * PC_REGNUM];
+  To.Space = UDI29KPC;
+  To.Offset = 0;				/* PC1 */
+  Count = 1;
+  if (UDIWrite (From, To, Count, Size, &CountDone, HostEndian))
+    error ("UDIWrite() failed in udi_store_regisetrs");
 
   /* LRU and MMU */
 
@@ -1038,7 +1087,7 @@ download(load_arg_string, from_tty)
 	}
     }
 
-  pbfd = bfd_openr (filename, 0);
+  pbfd = bfd_openr (filename, gnutarget);
 
   if (!pbfd) 
     perror_with_name (filename);
@@ -1073,6 +1122,11 @@ download(load_arg_string, from_tty)
 	  To.Offset = bfd_get_section_vma (pbfd, section);
 	  section_size = bfd_section_size (pbfd, section);
 	  section_end = To.Offset + section_size;
+
+	  if (section_size == 0)
+	    /* This is needed at least in the BSS case, where the code
+	       below starts writing before it even checks the size.  */
+	    continue;
 
 	  printf("[Loading section %s at %x (%d bytes)]\n",
 		 section_name,
@@ -1135,6 +1189,8 @@ download(load_arg_string, from_tty)
 	      unsigned long zero = 0;
 
 	      /* Write a zero byte at the vma */
+	      /* FIXME: Broken for sections of 1-3 bytes (we test for
+		 zero above).  */
 	      err = UDIWrite ((UDIHostMemPtr)&zero,	/* From */
 			      To,			/* To */
 			      (UDICount)1,		/* Count */
@@ -1333,7 +1389,7 @@ fetch_register (regno)
 
   supply_register(regno, (char *) &To);
 
-  if (kiodebug)
+  if (remote_debug)
     printf("Fetching register %s = 0x%x\n", reg_names[regno], To);
 }
 /*****************************************************************************/ 
@@ -1354,53 +1410,68 @@ store_register (regno)
 
   From =  read_register (regno);	/* get data value */
 
-  if (kiodebug)
+  if (remote_debug)
     printf("Storing register %s = 0x%x\n", reg_names[regno], From);
 
   if (regno == GR1_REGNUM)
-  { To.Space = UDI29KGlobalRegs;
-    To.Offset = 1;
-    result = UDIWrite(&From, To, Count, Size, &CountDone, HostEndian);
-    /* Setting GR1 changes the numbers of all the locals, so invalidate the 
-     * register cache.  Do this *after* calling read_register, because we want 
-     * read_register to return the value that write_register has just stuffed 
-     * into the registers array, not the value of the register fetched from 
-     * the inferior.  
-     */
-    registers_changed ();
-  }
+    {
+      To.Space = UDI29KGlobalRegs;
+      To.Offset = 1;
+      result = UDIWrite(&From, To, Count, Size, &CountDone, HostEndian);
+      /* Setting GR1 changes the numbers of all the locals, so invalidate the 
+       * register cache.  Do this *after* calling read_register, because we want 
+       * read_register to return the value that write_register has just stuffed 
+       * into the registers array, not the value of the register fetched from 
+       * the inferior.  
+       */
+      registers_changed ();
+    }
 #if defined(GR64_REGNUM)
   else if (regno >= GR64_REGNUM && regno < GR64_REGNUM + 32 )
-  { To.Space = UDI29KGlobalRegs;
-    To.Offset = (regno - GR64_REGNUM) + 64;
-    result = UDIWrite(&From, To, Count, Size, &CountDone, HostEndian);
-  }
+    {
+      To.Space = UDI29KGlobalRegs;
+      To.Offset = (regno - GR64_REGNUM) + 64;
+      result = UDIWrite(&From, To, Count, Size, &CountDone, HostEndian);
+    }
 #endif	/* GR64_REGNUM */
   else if (regno >= GR96_REGNUM && regno < GR96_REGNUM + 32)
-  { To.Space = UDI29KGlobalRegs;
-    To.Offset = (regno - GR96_REGNUM) + 96;
-    result = UDIWrite(&From, To, Count, Size, &CountDone, HostEndian);
-  }
+    {
+      To.Space = UDI29KGlobalRegs;
+      To.Offset = (regno - GR96_REGNUM) + 96;
+      result = UDIWrite(&From, To, Count, Size, &CountDone, HostEndian);
+    }
   else if (regno >= LR0_REGNUM && regno < LR0_REGNUM + 128)
-  { To.Space = UDI29KLocalRegs;
-    To.Offset = (regno - LR0_REGNUM);
-    result = UDIWrite(&From, To, Count, Size, &CountDone, HostEndian);
-  }
-  else if (regno>=FPE_REGNUM && regno<=EXO_REGNUM)  
-  { 
+    {
+      To.Space = UDI29KLocalRegs;
+      To.Offset = (regno - LR0_REGNUM);
+      result = UDIWrite(&From, To, Count, Size, &CountDone, HostEndian);
+    }
+  else if (regno >= FPE_REGNUM && regno <= EXO_REGNUM)  
     return 0;		/* Pretend Success */
-  }
-  else 	/* An unprotected or protected special register */
-  { To.Space = UDI29KSpecialRegs;
-    To.Offset = regnum_to_srnum(regno); 
-    result = UDIWrite(&From, To, Count, Size, &CountDone, HostEndian);
-  }
+  else if (regno == PC_REGNUM)
+    {    
+      /* PC1 via UDI29KPC */
 
-  if(result)
-  { result = -1;
+      To.Space = UDI29KPC;
+      To.Offset = 0;		/* PC1 */
+      result = UDIWrite (&From, To, Count, Size, &CountDone, HostEndian);
+
+      /* Writing to this loc actually changes the values of pc0 & pc1 */
+
+      register_valid[PC_REGNUM] = 0; /* pc1 */
+      register_valid[NPC_REGNUM] = 0; /* pc0 */
+    }
+  else 	/* An unprotected or protected special register */
+    {
+      To.Space = UDI29KSpecialRegs;
+      To.Offset = regnum_to_srnum(regno); 
+      result = UDIWrite(&From, To, Count, Size, &CountDone, HostEndian);
+    }
+
+  if (result != 0)
     error("UDIWrite() failed in store_registers");
-  }
-  return result;
+
+  return 0;
 }
 /********************************************************** REGNUM_TO_SRNUM */
 /* 
@@ -1476,12 +1547,13 @@ void  convert16() {;}
 void  convert32() {;}
 FILE* EchoFile = 0;		/* used for debugging */
 int   QuietMode = 0;		/* used for debugging */
+
+/* Target_ops vector.  Not static because there does not seem to be
+   any portable way to do a forward declaration of a static variable.
+   The RS/6000 doesn't like "extern" followed by "static"; SunOS
+   /bin/cc doesn't like "static" twice.  */
 
-/****************************************************************************/
-/* 
- *  Define the target subroutine names 
- */
-static struct target_ops udi_ops = {
+struct target_ops udi_ops = {
         "udi",
 	"Remote UDI connected TIP",
 	"Remote debug an AMD 29k using UDI socket connection to TIP process.\n\
@@ -1543,13 +1615,6 @@ Arguments are\n\
 void _initialize_remote_udi()
 {
   add_target (&udi_ops);
-  add_show_from_set (
-		     add_set_cmd ("remotedebug", no_class, var_boolean,
-				  (char *)&kiodebug,
-				  "Set debugging of UDI I/O.\n\
-When enabled, debugging info is displayed.",
-				  &setlist),
-		     &showlist);
 }
 
 #ifdef NO_HIF_SUPPORT

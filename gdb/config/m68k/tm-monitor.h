@@ -26,10 +26,18 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "m68k/tm-m68k.h"
 
 #undef REGISTER_NAMES
-#define REGISTER_NAMES  \
+#  ifdef HAVE_68881
+#  define REGISTER_NAMES  \
  {"d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", \
   "a0", "a1", "a2", "a3", "a4", "a5", "a6", "usp", \
   "sr", "pc",  \
   "fp0", "fp1", "fp2", "fp3", "fp4", "fp5", "fp6", "fp7", \
   "fpcontrol", "fpstatus", "fpiaddr", "fpcode", "fpflags" }
-
+#else
+#  undef NUM_REGS
+#  define NUM_REGS 18
+#  define REGISTER_NAMES  \
+ {"d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", \
+  "a0", "a1", "a2", "a3", "a4", "a5", "a6", "usp", \
+  "sr", "pc" }
+#endif

@@ -217,38 +217,6 @@ static int undef_types_length;
   } while (0)
 
 
-/* This is used by other symbol readers besides stabs, so for cleanliness
-   should probably be in buildsym.c.  */
-
-int
-hashname (name)
-     char *name;
-{
-  register char *p = name;
-  register int total = p[0];
-  register int c;
-
-  c = p[1];
-  total += c << 2;
-  if (c)
-    {
-      c = p[2];
-      total += c << 4;
-      if (c)
-	{
-	  total += p[3] << 6;
-	}
-    }
-
-  /* Ensure result is positive.  */
-  if (total < 0)
-    {
-      total += (1000 << 6);
-    }
-  return (total % HASHSIZE);
-}
-
-
 /* Look up a dbx type-number pair.  Return the address of the slot
    where the type for that number-pair is stored.
    The number-pair is in TYPENUMS.
@@ -499,7 +467,7 @@ static char *type_synonym_name;
 /* ARGSUSED */
 struct symbol *
 define_symbol (valu, string, desc, type, objfile)
-     unsigned int valu;
+     CORE_ADDR valu;
      char *string;
      int desc;
      int type;
@@ -579,9 +547,11 @@ define_symbol (valu, string, desc, type, objfile)
       SYMBOL_LANGUAGE (sym) = current_subfile -> language;
       SYMBOL_NAME (sym)	= (char *)
 	obstack_alloc (&objfile -> symbol_obstack, ((p - string) + 1));
-      /* Open-coded bcopy--saves function call time.  */
+      /* Open-coded memcpy--saves function call time.  */
       /* FIXME:  Does it really?  Try replacing with simple strcpy and
 	 try it on an executable with a large symbol table. */
+      /* FIXME: considering that gcc can open code memcpy anyway, I
+	 doubt it.  xoxorich. */
       {
 	register char *p1 = string;
 	register char *p2 = SYMBOL_NAME (sym);
@@ -842,6 +812,11 @@ define_symbol (valu, string, desc, type, objfile)
 #endif
       add_symbol_to_list (sym, &local_symbols);
 
+#if TARGET_BYTE_ORDER == LITTLE_ENDIAN
+      /* On little-endian machines, this crud is never necessary, and,
+	 if the extra bytes contain garbage, is harmful.  */
+      break;
+#else /* Big endian.  */
       /* If it's gcc-compiled, if it says `short', believe it.  */
       if (processing_gcc_compilation || BELIEVE_PCC_PROMOTION)
 	break;
@@ -922,6 +897,7 @@ define_symbol (valu, string, desc, type, objfile)
 #endif /* no BELIEVE_PCC_PROMOTION_TYPE.  */
       }
 #endif /* !BELIEVE_PCC_PROMOTION.  */
+#endif /* Big endian.  */
 
     case 'P':
       /* acc seems to use P to delare the prototypes of functions that
@@ -1241,11 +1217,16 @@ read_type (pp, objfile)
   int xtypenums[2];
   char type_descriptor;
 
+  /* Size in bits of type if specified by a type attribute, or -1 if
+     there is no size attribute.  */
+  int type_size = -1;
+
   /* Read type number if present.  The type number may be omitted.
      for instance in a two-dimensional array declared with type
      "ar1;1;10;ar1;1;10;4".  */
   if ((**pp >= '0' && **pp <= '9')
-      || **pp == '(')
+      || **pp == '('
+      || **pp == '-')
     {
       if (read_type_number (pp, typenums) != 0)
 	return error_type (pp);
@@ -1269,7 +1250,10 @@ read_type (pp, objfile)
 	    break;
 	  else
 	    {
-	      /* Type attributes; skip to the semicolon.  */
+	      /* Type attributes.  */
+	      char *attr = p;
+
+	      /* Skip to the semicolon.  */
 	      while (*p != ';' && *p != '\0')
 		++p;
 	      *pp = p;
@@ -1278,6 +1262,19 @@ read_type (pp, objfile)
 	      else
 		/* Skip the semicolon.  */
 		++*pp;
+
+	      switch (*attr)
+		{
+		case 's':
+		  type_size = atoi (attr + 1);
+		  if (type_size <= 0)
+		    type_size = -1;
+		  break;
+		default:
+		  /* Ignore unrecognized type attributes, so future compilers
+		     can invent new ones.  */
+		  break;
+		}
 	    }
 	}
       /* Skip the type descriptor, we get it below with (*pp)[-1].  */
@@ -1305,11 +1302,7 @@ read_type (pp, objfile)
 	/* Name including "struct", etc.  */
 	char *type_name;
 	
-	/* Name without "struct", etc.  */
-	char *type_name_only;
-
 	{
-	  char *prefix;
 	  char *from, *to;
 	  
 	  /* Set the type code according to the following letter.  */
@@ -1393,27 +1386,40 @@ read_type (pp, objfile)
     case '9':
     case '(':
 
-      /* The type is being defined to another type.  When we support
-	 Ada (and arguably for C, so "whatis foo" can give "size_t",
-	 "wchar_t", or whatever it was declared as) we'll need to
-	 allocate a distinct type here rather than returning the
-	 existing one.  GCC is currently (deliberately) incapable of
-	 putting out the debugging information to do that, however.  */
-
       (*pp)--;
       if (read_type_number (pp, xtypenums) != 0)
 	return error_type (pp);
+
       if (typenums[0] == xtypenums[0] && typenums[1] == xtypenums[1])
 	/* It's being defined as itself.  That means it is "void".  */
 	type = init_type (TYPE_CODE_VOID, 0, 0, NULL, objfile);
       else
-	type = *dbx_lookup_type (xtypenums);
+	{
+	  struct type *xtype = *dbx_lookup_type (xtypenums);
+
+	  /* This can happen if we had '-' followed by a garbage character,
+	     for example.  */
+	  if (xtype == NULL)
+	    return error_type (pp);
+
+	  /* The type is being defined to another type.  So we copy the type.
+	     This loses if we copy a C++ class and so we lose track of how
+	     the names are mangled (but g++ doesn't output stabs like this
+	     now anyway).  */
+
+	  type = alloc_type (objfile);
+	  memcpy (type, xtype, sizeof (struct type));
+
+	  /* The idea behind clearing the names is that the only purpose
+	     for defining a type to another type is so that the name of
+	     one can be different.  So we probably don't need to worry much
+	     about the case where the compiler doesn't give a name to the
+	     new type.  */
+	  TYPE_NAME (type) = NULL;
+	  TYPE_TAG_NAME (type) = NULL;
+	}
       if (typenums[0] != -1)
 	*dbx_lookup_type (typenums) = type;
-      /* This can happen if we had '-' followed by a garbage character,
-	 for example.  */
-      if (type == NULL)
-	return error_type (pp);
       break;
 
     /* In the following types, we must be sure to overwrite any existing
@@ -1564,6 +1570,10 @@ read_type (pp, objfile)
       return error_type (pp);
     }
 
+  /* Size specified in a type attribute overrides any other size.  */
+  if (type_size != -1)
+    TYPE_LENGTH (type) = type_size / TARGET_CHAR_BIT;
+
   return type;
 }
 
@@ -1578,7 +1588,7 @@ rs6000_builtin_type (typenum)
 #define NUMBER_RECOGNIZED 30
   /* This includes an empty slot for type number -0.  */
   static struct type *negative_types[NUMBER_RECOGNIZED + 1];
-  struct type *rettype;
+  struct type *rettype = NULL;
 
   if (typenum >= 0 || typenum < -NUMBER_RECOGNIZED)
     {
@@ -2035,7 +2045,6 @@ read_cpp_abbrev (fip, pp, type, objfile)
      struct objfile *objfile;
 {
   register char *p;
-  const char *prefix;
   char *name;
   char cpp_abbrev;
   struct type *context;
@@ -3142,7 +3151,7 @@ read_huge_number (pp, end, bits)
 	{
 	  if (bits != NULL)
 	    *bits = -1;
-	  return;
+	  return 0;
 	}
     }
   else
@@ -3157,7 +3166,7 @@ read_huge_number (pp, end, bits)
 	     count how many bits are in them).  */
 	  if (bits != NULL)
 	    *bits = -1;
-	  return;
+	  return 0;
 	}
       
       /* -0x7f is the same as 0x80.  So deal with it by adding one to
@@ -3217,7 +3226,7 @@ read_range_type (pp, typenums, objfile)
       char got_signed = 0;
       char got_unsigned = 0;
       /* Number of bits in the type.  */
-      int nbits;
+      int nbits = 0;
 
       /* Range from 0 to <large number> is an unsigned large integral type.  */
       if ((n2bits == 0 && n2 == 0) && n3bits != 0)
@@ -3226,8 +3235,12 @@ read_range_type (pp, typenums, objfile)
 	  nbits = n3bits;
 	}
       /* Range from <large number> to <large number>-1 is a large signed
-	 integral type.  */
-      else if (n2bits != 0 && n3bits != 0 && n2bits == n3bits + 1)
+	 integral type.  Take care of the case where <large number> doesn't
+	 fit in a long but <large number>-1 does.  */
+      else if ((n2bits != 0 && n3bits != 0 && n2bits == n3bits + 1)
+	       || (n2bits != 0 && n3bits == 0
+		   && (n2bits == sizeof (long) * HOST_CHAR_BIT)
+		   && n3 == LONG_MAX))
 	{
 	  got_signed = 1;
 	  nbits = n2bits;
@@ -3256,9 +3269,7 @@ read_range_type (pp, typenums, objfile)
      GDB does not have complex types.
 
      Just return the complex as a float of that size.  It won't work right
-     for the complex values, but at least it makes the file loadable.
-
-     FIXME, we may be able to distinguish these by their names. FIXME.  */
+     for the complex values, but at least it makes the file loadable.  */
 
   if (n3 == 0 && n2 > 0)
     {
@@ -3270,8 +3281,8 @@ read_range_type (pp, typenums, objfile)
   else if (n2 == 0 && n3 == -1)
     {
       /* It is unsigned int or unsigned long.  */
-      /* GCC sometimes uses this for long long too.  We could
-	 distinguish it by the name, but we don't.  */
+      /* GCC 2.3.3 uses this for long long too, but that is just a GDB 3.5
+	 compatibility hack.  */
       return init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
 			TYPE_FLAG_UNSIGNED, NULL, objfile);
     }
@@ -3383,6 +3394,103 @@ read_args (pp, end, objfile)
     }
   memcpy (rval, types, n * sizeof (struct type *));
   return rval;
+}
+
+/* Common block handling.  */
+
+/* List of symbols declared since the last BCOMM.  This list is a tail
+   of local_symbols.  When ECOMM is seen, the symbols on the list
+   are noted so their proper addresses can be filled in later,
+   using the common block base address gotten from the assembler
+   stabs.  */
+
+static struct pending *common_block;
+static int common_block_i;
+
+/* Name of the current common block.  We get it from the BCOMM instead of the
+   ECOMM to match IBM documentation (even though IBM puts the name both places
+   like everyone else).  */
+static char *common_block_name;
+
+/* Process a N_BCOMM symbol.  The storage for NAME is not guaranteed
+   to remain after this function returns.  */
+
+void
+common_block_start (name, objfile)
+     char *name;
+     struct objfile *objfile;
+{
+  if (common_block_name != NULL)
+    {
+      static struct complaint msg = {
+	"Invalid symbol data: common block within common block",
+	0, 0};
+      complain (&msg);
+    }
+  common_block = local_symbols;
+  common_block_i = local_symbols ? local_symbols->nsyms : 0;
+  common_block_name = obsavestring (name, strlen (name),
+				    &objfile -> symbol_obstack);
+}
+
+/* Process a N_ECOMM symbol.  */
+
+void
+common_block_end (objfile)
+     struct objfile *objfile;
+{
+  /* Symbols declared since the BCOMM are to have the common block
+     start address added in when we know it.  common_block and
+     common_block_i point to the first symbol after the BCOMM in
+     the local_symbols list; copy the list and hang it off the
+     symbol for the common block name for later fixup.  */
+  int i;
+  struct symbol *sym;
+  struct pending *new = 0;
+  struct pending *next;
+  int j;
+
+  if (common_block_name == NULL)
+    {
+      static struct complaint msg = {"ECOMM symbol unmatched by BCOMM", 0, 0};
+      complain (&msg);
+      return;
+    }
+
+  sym = (struct symbol *) 
+    obstack_alloc (&objfile -> symbol_obstack, sizeof (struct symbol));
+  memset (sym, 0, sizeof (struct symbol));
+  SYMBOL_NAME (sym) = common_block_name;
+  SYMBOL_CLASS (sym) = LOC_BLOCK;
+
+  /* Now we copy all the symbols which have been defined since the BCOMM.  */
+
+  /* Copy all the struct pendings before common_block.  */
+  for (next = local_symbols;
+       next != NULL && next != common_block;
+       next = next->next)
+    {
+      for (j = 0; j < next->nsyms; j++)
+	add_symbol_to_list (next->symbol[j], &new);
+    }
+
+  /* Copy however much of COMMON_BLOCK we need.  If COMMON_BLOCK is
+     NULL, it means copy all the local symbols (which we already did
+     above).  */
+
+  if (common_block != NULL)
+    for (j = common_block_i; j < common_block->nsyms; j++)
+      add_symbol_to_list (common_block->symbol[j], &new);
+
+  SYMBOL_NAMESPACE (sym) = (enum namespace)((long) new);
+
+  /* Should we be putting local_symbols back to what it was?
+     Does it matter?  */
+
+  i = hashname (SYMBOL_NAME (sym));
+  SYMBOL_VALUE_CHAIN (sym) = global_sym_chain[i];
+  global_sym_chain[i] = sym;
+  common_block_name = NULL;
 }
 
 /* Add a common block's start address to the offset of each symbol
@@ -3620,6 +3728,9 @@ void start_stabs ()
   n_this_object_header_files = 1;
   type_vector_length = 0;
   type_vector = (struct type **) 0;
+
+  /* FIXME: If common_block_name is not already NULL, we should complain().  */
+  common_block_name = NULL;
 }
 
 /* Call after end_symtab() */

@@ -85,12 +85,12 @@ subdirs=
 target_alias=
 target_makefile_frag=
 undefinedargs=
-version="$Revision: 1.165 $"
+version="$Revision: 1.170 $"
 x11=default
 
 ### we might need to use some other shell than /bin/sh for running subshells
 #
-config_shell=${CONFIG_SHELL-}
+config_shell=${CONFIG_SHELL-/bin/sh}
 
 NO_EDIT="This file was generated automatically by configure.  Do not edit."
 
@@ -152,6 +152,17 @@ do
                         fatal=yes
                         ;;
                 esac
+        elif [ -n "${next_host}" ] ; then
+                next_host=
+                case "${host_alias}" in
+                "")
+                        host_alias="${arg}"
+                        ;;
+                *)
+                        echo '***' Can only configure for one host at a time.  1>&2
+                        fatal=yes
+                        ;;
+                esac
         elif [ -n "${next_tmpdir}" ] ; then
                 next_tmpdir=
                 tmpdiroption="--tmpdir=${arg}"
@@ -176,6 +187,17 @@ do
                         case "${host_alias}" in
                         "")
                                 host_alias="`echo ${arg} | sed 's/^[-a-z]*=//'`"
+                                ;;
+                        *)
+                                echo '***' Can only configure for one host at a time.  1>&2
+                                fatal=yes
+                                ;;
+                        esac
+                        ;;
+                -host=* | --host | --hos | --ho)
+                        case "${host_alias}" in
+                        "")
+                                next_host=yes
                                 ;;
                         *)
                                 echo '***' Can only configure for one host at a time.  1>&2
@@ -774,6 +796,11 @@ EOF
                 echo site_makefile_frag = ${invsubdir}${site_makefile_frag} >>${Makefile}
             fi 
 
+	    # make sure that some sort of reasonable default exists for these 
+	    # two variables
+	    CXX=${CXX-"g++ -O"}
+	    CC=${CC-cc}
+
             # reset prefix, exec_prefix, srcdir, SUBDIRS, NONSUBDIRS,
             # remove any form feeds.
             if [ -z "${subdirs}" ]; then
@@ -786,6 +813,7 @@ EOF
             fi
             sed -e "s:^prefix[ 	]*=.*$:prefix = ${prefix}:" \
                     -e "s:^exec_prefix[ 	]*=.*$:exec_prefix = ${exec_prefix}:" \
+		    -e "s:^SHELL[	 ]*=.*$:SHELL = ${config_shell}:" \
                     -e "s:^srcdir[ 	]*=.*$:srcdir = ${makesrcdir}:" \
                     -e "s///" \
                     -e "s:^program_prefix[ 	]*=.*$:program_prefix = ${program_prefix}:" \

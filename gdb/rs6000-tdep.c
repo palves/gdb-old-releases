@@ -746,8 +746,8 @@ push_arguments (nargs, args, sp, struct_return, struct_addr)
         printf (
 "Fatal Error: a floating point parameter #%d with a size > 8 is found!\n", argno);
 
-      bcopy (VALUE_CONTENTS (arg), 
-         &registers[REGISTER_BYTE(FP0_REGNUM + 1 + f_argno)], len);
+      memcpy (&registers[REGISTER_BYTE(FP0_REGNUM + 1 + f_argno)], VALUE_CONTENTS (arg), 
+         len);
       ++f_argno;
     }
 
@@ -757,8 +757,8 @@ push_arguments (nargs, args, sp, struct_return, struct_addr)
       while (argbytes < len) {
 
 	*(int*)&registers[REGISTER_BYTE(ii+3)] = 0;
-	bcopy ( ((char*)VALUE_CONTENTS (arg))+argbytes, 
-			&registers[REGISTER_BYTE(ii+3)], 
+	memcpy (&registers[REGISTER_BYTE(ii+3)], 
+			 ((char*)VALUE_CONTENTS (arg))+argbytes, 
 			(len - argbytes) > 4 ? 4 : len - argbytes);
 	++ii, argbytes += 4;
 
@@ -770,7 +770,7 @@ push_arguments (nargs, args, sp, struct_return, struct_addr)
     }
     else {        /* Argument can fit in one register. No problem. */
       *(int*)&registers[REGISTER_BYTE(ii+3)] = 0;
-      bcopy (VALUE_CONTENTS (arg), &registers[REGISTER_BYTE(ii+3)], len);
+      memcpy (&registers[REGISTER_BYTE(ii+3)], VALUE_CONTENTS (arg), len);
     }
     ++argno;
   }
@@ -837,8 +837,8 @@ ran_out_of_registers_for_arguments:
           printf (
 "Fatal Error: a floating point parameter #%d with a size > 8 is found!\n", argno);
 
-        bcopy (VALUE_CONTENTS (arg), 
-           &registers[REGISTER_BYTE(FP0_REGNUM + 1 + f_argno)], len);
+        memcpy (&registers[REGISTER_BYTE(FP0_REGNUM + 1 + f_argno)], VALUE_CONTENTS (arg), 
+           len);
         ++f_argno;
       }
 
@@ -878,17 +878,17 @@ extract_return_value (valtype, regbuf, valbuf)
        necessary. */
 
     if (TYPE_LENGTH (valtype) > 4) 		/* this is a double */
-      bcopy (&regbuf[REGISTER_BYTE (FP0_REGNUM + 1)], valbuf, 
+      memcpy (valbuf, &regbuf[REGISTER_BYTE (FP0_REGNUM + 1)],
 						TYPE_LENGTH (valtype));
     else {		/* float */
-      bcopy (&regbuf[REGISTER_BYTE (FP0_REGNUM + 1)], &dd, 8);
+      memcpy (&dd, &regbuf[REGISTER_BYTE (FP0_REGNUM + 1)], 8);
       ff = (float)dd;
-      bcopy (&ff, valbuf, sizeof(float));
+      memcpy (valbuf, &ff, sizeof(float));
     }
   }
   else
     /* return value is copied starting from r3. */
-    bcopy (&regbuf[REGISTER_BYTE (3)], valbuf, TYPE_LENGTH (valtype));
+    memcpy (valbuf, &regbuf[REGISTER_BYTE (3)], TYPE_LENGTH (valtype));
 }
 
 
@@ -949,6 +949,8 @@ int pcsaved;
 
   if (fi->next != NULL)
     /* Don't even think about framelessness except on the innermost frame.  */
+    /* FIXME: Can also be frameless if fi->next->signal_handler_caller (if
+       a signal happens while executing in a frameless function).  */
     return 0;
   
   func_start = get_pc_function_start (fi->pc) + FUNCTION_START_OFFSET;
@@ -987,7 +989,7 @@ frame_get_cache_fsr (fi, fdatap)
 
   fi->cache_fsr = (struct frame_saved_regs *)
       obstack_alloc (&frame_cache_obstack, sizeof (struct frame_saved_regs));
-  bzero (fi->cache_fsr, sizeof (struct frame_saved_regs));
+  memset (fi->cache_fsr, '\0', sizeof (struct frame_saved_regs));
 
   if (fi->prev && fi->prev->frame)
     frame_addr = fi->prev->frame;

@@ -28,6 +28,8 @@ static boolean nlm_i386_read_reloc
   PARAMS ((bfd *, nlmNAME(symbol_type) *, asection **, arelent *));
 static boolean nlm_i386_write_reloc
   PARAMS ((bfd *, asection *, arelent *));
+static boolean nlm_i386_mangle_relocs
+  PARAMS ((bfd *, asection *, PTR, bfd_vma, bfd_size_type));
 
 /* Adjust the reloc location by an absolute value.  */
 
@@ -149,11 +151,16 @@ nlm_i386_write_reloc (abfd, sec, rel)
      asection *sec;
      arelent *rel;
 {
-  bfd_vma addend, val;
+  asymbol *sym;
+  bfd_vma val;
   bfd_byte temp[4];
 
-  /* NetWare only supports four byte relocs.  */
-  if (rel->howto == NULL
+  /* NetWare only supports two kinds of relocs.  We should check
+     special_function here, as well, but at the moment coff-i386
+     relocs uses a special_function which does not affect what we do
+     here.  */
+  if (rel->addend != 0
+      || rel->howto == NULL
       || rel->howto->rightshift != 0
       || rel->howto->size != 2
       || rel->howto->bitsize != 32
@@ -165,24 +172,55 @@ nlm_i386_write_reloc (abfd, sec, rel)
       return false;
     }
 
-  /* The high bit of the value is 1 if this is a reloc of a data
-     reference.  The second most significant bit is 1 if this is a
-     reloc from the data section.  */
+  sym = *rel->sym_ptr_ptr;
+
+  /* The value we write out is the offset into the appropriate
+     segment.  This offset is the section vma, adjusted by the vma of
+     the lowest section in that segment, plus the address of the
+     relocation.  */
   val = bfd_get_section_vma (abfd, sec) + rel->address;
-  val += addend;
+
+  /* The second most significant bit is 0 if the value is an offset
+     into the data segment, or 1 if the value is an offset into the
+     code segment.  */
   if (bfd_get_section_flags (abfd, sec) & SEC_CODE)
-    val -= nlm_get_text_low (abfd);
-  else
     {
-      val -= nlm_get_data_low (abfd);
+      val -= nlm_get_text_low (abfd);
       val |= NLM_HIBIT >> 1;
     }
-
-  if (bfd_get_section_flags (abfd, bfd_get_section (*rel->sym_ptr_ptr))
-      & SEC_CODE)
-    ;
   else
-    val |= NLM_HIBIT;
+    val -= nlm_get_data_low (abfd);
+
+  if (bfd_get_section (sym) != &bfd_und_section)
+    {
+      /* NetWare only supports absolute internal relocs.  */
+      if (rel->howto->pc_relative)
+	{
+	  bfd_error = invalid_operation;
+	  return false;
+	}
+
+      /* The high bit is 1 if the reloc is against the code section, 0
+	 if against the data section.  */
+      if (bfd_get_section_flags (abfd, bfd_get_section (sym)) & SEC_CODE)
+	val |= NLM_HIBIT;
+    }
+  else
+    {
+      /* The high bit is 1 if this is an absolute reloc, 0 if it is PC
+	 relative.  */
+      if (! rel->howto->pc_relative)
+	val |= NLM_HIBIT;
+      else
+	{
+	  /* PC relative relocs on NetWare must be pcrel_offset.  */
+	  if (! rel->howto->pcrel_offset)
+	    {
+	      bfd_error = invalid_operation;
+	      return false;
+	    }
+	}
+    }
   
   bfd_put_32 (abfd, val, temp);
   if (bfd_write (temp, sizeof (temp), 1, abfd) != sizeof (temp))
@@ -194,11 +232,117 @@ nlm_i386_write_reloc (abfd, sec, rel)
   return true;
 }
 
+/* I want to be able to use objcopy to turn a i386 a.out or COFF file
+   into a NetWare i386 module.  That means that the relocs from the
+   source file have to be mapped into relocs that apply to the target
+   file.  This function is called by nlm_set_section_contents to give
+   it a chance to rework the relocs.
+
+   This is actually a fairly general concept.  However, this is not a
+   general implementation.  */
+
+static boolean
+nlm_i386_mangle_relocs (abfd, sec, data, offset, count)
+     bfd *abfd;
+     asection *sec;
+     PTR data;
+     bfd_vma offset;
+     bfd_size_type count;
+{
+  arelent **rel_ptr_ptr, **rel_end;
+
+  rel_ptr_ptr = sec->orelocation;
+  rel_end = rel_ptr_ptr + sec->reloc_count;
+  for (; rel_ptr_ptr < rel_end; rel_ptr_ptr++)
+    {
+      arelent *rel;
+      asymbol *sym;
+      bfd_vma addend;
+
+      rel = *rel_ptr_ptr;
+      sym = *rel->sym_ptr_ptr;
+
+      /* Note that no serious harm will ensue if we fail to change a
+	 reloc.  We will wind up failing in nlm_i386_write_reloc.  */
+
+      /* Make sure this reloc is within the data we have.  We only 4
+	 byte relocs here, so we insist on having 4 bytes.  */
+      if (rel->address < offset
+	  || rel->address + 4 > offset + count)
+	continue;
+
+      /* NetWare doesn't support reloc addends, so we get rid of them
+	 here by simply adding them into the object data.  We handle
+	 the symbol value, if any, the same way.  */
+      addend = rel->addend + sym->value;
+
+      /* The value of a symbol is the offset into the section.  If the
+	 symbol is in the .bss segment, we need to include the size of
+	 the data segment in the offset as well.  Fortunately, we know
+	 that at this point the size of the data section is in the NLM
+	 header.  */
+      if (((bfd_get_section_flags (abfd, bfd_get_section (sym))
+	    & SEC_LOAD) == 0)
+	  && ((bfd_get_section_flags (abfd, bfd_get_section (sym))
+	       & SEC_ALLOC) != 0))
+	addend += nlm_fixed_header (abfd)->dataImageSize;
+
+      if (addend != 0
+	  && rel->howto != NULL
+	  && rel->howto->rightshift == 0
+	  && rel->howto->size == 2
+	  && rel->howto->bitsize == 32
+	  && rel->howto->bitpos == 0
+	  && rel->howto->src_mask == 0xffffffff
+	  && rel->howto->dst_mask == 0xffffffff)
+	{
+	  bfd_vma val;
+
+	  val = bfd_get_32 (abfd, (bfd_byte *) data + rel->address - offset);
+	  val += addend;
+	  bfd_put_32 (abfd, val, (bfd_byte *) data + rel->address - offset);
+	  rel->addend = 0;
+	}
+
+      /* NetWare uses a reloc with pcrel_offset set.  We adjust
+	 pc_relative relocs accordingly.  We are going to change the
+	 howto field, so we can only do this if the current one is
+	 compatible.  We should check special_function here, but at
+	 the moment coff-i386 uses a special_function which does not
+	 affect what we are doing here.  */
+      if (rel->howto != NULL
+	  && rel->howto->pc_relative
+	  && ! rel->howto->pcrel_offset
+	  && rel->howto->rightshift == 0
+	  && rel->howto->size == 2
+	  && rel->howto->bitsize == 32
+	  && rel->howto->bitpos == 0
+	  && rel->howto->src_mask == 0xffffffff
+	  && rel->howto->dst_mask == 0xffffffff)
+	{
+	  bfd_vma val;
+
+	  /* When pcrel_offset is not set, it means that the negative
+	     of the address of the memory location is stored in the
+	     memory location.  We must add it back in.  */
+	  val = bfd_get_32 (abfd, (bfd_byte *) data + rel->address - offset);
+	  val += rel->address;
+	  bfd_put_32 (abfd, val, (bfd_byte *) data + rel->address - offset);
+
+	  rel->howto = &nlm_i386_pcrel_howto;
+	}
+    }
+
+  return true;
+}
+
 static const struct nlm_backend_data nlm32_i386_backend =
 {
   bfd_arch_i386,
+  0,
   nlm_i386_read_reloc,
-  nlm_i386_write_reloc
+  nlm_i386_write_reloc,
+  nlm_i386_mangle_relocs
 };
 
 #define TARGET_LITTLE_NAME		"nlm32-i386"

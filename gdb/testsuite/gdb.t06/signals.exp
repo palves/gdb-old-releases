@@ -24,17 +24,24 @@ proc signal_tests_1 {} {
 	expect {
 	    -re "alarm \(.*$prompt $" { pass "next to 2nd alarm (1)" }
 	    -re "Program exited with code.*$prompt $" {
-		# There is a bug in the UnixWare kernel, and very likely other
-		# SVR4's as well.  If it steps when a signal is pending, it
-		# does a continue instead.  I don't know whether there is a
-		# workaround.  If this is found to work on an SVR4 system
-		# that is not an i346/i486 system, change the pattern to
-		# "i*86-*-sysv4*".  If this is found to work on an i*86/SVR4
-		# system that is not UnixWare, then change the pattern to
-		# "i*86-univel-sysv4*".  Note that solaris doesn't have sysv4
-		# in it's triplet.
-		setup_xfail "*-*-sysv4*"
-		fail "'next' behaved as 'continue' (known SVR4 bug)"
+
+		# This is apparently a bug in the UnixWare kernel (but
+		# has not been investigated beyond the
+		# resume/target_wait level, and has not been reported
+		# to Univel).  If it steps when a signal is pending,
+		# it does a continue instead.  I don't know whether
+		# there is a workaround.
+
+		# Perhaps this problem exists on other SVR4 systems;
+		# but (a) we have no reason to think so, and (b) if we
+		# put a wrong xfail here, we never get an XPASS to let
+		# us know that it was incorrect (and then if such a
+		# configuration regresses we have no way of knowing).
+		# Solaris is not a relevant data point either way
+		# because it lacks single stepping.
+
+		setup_xfail "i*86-univel-sysv4*"
+		fail "'next' behaved as 'continue'"
 		return 0
 	    }
 	    timeout { fail "next to 2nd alarm (1); (timeout)" }
@@ -106,15 +113,37 @@ proc signal_tests_1 {} {
 
 	setup_xfail "sparc-*-*"
 	setup_xfail "rs6000-*-*"
+
+	# If you step the inferior with a signal, most kernels will step
+	# into sigtramp.  But apparently the sun3 kernel (4.1.1) does not
+	# do so.  The fix would be the same as for the NO_SINGLE_STEP case.
+	setup_xfail "m68*-*-sunos4*"
+
 	gdb_test "continue" "Breakpoint.*handler"
 
-	# If the expected failure happened, we have already exited.
-	# Otherwise a continue will return from the handler to func2.
+	# If the NO_SINGLE_STEP failure happened, we have already exited.
+	# If we succeeded a continue will return from the handler to func2.
 	# GDB now has `forgotten' that it intended to step over the
 	# breakpoint at func2 and will stop at func2.
 	setup_xfail "*-*-*"
+	# The sun3 will also be `forgetful' but it already got the spurious
+	# stop at func2 and this continue will work.
+	clear_xfail "m68*-*-sunos4*"
 	gdb_test "continue" "Program exited with code 010"
     }
+}
+
+# On the Motorola Delta Series sysV68 R3V7.1, ptrace (PT_CONTINUE) or
+# ptrace (PT_STEP) causes pending signals to be cleared.  This is
+# totally losing behavior (perhaps there are cases in which is it
+# useful but the user needs more control, which they mostly have in
+# GDB), but it is documented in the ptrace manpage so I guess it is
+# considered a feature.  Anyway, it causes these tests to get nowhere
+# fast.
+if [ istarget "m68*-motorola-*" ] then {
+  setup_xfail "*-*-*"
+  fail "ptrace loses on signals on delta 68k"
+  return 0
 }
 
 if ![file exists $binfile] then {

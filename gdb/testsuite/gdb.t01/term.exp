@@ -39,7 +39,7 @@ set binfile "gdbme"
 
 if ![file exists $objdir/$subdir/$binfile] then {
     error "$objdir/$subdir/$binfile does not exist."
-    alldone
+    return 0
 }
 
 gdb_reinitialize_dir $srcdir/$subdir

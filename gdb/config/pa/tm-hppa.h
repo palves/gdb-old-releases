@@ -250,15 +250,17 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    into VALBUF.  */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy ((REGBUF) + REGISTER_BYTE(TYPE_LENGTH(TYPE) > 4 ? \
-        FP4_REGNUM :28), VALBUF, TYPE_LENGTH (TYPE))
+  memcpy (VALBUF, (REGBUF) + REGISTER_BYTE(TYPE_LENGTH(TYPE) > 4 ? \
+					  FP4_REGNUM :28), TYPE_LENGTH (TYPE))
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.  */
 
 #define STORE_RETURN_VALUE(TYPE,VALBUF) \
-  write_register_bytes (TYPE_LENGTH(TYPE) > 4 ? FP4_REGNUM :28,		\
-			VALBUF, TYPE_LENGTH (TYPE))
+  write_register_bytes ((TYPE_LENGTH(TYPE) > 4 \
+			 ? REGISTER_BYTE (FP4_REGNUM) \
+			 : REGISTER_BYTE (28)),		\
+			(VALBUF), TYPE_LENGTH (TYPE))
 
 /* Extract from an array REGBUF containing the (raw) register state
    the address in which a function should return its structure value,
@@ -351,7 +353,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
   unsigned this_insn;							\
   unsigned address;							\
 									\
-  bzero (&frame_saved_regs, sizeof frame_saved_regs);			\
+  memset (&frame_saved_regs, '\0', sizeof frame_saved_regs);			\
   if ((frame_info->pc >= (frame_info)->frame                            \
        && (frame_info)->pc <= ((frame_info)->frame + CALL_DUMMY_LENGTH  \
 			       + 32 * 4 + (NUM_REGS - FP0_REGNUM) * 8   \
@@ -564,6 +566,9 @@ struct obj_unwind_info {
 };
 
 #define OBJ_UNWIND_INFO(obj) ((struct obj_unwind_info *)obj->obj_private)
+
+extern CORE_ADDR target_read_pc PARAMS ((void));
+extern void target_write_pc PARAMS ((CORE_ADDR));
 
 #define TARGET_READ_PC() target_read_pc ()
 #define TARGET_WRITE_PC(v) target_write_pc (v)

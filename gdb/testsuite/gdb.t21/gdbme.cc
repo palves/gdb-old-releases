@@ -1,3 +1,4 @@
+#include <sys/types.h>
 class foo {
 public:
   foo  (int);
@@ -43,7 +44,7 @@ public:
   void  operator ->*    (foo&);
   void  operator []     (foo&);
   void  operator ()     (foo&);
-  void* operator new    (int);
+  void* operator new    (size_t);
   void  operator delete (void *);
   /**/  operator int    ();
   /**/  operator char*  ();
@@ -99,7 +100,7 @@ void  foo::operator ^=     (foo& afoo) { afoo.ifoo = 0; }
 void  foo::operator ->*    (foo& afoo) { afoo.ifoo = 0; }
 void  foo::operator []     (foo& afoo) { afoo.ifoo = 0; }
 void  foo::operator ()     (foo& afoo) { afoo.ifoo = 0; }
-void* foo::operator new    (int ival) { ival = 0; return 0; }
+void* foo::operator new    (size_t ival) { ival = 0; return 0; }
 void  foo::operator delete (void *ptr) { ptr = 0; }
 int   foo::operator int    () { return 0; }
 char* foo::operator char*  () { return 0; }

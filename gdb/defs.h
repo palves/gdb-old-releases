@@ -28,7 +28,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "ansidecl.h"
 
 /* An address in the program being debugged.  Host byte order.  */
+#ifndef CORE_ADDR_TYPE
 typedef unsigned int CORE_ADDR;
+#else
+typedef CORE_ADDR_TYPE CORE_ADDR;
+#endif
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
@@ -180,7 +184,7 @@ discard_cleanups PARAMS ((struct cleanup *));
 
    Should be, once all calls and called-functions are cleaned up:
 extern struct cleanup *
-make_cleanup PARAMS ((void (*function) (PTR), PTR));
+make_cleanup PARAMS ((void (*function) (void *), void *));
 
    Until then, lint and/or various type-checking compiler options will
    complain about make_cleanup calls.  It'd be wrong to just cast things,
@@ -265,10 +269,12 @@ perror_with_name PARAMS ((char *));
 extern void
 print_sys_errmsg PARAMS ((char *, int));
 
-/* From regex.c */
+/* From regex.c or libc.  BSD 4.4 declares this with the argument type as
+   "const char *" in unistd.h, so we can't declare the argument
+   as "char *".  */
 
 extern char *
-re_comp PARAMS ((char *));
+re_comp PARAMS ((const char *));
 
 /* From symfile.c */
 
@@ -353,9 +359,6 @@ extern char *current_directory;
 extern unsigned input_radix;
 extern unsigned output_radix;
 
-/* Baud rate specified for communication with serial target systems.  */
-extern char *baud_rate;
-
 /* Possibilities for prettyprint parameters to routines which print
    things.  Like enum language, this should be in value.h, but needs
    to be here for the same reason.  FIXME:  If we can eliminate this
@@ -415,6 +418,18 @@ enum val_prettyprint
 #endif /* STDC */
 #endif /* volatile */
 
+#if 1
+#define NORETURN /*nothing*/
+#else /* not 1 */
+/* FIXME: This is bogus.  Having "volatile void" mean a function doesn't
+   return is a gcc extension and should be based on #ifdef __GNUC__.
+   Also, as of Sep 93 I'm told gcc is changing the syntax for ansi
+   reasons (so declaring exit here as "volatile void" and as "void" in
+   a system header loses).  Using the new "__attributes__ ((noreturn));"
+   syntax would lose for old versions of gcc; using
+     typedef void exit_fn_type PARAMS ((int));
+     volatile exit_fn_type exit;
+   would win.  */
 /* Some compilers (many AT&T SVR4 compilers for instance), do not accept
    declarations of functions that never return (exit for instance) as
    "volatile void".  For such compilers "NORETURN" can be defined away
@@ -427,6 +442,7 @@ enum val_prettyprint
 #   define NORETURN volatile
 # endif
 #endif
+#endif /* not 1 */
 
 /* Defaults for system-wide constants (if not defined by xm.h, we fake it).  */
 
@@ -458,17 +474,17 @@ enum val_prettyprint
 
 /* Number of bits in a short or unsigned short for the target machine. */
 #if !defined (TARGET_SHORT_BIT)
-#define TARGET_SHORT_BIT (sizeof (short) * TARGET_CHAR_BIT)
+#define TARGET_SHORT_BIT (2 * TARGET_CHAR_BIT)
 #endif
 
 /* Number of bits in an int or unsigned int for the target machine. */
 #if !defined (TARGET_INT_BIT)
-#define TARGET_INT_BIT (sizeof (int) * TARGET_CHAR_BIT)
+#define TARGET_INT_BIT (4 * TARGET_CHAR_BIT)
 #endif
 
 /* Number of bits in a long or unsigned long for the target machine. */
 #if !defined (TARGET_LONG_BIT)
-#define TARGET_LONG_BIT (sizeof (long) * TARGET_CHAR_BIT)
+#define TARGET_LONG_BIT (4 * TARGET_CHAR_BIT)
 #endif
 
 /* Number of bits in a long long or unsigned long long for the target machine. */
@@ -478,15 +494,15 @@ enum val_prettyprint
 
 /* Number of bits in a float for the target machine. */
 #if !defined (TARGET_FLOAT_BIT)
-#define TARGET_FLOAT_BIT (sizeof (float) * TARGET_CHAR_BIT)
+#define TARGET_FLOAT_BIT (4 * TARGET_CHAR_BIT)
 #endif
 
 /* Number of bits in a double for the target machine. */
 #if !defined (TARGET_DOUBLE_BIT)
-#define TARGET_DOUBLE_BIT (sizeof (double) * TARGET_CHAR_BIT)
+#define TARGET_DOUBLE_BIT (8 * TARGET_CHAR_BIT)
 #endif
 
-/* Number of bits in a long double for the target machine. */
+/* Number of bits in a long double for the target machine.  */
 #if !defined (TARGET_LONG_DOUBLE_BIT)
 #define TARGET_LONG_DOUBLE_BIT (2 * TARGET_DOUBLE_BIT)
 #endif
@@ -845,11 +861,13 @@ void store_address PARAMS ((void *, int, CORE_ADDR));
    part of the address, but are used by the kernel, the hardware, etc.
    for special purposes.  ADDR_BITS_REMOVE takes out any such bits
    so we get a "real" address such as one would find in a symbol
-   table.  ADDR_BITS_SET sets those bits the way the system wants
-   them.  */
+   table.  This is used only for addresses of instructions, and even then
+   I'm not sure it's used in all contexts.  It exists to deal with there
+   being a few stray bits in the PC which would mislead us, not as some sort
+   of generic thing to handle alignment or segmentation (it's possible it
+   should be in TARGET_READ_PC instead).  */
 #if !defined (ADDR_BITS_REMOVE)
 #define ADDR_BITS_REMOVE(addr) (addr)
-#define ADDR_BITS_SET(addr) (addr)
 #endif /* No ADDR_BITS_REMOVE.  */
 
 /* From valops.c */

@@ -8,21 +8,21 @@
 #include <string.h>
 #include <sys/file.h>
 
-#ifndef O_ACCMODE
+#ifndef	O_ACCMODE
 #define O_ACCMODE (O_RDONLY | O_WRONLY | O_RDWR)
 #endif
 #define SEEK_SET 0
 #define SEEK_CUR 1
 
-#ifndef DONTDECLARE_MALLOC
-extern PTR  EXFUN(malloc,(unsigned));
-extern PTR  EXFUN(realloc, (PTR, unsigned));
-extern int  EXFUN(free,(PTR));
+#ifndef	DONTDECLARE_MALLOC
+extern PTR	malloc	PARAMS ((unsigned));
+extern PTR	realloc	PARAMS ((PTR, unsigned));
+extern int	free	PARAMS ((PTR));
 #endif
-extern int  EXFUN(abort,(void));
-extern void EXFUN(bcopy,(char*,char*,int));
-extern void EXFUN(exit,(int));
-extern void EXFUN(bzero,(char *, int));
+extern int	abort	PARAMS ((void));
+extern void	bcopy	PARAMS ((char*, char*, int));
+extern void	exit	PARAMS ((int));
+extern void	bzero	PARAMS ((char *, int));
 extern int strtol();
  
 #include <machine/param.h>

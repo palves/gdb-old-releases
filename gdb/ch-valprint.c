@@ -60,7 +60,6 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
   LONGEST val;
   unsigned int i = 0;		/* Number of characters printed.  */
   struct type *elttype;
-  unsigned eltlen;
   CORE_ADDR addr;
 
   switch (TYPE_CODE (type))
@@ -157,7 +156,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	}
       if (addressprint && format != 's')
 	{
-	  fprintf_filtered (stream, "H'%x", addr);
+	  fprintf_filtered (stream, "H'%lx", (unsigned long) addr);
 	}
       
       /* For a pointer to char or unsigned char, also print the string
@@ -187,7 +186,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	{
 	  /* This used to say `addr', which is unset at this point.
 	     Is `address' what is meant?  */
-	  fprintf_filtered (stream, "H'%x ", address);
+	  fprintf_filtered (stream, "H'%lx ", (unsigned long) address);
 	}
       i = TYPE_LENGTH (type);
       LA_PRINT_STRING (stream, valaddr, i, 0);

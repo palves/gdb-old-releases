@@ -1,16 +1,1789 @@
-Sun Aug 29 10:36:47 1993  Fred Fish  (fnf@deneb.cygnus.com)
+Thu Oct 28 16:55:34 1993  Fred Fish  (fnf@cygnus.com)
 
-	* Makefile.in (VERSION):  Change to 4.10.pl1
+	* Makefile.in (VERSION):  Gdb 4.11 release.
 
-Fri Aug 13 07:17:03 1993  Fred Fish  (fnf@deneb.cygnus.com)
+	* NEWS:  Note improvements in C++ support, preliminary thread
+	implementation, LynxOS native and target support for 386,
+	gdb now works on DEC Alpha, and "set remotedebug" improvement.
 
-	* Makefile.in (VERSION):  GDB 4.10 release.
-	* NEWS:  Touchups for 4.10 release.
-	* README:  Touchups for 4.10 release.
+	* README:  Add note from Peter Schauer about OSF/1 shared
+	libraries.  Add note from Pace Willisson about configuring on BSDI
+	BSD/386 release 1.0.  Update gdb references to gdb 4.11.
 
-Wed Aug 11 10:13:48 1993  Fred Fish  (fnf@deneb.cygnus.com)
+Mon Oct 25 11:08:59 1993  Stu Grossman  (grossman at cygnus.com)
 
-	* Makefile.in (VERSION): bumped version to 4.9.89.
+	* infrun.c (wait_for_inferior):  Fix PC out of objfile bounds
+	check to just use stop_func_name == 0.
+	* remote-udi.c (store_register):  Invalidate NPC/PC_REGNUM after
+	changing PC.
+
+Sun Oct 24 09:31:05 1993  Fred Fish  (fnf@lisa.cygnus.com)
+
+	* elfread.c (elf_symtab_read):  Use bfd convention that both
+	initialized and uninitialized data sections have the SEC_ALLOC
+	flag bit set, but only initialized sections have SEC_LOAD set.
+	SEC_DATA is ignored since it only gets set for initialized 
+	data.
+
+Fri Oct 22 20:38:27 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
+
+	* configure.in, gdbserver/configure.in: handle mips*- instead of
+	  mips, mips*el instead of mips-*-*l for little endian mips
+
+Fri Oct 22 07:49:54 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabsread.c (define_symbol): Skip the whole thing about "pcc
+	promotion" on little-endian machines.
+
+	* remote-vx.c (vx_wait): Rename pid parameter to pid_to_wait_for.
+	Some compilers (legitimately) don't like variables in the
+	function's outermost block whose name is the the same as the name of
+	a parameter.
+
+	* configure.in: Add * to end of all OS names.
+
+Fri Oct 22 06:14:01 1993  Fred Fish  (fnf@cygnus.com)
+
+	* Makefile.in (ALLPARAM):  Add config/m88k/xm-delta88v4.h
+
+Thu Oct 21 15:58:48 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
+
+	* remote-mips.c (mips_wait): add pid argument.
+
+Thu Oct 21 02:59:07 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* remote-udi.c (udi_store_registers, store_register):  Use
+	UDI29KPC address space when modifying PC.  It seems that you can't
+	modify the PC directly (at least in the isstip simulator).
+
+Wed Oct 20 14:34:38 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* config/i386/xm-go32.h: define some signals if they aren't
+	  already defined.
+
+Wed Oct 20 09:29:55 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* main.c:  Make baud_rate and remote_debug be global variables,
+	remove #include "remote-utils.h".  This makes it possible to build
+	GDB without remote-utils.c.  Also, move setting of remote_debug
+	into main, so that all remote*.c files can use it (not just the
+	serial line ones).  And, make baud_rate be an int.
+	* remote-udi.c:  Change kiodebug to remote_debug.
+	* remote-utils.c:  Move setting of baud rate and debug into main.c.
+	* remote-utils.h:  Redefine sr_{get set}_debug and sr_{get set}_baud
+	to use baud_rate and remote_debug globals for compatibility.
+	* remote.c:  Use remote_debug and baud_rate globals directly,
+	instead of sr_ functions, so that we don't need to load
+	remote-utils.c.
+	* config/a29k/a29k-udi.mt:  Define REMOTE_O as null so that we don't
+	get the default remote* modules.
+
+	* Makefile.in:  Add $(srcdir) to all refs to 29k-share
+	directories.
+
+Tue Oct 19 14:15:40 1993  Kung Hsu  (kung@cirdan.cygnus.com)
+
+	* values.c (value_virtual_fn_field): Fix the offset calculation
+	when calling virtual functions. (gdb.t22/virtfunc.exp).
+	* eval.c (evaluate_subexp): same as above.
+
+Tue Oct 19 13:14:59 1993  Fred Fish  (fnf@cirdan.cygnus.com)
+
+	* Makefile.in (ALLCONFIG):  Add config/i386/{i386m3.mh, i386m3.mt,
+	i386/i386mk.mh i386/i386mk.mt}, config/mips/{mipsm3.mh,
+	mipsm3.mt}, config/ns32k/{ns32km3.mh, ns32m3.mt}
+	* Makefile.in (remote_utils_h):  Add remote-sim.h
+	* Makefile.in (NONSRC):  Add i386-nlmstub.c
+	* Makefile.in (HFILES):  Add coff-solib.h
+
+Tue Oct 19 10:43:16 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* breakpoint.h (struct bpstat_what): Don't use bitfields.
+
+Tue Oct 19 09:28:52 1993  Stu Grossman  (grossman@cygnus.com)
+
+	* sparclite/Makefile.in:  Fixup so that this works with Sun make
+	and VPATH.
+
+Mon Oct 18 10:28:08 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* hppa-tdep.c (restore_pc_queue): Call target_terminal_ours after
+	done stepping the inferior.
+
+Mon Oct 18 10:25:23 1993  Fred Fish  (fnf@cirdan.cygnus.com)
+
+	* Makefile.in (ALLPARAM):  Add config/m88k/{nm-delta88v4.h,
+	tm-delta88v4.h, xm-dgux.h}.
+	* Makefile.in (ALLCONFIG):  Add config/m88k/{delta88v4.mh,
+	delta88v4.mt}.
+
+	* README:  Remove comment about SunOS 5.x programs leaving
+	coredumps.  Info from Sun is that this was not in customer
+	releases.
+
+Mon Oct 18 10:28:08 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* buildsym.c (finish_block): If we pop the context stack and it is
+	not empty, complain () instead of abort ().
+
+Sun Oct 17 19:42:31 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* parse.c, parser-defs.h (follow_types): New function.
+	* c-exp.y (ptype : typebase abs_decl): Use it.
+	* c-exp.y (ptype): Add support for type qualifiers after the
+	typebase.  The typebase rule already has support for them before
+	the typebase.
+	* Makefile.in: Change the expected number of shift/reduce
+	conflicts to 6.  This is OK--the 2 new conflicts are basically the
+	same as one of the old ones.
+
+Sun Oct 17 09:18:57 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* infrun.c (wait_for_inferior): Clean up comments which were at
+	the top of the file, making them more concise and moving them with
+	the code (Sorry, Randy, but these stream-of-consciousness comments
+	really have to go).  Switch the order of the "&&", which makes
+	things clearer and turns out to be an improvement with respect to
+	side effects and speed.
+
+Sun Oct 17 02:06:01 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* procfs.c:  Handle process exits more elegantly by trapping on
+	entry to _exit.  Also, cleanup procinfo list when process dies of
+	it's own accord (as opposed to being killed).
+
+Sat Oct 16 20:47:30 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* config/m88k/xm-dgux.h: Define NO_PTRACE_H.
+
+	* corelow.c (add_to_thread_list): Need a cast to go from PTR to
+	asection *.
+
+	* infrun.c: Add comment about signals.
+
+	* fork-child.c (fork_inferior): Remove CREATE_INFERIOR_HOOK again.
+	Stu reinstated it (accidently I assume).
+
+Sat Oct 16 15:27:10 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* procfs.c (procfs_wait):  Losing Unixware can't do poll on /proc
+	files.  Use PIOCWSTOP instead.
+	* corelow.c (add_to_thread_list):  Fix arg to match prototype.
+
+	* procfs.c (procfs_set_sproc_trap):  Don't use this if sproc
+	isn't available.
+	* (procfs_notice_signals):  Fix prototype.
+
+Fri Oct 15 22:46:07 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* breakpoint.c (breakpoint_thread_match break_command_1):
+	Thread-specific breakpoint support.
+	* breakpoint.h (struct breakpoint):  Add thread id field.
+	* fork-child.c (fork_inferior):  Move call to init_thread_list()
+	back a bit so that init_trace_fun can do thread functions.
+	* hppa-tdep.c (restore_pc_queue):  Add pid to call to target_wait.
+	* hppab-nat.c (child_resume):  Handle default pid.
+	* hppah-nat.c (child_resume):  Handle default pid.
+	* i386lynx-nat.c (child_wait):  New arg pid.
+	* inflow.c (kill_command):  Reset thread list.
+	* infptrace.c (child_resume):  Handle default pid.
+	* infrun.c:  Thread-specific breakpoint support.
+	* inftarg.c (child_wait):  Add pid arg.
+	* osfsolib.c (solib_create_inferior_hook):  Add pid to call to
+	target_resume.
+	* procfs.c:  Multi-thread support.
+	* remote-bug.c (bug_wait):  Add pid arg.
+	* remote-hms.c (hms_wait):  Add pid arg.
+	* remote-mips.c (mips_wait):  Add pid arg.
+	* remote-mon.c (monitor_wait):  Add pid arg.
+	* remote-nindy.c (nindy_wait):  Add pid arg.
+	* remote-sim.c (gdbsim_wait):  Add pid arg.
+	* remote-udi.c (udi_wait):  Add pid arg.
+	* remote-vx.c (vx_wait):  Add pid arg.
+	* remote-z8k.c (sim_wait):  Add pid arg.
+	* remote.c (remote_wait):  Add pid arg.
+	* solib.c (solib_create_inferior_hook):  Add pid to call to
+	target_resume.
+	* target.h (struct target_ops):  Add pid arg to to_wait and
+	to_notice_signals.
+	* thread.c (valid_thread_id):  New func to validate thread #s.
+	* (pid_to_thread_id):  New func to do the obvious.
+	* thread.h:  Prototypes for above.
+
+	* coff-solib.c (coff_solib_add):  Use nameoffset field to locate
+	filename.
+
+Fri Oct 15 21:29:40 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* h8300-tdep.c, h8500-tdep.c: Define sim_load only, but not
+	sim_kill, sim_open, or sim_set_args.
+
+	* stack.c (print_stack_frame): Put catch_errors around
+	print_frame_info so (for example) error printing source doesn't
+	cause auto-displays to get skipped in normal_stop.
+
+	* findvar.c (value_from_register): When preparing to cast a value
+	from REGISTER_VIRTUAL_TYPE to type, copy the REGISTER_VIRTUAL_SIZE;
+	the old code didn't copy the whole thing.
+	* valops.c (value_assign): Add comment.
+
+Fri Oct 15 12:57:30 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mipsread.c (upgrade_type):  Replace bitsize sanity checks and
+	complaint by a comment explaining why they were useless. 
+
+Fri Oct 15 14:30:30 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Move comments on bypassing call dummy breakpoint from stack.c
+	to breakpoint.h.
+
+Fri Oct 15 11:52:56 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* symtab.c (lookup_partial_symtab):  If filename is not found and
+	contains no slashes, try again and compare without leading path
+	components.
+	* symtab.c (lookup_symtab_1):  Replace open coded version of
+	lookup_partial_symtab with a function call.
+
+Thu Oct 14 20:34:15 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* fork-child.c (fork_inferior), remote-eb.c (eb_create_inferior),
+	remote-mon.c (monitor_create_inferior), remote-nindy.c
+	(nindy_create_inferior), remote-st.c (st2000_create_inferior),
+	remote-vx.c (vx_create_inferior): Remove CREATE_INFERIOR_HOOK; it
+	is replaced by init_trace_fun.
+	* config/convex/xm-convex.h, convex-xdep.c: Add comments explaining
+	how to do without CREATE_INFERIOR_HOOK for whoever fixes the Convex
+	port.
+
+	* Makefile.in: Add Mach files to ALLDEPFILES, etc.
+	* m3-nat.c: Clean up more hair--message(), cprocs.
+	* configure.in: Recognize Mach targets and hosts.
+	* config/ns32k/tm-umax.h: Add some #ifndef's so tm-ns32km3.h can
+	include this file.
+	* Mach headers in config/*/tm-*.h: Fix includes to match correct
+	locations of files.
+
+Thu Oct 14 21:35:55 1993  Rob Savoye  (rob@darkstar.cygnus.com)
+
+	* remote-mon.c (general_open): Set dev_name. Minor tweaking to get
+	it working again.
+	* config/m68k/tm-monitor.h: Remove floating point register names
+	as there aren't any on any of the monitors that use this code.
+
+Wed Oct 13 11:47:23 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* inflow.c: Pass pointer to process group, not process group itself,
+	to TIOCSPGRP ioctl.
+
+	* inflow.c (terminal_ours_1): Don't print warning on failure to
+	set process group.
+
+	* printcmd.c (printf_command): Instead of using makeva* and
+	calling vprintf, just make the appropriate calls to printf.
+	* printcmd.c, config/pa/xm-pa.h, config/mips/xm-makeva.h,
+	config/alpha/xm-alpha.h, config/m88k/xm-m88k.h: Remove all
+	traces of makeva*.  My apologies to everyone (including me!)
+	who spent so much time getting it to work on various machines,
+	but look at the bright side, at least you won't have to do it
+	again in the future.
+
+	* printcmd.c (printf_command): Make a cleanup for val_args (fixes
+	a memory leak).
+
+Tue Oct 12 22:54:41 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* config/mips/xm-mips.h: Remove comment about HAVE_SGTTY vs. usleep.
+
+Tue Oct 12 12:01:29 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
+
+	* configure.in: only configure gdbserver for native environments
+
+Tue Oct 12 08:59:15 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabsread.c (read_type): Treat a negative type number at the start
+	of a type as a type reference, not as a definition of a type with
+	"50=" omitted.  This makes things work on the RS/6000 again (the
+	14 Sep 1993 change broke it).
+
+	* inflow.c: Use 0 (standard input) not scb->fd.
+	(terminal_ours_1): If printing warning, don't claim it happened in
+	terminal_inferior.
+
+	* blockframe.c (get_prev_frame_info): Don't error() if there are no
+	frames; just return NULL.
+
+	* xcoffsolib.h, xcoffexec.c: Undo the part of Fred's bfd->abfd
+	change which involved structure elements.  It was unnecessary and
+	was not consistently done.
+
+	* stabsread.h, stabsread.c, dbxread.c (common_block*, copy_pending):
+	Move common block handling from dbxread.c to stabsread.c.
+	Use the name from the BCOMM instead of the ECOMM.
+	Allocate things on the symbol_obstack.
+	* xcoffread.c (process_xcoff_symbol): Process C_BCOMM, C_ECOMM,
+	and C_ECOML.  On unrecognized storage classes, go ahead and call
+	define_symbol (after the complaint).
+
+	* dbxread.c (process_one_symbol): Don't relocate 'S' symbols by
+	the text offset.
+
+Tue Oct 12 12:33:09 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* osfsolib.c (solib_create_inferior_hook):  Reset stop_soon_quietly
+	after shared library symbol reading to get rid of warning from
+	heuristic_proc_start.
+
+Tue Oct 12 12:01:29 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
+
+	* remote-sim.c: fix unterminated character string
+
+Tue Oct 12 08:59:15 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabsread.c: Fix comment about gcc 2.3.3 stab for long long int.
+
+Mon Oct 11 14:27:25 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* m3-nat.c, config/nm-m3.h: Add a target_ops struct and other
+	various things to try to get this to work.
+
+	* symtab.h: Fix comments re headers, sharing blockvectors, etc.
+
+Mon Oct 11 11:46:06 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
+
+	* config/i960/vxworks960.mt (REMOTE_O): add dcache.o and remote-utils.o
+
+Mon Oct 11 02:48:57 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mipsread.c (parse_partial_symbols):  Do not add undefined
+	symbols to the partial symbol table.
+	* alpha-tdep.c (init_extra_frame_info):  Remove kludge for gcc,
+	gcc has to be compatible with the native tools.
+	* alpha-tdep.c (alpha_push_arguments):  Rename NUM_ARG_REGS to
+	ALPHA_NUM_ARG_REGS and move its definition to tm-alpha.h.
+	* config/alpha/tm-alpha.h (FRAME_ARGS_ADDRESS):  Change it to the
+	way the native tools define it, update comment.
+
+Sat Oct  9 18:51:09 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
+
+	* configure.in: recognize mips*- instead of mips-, use mips*el for
+	little endian mips
+
+Fri Oct  8 15:54:06 1993  Fred Fish  (fnf@deneb.cygnus.com)
+
+	* osfsolib.c, remote-sim.c, remote.c, solib.c, xcoffexec.c, 
+	xcoffsolib.h:  Use 'abfd' for bfd variables instead of 'bfd'.
+	Sun cc doesn't like variable names that match their typedef'd type.
+
+Fri Oct  8 14:56:21 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* inflow.c: Remove unused includes of sys/param.h and sys/types.h.
+
+	* inflow.c, ser-unix.c, ser-go32.c, ser-tcp.c, serial.h,
+	terminal.h, fork-child.c, main.c, utils.c: Move all the process
+	group stuff back to inflow.c and terminal.h; that's a better place
+	for it and fixes problems with trying to get/set the process group
+	of a tty we're doing remote debugging on.
+	* terminal.h: Skip the redefines and includes if HAVE_TERMIOS.
+
+	* findvar.c, value.h (symbol_read_needs_frame): New function.
+	* c-exp.y, m2-exp.y: Call it instead of having our own switch on
+	the symbol's class.
+	* valops.c (value_of_variable): Use symbol_read_needs_frame to
+	decide whether we care about finding a frame.
+
+Fri Oct  8 02:34:21 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* blockframe.c (get_frame_block):  Do not adjust pc if the frame
+	function was interrupted by a signal.
+
+Thu Oct  7 19:20:11 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* config/h8300/tm-h8300.h: Don't define sr_get_debug.
+	* remote-sim.c: Include remote-utils.h.
+	* target.h: Add comment about target_has_execution.
+
+Thu Oct  7 16:14:19 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
+
+	* h8300-tdep.c (sim_load, sim_kill, sim_open, sim_set_args):
+	New functions.
+	* infrun.c (normal_stop): Don't try and set the pc in the current
+	frame coredump if there isn't one.
+	* remote-sim.c (gdbsim_store_register): Don't
+	SWAP_TARGET_AND_HOST, sim_store_register takes bytes in raw order.
+	(gdbsim_wait): Set status with WSETSTOP.
+	* config/h8300/tm-h8300.h (sr_get_debug): Define
+
+Thu Oct  7 12:56:57 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	New Mach stuff:
+	* config/i386/i386mach.c: Explain this is for the old (probably
+	non-functional and/or obsolete) Mach stuff.
+	* m3-nat.c, config/nm-m3.h,
+	i386m3-nat.c, mipsm3-nat.c, ns32km3-nat.c,
+	config/i386/{i386m3.mh,i386m3.mt,tm-i386m3.h,xm-i386m3.h},
+	config/i386/{i386mk.mh,i386mk.mt,tm-i386mk.h,xm-i386mk.h},
+	config/mips/{mipsm3.mh,mipsm3.mt,tm-mipsm3.h,xm-mipsm3.h},
+	config/ns32k/{ns32km3.mh,ns32km3.mt,tm-ns32km3.h,xm-ns32km3.h}:
+	New files.
+
+	* blockframe.c (find_pc_partial_function): If we call
+	PSYMTAB_TO_SYMTAB, call target_terminal_ours_for_output first.
+	This is needed now that wait_for_inferior passes in endaddr.
+	* infrun.c: Move call to target_terminal_inferior from proceed
+	to resume.
+
+Thu Oct  7 09:22:04 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* blockframe.c (find_pc_partial_function):  Fix handling for PCs
+	beyond the end of the last function in an objfile.
+	* coff-solib.c (coff_solib_add):  Use BFD to get fields from .lib
+	section.
+	* infrun.c (wait_for_inferior):  Modify test for subroutine entry
+	to include pc out of bounds of the previous function.
+	* remote.c (remote_wait):  Use strtoul for parsing 'N' message.
+	Add code to relocate symfile_objfile->sections.
+
+Thu Oct  7 06:22:43 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* config/sparc/sun4os4.mh: Add comment saying why we don't use
+	-lresolv.
+
+Thu Oct  7 09:29:11 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* breakpoint.c, breakpoint.h (breakpoint_init_inferior):  New function
+	that clears the `inserted' flag for all breakpoints and deletes
+	any breakpoints which should go away between runs of programs.
+	* inflow.c (generic_mourn_inferior), infrun.c (init_wait_for_inferior),
+	remote-es.c (es1800_load), comments in exec.c and corelow.c:
+	Use it instead of mark_breakpoints_out.
+	* breakpoint.c (mark_breakpoints_out):  Update comment, tm-rs6000.h
+	uses it in a completely different context.
+	* breakpoint.c (breakpoint_re_set_one):  Add bp_call_dummy case.
+
+Thu Oct  7 09:29:11 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* Makefile.in (REGEX, REGEX1):  Always use our own version of
+	regex.c to be consistent across hosts.
+	* source.c (_initialize_source):  Initialize regex to use grep
+	style syntax as an approximation to POSIX basic regex syntax.
+
+Wed Oct  6 12:43:47 1993  Jeffrey A Law  (law@snake.cs.utah.edu)
+			  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* hppa-tdep.c (frame_chain): Rework so that it correctly
+	handles boundaries where code with a frame pointer calls code
+	without a frame pointer.
+	(dig_fp_from_stack): New function.
+
+Wed Oct  6 12:43:47 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* breakpoint.c (delete_breakpoint): Don't insert a disabled breakpoint.
+
+	* README: Add Alpha notes from Schauer.
+
+Tue Oct  5 15:26:04 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in (install, uninstall): Remove $$n.1 stuff; I don't
+	understand what it is trying to do, but I suspect it's not doing
+	it.
+
+	* config/ns32k/merlin.mh: Add comment about M_INSTALL.
+	* config/m88k/{delta88.mh,delta88v4.mh}: Remove M_INSTALL and
+	M_UNINSTALL; it tries to install a non-existent file gdb.z.
+	* Makefile.in: Remove M_INSTALL stuff; the above were the only uses.
+
+	* stabsread.c (read_range_type): Remove comment which recommends
+	distinguishing float from complex by the name.
+
+Tue Oct  5 12:17:40 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+			  Jim Kingdon  (kingdon@cygnus.com)
+			  Stu Grossman  (grossman@cygnus.com)
+
+	Changes to support alpha OSF/1 in native mode.
+	* alpha-nat.c, alpha-tdep.c, config/alpha/alpha-osf1.mt,
+	  config/alpha/nm-alpha.h, config/alpha/tm-alpha.h, osfsolib.c:
+	New files.
+	* Makefile.in:  Add new files and dependencies.
+	* configure.in:  Add alpha target.
+	* config/alpha/alpha-osf1.mh (NATDEPFILES):  Add osfsolib.o
+	* config/alpha/alpha-osf1.mh (MH_CFLAGS):  Remove, we can handle
+	shared libraries now.
+	* config/alpha/xm-alpha.h:  Cleanup, get MAKEVA_* defines right.
+
+	* defs.h (CORE_ADDR):  Make its type overridable via CORE_ADDR_TYPE,
+	provide `unsigned int' default.
+	* breakpoint.c (breakpoint_auto_delete):  Delete only if we really
+	stopped for the breakpoint.
+	* stabsread.c, stabsread.h (define_symbol):  Change valu parameter
+	to a CORE_ADDR.
+	* stabsread.c (read_range_type):  Handle the case where the lower
+	bound overflows and the upper doesn't and the range is legal.
+	* infrun.c (resume):  Do not step a breakpoint instruction if
+	CANNOT_STEP_BREAKPOINT is defined.
+
+	* inferior.h (CALL_DUMMY_LOCATION):  New variant AT_ENTRY_POINT.
+	Now that we have the bp_call_dummy breakpoint the call dummy code
+	is no longer needed. PUSH_DUMMY_FRAME, PUSH_ARGUMENTS and
+	FIX_CALL_DUMMY can be used to set up everything for the dummy.
+	The breakpoint for the dummy is set at the entry point and thats it.
+	* blockframe.c (inside_entry_file, inside_entry_func):  Do not stop
+	backtraces if pc is in the call dummy at the entry point.
+	* infcmd.c (run_stack_dummy):  Handle AT_ENTRY_POINT case. Use
+	the expected breakpoint pc when setting up the frame for
+	set_momentary_breakpoint.
+	* symfile.c (entry_point_address):  New function for AT_ENTRY_POINT
+	support.
+	* valops.c (call_function_by_hand):  Handle AT_ENTRY_POINT case.
+
+Tue Oct  5 11:37:02 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* configure.in: Recognize hppa*-*-hiux* (currently synonym for hpux).
+	Change other hppa host entries to use -*- not -hp-.
+
+Mon Oct  4 19:16:14 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* i386-nlmstub.c: New file; debugging stub for i386 NetWare.  Must
+	be compiled with NetWare header files and turned into an NLM with
+	nlmconv.
+
+Mon Oct  4 11:02:11 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* minsyms.c (lookup_minimal_symbol_by_pc): Don't use mst_abs symbols.
+
+	* dbxread.c (process_one_symbol): Make n_opt_found static.
+
+	* Rename i386lynx-tdep.c to i386ly-tdep.c for 14 character file names.
+	* Makefile.in, config/i386/i386lynx.mt: Change accordingly.
+
+	* values.c (record_latest_value): Fetch lazy values and set VALUE_LVAL
+	to not_lval.
+
+Sun Oct  3 15:54:51 1993  Stan Shebs  (shebs@rtl.cygnus.com)
+
+	* objfiles.h (objfile): New slot sym_stab_info, use by most
+	stab-reading formats.
+	* gdb-stabs.h (DBX_SYMFILE_INFO): Access sym_stab_info instead of
+	sym_private.
+	* coffread.c (coff_symfile_init): Alloc struct for sym_stab_info.
+	* dbxread.c, elfread.c, paread.c: Change sym_private references to
+	sym_stab_info references.
+
+Sat Oct  2 19:28:35 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* mipsread.c, objfiles.c, utils.c: Use PTR not void *.  RISC/OS
+	4.02 lacks void *.
+	* elfread.c: Use void * not PTR inside PARAMS.
+
+	* config/mips/news-mips.mh: Remove coredep.o; mips-nat.o does it.
+	* config/mips/news-mips.mh: Define NAT_FILE not NM_FILE.
+	* config/mips/nm-news-mips.h: Include mips/nm-mips.h not nm-mips.h.
+
+Sat Oct  2 16:05:22 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* Makefile.in, coff-solib.c, coff-solib.h, i386lynx.mt,
+	tm-i386lynx.h:  Add support for SVR3 COFF shared libraries.
+
+Sat Oct  2 15:50:41 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* m88k-nat.c (store_inferior_registers): When writing all registers,
+	don't try to write EXIP_REGNUM or ENIP_REGNUM (not needed for this
+	case, and they cause trouble).
+
+	* TODO: Don't suggest doing fast watchpoints by stepping a line
+	at a time.  That would be really hairy and still not fast enough.
+	Do suggest debug registers and page table diddling.
+
+Fri Oct  1 14:54:46 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* printcmd.c (do_examine): Make meaning of 'h', 'w', and 'g' not
+	depend on builtin_type_*.  Instead, it is always 2, 4, and 8 bytes
+	like the documentation says.
+	* printcmd.c (decode_format) [CC_HAS_LONG_LONG]: Remove 'l' as
+	synonym for 'g'.  This was never documented, it shouldn't depend on
+	CC_HAS_LONG_LONG, and I don't see what's wrong with 'g'.
+
+Fri Oct  1 10:06:35 1993  Kung Hsu  (kung@cirdan.cygnus.com)
+
+	* symtab.c: fix a bug in testsuite (virtfunc.exp)
+
+Thu Sep 30 11:30:56 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* m88k-nat.c (fill_gregset): Fix typo (R_SFIP -> R_FIP).
+
+	* c-typeprint.c (c_type_print_base, TYPE_FN_FIELD_STUB code):
+	If demangled name lacks a colon, don't dump core.
+
+	* blockframe.c (find_pc_partial_function): If pst->readin is
+	set, don't try to get symbols from pst.
+
+	* inflow.c (generic_mourn_inferior): Call reinit_frame_cache
+	instead	of doing it ourself.
+	* blockframe.c (reinit_frame_cache): Use code which was in
+	generic_mourn_inferior so we can use this function even when
+	we have switched targets.
+	* corelow.c (core_detach): Call reinit_frame_cache.
+	* target.c (target_detach): Don't call generic_mourn_inferior
+	(revert yesterday's change, now handled by core_detach).
+	* objfiles.c (free_objfile): Detach any core file if we call
+	SOLIB_CLEAR.  #include target.h.
+
+	* fork-child.c (fork_inferior): Don't call target_terminal_init
+	and target_terminal_inferior until we are sure that the inferior
+	has called gdb_setpgid.  This fixes PR 2900 (Schauer tracked it
+	down and was able to reliably reproduce it by putting a sleep()
+	before the gdb_setpgid()).
+
+Thu Sep 30 12:00:49 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* c-exp.y, m2-exp.y:  Change type of address for msymbol to
+	builtin_type_long.
+	* infptrace.c (fetch_register, store_inferior_register,
+	child_xfer_memory):  Use PTRACE_XFER_TYPE for the type of ptrace
+	transfers. Provide an `int' default for PTRACE_XFER_TYPE.
+
+Thu Sep 30 11:30:56 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* defs.h (TARGET_*_BIT): Don't use host information (sizeof) in
+	picking defaults.
+
+	* cp-valprint.c (cp_is_vtbl_ptr_type): Continue to accept old form.
+
+Thu Sep 30 11:25:55 1993  Kung Hsu  (kung@cygnus.com)
+
+	* cp-valprint.c (cp_is_vtbl_ptr_type):
+	change vtable field name to __vtbl (pr2695).
+
+	* symtab.c (gdb_mangle_name): fix a bug, to get mangled name right.
+
+Wed Sep 29 18:34:22 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* Makefile.in:  Add deps for i386lynx-nat.o and i386lynx-tdep.o to
+	keep non-gnu makes happy.
+
+Wed Sep 29 10:52:19 1993  Kung Hsu  (kung@cygnus.com)
+
+	* c-valprint.c: to fix virtual table print bug (pr2695).
+
+Wed Sep 29 10:52:19 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* target.c (target_detach): Call generic_mourn_inferior.
+	* inflow.c (generic_mourn_inferior): Call flush_cached_frames.
+
+Tue Sep 28 23:08:59 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* dbxread.c, coffread.c, elfread.c: A few changes to comments.
+
+Tue Sep 28 18:39:37 1993  Stan Shebs  (shebs@rtl.cygnus.com)
+
+	* configure.in: Rename ...-lynx* to ...-lynxos*.
+	Add m68*-*-lynxos* configuration.
+	* dbxread.c (coffstab_build_psymtabs): New function,
+	interfaces coffread.c to dbxread functions.
+	* coffread.c (coff_symfile_info):  Expand to include
+	dbx_symfile_info slots.
+	(coff_symfile_init): Init coff_symfile_info struct.
+	(coff_locate_sections): New functions, finds the stab and stabstr
+	sections.
+	(coff_symfile_read): Call coffstab_build_psymtabs if a stab
+	section is present.
+	(coff_section_offsets): Replace fake version with real offsets.
+
+Tue Sep 28 18:00:50 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* infcmd.c (run_stack_dummy): Set the frame in the bp_call_dummy
+	breakpoint.
+
+Tue Sep 28 17:53:26 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* config/nm-sysv4.h: Include solib.h.  Define SVR4_SHARED_LIBS.
+	* config/tm-sysv4.h: Don't include solib.h.
+	* config/xm-sysv4.h: Don't define SVR4_SHARED_LIBS.
+	* config/i386/i386v4.mt (TDEPFILES): Move solib.o from here...
+	* config/i386/i386v4.mh (NATDEPFILES): ...to here.
+	* config/i386/nm-i386v4.h: Include nm-sysv4.h.
+	* config/m68k/amix.mt (TDEPFILES): Move solib.o from here...
+	* config/m68k/amix.mh (NATDEPFILES): ...to here.
+
+Tue Sep 28 09:45:38 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* symmisc.c (print_symbol): Use %02x not %2x for LOC_CONST_BYTES.
+
+	Clean up problems with targets and hosts that have 64 bit longs
+	and pointers and 32 bit ints.
+	* breakpoint.c, buildsym.c, c-lang.c, c-valprint.c, ch-lang.c,
+	ch-valprint.c, core.c, cp-valprint.c, dbxread.c, exec.c,
+	expprint.c, gdbtypes.c, infcmd.c, language.c, language.h,
+	m2-lang.c, maint.c, mips-tdep.c, mipsread.c, partial-stab.h,
+	printcmd.c, remote-vx.c, solib.c, source.c, stack.c, symfile.c,
+	symmisc.c, symtab.c, valops.c, valprint.c, xcoffexec.c:
+	Change all printf formats from %x to %lx if outputting an address.
+	Change la_*_format to use long format.
+	local_hex_string, local_hex_string_custom now take an unsigned long
+	argument, change all callers.
+	* coffread.c (read_coff_symtab):  Remove superfluous cast for
+	complaint output.
+	* dbxread.c (end_psymtab):  Cast MSYMBOL_INFO to long, not int.
+	* findvar.c, value.h (write_register):  Change val to LONGEST.
+	* gdbtypes.h (struct type):  Change `bitsize' to long as
+	TYPE_FIELD_STATIC_PHYSNAME uses this field as a pointer.
+	* inferior.h (struct inferior_status):  Change type of stop_pc to
+	CORE_ADDR.
+	* language.h (local_octal_string, local_octal_string_custom):
+	Remove prototype, the functions are neither defined nor used.
+	* mipsread.c (parse_symbol):  Use temporary variable for bitsize as
+	f->bitsize is a long now.
+	* objfiles.c (add_to_objfile_sections, build_objfile_section_table):
+	Use unsigned long casts instead of int for abusing sections_end
+	pointer as integer.
+	* stack.c (parse_frame_specification):  Change type of `args' to
+	CORE_ADDR for SETUP_ARBITRARY_FRAME.
+
+	* printcmd.c (make_vasize):  Allow redefinition via MAKEVA_SIZE.
+	* mipsread.c (parse_type):  Alpha cc now supports the t->continued
+	bit, update algorithm to match the way the compiler uses it.
+
+Tue Sep 28 12:05:11 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* utils.c (fprintfi_filtered): Fix comments.
+
+Mon Sep 27 18:10:08 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* coffread.c (read_coff_symtab):  Don't call getfilename if there
+	are no auxents.
+
+Mon Sep 27 10:22:37 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* symtab.c (find_pc_line): Fix comments.
+
+	* remote-udi.c (udi_mourn): Don't pop target.
+
+Fri Sep 24 17:25:41 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* corelow.c:  Add multi thread/process support for core files with
+	.reg/XXX pseudo-sections.
+	* i386lynx-nat.c thread.h thread.c:  Remove unnecessary core file
+	support.
+
+Thu Sep 23 10:49:37 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* remote-udi.c (download): Skip zero length sections.
+
+	* valops.c (search_struct_method, value_struct_elt):
+	Use (value)-1, not -1, for error.
+
+	* infcmd.c (step_1), infrun.c (wait_for_inferior): Add comments
+	about SHIFT_INST_REGS.
+
+	* exec.c (exec_file_command): Set text_end based on all code readonly
+	sections, not just ".text".
+
+	* defs.h, infcmd.c, config/z8k/tm-z8k.h, config/m88k/tm-m88k.h,
+	config/sh/tm-sh.h, config/h8300/tm-h8300.h, config/h8500/tm-h8500.h,
+	z8k-tdep.c: Remove all references to ADDR_BITS_SET.
+	* config/m88k/tm-m88k.h: Define TARGET_WRITE_PC.
+
+	* config/m88k/tm-m88k.h, m88k-tdep.c: Add call function stuff.
+
+Thu Sep 23 00:13:06 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* config/mips/tm-mips.h (STORE_STRUCT_RETURN):  Define as noop as
+	the pushing of the struct return address is already handled in
+	mips_push_arguments.
+	* mips-tdep.c (reinit_frame_cache_sfunc):  Fix typo in prototype
+	declaration.
+	* mipsread.c (parse_symbol, parse_type, upgrade_type):  Add more
+	sanity checks for corrupt symbol entries to avoid core dumps
+	reported by benson@odi.com. Obviously Ultrix 4.3A cc now has
+	the same problems as the OSF/1 alpha cc.
+	* mipsread.c (parse_lines):  Iterate over the range of the compressed
+	line number entries, the old iteration sometimes failed to stop
+	and wrote past the end of the LINETABLE. Add sanity check to avoid
+	the same problem in case the line number info is corrupt.
+	* mipsread.c (parse_procedure):  Adjust pdr for alpha __sigtramp.
+	* mipsread.c (parse_external, parse_partial_symbols):  Ignore stNil
+	symbols that are produced for statics in .o files and stLocal symbols
+	that are produced for every section in OSF/1 dynamically linked
+	 executables.
+	* mipsread.c (psymtab_to_symtab_1):  Put out `undefined symbols'
+	warning only under `verbose on' as there are many undefined symbols
+	in a dynamically linked executable.
+
+Wed Sep 22 10:28:06 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* config/i960/nindy960.mt: Don't define REMOTE_O; REMOTE_O was
+	intended only for VxWorks.  Remove dcache.o from TDEPFILES now
+	that we pick it up from the default REMOTE_O.
+
+	* breakpoint.c (bpstat_what): Initialize retval.call_dummy and
+	retval.step_resume.
+
+	* mips-tdep.c (mips_frame_chain): If frame size zero, return zero.
+	* rs6000-tdep.c: Add comment about framelessness.
+
+	* remote-nindy.c: Declare ninMemGet and ninMemPut.
+
+Wed Sep 22 08:02:57 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* Makefile.in:  Add i386lynx-tdep to the right places.
+	(TARDIRS):  Add gdbserver.
+
+	* exec.c (print_section_info):  Print entry point.
+	* i386lynx-nat.c (i386lynx_saved_pc_after_call):  Move into
+	i386lynx-tdep.c.  Add core file support.
+	* i386lynx-tdep.c:  New module for Lynx/386 target dependant code.
+	* maint.c:  Add `maint info sections' command to print info about all
+	sections that BFD knows about for exec and core files.
+	* sparc-tdep.c (sparc_push_dummy_frame):  Update stack pointer
+	before putting frame on the stack.  Consolidate writes to reduce
+	traffic for remote debugging.
+	* config/i386/i386lynx.mh (NATDEPFILES):  Remove exec.o.
+	* config/i386/i386lynx.mt (TDEPFILES):  Add exec.o, i386lynx-tdep.o.
+	* config/i386/nm-i386lynx.h:  Add target_pid_to_str().
+	* config/i386/tm-i386lynx.h:  Remove target_pid_to_str().
+	* sparclite/Makefile.in:  Add deps to keep Sun make happy.
+
+Tue Sep 21 17:48:14 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* breakpoint.h, breakpoint.c (bpstat_stop_status): Add new argument
+	not_a_breakpoint.
+	* infrun.c (wait_for_inferior): Pass it.  Also consolidate the
+	test of whether we are stepping into a CURRENTLY_STEPPING macro.
+
+Tue Sep 21 17:22:34 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* breakpoint.c (bpstat_stop_status),
+	  infcmd.c (step_1),
+	  infrun.c (wait_for_inferior): collapse SHIFT_INST_REGS ifdef
+	  and insert macro.
+
+	* m88k-tdep.c: include ieee-float.h.  new global target_is_m88110.
+	  new const struct ext_format_m88110 for float format.
+	  (pic_prologue_code): add braces.
+	  (next_insn): remove unused variable buf.
+	  (frame_find_saved_regs): remove unused variables next_addr,
+	  saved_regs, regnum.
+	  (frame_locals_address): remove unused variables frame, ap.
+	  (frame_args_address): remove unused variables frame, ap.
+	  (push_parameters): add some breaks and a default case.
+
+	* remote-bug.c: remove redundant includes of value.h, target.h,
+	  serial.h.
+	  (bug_open): corrected typo, sr_multi_scan -> gr_multi_scan.
+	  (bug_fetch_register): special case sfip register for m88110.
+	  remove flag bit masking of pc registers.  This should be handled
+	  by the ADDR_BITS_* macros.
+	  (bug_store_register): special case sfip register for m88110.
+	  Corrected sprint format for extended registers.
+
+	* config/m88k/tm-m88k.h: white space and comment changes.  include
+	  ieee-float.h. expanded to cope with m88110 extended registers.
+	  (R0_REGNUM, XFP_REGNUM, X0_REGNUM): new macros.
+	  (SHIFT_INST_REGS): becomes a real macro.
+
+Tue Sep 21 17:48:14 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* breakpoint.c (breakpoint_1): Support bp_call_dummy.
+
+Tue Sep 21 17:06:19 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* elfread.c (record_minimal_symbol_and_info): Guess the section to
+	use from the type.
+	* objfiles.c: Include gdb-stabs.h for SECT_* macros.
+	(objfile_relocate): Relocate textlow and texthigh in psymtabs.
+	Relocate partial symbols.  Check that minimal SYMBOL_SECTION is
+	nonnegative before using it.
+	* symtab.h: Adjust section field comment.
+
+	* remote.c (interrupt_query): New function.
+	(remote_interrupt_twice): Call interrupt_query.
+	(putpkt, getpkt): If quit_flag is set, call interrupt_query.
+	(remote_wait): Don't bother with objfile_relocate if the addresses
+	haven't changed.
+	(remote_fetch_registers): If we see a packet that doesn't start
+	with a hex character, fetch a new one.
+
+Tue Sep 21 11:44:00 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* remote.c, remote-utils.c: Use SERIAL_FLUSH_INPUT after opening it.
+
+	* printcmd.c (print_scalar_formatted): When truncating value we are
+	going to print as unsigned, handle it generally for any length
+	less than sizeof (LONGEST), rather than special-casing sizeof (char),
+	sizeof (short), and sizeof (long).  Clarify comment on what this
+	is for.
+
+	* symfile.c (deduce_language_from_filename): Accept .cxx for C++.
+	* buildsym.c (start_subfile): Use deduce_language_from_filename
+	rather than checking for .C or .cc ourself.
+
+Mon Sep 20 14:53:11 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* defs.h: Declare argument of re_comp as const char *.
+
+	* remote.c, remote-mips.c: Use sr_get_debug not remote_debug.
+
+	* README: Say using bfd from another release doesn't generally work.
+
+Sat Sep 18 10:13:18 1993  Jim Kingdon  (kingdon@poseidon.cygnus.com)
+
+	* mipsread.c (parse_type): Don't complain() if we guessed struct
+	and it was a union, or vice versa.
+
+	* defs.h (make_cleanup): Change PTR to void * when inside PARAMS.
+
+	Some of the following is in #ifdef CALL_DUMMY_BREAKPOINT_OFFSET.
+	* breakpoint.h (enum bptype): Add bp_call_dummy.
+	(struct bpstat_what): Add call_dummy field.
+	* infrun.c (wait_for_inferior): Deal with it.
+	* breakpoint.c (bpstat_what): Deal with call dummy breakpoint.
+	* infcmd.c (run_stack_dummy): Set the call dummy breakpoint.
+	* config/sparc/tm-sparc.h: Define CALL_DUMMY_BREAKPOINT_OFFSET.
+
+	* remote-sim.h: New file.
+	* remote-sim.c: Add remote debug feature.  Rename stuff to distinguish
+	interface to simulator from gdb-specific stuff.  Other changes.
+
+Fri Sep 17 04:41:17 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* findvar.c (extract_signed_integer):  Cast *p to LONGEST before doing
+	the xor and subtract.  Otherwise it will not sign extend if the type
+	of LONGEST is larger than int.
+	* cp-valprint.c (cp_print_class_method):  Inhibit core dump if
+	domain is an undefined cross reference.
+	* valops.c (call_function_by_hand):  Set real_pc to correct
+	value if CALL_DUMMY_LOCATION != ON_STACK.
+
+Thu Sep 16 20:37:06 1993  Jim Kingdon  (kingdon@cirdan.cygnus.com)
+
+	* config/a29k/tm-a29k.h (FRAME_CHAIN): If rsize is zero, return zero.
+
+Thu Sep 16 13:16:22 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* infrun.c (wait_for_inferior):  Allow user to single step within
+	a stack dummy.
+
+Thu Sep 16 12:34:01 1993  Jim Kingdon  (kingdon@cirdan.cygnus.com)
+
+	* dbxread.c (copy_pending): Deal with END NULL.
+	(process_one_symbol): Add comments about what common_block NULL means.
+
+Wed Sep 15 14:50:26 1993  Jim Kingdon  (kingdon@cirdan.cygnus.com)
+
+	* remote-udi.c, remote-adapt.c, remote-mm.c: Move processor_type
+	to tm-a29k.h and a29k-tdep.c and make it an enum.
+	* a29k-tdep.c (a29k_get_processor_type): New function.  Fix many
+	aspects of how we detected the processor type.
+	* remote-udi.c, remote-adapt.c, remote-mm.c (*_open): Call it
+	rather than figuring out the type ourselves.
+
+Thu Sep 16 12:12:59 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* sparc-stub.c (_trap_low):  Do restore/save sequence after
+	setting sp to ensure that we load the previous window from the
+	right place on the stack.
+
+Thu Sep 16 00:36:32 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mipsread.c:  Many changes for alpha ecoff format:
+	Correct sizeof(int) == sizeof(long) assumptions.
+	Replace stParsed hack by putting the parsed types on the pending chain.
+	Replace mips specific ecoff mapping by ECOFF_REG_TO_REGNUM macro,
+	provide default for cross debugging.
+	Swapping the symbol back is no longer needed as the symbol is not
+	modified anymore.
+	Add new alpha basic types, handle btTypedef, handle stStaticProc
+	external symbols .
+	Update and clean up cross_ref for alpha cc cross ref variations.
+	Allocate types on the type_obstack to inhibit storage leaks.
+	* config/mips/tm-mips.h (ECOFF_REG_TO_REGNUM):  Define.
+	* gdbtypes.c (recursive_dump_type):  Dump TYPE_TAG_NAME if it is set.
+
+Tue Sep 14 09:12:17 1993  Jim Kingdon  (kingdon@cirdan.cygnus.com)
+
+	* stabsread.c (read_type): Process "s" (size) type attribute.
+	If type is defined to another type, copy the type.
+
+Tue Sep 14 18:37:17 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* config/i386/i386v4.mh (NATDEPFILES): Move exec.o from here...
+	* config/i386/i386v4.mt (TDEPFILES): ...to here.
+
+Tue Sep 14 12:21:49 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* Makefile.in (remote_utils_h): add serial.h and target.h.
+	  (main.o, remote-es.o, remote-nindy.o, remote.o): remove target.h
+	  (already in remote_utils_h).
+	  (remote-utils.o): new rule.
+
+	* remote-utils.h: include serial.h.
+
+	* serial.h: ifdef protect from multiple inclusion.
+
+	* remote.c, remote-nindy.c, remote-mon.c, remote-es.c: include
+	  remote-utils.h.
+
+	* remote.c (remote_open), remote-nindy.c (nindy_open,
+	  nindy_files_info), remote-mon.c (general_open), remote-es.c
+	  (es1800_open): use remote-utils facilities for baud rate.
+
+Tue Sep 14 09:12:17 1993  Jim Kingdon  (kingdon@cirdan.cygnus.com)
+
+	* paread.c, coffread.c, elfread.c, dwarfread.c:
+	Include <time.h> and <sys/types.h> before libbfd.h.
+
+	* paread.c: Define BYTES_IN_WORD before including aout/aout64.h.
+
+	* Makefile.in (a29k-tdep.o): Depend on $(defs_h).
+	* config/a29k/tm-a29k.h (SAVED_PC_AFTER_CALL): Use gr122 not lr0
+	if this	is a transparent procedure.
+
+Mon Sep 13 16:06:43 1993  Jim Kingdon  (kingdon@cirdan.cygnus.com)
+
+	* remote.c: Define remote_debug to 0 and #if 0 baud_rate.  Temporary
+	hack so this file compiles again.
+
+	* remote-utils.c (gr_multi_scan): Cast return value from alloca.
+	(gr_multi_scan): #if 0 never-reached return(-1).
+
+	* remote-udi.c (udi_wait): Return inferior_pid not 0.
+
+Mon Sep 13 14:14:35 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	Collect some remote things into remote-utils.
+	* remote-utils.[ch]: new files of functions collected from several
+	  different remote targets.
+	* Makefile.in (REMOTE_O): add remote-utils.o.
+	  (dcache_h, remote_utils_h): new macros.
+	  (HFILES): add $(remote_utils_h).
+	  (ALLDEPFILES): add $(remote_utils_h).
+	  (dcache.o): new rule.
+	  (main.o, remote-bug.o): also depend on $(remote_utils_h).
+	* target.h (remote_debug): extern moved to remote-utils.h.
+	* target.c (find_default_run_target, find_core_target): initialize
+	  runable.
+	  (remote_debug): moved to remote-utils.c.
+	  (_initialize_targets): move declaration of user variable
+	  remotedebug to remote-utils.c.
+	* remote-bug.c: include remote-utils.h rather than dcache.h.
+	  (bug_close, bug_write, bug_write_cr, desc, bug_dcache, timeout,
+	  dev_name, check_open, is_open, readchar, readchar_nofail,
+	  pollchar, expect, expect_prompt, get_hex_digit, get_hex_byte,
+	  get_hex_word, bug_kill, bug_detach, bug_create_inferior,
+	  multi-scan, bug_prepare_to_store, bug_fetch_word,
+	  bug_store_word, bug_files_info, bug_mourn, bug_com, bug_device,
+	  bug_speed): removed and replaced with facilities from
+	  remote-utils.[ch].
+	  (bug_read_inferior_memory): renamed to bug_read_memory.
+	  (bug_write_inferior_memory): renamed to bug_write_memory.
+	  (bug_xfer_inferior_memory): renamed to bug_xfer_memory.
+	  (get_word): comment out this unused function for now.
+	  (bug_settings, cpu_check_strings): new statics.
+	  (bug_open): rewritten to use gr_open.
+	  (_initialize_remote_bug): remove declarations of commands bug,
+	  device, speed.
+	* main.c: include remote-utils.h.
+	  (baud_rate): removed to remote-utils.c.
+	  (main): handle baud rate settings using new facilities from
+	  remote-utils.
+	* defs.h (baud_rate): removed extern.
+
+	m88110 support via bug-197 monitor.
+	* remote-bug.c (get_reg_name, bug_fetch_register,
+	  bug_store_register): added m88110 extended register support.
+	  (wait_strings): added bug-197 prompt.
+	  (bug_wait): cope with bug-197 prompt.
+	  (start_load): cope with either bug-197 or bug-187 prompt.
+
+Mon Sep 13 12:53:09 1993  Jim Kingdon  (kingdon@cirdan.cygnus.com)
+
+	* inferior.h, infrun.c, thread.c, infcmd.c: Remove all uses of
+	pc_changed.  If it was ever set to a non-zero value, it was before
+	GDB 2.8.  It doesn't seem to have any useful function.
+
+	* defs.h: Don't define NORETURN (see comment).
+
+Sat Sep 11 10:46:09 1993  Jim Kingdon  (kingdon@poseidon.cygnus.com)
+
+	* m88k-nat.c (fill_gregset): Set r31 and sfip.
+
+Thu Sep  9 10:18:29 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* remote-udi.c (udi_wait, case UDIStdinNeeded): Use a loop calling
+	getchar() (terminated only on '\n') instead of scanf.  Send the
+	'\n' which terminates it to the remote system.
+
+	More gcc lint:
+	* exec.c (ignore): Return 0.
+	* stack.c (return_command): Fetch lazy value directly, not via
+	VALUE_CONTENTS, to avoid "value computed is not used".
+	* inflow.c (new_tty): Move osigttou inside #if.
+
+	* remote.c (remote_fetch_registers): If remote reply is short, just
+	note that fact and keep going (reading extra registers as all bits 0).
+	(remote_store_registers): Send number of registers that were found
+	by remote_fetch_registers.
+	* m68k-tdep.c, config/m68k/tm-m68k.h, config/m68k/tm-*.h: Remove
+	HAVE_68881.  Define CANNOT_STORE_REGISTER if ptrace() can't write
+	floating registers.
+	* config/m68k/{tm-m68k-nofp.h,m68k-nofp.mt,tm-m68k-fp.h,m68k-fp.mt}:
+	Remove, replaced by {tm-m68k-em.h,m68k-em.mt}.
+	* Makefile.in, configure.in: Change accordingly.
+
+Thu Sep  9 04:59:03 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mipsread.c (cross_ref):  Allow SGI extended symbol types as cross
+	reference targets.
+	* symmisc.c (print_symbol):  Use TYPE_TAG_NAME not TYPE_NAME to avoid
+	printing of identities.
+
+Wed Sep  8 19:18:27 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* breakpoint.c (breakpoint_1): Deal with step resume breakpoint.
+
+Wed Sep  8 13:01:10 1993  K. Richard Pixley  (rich@cygnus.com)
+
+	Gcc lint.
+	* config/m88k/tm-m88k.h (frame_find_saved_regs): prototype.
+	* config/h8300/tm-h8300.h (NUM_REGS): rewrite to avoid nested comment.
+	* blockframe.c (get_prev_frame_info): initialize address.
+	* breakpoint.c (bpstat_copy): initialize retval.
+	  (bpstat_stop_status): initialize value_is_zero.
+	  (bpstat_what): initialize bs_class.
+	  (breakpoint_1, mention): add do-nothing case for bp_step_resume.
+	  (break_command_1): initialize cond_end, addr_end, &
+	  canonical_strings_chain.
+	  (enable_breakpoint): initialize save_selected_frame.
+	* buildsym.c (end_symtab): initialize symtab & linetablesize.
+	* c-exp.y (parse_number): initialize i.
+	* c-typeprint.c (c_type_print_varspec_prefix): include
+	  TYPE_CODE_BITSTRING in switch statements and do nothing.
+	* c-valprint.c (c_val_print): removed unused variable c.
+	* ch-valprint.c (chill_val_print): removed unused variable eltlen.
+	* cp-valprint.c (cp_print_class_method): initialize f & j.
+	* eval.c (evaluate_subexp): initialize pc2, arg1, arg2.
+	* expprint.c (print_subexp): initialize myprec, assoc, & tempstr.
+	* findvar.c (value_from_register): initialize first_addr.
+	* gdbtypes.c (lookup_struct_elt_type): localize use of temporary
+	  variable typename.
+	* infcmd.c (run_stack_dummy): return zero rather than simple
+	  return.
+	* infrun.c (wait_for_inferior): initialize stop_sp, prologue_pc.
+	  remove symtab, appears unused.
+	  (restore_selected_frame): return 1.
+	* mipsread.c (psymtab_to_symtab_1): initialize first_off.
+	  (fixup_sigtramp): initialize b0.
+	* printcmd.c (do_examine): initialize val_type.
+	  (print_frame_args): initialize b.
+	* ser-tcp.c (tcp_restore): comment out declaration.  Appears
+	  unused.
+	* ser-unix.c (hardwire_restore): comment out declaration.  Appears
+	  unused.
+	  (hardwire_send_break): moved variable status into ifdef
+	  HAVE_SGTTY.
+	  (wait_for): moved variable numfds into ifdef HAVE_SGTTY.
+	* serial.h: comment change only.
+	* stabsread.c (rs6000_builtin_type): initialize rettype.
+	  (read_range_type): initialize nbits.
+	* stack.c (print_frame_info): remove unused variable numargs.
+	  (parse_frame_specification): remove unused variables arg1, arg2,
+	  arg3.
+	  (return_command): initialize return_value.
+	* symfile.c (cashier_psymtab): initialize pprev.
+	* symtab.c (find_pc_psymbol): initialize best.
+	  (lookup_symbol): initialize s.
+	  (make_symbol_completion_list): initialize quote_pos.
+	* thread.c: include command.h.
+	  (thread_info): static declaration removed; unused.
+	  (info_threads_command): fix == vs = typo.
+	* typeprint.c (whatis_exp): initialize old_chain.
+	* valprint.c (val_print_string): remove unused variable
+	  first_addr_err.  Initialize old_chain.
+	  (_initialize_valprint): white space comment change.
+	* values.c (show_values): rewrite if statement to avoid empty
+	  body.
+	  (vb_match): remove unused variable fieldtype_target_type.
+
+Wed Sep  8 10:21:33 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in (mipsread.o): Depend on $(bfd_h).
+
+Tue Sep  7 13:06:44 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdbserver/Makefile.in (TAGS): config files are in
+	$(srcdir)/../config, not $(srcdir)/config.
+
+	* config/pa/tm-hppa.h: Declare target_read_pc and target_write_pc.
+	(STORE_RETURN_VALUE): Pass the correct offset of the return
+	register to write_register_bytes.
+	* hppa-tdep.c: Use target_write_pc if PCOQ_TAIL_REGNUM was not saved.
+
+Tue Sep  7 14:30:34 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* remote.c (remote_wait): Don't call error.  Instead, call warning
+	inside a loop.  User can ^C to get out.
+
+	* config/m68k/tm-m68k.h (FIX_CALL_DUMMY): Changed name of swapping
+	routine to match BFD name change.
+	* config/z8k/tm-z8k.h (FIX_CALL_DUMMY): Likewise.
+
+Mon Sep  6 15:01:57 1993  Jeffrey Wheat  (cassidy@cygnus.com)
+
+	* elfread.c: change elf32_symbol_type to elf_symbol_type
+
+Mon Sep  6 15:43:25 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* remote.c (remote_wait): Added 'W' and 'N' responses.
+
+Fri Sep  3 08:57:10 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* main.c, utils.c: Add comments about immediate_quit.
+
+	* elfread.c (elf_symtab_read): Don't add symbols starting with ".L"
+	to minimal symbols.
+
+	* target.c (pop_target): Don't try to deal with the stack becoming
+	empty.  Shouldn't happen and the code that tried was broken.
+
+	* dcache.c: Cast return value from xmalloc.
+
+	* remote.c: Move setting of immediate_quit from remote_open to
+	remote_start_dummy and set it back to zero when done.
+
+Thu Sep  2 00:07:36 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* m88k-tdep.c: Remove a bunch of unused #includes.
+
+	* language.h: Add comment about current_language.
+
+	* mips-tdep.c (_initialize_mips_tdep): Change heuristic-fence-post
+	from var_uinteger to var_zinteger.
+
+	* configure.in: Fix typo (delta88r4 -> delta88v4).
+
+	* config/m88k/xm-delta88.h: Don't include sys/siginfo.h.  It was
+	to make this work on SVR4 before SVR4 had its own configuration,
+	and it breaks SVR3.
+
+	* config/m88k/tm-delta88v4.h: Define FRAME_CHAIN_VALID_ALTERNATE.
+
+	* config/m88k/delta88v4.h (NATDEPFILES): Remove infptrace.o inftarg.o.
+
+	* config/m88k/xm-dgux.h: Renamed from config/m88k/xm-m88k.h.
+	* config/m88k/m88k.mh: Use xm-dgux.h.
+	* config/m88k/xm-m88k.h: New file, with HOST_BYTE_ORDER,
+	MAKEVA_END and MAKEVA_ARG.
+	* config/m88k/xm-*.h: Include m88k/xm-m88k.h.
+	* printcmd.c: Remove __INT_VARARGS_H code; now in xm-m88k.h.
+
+Wed Sep  1 19:31:28 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* remote-udi.c (udi_wait): Call `warning' not `error'.
+
+	* symtab.c (COMPLETION_LIST_ADD_SYMBOL): If the symbol has a
+	demangling, don't put the mangled form in the completion list.
+
+	* symtab.c, symfile.c, c-exp.y, ch-exp.y, m2-exp.y, buildsym.c,
+	symfile.h, stabsread.c, minsyms.c, solib.c, nlmread.c, dwarfread.c
+	partial-stab.h, symmisc.c, gdbtypes.c: Lint.  Remove (or put
+	inside #if) unused variables and labels.  Fix unclosed comment.
+	Deal with enumeration values unhandled in switch statements.  Make
+	sure non-void functions return values.  Include appropriate
+	headers.
+	* dbxread.c (elfstab_build_psymtabs): Don't check for unsigned
+	value < 0.
+
+Wed Sep  1 14:36:00 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* i960-tdep.c, ns32k-pinsn.c, remote-adapt.c, xcoffread.c:
+	  index -> strchr.
+
+Wed Sep  1 11:35:49 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* remote.c: Add comment explaining why dcache is disabled.
+	(remote_fetch_word, remote_store_word): Make static and #if 0.
+	They are not called from anywhere.
+
+Wed Sep  1 14:41:28 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* arm-tdep.c, convex-tdep.c, convex-xdep.c, dbxread.c,
+	  h8300-tdep.c, h8500-tdep.c, i960-pinsn.c, i960-tdep.c,
+	  infptrace.c, m88k-tdep.c, mips-tdep.c, regex.c, remote-vx.c,
+	  rs6000-tdep.c, xcoffexec.c, xcoffread.c, z8k-tdep.c,
+	  config/arm/tm-arm.h, config/convex/tm-convex.h,
+	  config/gould/tm-np1.h, config/gould/tm-pn.h,
+	  config/m68k/tm-isi.h, config/ns32k/tm-umax.h,
+	  config/pa/tm-hppa.h, config/pyr/tm-pyr.h,
+	  config/rs6000/tm-rs6000.h, config/tahoe/tm-tahoe.h,
+	  config/vax/tm-vax.h:  bzero -> memset.
+
+	* regex.c: bcmp -> memcmp.
+
+Wed Sep  1 11:35:49 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* symtab.c (find_pc_line, find_line_common),
+	symtab.h (struct linetable), xcoffread.c (arrange_linetable):
+	Revise comments re linetable sorting.
+	* buildsym.c (compare_line_numbers): Sort by pc, not by line.
+	* coffread.c: Tell end_symtab to sort the line table.
+
+	* coffread.c: Re-work a lot of the coff-specific stuff to use stuff
+	in buildsym.c.  This includes coff_finish_block, coff_context_stack,
+	coff_local_symbols, coff_file_symbols, coff_global_symbols,
+	coff_end_symtab and coff_add_symbol_to_list.
+	(read_enum_type): Deal with it now that we have a "struct pending"
+	not a "struct coff_pending".
+
+	* buildsym.c (end_symtab): Don't realloc subfile->linetable.
+
+Wed Sep  1 13:12:43 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* a68v-nat.c, altos-xdep.c, convex-tdep.c, convex-xdep.c,
+	  findvar.c, hppab-nat.c, hppah-nat.c, i386mach-nat.c,
+	  irix4-nat.c, m68k-tdep.c, m88k-tdep.c, mipsread.c, regex.c,
+	  remote-bug.c, remote-hms.c, rs6000-nat.c, rs6000-tdep.c,
+	  sparc-nat.c, stabsread.c, sun3-nat.c, sun386-nat.c, symfile.c,
+	  umax-xdep.c, xcoffread.c, 29k-share/udi/udip2soc.c,
+	  29k-share/udi/udr.c, config/a29k/tm-a29k.h, config/arm/tm-arm.h,
+	  config/convex/tm-convex.h, config/gould/tm-np1.h,
+	  config/gould/tm-pn.h, config/h8300/tm-h8300.h,
+	  config/h8500/tm-h8500.h, config/i386/tm-i386aix.h,
+	  config/i386/tm-sun386.h, config/i386/tm-symmetry.h,
+	  config/i960/tm-i960.h, config/m68k/tm-news.h,
+	  config/m88k/tm-m88k.h, config/mips/tm-mips.h,
+	  config/ns32k/tm-merlin.h, config/ns32k/tm-umax.h,
+	  config/pa/tm-hppa.h, config/pyr/tm-pyr.h,
+	  config/rs6000/tm-rs6000.h, config/sh/tm-sh.h,
+	  config/tahoe/tm-tahoe.h, config/vax/tm-vax.h,
+	  config/z8k/tm-z8k.h, nindy-share/nindy.c: bcopy -> memcpy.
+
+Wed Sep  1 05:05:53 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mipsread.c (parse_partial_symbols):  Use language from FDR if it
+	is unambigous.  Patch from ptf@delcam.co.uk (Paul Flinders).
+	* mipsread.c (ecoff_symfile_info):  New struct to hold the global
+	pending_list.
+	* mipsread.c (mipscoff_symfile_init, parse_partial_symbols):
+	Allocate the global pending list and link it to the objfile.
+	* mipsread.c (is_pending_symbol, add_pending):  Use global pending
+	list from objfile. Allocate pending list entries from the
+	psymbol_obstack.
+	* mipsread.c (free_pending):  Remove. The pending list is now
+	freed when the psymbol_obstack is freed.
+	* mipsread.c (psymtab_to_symtab1):  Remove pending list allocation,
+	the global pending list is used now.
+	* mipsread.c (parse_partial_symbols):  Skip only the first
+	file indirect entry when building the dependency list.
+
+Tue Aug 31 15:01:27 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	Break dcache code out of remote.c.
+	* dcache.h: white space changes only.
+	* dcache.c: add user settable variable to set whether data caching
+	  is in use.
+	* remote.c: include dcache.h. removed data caching code which is
+	  now in dcache.c.  Compile in data caching again.  (data caching
+	  is currently off by default.)
+	  (remote_read_bytes, remote_write_bytes): change second arg to
+	  unsigned char.
+	  (remote_dcache): new static variable.
+	* Makefile.in (REMOTE_O): add dcache.o.
+	* config/m88k/m88k.mt (TDEPFILES): removed dcache.o.
+
+	Break dcache code out of remote-nindy.c.
+	* remote-nindy.c: removed dcache code.  Changed callers to use new
+	  conventions.  include dcache.h.
+	  (nindy_dcache): new static variable.
+	* config/i960/nindy960.mt (TDEPFILES): added dcache.o.
+
+	Break dcache code out of remote-bug.c into dcache.[hc].
+	* Makefile.in (dcache_h): new macro.
+	  (HFILES): added $(dcache_h).
+	  (ALLDEPFILES): added dcache.c.
+	  (dcache.o): new rule.
+	  (remote-bug.o): now depends on $(dcache_h).
+	* remote-bug.c: include dcache.h. remove externs for insque and
+	  remque, add extern for bcopy.  Prototype bug_close,
+	  bug_clear_breakpoints, bug_write_cr.  dcache code moved to
+	  dcache.[hc].  Changed dcache calling convention to include an
+	  initial DCACHE argument.
+	  (bug_dcache): new static variable.
+	  (bug_read_inferior_memory): change second arg to
+	  unsigned char.
+	* dcache.[ch]: new files.
+	* config/m88k/m88k.mt (TDEPFILES): add dcache.o.
+
+Tue Aug 31 10:33:13 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* c-typeprint.c (c_print_type_base): Treat show = 0 just like
+	show < 0.  The only case where we had been distinguishing is that
+	show = 0 used to print "struct  " or "enum  " instead of
+	"struct {...}" or "enum {...}" which seems clearly wrong.
+
+Mon Aug 30 17:51:32 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* configure.in: recognize m88110 as an m88k.
+
+Mon Aug 30 16:07:59 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* valops.c (call_function_by_hand): If we discard cleanups, call
+	bpstat_clear (&inf_status.stop_bpstat).
+
+Mon Aug 30 12:47:46 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* stabsread.h, dbxread.c (end_psymtab):  Return NULL if the psymtab
+	was empty and thrown away.
+	* mipsread.c (parse_partial_symbols):  Do not add empty psymtabs to
+	dependency list, skip self dependencies.
+	* mipsread.c (parse_fdr):  Removed, obsolete.
+	* mipsread.c (parse_lines):  Check for cbLine being zero, not
+	cbLineOffset.
+	* mipsread.c (struct symloc):  Add pst_language.
+	* mipsread.c (parse_partial_symbols): Set up proper language for
+	header files, save it in pst_language for psymtab_to_symtab_1.
+	* mipsread.c (psymtab_to_symtab_1):  Use pst_language.
+
+Mon Aug 30 10:48:06 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* configure.in: Fix typo m88*-motorola-svr4* -> sysv4*.
+
+Fri Aug 27 17:09:19 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* paread.c: Include som.h instead of libhppa.h.  (From Utah.)
+
+Fri Aug 27 09:30:40 1993  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* symmisc.c (dump_symtab): Use catch_errors around print_symbol.
+	Change calling sequence of print_symbol to fit catch_errors.
+
+	* mips-tdep.c: Call reinit_frame_cache every time the user does
+	"set heuristic-fence-post".
+
+	* gdbserver/low-sun3.c: New file.
+	* gdbserver/Makefile.in, config/m68k/sun3.mh: Change accordingly.
+
+	* Rename files for 14-character limits:
+	gdbserver/remote-gutils.c -> gdbserver/utils.c
+	gdbserver/remote-inflow.c -> gdbserver/low-lynx.c
+	gdbserver/remote-inflow-sparc.c -> gdbserver/low-sparc.c
+	gdbserver/remote-server.c -> gdbserver/server.c
+	remote-monitor.c -> remote-mon.c
+	* Makefile.in, gdbserver/Makefile.in, gdbserver/configure.in,
+	config/m68k/monitor.mt,	config/i386/i386lynx.mh,
+	config/sparc/sun4os4.mh: Change accordingly.
+	* gdbserver/Makefile.in: Remove more junk inherited from gdb Makefile.
+
+Thu Aug 26 14:32:51 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* infcmd.c, inferior.h (run_stack_dummy): If we stop somewhere
+	besides the dummy, return 1 rather than calling error().
+	Let caller print the error message.  Remove name argument.
+	* valops.c (call_function_by_hand): Deal with changes to calling
+	sequence of run_stack_dummy.  Discard restore_inferior_status cleanup
+	if run_stack_dummy returns 1.
+
+	* Version 4.10.2.
+
+	* config/mips/tm-mips.h (EXTRACT_STRUCT_VALUE_ADDRESS):
+	Get struct return address from v0, not a0.
+
+	* infrun.c (restore_inferior_status): Use catch_errors when
+	restoring selected frame.
+
+Wed Aug 25 21:52:25 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* infrun.c (save_inferior_status, restore_inferior_status):
+	Save and restore the registers too.
+	* inferior.h (struct inferior_status): Add "registers".
+
+Tue Aug 24 00:36:17 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* dbxread.c (end_psymtab): Clean up comment.
+
+	* frame.h, symtab.h, findvar.c (read_var_value):  Change basereg
+	support to use LOC_BASEREG rather than SYMBOL_BASEREG_VALID.
+	* dwarfread.c: Use LOC_BASEREG where appropriate.
+	* Various: Support LOC_BASEREG and LOC_BASEREG_ARG.
+
+	* coffread.c (init_lineno, init_stringtab): Don't check whether
+	xmalloc returned NULL.
+
+	* config/vax/xm-vaxult.h: Define NO_PTRACE_H.
+
+	* target.c, target.h: Add "set remotedebug" command.
+	* remote-bug.c, remote.c, remote-mips.c: Remove "set remotedebug" and
+	"set m88ksnoop" options and use generic "set remotedebug" instead.
+	* NEWS: Describe this change.
+
+Mon Aug 23 20:26:22 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* buildsym.h: Remove declaration of dbxread.c functions.
+	* stabsread.h: Group together dbxread.c functions.
+	Move elfstab_build_psymtabs here from symfile.h.
+	Declare pastab_build_psymtabs.
+	* elfread.c, paread.c: Include stabsread.h (for stabsread_new_init
+	declaration, etc).
+
+Mon Aug 23 17:16:23 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* remote-bug.c: rename quiet to bug88k_snoop.
+	  (double_scan, multi_scan): generalize double_scan into a scan
+	  for multiple patterns.  Rename to multi_scan.
+	  (bug_wait, bug_write_inferior_memory): adapt to use the new
+	  multi_scan in order to catch and represent target bus errors.
+	  (bug_scan): currently unused, so comment out.
+	  (bug_quiet): removed.  Replaced with a standard user settable boolean.
+
+	* m88k-tdep.c: remove include of sys/dir.h.  Appears unnecessary
+	  and isn't available on solaris.
+
+Mon Aug 23 14:56:42 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* config/m88k/{delta88v4.mt,delta88v4.mh}: New files
+	* config/m88k/delta88.mh: Fix comment.
+	* config/m88k/tm-delta88.h: Remove unused BCS define.
+	* config/m88k/{tm-delta88v4.h,xm-delta88v4.h,nm-delta88v4.h}:
+	New files.
+	* configure.in: Recognize m88*-motorola-sysv4*.
+	* m88k-nat.c: Always include sys/types.h; don't depend on USG.
+
+Mon Aug 23 12:57:42 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mipsread.c (parse_symbol, parse_type, cross_ref):  Pass name of
+	symbol as an argument and use it in complaints.
+	* symmisc.c (dump_psymtab):  Dump filenames of dependencies.
+
+Mon Aug 23 1993  Sean Fagan  (sef@cygnus.com)
+		 and Jim Kingdon  (kingdon@cygnus.com)
+
+	Add NetBSD support:
+	* configure.in: Recognize netbsd.
+
+Fri Aug 20 14:01:39 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* remote-nindy.c: Remove unused include of sys/ioctl.h.
+
+	* frame.h, symtab.h: Revise comments regarding baseregs.
+
+Fri Aug 20 15:07:05 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mipsread.c (parse_partial_symbols, psymtab_to_symtab_1):
+	Set language for psymtab and symtab.
+	* mipsread.c (new_symbol):  Set language and initialize demangled
+	name for symbol.
+	* symmisc.c (print_symbol):  Use SYMBOL_SOURCE_NAME when printing
+	the symbol type.
+	* symtab.c (decode_line_1):  Inhibit coredumps with cfront executables.
+
+Fri Aug 20 14:01:39 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Move KERNEL_U_ADDR from xm-hp300bsd.h to nm-hp300bsd.h and make
+	it conditionalized on 4.3 vs. 4.4.
+	* config/m68k/nm-hp300bsd.h: Move REGISTER_U_ADDR out of 4.3 and
+	4.4 sections; it was identical and now works for 4.4.
+
+	* mips-tdep.c (is_delayed): Use INSN*BRANCH* not ANY_DELAY.
+
+	* printcmd.c (MAKEVA_END): Update this version to use "aligner".
+
+Thu Aug 19 22:08:09 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* config/vax/tm-vax.h (BELIEVE_PCC_PROMOTION):  Define.
+	* mipsread.c (parse_symbol, parse_type, cross_ref):  Handle corrupt
+	file indirect entries with complaints instead of core dumps. Remove
+	complaint for stTypedef within aggregates.
+
+Thu Aug 19 17:58:39 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* coffread.c (process_coff_symbol): Ignore tagnames like .0fake.
+
+	* coffread.c (coff_read_enum_type): #if 0 out code which changes
+	enum {FALSE, TRUE} into boolean.
+
+	* config/m68k/delta68.m{t,h}: Use nm-delta68.h, etc. not
+	non-existent files nm-delta.h, etc.
+	* config/m68k/tm-delta68.h: Define CANNOT_STORE_REGISTER.
+	* delta68-nat.c: Add "[0]" in offsetof argument.
+	* delta68-nat.c (_initialize_kernel_u_addr): Don't try to set up
+	nl with initializer, just assign to it.  Check n_scnum field on
+	return. 
+
+Wed Aug 18 12:03:00 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* printcmd.c (print_address), values.c (value_as_pointer): Don't
+	use ADDR_BITS_REMOVE.
+	* defs.h: Try to clarify comment about ADDR_BITS_REMOVE.
+
+	* blockframe.c (block_innermost_frame): Uncomment.
+	Return NULL if passed NULL.
+	* frame.h: Declare it.
+	* expression.h (union exp_element): Add field block.
+	* parse.c (write_exp_elt_block): New function.
+	* expression.h (OP_VAR_VALUE): Now takes additional struct block *.
+	* *-exp.y: Write block for OP_VAR_VALUE.
+	* eval.c, expprint.c, parse.c: Deal with block for OP_VAR_VALUE.
+	* valops.c, value.h (value_of_variable), callers:
+	Add second argument, for block.
+
+	* main.c (gdb_readline): If we read some characters followed by EOF,
+	return them rather than returning NULL.
+
+Tue Aug 17 11:14:25 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* mips-tdep.c: Remove unused #ifndef NUMERIC_REG_NAMES and add comment.
+
+Tue Aug 17 15:10:04 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* config/m88k/tm-m88k.h: Fix typo in comment.
+	  (FP_REGNUM): define in terms of SP_REGNUM
+	  rather than by absolute number.  Also clearly comment that this
+	  is a convenient lie in order to decrease future confusion.
+	  (ACTUAL_FP_REGNUM): new macro for FP.
+	  (FRAME_CHAIN_VALID): removed.  Standard default works fine.
+	* m88k-tdep.c (frame_chain_valid): redundant, so removed.
+	  (NEXT_PROLOGUE_INSN): removed unused fourth arg, fixed all
+	  callers.
+	  (read_next_frame_reg): declare static.
+	  (examine_prologue): removed unused variabel insn2, rename insn1
+	  to insn, rewrote comment about finding fp, sp, etc. set frame_fp
+	  based on ACTUAL_FP_REGNUM rather than FP_REGNUM which is
+	  actually a scammed alias for SP_REGNUM on m88k. 
+
+	* frame.h: fixed typo in comment.
+
+Tue Aug 17 11:14:25 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* 29k-share/udi/udiphcfg.h: Always include udiphunix.h not udiphdos.h.
+
+	* complaints.c (complain): fflush (stdout) after output.
+
+Tue Aug 17 01:43:55 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* blockframe.c, frame.h (sigtramp_saved_pc):  New routine to fetch
+	the saved pc from sigcontext on the stack for BSD signal handling.
+	* config/i386/tm-i386bsd.h (SIGTRAMP_START, SIGTRAMP_END, FRAME_CHAIN,
+	FRAMELESS_FUNCTION_INVOCATION, FRAME_SAVED_PC, SIGCONTEXT_PC_OFFSET):
+	Define to make backtracing through sigtramp work.
+	* config/vax/tm-vax.h (SIGTRAMP_START, SIGTRAMP_END, TARGET_UPAGES,
+	FRAME_SAVED_PC, SIGCONTEXT_PC_OFFSET):  Ditto.
+
+Mon Aug 16 13:52:14 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* main.c (cd_command): If current_directory on entry is "/", then
+	don't append an extra slash.
+	Don't assume that /../.. means /.
+
+	* target.c (target_xfer_memory): Clear errno before calling
+	to_xfer_memory.
+
+	* stack.c (frame_info, print_frame_info): Add comment about using
+	the starting source line number on a line boundary if backtracing
+	through sigtramp.
+
+Mon Aug 16 02:56:01 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* blockframe.c (create_new_frame, get_prev_frame_info):
+	Use the function name when calling IN_SIGTRAMP.
+	* config/m68k/tm-m68k.h (SIG_PC_FP_OFFSET, SIG_SP_FP_OFFSET):
+	Define for correct handling of bachtraces through _sigtramp.
+	* m68k-tdep.c (m68k_find_saved_regs):  Adjust saved sp for fake
+	sigtramp frames.
+	* mipsread.c (parse_type):  Handle corrupt TIR info with complaint
+	instead of core dump.
+	* mipsread.c (parse_partial_symbols):  Put static symbols into the
+	mimimal symbol table, use proper mst_types for all minimal symbols.
+	* stack.c (frame_info, print_frame_info):  Use the starting source
+	line number on a line boundary if backtracing through sigtramp.
+
+Fri Aug 13 14:37:05 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* remote-bug.c: include gdbcmd.h.
+	  (sleep, remque, insque): forward decls added.
+	  (bug_fetch_registers, bug_store_registers): forward decls
+	  removed.
+	  (bug_read_inferior_memory, bug_write_inferior_memory): forward
+	  decls added.
+	  (srec_frame, srec_max_retries, srec_bytes, srec_echo_pace,
+	  srec_sleep, srec_noise): new static variables for user settable
+	  options.  Mostly these are for debugging and tuning.  I don't
+	  expect them to stay user settable options for long.
+	  (timeout): change default to 4 seconds.
+	  (check_open): declare funtion static, force return value.
+	  (readchar_nofail): if timeout, then say so if not being quiet.
+	  (pollchar, double_scan, bug_scan, bug_srec_write_cr,
+	  start_load): new functions.
+	  (bug_wait): rewritten to use double scan.
+	  (expect): while (1) -> for (;;)
+	  (get_hex_digit): rewrite if condition to avoid gcc complaints.
+	  (bug_load, bug_create_inferior, bug_open, bug_store_register):
+	  removed unused variables.
+	  (bug_load): replaced DELTA macro with user settable srec_frame
+	  variable.  Other minor lint.
+	  (find_end_of_word, is_baudrate_right, set_rate, not_bug_wait,
+	  gethex, timed_read, translate_addr, bug_before_main_loop):
+	  unsused and removed.
+	  (bug_resume): add missing first arg, pid.
+	  (get_reg_name): use ip rather than cr04.
+	  (bug_write, bug_write_cr, but_clear_breakpoints, bug_quiet):
+	  declare type, args, and explicitly return.
+	  (bug_store_register): straighten out the ip vs cr04 confusion.
+	  (bug_write_inferior_memory): rewrite to cope with errors while
+	  downloading s-records.
+	  (bug_read_inferior_memory): declare static.
+	  (bug_clear_breakpoints): expect nobr before prompt.
+	  (_initialize_remote_bug): add initializations for srec-bytes,
+	  srec-max-retries, srec-frame, srec-noise, srec-sleep,
+	  srec-echo-pace.
+
+	* Makefile.in (remote-bug.o): new rule.
+	  (ALLDEPFILES): added remote-bug.c
+
+	* remote-hms.c (hms_wait): use -1 for timeout's which means block
+	  forever rather than 99999.
+
+	* ser-unix.c (get_tty_state): if a descriptor is not a tty, then
+	  simply save encode this fact as the process group and return
+	  success rather than an error.
+	  (set_tty_state): if process group is -1, do not reset the
+	  process group.
+	  (hardwire_reachar): comment change.
+
+	* serial.h: comment change.
+
+	* config/m88k/tm-m88k.h: comment change to remove embedded
+	  comment.
+	  (SKIP_PROLOGUE): skip_prologue returns a value which is expected
+	  to reset the pc argument.  So reset it.
+
+Fri Aug 13 10:15:24 1993  Fred Fish  (fnf@deneb.cygnus.com)
+
+	* Makefile.in (VERSION):  Bump to 4.10.1 after release and cvs
+	tagging.
+
+Thu Aug 12 20:40:14 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdbserver/Makefile.in: Use GDBSERVER_LIBS and
+	GDBSERVER_DEPFILES.  Also remove much (but not all that could be
+	removed) crud inherited from gdb Makefile.in.
+	* config/i386/i386lynx.mh, config/sparc/sun4os4.mh: Define GDBSERVER_*.
+	* gdbserver/README: Say it works on Sun and change configuration
+	instructions slightly.
+
+Wed Aug 11 18:56:59 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
+
+	* config/i386/i386v4.mh: use -lsocket and -lnsl, for remote
+	targets that use BSD style network connections
+
+Wed Aug 11 17:54:24 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* remote-{monitor,bug}.c: Make bug_ops not static (forward declaration
+	of statics doesn't work with SunOS4 /bin/cc).
+	Rename the occurrence in remote-monitor.c to monitor_bug_ops.
+
+Tue Aug 10 13:07:14 1993  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* blockframe.c (find_pc_partial_function),
+	mips-tdep.c (find_proc_desc): Deal with "pathological" case.
 
 Tue Aug 10 14:50:30 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
@@ -19,29 +1792,55 @@ Tue Aug 10 14:50:30 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 	guarantees that it isn't, and anyway we were only checking one out
 	of the two places we dereferenced it).
 
+	* objfiles.h (struct objfile): Clean up comments for
+	{obj,sym}_private to clarify what they are private to.
+
+Mon Aug  9 16:45:00 1993  Stan Shebs  (shebs@rtl.cygnus.com)
+
+	* stabsread.c, buildsym.c (hashname): Moved function to
+	  buildsym.c, as suggested in the sources.
+
 Mon Aug  9 09:53:45 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* remote-udi.c: Make udi_ops extern rather than trying forward
+	declaration of a static variable.
 
 	* hppab-nat.c: Define ptrace to call_ptrace and pass the 5th arg
 	there, rather than using an ANSI C specific macro.
 
-Sun Aug  8 21:25:14 1993  Fred Fish  (fnf@cygnus.com)
+	* 29k-share/udi/udr.c: Include fcntl.h not sys/fcntl.h.  Also put
+	sys/types.h near the top (just on general principles).
 
-	* Makefile.in (VERSION): bumped version to 4.9.88.
+	* environ.c (set_in_environ): Remove G960BASE and G960BIN; they are
+	no longer used.
+
+	* gdbcore.h: New variable gnutarget.
+	* core.c: Add commands to set and show it.
+	* Callers to bfd_*open*: Pass gnutarget instead of NULL as target.
+	* environ.c (set_in_environ): For GNUTARGET, use set_gnutarget not
+	putenv.
+
+	* symtab.c (decode_line_1): Give error on unmatched single quote.
 
 Sun Aug  8 13:59:49 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
-	* ser-unix.c (hardwire_send_break) [HAVE_SGTTY]: Use select not
-	usleep.
+	* ser-unix.c (hardwire_send_break) [HAVE_SGTTY]: Use select not usleep.
 
-Sun Aug  8 13:59:49 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+	* remote.c: Add comments about 'd', 'r', and unrecognized requests.
 
 	* inflow.c (terminal_init_inferior): Don't muck with tty state if
 	gdb_has_a_terminal() is false.
 
-Sun Aug  8 10:58:23 1993  Fred Fish  (fnf@cygnus.com)
+Sun Aug  8 10:07:47 1993  Fred Fish  (fnf@cygnus.com)
 
-	* elfread.c, dwarfread.c:  Revert changes since 4.9.87.  They
-	are too risky for installing this close to a release.
+	* dwarfread.c (record_minimal_symbol):  Remove prototype and
+	function.
+	* dwarfread.c (add_partial_symbol):  Remove code to add minimal
+	symbols and remove comment about limitations.  Experiments show
+	that now that gdb handles the ELF symtab better for creating
+	minimal symbols, that no additional information is added by
+	examining the DWARF information, and in fact, given the
+	limitations, the DWARF code was actually making things worse.
 
 Sat Aug  7 10:59:03 1993  Fred Fish  (fnf@deneb.cygnus.com)
 
@@ -52,25 +1851,36 @@ Sat Aug  7 10:59:03 1993  Fred Fish  (fnf@deneb.cygnus.com)
 	Redo stabs-in-elf special symbol handling now that file static
 	symbols are entered into the into the minimal symbol table.
 	* dwarfread.c (add_partial_symbol):  Add comment about limitations
-	of DWARF symbols for distinguishing data from bss when adding
+	of DWARF symbols for distinquishing data from bss when adding
 	minimal symbols.  Add file local symbols to minimal symbols.
 
-Fri Aug  6 08:08:32 1993  Fred Fish  (fnf@deneb.cygnus.com)
+Thu Aug  5 08:58:58 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
-	* Makefile.in (VERSION): bumped version to 4.9.87.
+	* ser-go32.c: Define job_control variable.
 
-Thu Aug  5 18:14:06 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+Thu Aug  5 15:56:13 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
 
-	* config/i386/tm-i386bsd.h (NUM_REGS):  There are only ten,
-	not eleven.
+	* configure.in: z8k-coff is the same as z8k-sim
 
-Wed Aug  4 07:41:55 1993  Fred Fish  (fnf@cygnus.com)
+Thu Aug  5 08:58:58 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* 29k-share/udi/udip2soc.c: Include sys/types.h before sys/file.h.
+
+	* config/i386/tm-i386bsd.h (NUM_REGS):  There are only 10, not 11.
+
+	* inflow.c: Put all uses of F_GETFL and F_SETFL in #ifdef F_GETFL.
+
+	* 29k-share/udi/udip2soc.c: Include fcntl.h not sys/fcntl.h.
+
+Wed Aug  4 18:32:12 1993  Fred Fish  (fnf@cygnus.com)
 
 	* inflow.c (pass_signal):  Signal handlers take one int arg;
 	supply an unused one to make it type compatible as an arg to
 	signal().
 
-	* Makefile.in (VERSION): bumped version to 4.9.86.
+Tue Aug  3 18:34:14 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* config/mips/tm-mips.h: Include bfd.h before coff/sym.h.
 
 Tue Aug  3 15:34:57 1993  Fred Fish  (fnf@cygnus.com)
 
@@ -85,32 +1895,20 @@ Tue Aug  3 15:34:57 1993  Fred Fish  (fnf@cygnus.com)
 	config/m68k/xm-dpx2.h, config/mips/xm-makeva.h.
 	* Makefile.in (ALLDEPFILES):  Add dpx2-nat.c.
 
-Tue Aug  3 15:21:35 1993  Stu Grossman  (grossman at cygnus.com)
+Tue Aug  3 12:02:09 1993  Ian Lance Taylor  (ian@cygnus.com)
 
-	* Makefile.in:  Add i386lynx-tdep to the right places.
+	* mipsread.c: Updated for BFD ECOFF changes.  Now gets the
+	swapping routines and external structure sizes via the
+	ecoff_backend information.  No longer includes coff/mips.h.
 
-	* i386lynx-nat.c (i386lynx_saved_pc_after_call):  Move into
-	i386lynx-tdep.c.
-	* i386lynx-tdep.c:  New module for Lynx/386 target dependant code.
-	* config/i386/i386lynx.mh (NATDEPFILES):  Remove exec.o.
-	* config/i386/i386lynx.mt (TDEPFILES):  Add exec.o, i386lynx-tdep.o.
-	* config/i386/nm-i386lynx.h:  Add target_pid_to_str().
-	* config/i386/tm-i386lynx.h:  Remove target_pid_to_str().
+Tue Aug  3 10:58:04 1993  Fred Fish  (fnf@cygnus.com)
 
-	* Makefile.in (TARDIRS):  Add gdbserver.
+	* Makefile.in (SFILES): Add thread.c
 
-Tue Aug  3 14:27:11 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
-
-	* Makefile.in (ALLDEPFILES): added remote-bug.c.
-	  (remote-bug.o): new rule.
-
-Tue Aug  3 11:02:35 1993  Fred Fish  (fnf@cygnus.com)
-
-	* Makefile.in (SFILES):  Add thread.c
 
 Mon Aug  2 16:35:31 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
 
-	* Makefile.in (VERSION): bumped version to 4.9.85.
+	* Makefile.in (VERSION): bumped to 4.9.4.
 
 	* remote-monitor.c: updated copyright.
 	  (bug_ops, monitor_desc): now static.

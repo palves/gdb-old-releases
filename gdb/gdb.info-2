@@ -6,10 +6,10 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.10.
+   This is Edition 4.09, August 1993, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.11.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
+   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
@@ -393,7 +393,7 @@ expression changes, without having to predict a particular place where
 this may happen.
 
    Watchpoints currently execute two orders of magnitude more slowly
-than other breakpoints, but this can well be worth it to catch errors
+than other breakpoints, but this can be well worth it to catch errors
 where you have no clue what part of your program is the culprit.  Some
 processors provide special hardware to support watchpoint evaluation;
 future releases of GDB will use such hardware if it is available.
@@ -731,10 +731,6 @@ that no output is produced.  Here is an example:
      cont
      end
 
-   Previous versions of GDB (4.9 and earlier) would flush pending input
-when executing breakpoint commands, if your program used raw mode for
-the terminal.  This is no longer true.
-
 
 File: gdb.info,  Node: Breakpoint Menus,  Next: Error in Breakpoints,  Prev: Break Commands,  Up: Breakpoints
 
@@ -811,24 +807,23 @@ completes normally.  In contrast, "stepping" means executing just one
 more "step" of your program, where "step" may mean either one line of
 source code, or one machine instruction (depending on what particular
 command you use).  Either when continuing or when stepping, your
-program may stop even sooner, due to a breakpoint or to a signal.  (If
-due to a signal, you may want to use `handle', or use `signal 0' to
-resume execution.  *Note Signals: Signals.)
+program may stop even sooner, due to a breakpoint or a signal.  (If due
+to a signal, you may want to use `handle', or use `signal 0' to resume
+execution.  *Note Signals: Signals.)
 
-`continue [COUNT]'
-`c [COUNT]'
-`fg [COUNT]'
+`continue [IGNORE-COUNT]'
+`c [IGNORE-COUNT]'
+`fg [IGNORE-COUNT]'
      Resume program execution, at the address where your program last
      stopped; any breakpoints set at that address are bypassed.  The
-     optional argument COUNT means to set the ignore count of a
-     breakpoint which you are stopped at to COUNT - 1, just like the
-     `ignore' command (*note Break conditions: Conditions.).  This
-     means that the program does not stop at that breakpoint until the
-     COUNTth time it is hit.
+     optional argument IGNORE-COUNT allows you to specify a further
+     number of times to ignore a breakpoint at this location; its
+     effect is like that of `ignore' (*note Break conditions:
+     Conditions.).
 
-     The argument COUNT is meaningful only when your program stopped
-     due to a breakpoint.  At other times, the argument to `continue'
-     is ignored.
+     The argument IGNORE-COUNT is meaningful only when your program
+     stopped due to a breakpoint.  At other times, the argument to
+     `continue' is ignored.
 
      The synonyms `c' and `fg' are provided purely for convenience, and
      have exactly the same behavior as `continue'.

@@ -17,6 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#ifndef SERIAL_H
+#define SERIAL_H
+
 /* Terminal state pointer.  This is specific to each type of interface. */
 
 typedef PTR serial_ttystate;
@@ -51,7 +54,6 @@ struct serial_ops {
   int (*noflush_set_tty_state)
     PARAMS ((serial_t, serial_ttystate, serial_ttystate));
   int (*setbaudrate) PARAMS ((serial_t, int rate));
-  int (*set_process_group) PARAMS ((serial_t, serial_ttystate, int));
 };
 
 /* Add a new serial interface to the interface list */
@@ -116,9 +118,10 @@ serial_t serial_fdopen PARAMS ((int fd));
   ((*((SERIAL_T)->ops->noflush_set_tty_state)) \
     ((SERIAL_T), (NEW_TTYSTATE), (OLD_TTYSTATE)))
 
-/* Read one char from the serial device with TIMEOUT seconds timeout.
-   Returns char if ok, else one of the following codes.  Note that all
-   error codes are guaranteed to be < 0.  */
+/* Read one char from the serial device with TIMEOUT seconds to wait
+   or -1 to wait forever.  Use timeout of 0 to effect a poll. Returns
+   char if ok, else one of the following codes.  Note that all error
+   codes are guaranteed to be < 0.  */
 
 #define SERIAL_ERROR -1		/* General error, see errno for details */
 #define SERIAL_TIMEOUT -2
@@ -131,8 +134,8 @@ serial_t serial_fdopen PARAMS ((int fd));
 
 #define SERIAL_SETBAUDRATE(SERIAL_T, RATE) ((SERIAL_T)->ops->setbaudrate((SERIAL_T), RATE))
 
-/* Write LEN chars from STRING to the port SERIAL_T.  Returns 0 for success,
-   -1 for failure.  */
+/* Write LEN chars from STRING to the port SERIAL_T.  Returns 0 for
+   success, non-zero for failure.  */
 
 #define SERIAL_WRITE(SERIAL_T, STRING, LEN) ((SERIAL_T)->ops->write((SERIAL_T), STRING, LEN))
 
@@ -147,16 +150,4 @@ void serial_close PARAMS ((serial_t));
 
 #define SERIAL_UN_FDOPEN(SERIAL_T) (free (SERIAL_T))
 
-/* Set the process group saved in TTYSTATE to GROUP.  This just modifies
-   the ttystate setting; need to call SERIAL_SET_TTY_STATE for this to
-   actually have any effect.  If no job control, then don't do anything.  */
-#define SERIAL_SET_PROCESS_GROUP(SERIAL_T, TTYSTATE, GROUP) \
-  ((*((SERIAL_T)->ops->set_process_group)) (SERIAL_T, TTYSTATE, GROUP))
-
-/* Do we have job control?  Can be assumed to always be the same within
-   a given run of GDB.  In ser-unix.c, ser-go32.c, etc.  */
-extern int job_control;
-
-/* Set the process group of the caller to its own pid, or do nothing if
-   we lack job control.  */
-extern int gdb_setpgid PARAMS ((void));
+#endif /* SERIAL_H */

@@ -30,10 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "signals.h"
 #include "gdbcmd.h"
 #include "serial.h"
-#if 0
-/* No longer needed, I suspect.  */
-#include "terminal.h"
-#endif
+#include "terminal.h" /* For job_control */
 #include "bfd.h"
 #include "target.h"
 #include "demangle.h"
@@ -74,8 +71,16 @@ static struct cleanup *cleanup_chain;
 
 int quit_flag;
 
-/* Nonzero means quit immediately if Control-C is typed now,
-   rather than waiting until QUIT is executed.  */
+/* Nonzero means quit immediately if Control-C is typed now, rather
+   than waiting until QUIT is executed.  Be careful in setting this;
+   code which executes with immediate_quit set has to be very careful
+   about being able to deal with being interrupted at any time.  It is
+   almost always better to use QUIT; the only exception I can think of
+   is being able to quit out of a system call (using EINTR loses if
+   the SIGINT happens between the previous QUIT and the system call).
+   To immediately quit in the case in which a SIGINT happens between
+   the previous QUIT and setting immediate_quit (desirable anytime we
+   expect to block), call QUIT after setting immediate_quit.  */
 
 int immediate_quit;
 
@@ -619,7 +624,7 @@ PTR
 xmalloc (size)
      long size;
 {
-  return (xmmalloc ((void *) NULL, size));
+  return (xmmalloc ((PTR) NULL, size));
 }
 
 /* Like mrealloc but get error if no storage available.  */
@@ -629,7 +634,7 @@ xrealloc (ptr, size)
      PTR ptr;
      long size;
 {
-  return (xmrealloc ((void *) NULL, ptr, size));
+  return (xmrealloc ((PTR) NULL, ptr, size));
 }
 
 
@@ -675,7 +680,7 @@ savestring (ptr, size)
 
 char *
 msavestring (md, ptr, size)
-     void *md;
+     PTR md;
      const char *ptr;
      int size;
 {
@@ -697,7 +702,7 @@ strsave (ptr)
 
 char *
 mstrsave (md, ptr)
-     void *md;
+     PTR md;
      const char *ptr;
 {
   return (msavestring (md, ptr, strlen (ptr)));
@@ -1251,7 +1256,7 @@ fprintf_filtered (va_alist)
 }
 
 /* Like fprintf_filtered, but prints it's result indent.
-   Called as fprintfi_filtered (spaces, format, arg1, arg2, ...); */
+   Called as fprintfi_filtered (spaces, stream, format, ...);  */
 
 /* VARARGS */
 void
@@ -1291,7 +1296,7 @@ printf_filtered (va_alist)
 }
 
 /* Like printf_filtered, but prints it's result indented.
-   Called as printfi_filtered (spaces, format, arg1, arg2, ...); */
+   Called as printfi_filtered (spaces, format, ...);  */
 
 /* VARARGS */
 void

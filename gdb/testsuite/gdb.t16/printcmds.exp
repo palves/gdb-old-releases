@@ -1406,6 +1406,10 @@ proc test_print_char_arrays {} {
 proc test_print_string_constants {} {
     global prompt
     global passcount
+    global timeout
+
+    set otimeout $timeout
+    set timeout 120
 
     set passcount 0
 
@@ -1432,19 +1436,25 @@ proc test_print_string_constants {} {
     setup_xfail "a29k-*-udi" 2416
     prt_accept "p (char *)\"foo\""	"\"foo\""
 
+    set timeout $otimeout
+
     if $passcount then {
 	pass "$passcount tests printing string constants"
     }
 }
 
 proc test_print_array_constants {} {
+    global timeout
+
+    set otimeout $timeout
+    set timeout 120
 
     setup_xfail "a29k-*-udi" 2416
     gdb_test "print {'a','b','c'}"	" = \"abc\""
     setup_xfail "a29k-*-udi" 2416
     gdb_test "print {0,1,2}"		" = {0, 1, 2}"
     setup_xfail "a29k-*-udi" 2416
-    gdb_test "print {(long)0,1,2}"	" = {0, 1, 2}"
+    gdb_test "print {(long)0,(long)1,(long)2}"	" = {0, 1, 2}"
     setup_xfail "a29k-*-udi" 2416
     gdb_test "print {{0,1,2},{3,4,5}}"  " = {{0, 1, 2}, {3, 4, 5}}"
     setup_xfail "a29k-*-udi" 2416
@@ -1452,6 +1462,7 @@ proc test_print_array_constants {} {
     setup_xfail "a29k-*-udi" 2416
     gdb_test "print *&{4,5,6}\\\[1\\\]"	" = 5"
 
+    set timeout $otimeout
 }
 
 proc test_printf {} {

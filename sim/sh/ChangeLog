@@ -1,3 +1,18 @@
+Fri Oct  8 10:47:09 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
+
+	* gencode.c (table): Becomes unsigned.
+	* interp.c (trap): Get right breakpoint SIGnum. (sim_write,
+	sim_read): Return number of bytes copied.  (sim_store_register):
+	Value passed by reference. (sim_kill, sim_open, sim_set_args): New functions.
+
+Tue Sep  7 16:24:13 1993  Stan Shebs  (shebs@rtl.cygnus.com)
+
+	* interp.c (sim_info): Fix small typo in printf string.
+
+Thu Aug  5 11:37:48 1993  Stan Shebs  (shebs@rtl.cygnus.com)
+
+	* interp.c (sim_resume): Set memory after pointers inited.
+
 Mon Aug  2 14:13:22 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
 
 	* interp.c (get_now): Use time system call.

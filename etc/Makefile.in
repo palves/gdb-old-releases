@@ -46,9 +46,9 @@ install:  $(srcdir)/configure.man
 
 info: $(INFOFILES)
 
-install-info: info
+install-info:
 	for i in *.info* ; do \
-	  $(INSTALL_DATA) $$i $(infodir)/$$i ; \
+	  $(INSTALL_DATA) $$i $(infodir) ; \
 	done
 
 dvi : $(DVIFILES)

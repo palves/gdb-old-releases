@@ -33,7 +33,7 @@ set binfile "gdbme"
 
 if ![file exists $objdir/$subdir/$binfile] then {
 	error "$objdir/$subdir/$binfile does not exist."
-	alldone
+	return 0
 	}
 
 gdb_exit
@@ -48,19 +48,30 @@ expect -re "run\r\n" {}
 if [istarget "*-*-vxworks"] then {
     set timeout 120
     expect {
-	    -i $shell_id -re "usage:  factorial <number>"\
-				{ pass "run $binfile" }
-	    timeout		{ fail "(timeout) run $binfile" }
+	-i $shell_id "Program exited normally" {
+	    unresolved "run $binfile"
 	}
+	-i $shell_id -re "usage:  factorial <number>" {
+	    pass "run $binfile"
+	}
+	timeout	{
+	    fail "(timeout) run $binfile"
+	}
+    }
     set timeout 10
     expect -re "$prompt $" {}
 } else {
     expect {
-	    -re "Starting program.*usage:  factorial <number>.*$prompt $"\
-				{ pass "run $binfile" }
-	    -re ".*$prompt $"	{ fail "run $binfile" }
-	    timeout		{ fail "(timeout) run $binfile" }
+	-re "Starting program.*usage:  factorial <number>.*$prompt $" {
+	    pass "run $binfile"
 	}
+	-re ".*$prompt $" {
+	    fail "run $binfile"
+	}
+	timeout	{
+	    fail "(timeout) run $binfile"
+	}
+    }
 }
 
 # Now run with some arguments
@@ -69,8 +80,15 @@ if [istarget "*-*-vxworks"] then {
     expect -re "run vxmain \"5\"\r\n" {}
     set timeout 120
     expect {
-	    -i $shell_id "120" { pass "run $binfile with arg" }
-	    timeout { fail "(timeout) run $binfile with arg" }
+	-i $shell_id "Program exited normally" {
+	    unresolved "run $binfile with arg"
+	}
+	-i $shell_id "120" {
+	    pass "run $binfile with arg"
+	}
+	timeout {
+	    fail "(timeout) run $binfile with arg"
+	}
     }
     set timeout 10
     expect -re "$prompt $" {}
@@ -111,9 +129,12 @@ expect -re "run\r\n" {}
 if [istarget "*-*-vxworks"] then {
     set timeout 120
     expect {
-	    -i $shell_id "120" { pass "run $binfile again" }
-	    timeout { fail "(timeout) run $binfile again" }
+	-i $shell_id "Program exited normally" {
+	    unresolved "run $binfile again"
 	}
+	-i $shell_id "120" { pass "run $binfile again" }
+	timeout { fail "(timeout) run $binfile again" }
+    }
     set timeout 10
     expect -re "$prompt $" {}
 } else {
@@ -143,19 +164,30 @@ expect -re "run\r\n" {}
 if [istarget "*-*-vxworks"] then {
     set timeout 120
     expect {
-	    -i $shell_id "usage:  factorial <number>"\
-				{ pass "set args to nil" }
-	    timeout		{ fail "(timeout) set args to nil" }
+	-i $shell_id "Program exited normally" {
+	    unresolved "set args to nil"
 	}
+	-i $shell_id "usage:  factorial <number>" {
+	    pass "set args to nil"
+	}
+	timeout {
+	    fail "(timeout) set args to nil"
+	}
+    }
     set timeout 10
     expect -re "$prompt $" {}
 } else {
     expect {
-	    -re "Starting program.*usage:  factorial <number>.*$prompt $"\
-				{ pass "set args to nil" }
-	    -re ".*$prompt $"	{ fail "set args to nil" }
-	    timeout		{ fail "(timeout) set args to nil" }
+	-re "Starting program.*usage:  factorial <number>.*$prompt $" {
+	    pass "set args to nil"
 	}
+	-re ".*$prompt $" {
+	    fail "set args to nil"
+	}
+	timeout {
+	    fail "(timeout) set args to nil"
+	}
+    }
 }
 
 # Use "set args" command to specify an argument and run again.
@@ -180,17 +212,29 @@ expect -re "run\r\n" {}
 if [istarget "*-*-vxworks"] then {
     set timeout 120
     expect {
-	    -i $shell_id "720" { pass "run $binfile again" }
-	    timeout { fail "(timeout) run $binfile again" }
+	-i $shell_id "Program exited normally" {
+	    unresolved "run $binfile again"
 	}
+	-i $shell_id "720" {
+	    pass "run $binfile again"
+	}
+	timeout {
+	    fail "(timeout) run $binfile again"
+	}
+    }
     set timeout 10
     expect -re "$prompt $" {}
 } else {
     expect {
-	    -re "Starting program.*720.*$prompt $"\
-				{ pass "set args" }
-	    -re ".*$prompt $"	{ fail "set args" }
-	    timeout		{ fail "(timeout) set args" }
+	    -re "Starting program.*720.*$prompt $" {
+		pass "run $binfile again"
+	    }
+	    -re ".*$prompt $" {
+		fail "run $binfile again"
+	    }
+	    timeout {
+		fail "(timeout) run $binfile again"
+	    }
 	}
 }
 
@@ -205,11 +249,16 @@ if ![istarget "*-*-vxworks"] then {
     setup_xfail "mips-idt-*"
     send "run `echo 8`\n"
     expect {
-	    -re "Starting program.*40320.*$prompt $"\
-				{ pass "run with shell" }
-	    -re ".*$prompt $"	{ fail "run with shell" }
-	    timeout		{ fail "(timeout) run with shell" }
+	-re "Starting program.*40320.*$prompt $" {
+	    pass "run $binfile with shell"
 	}
+	-re ".*$prompt $" {
+	    fail "run $binfile with shell"
+	}
+	timeout	{
+	    fail "(timeout) run $binfile with shell"
+	}
+    }
 }
 
 if [istarget "a29k-*-udi"] then {
@@ -222,3 +271,4 @@ if [istarget "*-*-vxworks"] then {
     send "set args main\n"
     expect -re ".*$prompt $" {}
 }
+

@@ -6,10 +6,10 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.10.
+   This is Edition 4.09, August 1993, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.11.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
+   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
@@ -934,7 +934,7 @@ distribution.
 Info formatting programs, such as `texinfo-format-buffer' or `makeinfo'.
 
    If you have `makeinfo' installed, and are in the top level GDB
-source directory (`gdb-4.10', in the case of version 4.10), you can
+source directory (`gdb-4.11', in the case of version 4.11), you can
 make the Info file by typing:
 
      cd gdb
@@ -960,14 +960,14 @@ format.  On its own, TeX cannot read, much less typeset a Texinfo file.
 
    If you have TeX and a DVI printer program installed, you can typeset
 and print this manual.  First switch to the the `gdb' subdirectory of
-the main source directory (for example, to `gdb-4.10/gdb') and then
+the main source directory (for example, to `gdb-4.11/gdb') and then
 type:
 
      make gdb.dvi
 
    ---------- Footnotes ----------
 
-   (1)  In `gdb-4.10/gdb/refcard.ps' of the version 4.10 release.
+   (1)  In `gdb-4.11/gdb/refcard.ps' of the version 4.11 release.
 
 
 File: gdb.info,  Node: Installing GDB,  Next: Index,  Prev: Formatting Documentation,  Up: Top
@@ -983,39 +983,39 @@ preparing GDB for installation; you can then use `make' to build the
 a single directory, whose name is usually composed by appending the
 version number to `gdb'.
 
-   For example, the GDB version 4.10 distribution is in the `gdb-4.10'
+   For example, the GDB version 4.11 distribution is in the `gdb-4.11'
 directory.  That directory contains:
 
-`gdb-4.10/configure (and supporting files)'
+`gdb-4.11/configure (and supporting files)'
      script for configuring GDB and all its supporting libraries.
 
-`gdb-4.10/gdb'
+`gdb-4.11/gdb'
      the source specific to GDB itself
 
-`gdb-4.10/bfd'
+`gdb-4.11/bfd'
      source for the Binary File Descriptor library
 
-`gdb-4.10/include'
+`gdb-4.11/include'
      GNU include files
 
-`gdb-4.10/libiberty'
+`gdb-4.11/libiberty'
      source for the `-liberty' free software library
 
-`gdb-4.10/opcodes'
+`gdb-4.11/opcodes'
      source for the library of opcode tables and disassemblers
 
-`gdb-4.10/readline'
+`gdb-4.11/readline'
      source for the GNU command-line interface
 
-`gdb-4.10/glob'
+`gdb-4.11/glob'
      source for the GNU filename pattern-matching subroutine
 
-`gdb-4.10/mmalloc'
+`gdb-4.11/mmalloc'
      source for the GNU memory-mapped malloc package
 
    The simplest way to configure and build GDB is to run `configure'
 from the `gdb-VERSION-NUMBER' source directory, which in this example
-is the `gdb-4.10' directory.
+is the `gdb-4.11' directory.
 
    First switch to the `gdb-VERSION-NUMBER' source directory if you are
 not already in it; then run `configure'.  Pass the identifier for the
@@ -1023,7 +1023,7 @@ platform on which GDB will run as an argument.
 
    For example:
 
-     cd gdb-4.10
+     cd gdb-4.11
      ./configure HOST
      make
 
@@ -1044,8 +1044,8 @@ you may need to run `sh' on it explicitly:
      sh configure HOST
 
    If you run `configure' from a directory that contains source
-directories for multiple libraries or programs, such as the `gdb-4.10'
-source directory for version 4.10, `configure' creates configuration
+directories for multiple libraries or programs, such as the `gdb-4.11'
+source directory for version 4.11, `configure' creates configuration
 files for every directory level underneath (unless you tell it not to,
 with the `--norecursion' option).
 
@@ -1053,10 +1053,10 @@ with the `--norecursion' option).
 directories in the GDB distribution if you only want to configure that
 subdirectory, but be sure to specify a path to it.
 
-   For example, with version 4.10, type the following to configure only
+   For example, with version 4.11, type the following to configure only
 the `bfd' subdirectory:
 
-     cd gdb-4.10/bfd
+     cd gdb-4.11/bfd
      ../configure HOST
 
    You can install `gdb' anywhere; it has no hardwired paths.  However,
@@ -1092,13 +1092,13 @@ directory.  If the path to `configure' would be the same as the
 argument to `--srcdir', you can leave out the `--srcdir' option; it
 will be assumed.)
 
-   For example, with version 4.10, you can build GDB in a separate
+   For example, with version 4.11, you can build GDB in a separate
 directory for a Sun 4 like this:
 
-     cd gdb-4.10
+     cd gdb-4.11
      mkdir ../gdb-sun4
      cd ../gdb-sun4
-     ../gdb-4.10/configure sun4
+     ../gdb-4.11/configure sun4
      make
 
    When `configure' builds a configuration using a remote source
@@ -1119,8 +1119,8 @@ called `configure' (or one of its subdirectories).
 
    The `Makefile' that `configure' generates in each source directory
 also runs recursively.  If you type `make' in a source directory such
-as `gdb-4.10' (or in a separate configured directory configured with
-`--srcdir=PATH/gdb-4.10'), you will build all the required libraries,
+as `gdb-4.11' (or in a separate configured directory configured with
+`--srcdir=PATH/gdb-4.11'), you will build all the required libraries,
 and then build GDB.
 
    When you have multiple hosts or targets configured in separate
@@ -1165,7 +1165,7 @@ you can use it to test your guesses on abbreviations--for example:
      Invalid configuration `i786v': machine `i786v' not recognized
 
 `config.sub' is also distributed in the GDB source directory
-(`gdb-4.10', for version 4.10).
+(`gdb-4.11', for version 4.11).
 
 
 File: gdb.info,  Node: configure Options,  Prev: Config Names,  Up: Installing GDB

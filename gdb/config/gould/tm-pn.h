@@ -252,12 +252,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Convert data from raw format for register REGNUM
    to virtual format for register REGNUM.  */
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)	\
-	bcopy ((FROM), (TO), REGISTER_RAW_SIZE(REGNUM));
+	memcpy ((TO), (FROM), REGISTER_RAW_SIZE(REGNUM));
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 #define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-	bcopy ((FROM), (TO), REGISTER_VIRTUAL_SIZE(REGNUM));
+	memcpy ((TO), (FROM), REGISTER_VIRTUAL_SIZE(REGNUM));
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -276,7 +276,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    into VALBUF. */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-	bcopy (REGBUF, VALBUF, TYPE_LENGTH (TYPE))
+	memcpy (VALBUF, REGBUF, TYPE_LENGTH (TYPE))
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.  */
@@ -337,7 +337,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs)		\
 {                                                                       \
-  bzero (&frame_saved_regs, sizeof frame_saved_regs);			\
+  memset (&frame_saved_regs, '\0', sizeof frame_saved_regs);			\
   (frame_saved_regs).regs[PC_REGNUM] = (frame_info)->frame + 8;		\
   (frame_saved_regs).regs[R4_REGNUM] = (frame_info)->frame + 0x30;	\
   (frame_saved_regs).regs[R5_REGNUM] = (frame_info)->frame + 0x34;	\

@@ -21,7 +21,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
-#include "gdbcore.h"
 #include "target.h"
 
 #include <sys/ptrace.h>
@@ -184,44 +183,14 @@ store_inferior_registers (regno)
       store_register (regno, offset, inferior_pid);
 }
 
-/* Extract the register values out of the core file and store
-   them where `read_register' will find them.
-
-   CORE_REG_SECT points to the register values themselves, read into memory.
-   CORE_REG_SIZE is the size of that area.
-   WHICH says which set of registers we are handling (0 = int, 2 = float
-         on machines where they are discontiguous).
-   REG_ADDR is the offset from u.u_ar0 to the register values relative to
-            core_reg_sect.  This is used with old-fashioned core files to
-	    locate the registers in a large upage-plus-stack ".reg" section.
-	    Original upage address X is at location core_reg_sect+x+reg_addr.
- */
-
-void
-fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
-     char *core_reg_sect;
-     unsigned core_reg_size;
-     int which;
-     unsigned reg_addr;
-{
-  struct st_entry s;
-  unsigned int regno, addr;
-
-  for (regno = 0; regno < NUM_REGS; regno++)
-    {
-      addr = register_addr (regno, (char *) &s.ec - (char *) &s);
-      supply_register (regno, core_reg_sect + addr);
-    }
-}
-
 /* Wait for child to do something.  Return pid of child, or -1 in case
    of error; store status through argument pointer STATUS.  */
 
 int
-child_wait (status)
+child_wait (pid, status)
+     int pid;
      int *status;
 {
-  int pid;
   int save_errno;
   int thread;
 
@@ -281,4 +250,34 @@ i386lynx_pid_to_str (pid)
   sprintf (buf, "process %d thread %d", PIDGET (pid), TIDGET (pid));
 
   return buf;
+}
+
+/* Extract the register values out of the core file and store
+   them where `read_register' will find them.
+
+   CORE_REG_SECT points to the register values themselves, read into memory.
+   CORE_REG_SIZE is the size of that area.
+   WHICH says which set of registers we are handling (0 = int, 2 = float
+         on machines where they are discontiguous).
+   REG_ADDR is the offset from u.u_ar0 to the register values relative to
+            core_reg_sect.  This is used with old-fashioned core files to
+	    locate the registers in a large upage-plus-stack ".reg" section.
+	    Original upage address X is at location core_reg_sect+x+reg_addr.
+ */
+
+void
+fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
+     char *core_reg_sect;
+     unsigned core_reg_size;
+     int which;
+     unsigned reg_addr;
+{
+  struct st_entry s;
+  unsigned int regno, addr;
+
+  for (regno = 0; regno < NUM_REGS; regno++)
+    {
+      addr = register_addr (regno, (char *) &s.ec - (char *) &s);
+      supply_register (regno, core_reg_sect + addr);
+    }
 }

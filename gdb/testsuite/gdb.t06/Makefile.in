@@ -10,10 +10,15 @@ all: $(EXECUTABLES)
 
 gdbme: gdbme.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o gdbme gdbme.o $(LIBS)
+
 gdbme.o: gdbme.c
+	$(CC) $(CFLAGS) -c $(srcdir)/gdbme.c
+
 signals: signals.o
 	${CC} ${CFLAGS} ${LDFLAGS} -o signals signals.o ${LIBS}
+
 signals.o: signals.c
+	$(CC) $(CFLAGS) -c $(srcdir)/signals.c
 
 twice: twice.c
 	echo '#include "twice.c"' >twice-tmp.c

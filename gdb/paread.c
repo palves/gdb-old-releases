@@ -20,18 +20,25 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
 #include "bfd.h"
+#include <time.h> /* For time_t in libbfd.h.  */
+#include <sys/types.h> /* For time_t, if not in time.h.  */
 #include "libbfd.h"
-#include "libhppa.h"
+#include "som.h"
 #include <syms.h>
 #include "symtab.h"
 #include "symfile.h"
 #include "objfiles.h"
 #include "buildsym.h"
+#include "stabsread.h"
 #include "gdb-stabs.h"
 #include "complaints.h"
 #include <string.h>
 #include "demangle.h"
 #include <sys/file.h>
+
+/* Size of n_value and n_strx fields in a stab symbol.  */
+#define BYTES_IN_WORD 4
+
 #include "aout/aout64.h"
 
 /* Various things we might complain about... */
@@ -318,7 +325,7 @@ pa_symfile_read (objfile, section_offsets, mainline)
   do_cleanups (back_to);
 }
 
-/* This cleans up the objfile's sym_private pointer, and the chain of
+/* This cleans up the objfile's sym_stab_info pointer, and the chain of
    stab_section_info's, that might be dangling from it.  */
 
 static void
@@ -327,7 +334,7 @@ free_painfo (objp)
 {
   struct objfile *objfile = (struct objfile *)objp;
   struct dbx_symfile_info *dbxinfo = (struct dbx_symfile_info *)
-				     objfile->sym_private;
+				     objfile->sym_stab_info;
   struct stab_section_info *ssi, *nssi;
 
   ssi = dbxinfo->stab_section_info;
@@ -364,9 +371,9 @@ static void
 pa_symfile_finish (objfile)
      struct objfile *objfile;
 {
-  if (objfile -> sym_private != NULL)
+  if (objfile -> sym_stab_info != NULL)
     {
-      mfree (objfile -> md, objfile -> sym_private);
+      mfree (objfile -> md, objfile -> sym_stab_info);
     }
 }
 
@@ -394,10 +401,10 @@ pa_symfile_init (objfile)
   stringsect = bfd_get_section_by_name (sym_bfd, "$GDB_STRINGS$");
 
   /* Allocate struct to keep track of the symfile */
-  objfile->sym_private = (PTR)
+  objfile->sym_stab_info = (PTR)
     xmmalloc (objfile -> md, sizeof (struct dbx_symfile_info));
 
-  memset ((PTR) objfile->sym_private, 0, sizeof (struct dbx_symfile_info));
+  memset ((PTR) objfile->sym_stab_info, 0, sizeof (struct dbx_symfile_info));
 
   if (!stabsect)
     return;
@@ -416,6 +423,9 @@ pa_symfile_init (objfile)
   if (!DBX_TEXT_SECT (objfile))
     error ("Can't find .text section in symbol file");
 
+  /* FIXME: I suspect this should be external_nlist.  The size of host
+     types like long and bfd_vma should not affect how we read the
+     file.  */
   DBX_SYMBOL_SIZE (objfile) = sizeof (struct internal_nlist);
   DBX_SYMCOUNT (objfile) = bfd_section_size (sym_bfd, stabsect)
     / DBX_SYMBOL_SIZE (objfile);

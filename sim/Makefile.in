@@ -94,7 +94,7 @@ STAGESTUFF = $(TARGETLIB) $(OFILES)
 
 
 all:	$(ALL)
-	
+
 clean:  $(CLEAN)
 
 install: $(DO_INSTALL)
@@ -127,7 +127,7 @@ install-nothing: force
 ### z8k
 
 all-z8k: force
-	if [ -f ./z8k/Makefile ] ; then \
+	@if [ -f ./z8k/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		( cd ./z8k ; $(MAKE) $(FLAGS_TO_PASS) all) ; \
 	else \
@@ -135,7 +135,7 @@ all-z8k: force
 	fi
 
 install-z8k: force
-	if [ -f ./z8k/Makefile ] ; then \
+	@if [ -f ./z8k/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		  srcroot=`cd $(srcdir); pwd`; export srcroot; \
 		( cd ./z8k ; $(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -144,7 +144,7 @@ install-z8k: force
 	fi
 
 clean-z8k: force
-	if [ -f ./z8k/Makefile ] ; then \
+	@if [ -f ./z8k/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		( cd ./z8k ; $(MAKE) $(FLAGS_TO_PASS) clean) ; \
 	else \
@@ -155,7 +155,7 @@ clean-z8k: force
 ### h8300
 
 all-h8300: force
-	if [ -f ./h8300/Makefile ] ; then \
+	@if [ -f ./h8300/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		( cd ./h8300 ; $(MAKE) $(FLAGS_TO_PASS) all) ; \
 	else \
@@ -163,7 +163,7 @@ all-h8300: force
 	fi
 
 install-h8300: force
-	if [ -f ./h8300/Makefile ] ; then \
+	@if [ -f ./h8300/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		  srcroot=`cd $(srcdir); pwd`; export srcroot; \
 		( cd ./h8300 ; $(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -172,7 +172,7 @@ install-h8300: force
 	fi
 
 clean-h8300: force
-	if [ -f ./h8300/Makefile ] ; then \
+	@if [ -f ./h8300/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		( cd ./h8300 ; $(MAKE) $(FLAGS_TO_PASS) clean) ; \
 	else \
@@ -184,7 +184,7 @@ clean-h8300: force
 ### h8500
 
 all-h8500: force
-	if [ -f ./h8500/Makefile ] ; then \
+	@if [ -f ./h8500/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		( cd ./h8500 ; $(MAKE) $(FLAGS_TO_PASS) all) ; \
 	else \
@@ -192,7 +192,7 @@ all-h8500: force
 	fi
 
 install-h8500: force
-	if [ -f ./h8500/Makefile ] ; then \
+	@if [ -f ./h8500/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		  srcroot=`cd $(srcdir); pwd`; export srcroot; \
 		( cd ./h8500 ; $(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -201,7 +201,7 @@ install-h8500: force
 	fi
 
 clean-h8500: force
-	if [ -f ./h8500/Makefile ] ; then \
+	@if [ -f ./h8500/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		( cd ./h8500 ; $(MAKE) $(FLAGS_TO_PASS) clean) ; \
 	else \
@@ -213,7 +213,7 @@ clean-h8500: force
 ### sh
 
 all-sh: force
-	if [ -f ./sh/Makefile ] ; then \
+	@if [ -f ./sh/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		( cd ./sh ; $(MAKE) $(FLAGS_TO_PASS) all) ; \
 	else \
@@ -221,7 +221,7 @@ all-sh: force
 	fi
 
 install-sh: force
-	if [ -f ./sh/Makefile ] ; then \
+	@if [ -f ./sh/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		( cd ./sh ; $(MAKE) $(FLAGS_TO_PASS) install) ; \
 	else \
@@ -229,7 +229,7 @@ install-sh: force
 	fi
 
 clean-sh: force
-	if [ -f ./sh/Makefile ] ; then \
+	@if [ -f ./sh/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		( cd ./sh ; $(MAKE) $(FLAGS_TO_PASS) clean) ; \
 	else \

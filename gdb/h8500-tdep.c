@@ -164,7 +164,7 @@ frame_find_saved_regs (fi, fsr)
       cache_fsr = (struct frame_saved_regs *)
 	obstack_alloc (&frame_cache_obstack,
 		       sizeof (struct frame_saved_regs));
-      bzero (cache_fsr, sizeof (struct frame_saved_regs));
+      memset (cache_fsr, '\0', sizeof (struct frame_saved_regs));
 
       fi->fsr = cache_fsr;
 
@@ -485,7 +485,7 @@ frame_find_saved_regs (frame_info, frame_saved_regs)
   register CORE_ADDR pc;
   unsigned char thebyte;
 
-  bzero (frame_saved_regs, sizeof *frame_saved_regs);
+  memset (frame_saved_regs, '\0', sizeof *frame_saved_regs);
 
   if ((frame_info)->pc >= (frame_info)->frame - CALL_DUMMY_LENGTH - FP_REGNUM * 4 - 4
       && (frame_info)->pc <= (frame_info)->frame)
@@ -816,4 +816,16 @@ target_write_fp (v)
 {
   write_register (SEG_T_REGNUM, v >> 16);
   write_register (FP_REGNUM, v & 0xffff);
+}
+
+/* This doesn't quite fit either in the simulator or in gdb proper.
+   Perhaps the simulator could return 1 to mean it loaded it and 0 to
+   mean "you deal with it, caller".  */
+
+int 
+sim_load (abfd, prog)
+bfd *abfd;
+char *prog;
+{
+  return sim_load_standard (abfd); 
 }

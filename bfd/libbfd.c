@@ -249,7 +249,7 @@ DEFUN(bfd_write_bigendian_4byte_int,(abfd, i),
       int i)
 {
   bfd_byte buffer[4];
-  _do_putb32(i, buffer);
+  bfd_putb32(i, buffer);
   bfd_write((PTR)buffer, 4, 1, abfd);
 }
 
@@ -265,6 +265,21 @@ DEFUN(bfd_tell,(abfd),
     ptr -= abfd->origin;
   abfd->where = ptr;
   return ptr;
+}
+
+int
+DEFUN(bfd_flush,(abfd),
+      bfd *abfd)
+{
+  return fflush (bfd_cache_lookup(abfd));
+}
+
+int
+DEFUN(bfd_stat,(abfd, statbuf),
+      bfd *abfd AND
+      struct stat *statbuf)
+{
+  return fstat (fileno(bfd_cache_lookup(abfd)), statbuf);
 }
 
 int
@@ -526,42 +541,42 @@ DESCRIPTION
 */ 
 
 /* Sign extension to bfd_signed_vma.  */
-#define COERCE16(x) ((bfd_signed_vma) (((x) ^ 0x8000) - 0x8000))
-#define COERCE32(x) ((bfd_signed_vma) (((x) ^ 0x80000000) - 0x80000000))
+#define COERCE16(x) (((bfd_signed_vma) (x) ^ 0x8000) - 0x8000)
+#define COERCE32(x) (((bfd_signed_vma) (x) ^ 0x80000000) - 0x80000000)
 #define EIGHT_GAZILLION (((HOST_64_BIT)0x80000000) << 32)
-#define COERCE64(x) ((bfd_signed_vma)\
-		     (((x) ^ EIGHT_GAZILLION) - EIGHT_GAZILLION))
+#define COERCE64(x) \
+  (((bfd_signed_vma) (x) ^ EIGHT_GAZILLION) - EIGHT_GAZILLION)
 
 bfd_vma
-DEFUN(_do_getb16,(addr),
+DEFUN(bfd_getb16,(addr),
       register bfd_byte *addr)
 {
         return (addr[0] << 8) | addr[1];
 }
 
 bfd_vma
-DEFUN(_do_getl16,(addr),
+DEFUN(bfd_getl16,(addr),
       register bfd_byte *addr)
 {
         return (addr[1] << 8) | addr[0];
 }
 
 bfd_signed_vma
-DEFUN(_do_getb_signed_16,(addr),
+DEFUN(bfd_getb_signed_16,(addr),
       register bfd_byte *addr)
 {
         return COERCE16((addr[0] << 8) | addr[1]);
 }
 
 bfd_signed_vma
-DEFUN(_do_getl_signed_16,(addr),
+DEFUN(bfd_getl_signed_16,(addr),
       register bfd_byte *addr)
 {
         return COERCE16((addr[1] << 8) | addr[0]);
 }
 
 void
-DEFUN(_do_putb16,(data, addr),
+DEFUN(bfd_putb16,(data, addr),
       bfd_vma data AND
       register bfd_byte *addr)
 {
@@ -570,7 +585,7 @@ DEFUN(_do_putb16,(data, addr),
 }
 
 void
-DEFUN(_do_putl16,(data, addr),
+DEFUN(bfd_putl16,(data, addr),
       bfd_vma data AND              
       register bfd_byte *addr)
 {
@@ -579,37 +594,39 @@ DEFUN(_do_putl16,(data, addr),
 }
 
 bfd_vma
-_do_getb32 (addr)
+bfd_getb32 (addr)
      register bfd_byte *addr;
 {
-        return ((((addr[0] << 8) | addr[1]) << 8) | addr[2]) << 8 | addr[3];
+        return (((((bfd_vma)addr[0] << 8) | addr[1]) << 8)
+		| addr[2]) << 8 | addr[3];
 }
 
 bfd_vma
-_do_getl32 (addr)
+bfd_getl32 (addr)
         register bfd_byte *addr;
 {
-        return ((((addr[3] << 8) | addr[2]) << 8) | addr[1]) << 8 | addr[0];
+        return (((((bfd_vma)addr[3] << 8) | addr[2]) << 8)
+		| addr[1]) << 8 | addr[0];
 }
 
 bfd_signed_vma
-_do_getb_signed_32 (addr)
+bfd_getb_signed_32 (addr)
      register bfd_byte *addr;
 {
-        return COERCE32(((((addr[0] << 8) | addr[1]) << 8)
+        return COERCE32((((((bfd_vma)addr[0] << 8) | addr[1]) << 8)
 			 | addr[2]) << 8 | addr[3]);
 }
 
 bfd_signed_vma
-_do_getl_signed_32 (addr)
+bfd_getl_signed_32 (addr)
         register bfd_byte *addr;
 {
-        return COERCE32(((((addr[3] << 8) | addr[2]) << 8)
+        return COERCE32((((((bfd_vma)addr[3] << 8) | addr[2]) << 8)
 			 | addr[1]) << 8 | addr[0]);
 }
 
 bfd_vma
-DEFUN(_do_getb64,(addr),
+DEFUN(bfd_getb64,(addr),
       register bfd_byte *addr)
 {
 #ifdef BFD64
@@ -620,7 +637,7 @@ DEFUN(_do_getb64,(addr),
             addr[2]) << 8) |
           addr[3]) );
 
-  low = ((((((((addr[4]) << 8) |
+  low = (((((((((bfd_vma)addr[4]) << 8) |
               addr[5]) << 8) |
             addr[6]) << 8) |
           addr[7]));
@@ -634,7 +651,7 @@ DEFUN(_do_getb64,(addr),
 }
 
 bfd_vma
-DEFUN(_do_getl64,(addr),
+DEFUN(bfd_getl64,(addr),
       register bfd_byte *addr)
 {
 
@@ -645,7 +662,7 @@ DEFUN(_do_getl64,(addr),
             addr[5]) << 8) |
           addr[4]));
 
-  low = (((((((addr[3] << 8) |
+  low = ((((((((bfd_vma)addr[3] << 8) |
               addr[2]) << 8) |
             addr[1]) << 8) |
           addr[0]) );
@@ -659,7 +676,7 @@ DEFUN(_do_getl64,(addr),
 }
 
 bfd_signed_vma
-DEFUN(_do_getb_signed_64,(addr),
+DEFUN(bfd_getb_signed_64,(addr),
       register bfd_byte *addr)
 {
 #ifdef BFD64
@@ -670,7 +687,7 @@ DEFUN(_do_getb_signed_64,(addr),
             addr[2]) << 8) |
           addr[3]) );
 
-  low = ((((((((addr[4]) << 8) |
+  low = (((((((((bfd_vma)addr[4]) << 8) |
               addr[5]) << 8) |
             addr[6]) << 8) |
           addr[7]));
@@ -684,7 +701,7 @@ DEFUN(_do_getb_signed_64,(addr),
 }
 
 bfd_signed_vma
-DEFUN(_do_getl_signed_64,(addr),
+DEFUN(bfd_getl_signed_64,(addr),
       register bfd_byte *addr)
 {
 
@@ -695,7 +712,7 @@ DEFUN(_do_getl_signed_64,(addr),
             addr[5]) << 8) |
           addr[4]));
 
-  low = (((((((addr[3] << 8) |
+  low = ((((((((bfd_vma)addr[3] << 8) |
               addr[2]) << 8) |
             addr[1]) << 8) |
           addr[0]) );
@@ -709,7 +726,7 @@ DEFUN(_do_getl_signed_64,(addr),
 }
 
 void
-DEFUN(_do_putb32,(data, addr),
+DEFUN(bfd_putb32,(data, addr),
       bfd_vma data AND
       register bfd_byte *addr)
 {
@@ -720,7 +737,7 @@ DEFUN(_do_putb32,(data, addr),
 }
 
 void
-DEFUN(_do_putl32,(data, addr),
+DEFUN(bfd_putl32,(data, addr),
       bfd_vma data AND
       register bfd_byte *addr)
 {
@@ -730,7 +747,7 @@ DEFUN(_do_putl32,(data, addr),
         addr[3] = (bfd_byte)(data >> 24);
 }
 void
-DEFUN(_do_putb64,(data, addr),
+DEFUN(bfd_putb64,(data, addr),
         bfd_vma data AND
         register bfd_byte *addr)
 {
@@ -750,7 +767,7 @@ DEFUN(_do_putb64,(data, addr),
 }
 
 void
-DEFUN(_do_putl64,(data, addr),
+DEFUN(bfd_putl64,(data, addr),
       bfd_vma data AND
       register bfd_byte *addr)
 {

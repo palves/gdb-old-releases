@@ -107,7 +107,8 @@ DEFUN (nlm_object_p, (abfd), bfd * abfd)
 
   /* Check to see if we have an NLM file by matching the NLM signature. */
 
-  if (strncmp (x_fxdhdr.signature, NLM_SIGNATURE, NLM_SIGNATURE_SIZE) != 0)
+  if (strncmp ((char *) x_fxdhdr.signature, NLM_SIGNATURE,
+	       NLM_SIGNATURE_SIZE) != 0)
     {
       bfd_error = wrong_format;
       return (NULL);
@@ -174,7 +175,8 @@ DEFUN (nlm_object_p, (abfd), bfd * abfd)
       || nlm_fixed_header (abfd)->numberOfExternalReferences != 0)
     abfd->flags |= HAS_RELOC;
   if (nlm_fixed_header (abfd)->numberOfPublics != 0
-      || nlm_fixed_header (abfd)->numberOfDebugRecords != 0)
+      || nlm_fixed_header (abfd)->numberOfDebugRecords != 0
+      || nlm_fixed_header (abfd)->numberOfExternalReferences != 0)
     abfd->flags |= HAS_SYMS;
 
   arch = nlm_architecture (abfd);
@@ -536,7 +538,7 @@ static boolean
 DEFUN (nlm_swap_auxiliary_headers_in, (abfd),
        bfd * abfd)
 {
-  unsigned char tempstr [16];
+  char tempstr [16];
   long position;
 
   for (;;)
@@ -660,16 +662,21 @@ DEFUN (nlm_swap_auxiliary_headers_in, (abfd),
 	}
       else if (strncmp (tempstr, "CoPyRiGhT=", 10) == 0)
 	{
-	  Nlm_External_Copyright_Header thdr;
-	  if (bfd_read ((PTR) &thdr, sizeof (thdr), 1, abfd) != sizeof (thdr))
+	  if (bfd_read ((PTR) &nlm_copyright_header (abfd)->stamp,
+			sizeof (nlm_copyright_header (abfd)->stamp),
+			1, abfd)
+	      != sizeof (nlm_copyright_header (abfd)->stamp))
 	    {
 	      bfd_error = system_call_error;
 	      return (false);
 	    }
-	  memcpy (nlm_copyright_header (abfd) -> stamp, thdr.stamp,
-		  sizeof (thdr.stamp));
-	  nlm_copyright_header (abfd) -> copyrightMessageLength =
-	    get_word (abfd, (bfd_byte *) thdr.copyrightMessageLength);
+	  if (bfd_read ((PTR) &(nlm_copyright_header (abfd)
+				->copyrightMessageLength),
+			1, 1, abfd) != 1)
+	    {
+	      bfd_error = system_call_error;
+	      return (false);
+	    }
 	  /* The copyright message is a variable length string. */
 	  if (bfd_read ((PTR) nlm_copyright_header (abfd) -> copyrightMessage,
 			nlm_copyright_header (abfd) -> copyrightMessageLength + 1,
@@ -863,14 +870,19 @@ nlm_swap_auxiliary_headers_out (abfd)
       Nlm_External_Copyright_Header thdr;
 
       memcpy (thdr.stamp, "CoPyRiGhT=", 10);
-      put_word (abfd,
-		(bfd_vma) nlm_copyright_header (abfd) -> copyrightMessageLength,
-		(bfd_byte *) thdr.copyrightMessageLength);
-      if (bfd_write ((PTR) &thdr, sizeof (thdr), 1, abfd) != sizeof (thdr))
-	  {
-	    bfd_error = system_call_error;
-	    return false;
-	  }
+      if (bfd_write ((PTR) thdr.stamp, sizeof (thdr.stamp), 1, abfd)
+	  != sizeof (thdr.stamp))
+	{
+	  bfd_error = system_call_error;
+	  return false;
+	}
+      thdr.copyrightMessageLength[0] =
+	nlm_copyright_header (abfd)->copyrightMessageLength;
+      if (bfd_write ((PTR) thdr.copyrightMessageLength, 1, 1, abfd) != 1)
+	{
+	  bfd_error = system_call_error;
+	  return false;
+	}
       /* The copyright message is a variable length string. */
       if (bfd_write ((PTR) nlm_copyright_header (abfd) -> copyrightMessage,
 		     nlm_copyright_header (abfd) -> copyrightMessageLength + 1,
@@ -903,6 +915,7 @@ DEFUN (nlm_get_symtab_upper_bound, (abfd), bfd * abfd)
 
   i_fxdhdrp = nlm_fixed_header (abfd);
   symcount = (i_fxdhdrp -> numberOfPublics
+	      + i_fxdhdrp -> numberOfDebugRecords
 	      + i_fxdhdrp -> numberOfExternalReferences);
   symtab_size = (symcount + 1) * (sizeof (asymbol));
   return (symtab_size);
@@ -992,16 +1005,10 @@ nlm_print_symbol (abfd, afile, symbol, how)
 	N bytes		the symbol name
 	4 bytes		the symbol offset from start of it's section
 
-   Note that we currently ignore the internal debug records.  There is
-   a lot of duplication between the export records and the internal debug
-   records.  We may in the future, want to merge the information from the
-   debug records with the information from the export records to produce
-   a more complete symbol table, treating additional information from the
-   debug records as static symbols. (FIXME)
-
-   We do read in the import records.  These are treated as undefined
-   symbols.  As we read them in we also read in the associated reloc
-   information, which is attached to the symbol.
+   We also read in the debugging symbols and import records.  Import
+   records are treated as undefined symbols.  As we read the import
+   records we also read in the associated reloc information, which is
+   attached to the symbol.
 
    The bfd symbols are copied to SYMPTRS.
 
@@ -1017,7 +1024,8 @@ nlm_slurp_symbol_table (abfd)
   bfd_size_type totsymcount;		/* Number of NLM symbols */
   bfd_size_type symcount;		/* Counter of NLM symbols */
   nlm_symbol_type *sym;			/* Pointer to current bfd symbol */
-  char symlength;			/* Symbol length read into here */
+  unsigned char symlength;		/* Symbol length read into here */
+  unsigned char symtype;		/* Type of debugging symbol */
   bfd_size_type rcount;			/* Number of relocs */
   bfd_byte temp[NLM_TARGET_LONG_SIZE];	/* Symbol offsets read into here */
   boolean (*read_reloc_func) PARAMS ((bfd *, nlm_symbol_type *, asection **,
@@ -1037,6 +1045,7 @@ nlm_slurp_symbol_table (abfd)
   abfd -> symcount = 0;
   i_fxdhdrp = nlm_fixed_header (abfd);
   totsymcount = (i_fxdhdrp -> numberOfPublics
+		 + i_fxdhdrp -> numberOfDebugRecords
 		 + i_fxdhdrp -> numberOfExternalReferences);
   if (totsymcount == 0)
     {
@@ -1074,6 +1083,8 @@ nlm_slurp_symbol_table (abfd)
 	  bfd_error = system_call_error;
 	  return (false);
 	}
+      /* Cast away const.  */
+      ((char *) (sym -> symbol.name))[symlength] = '\0';
       if (bfd_read ((PTR) temp, sizeof (temp), 1, abfd) != sizeof (temp))
 	{
 	  bfd_error = system_call_error;
@@ -1096,6 +1107,61 @@ nlm_slurp_symbol_table (abfd)
       sym -> rcnt = 0;
       abfd -> symcount++;
       sym++;
+    }
+
+  /* Read the debugging records.  */
+
+  if (i_fxdhdrp -> numberOfDebugRecords > 0)
+    {
+      if (bfd_seek (abfd, i_fxdhdrp -> debugInfoOffset, SEEK_SET) == -1)
+	{
+	  bfd_error = system_call_error;
+	  return (false);
+	}
+
+      symcount += i_fxdhdrp -> numberOfDebugRecords;
+      while (abfd -> symcount < symcount)
+	{
+	  if ((bfd_read ((PTR) &symtype, sizeof (symtype), 1, abfd)
+	       != sizeof (symtype))
+	      || bfd_read ((PTR) temp, sizeof (temp), 1, abfd) != sizeof (temp)
+	      || (bfd_read ((PTR) &symlength, sizeof (symlength), 1, abfd)
+		  != sizeof (symlength)))
+	    {
+	      bfd_error = system_call_error;
+	      return false;
+	    }
+	  sym -> symbol.the_bfd = abfd;
+	  sym -> symbol.name = bfd_alloc (abfd, symlength + 1);
+	  if (bfd_read ((PTR) sym -> symbol.name, symlength, 1, abfd)
+	      != symlength)
+	    {
+	      bfd_error = system_call_error;
+	      return (false);
+	    }
+	  /* Cast away const.  */
+	  ((char *) (sym -> symbol.name))[symlength] = '\0';
+	  sym -> symbol.flags = BSF_LOCAL;
+	  sym -> symbol.value = get_word (abfd, temp);
+	  if (symtype == 0)
+	    {
+	      sym -> symbol.section =
+		bfd_get_section_by_name (abfd, NLM_INITIALIZED_DATA_NAME);
+	    }
+	  else if (symtype == 1)
+	    {
+	      sym -> symbol.flags |= BSF_FUNCTION;
+	      sym -> symbol.section =
+		bfd_get_section_by_name (abfd, NLM_CODE_NAME);
+	    }
+	  else
+	    {
+	      sym -> symbol.section = &bfd_abs_section;
+	    }
+	  sym -> rcnt = 0;
+	  abfd -> symcount++;
+	  sym++;
+	}
     }
 
   /* Read in the import records.  We can only do this if we know how
@@ -1343,7 +1409,14 @@ nlm_canonicalize_reloc (abfd, sec, relptr, symbols)
    no way to check this.
 
    This routine also sets the Size and Offset fields in the fixed
-   header.  */
+   header.
+
+   It also looks over the symbols and moves any common symbols into
+   the .bss section; NLM has no way to represent a common symbol.
+   This approach means that either the symbols must already have been
+   set at this point, or there must be no common symbols.  We need to
+   move the symbols at this point so that mangle_relocs can see the
+   final values.  */
 
 static boolean
 nlm_compute_section_file_positions (abfd)
@@ -1355,9 +1428,22 @@ nlm_compute_section_file_positions (abfd)
   bfd_vma text_low, data_low;
   int text_align, data_align, other_align;
   file_ptr text_ptr, data_ptr, other_ptr;
+  asection *bss_sec;
+  asymbol **sym_ptr_ptr;
 
   if (abfd->output_has_begun == true)
     return true;
+
+  /* Make sure we have a section to hold uninitialized data.  */
+  bss_sec = bfd_get_section_by_name (abfd, NLM_UNINITIALIZED_DATA_NAME);
+  if (bss_sec == NULL)
+    {
+      if (! add_bfd_section (abfd, NLM_UNINITIALIZED_DATA_NAME,
+			     (file_ptr) 0, (bfd_size_type) 0,
+			     SEC_ALLOC))
+	return false;
+      bss_sec = bfd_get_section_by_name (abfd, NLM_UNINITIALIZED_DATA_NAME);
+    }
 
   abfd->output_has_begun = true;
 
@@ -1475,6 +1561,39 @@ nlm_compute_section_file_positions (abfd)
 
   nlm_fixed_header (abfd)->relocationFixupOffset = other_ptr;
 
+  /* Move all common symbols into the .bss section.  */
+
+  sym_ptr_ptr = bfd_get_outsymbols (abfd);
+  if (sym_ptr_ptr != NULL)
+    {
+      asymbol **sym_end;
+      bfd_vma add;
+
+      sym_end = sym_ptr_ptr + bfd_get_symcount (abfd);
+      add = 0;
+      for (; sym_ptr_ptr < sym_end; sym_ptr_ptr++)
+	{
+	  asymbol *sym;
+	  bfd_vma size;
+
+	  sym = *sym_ptr_ptr;
+
+	  if (! bfd_is_com_section (bfd_get_section (sym)))
+	    continue;
+
+	  /* Put the common symbol in the .bss section, and increase
+	     the size of the .bss section by the size of the common
+	     symbol (which is the old value of the symbol).  */
+	  sym->section = bss_sec;
+	  size = sym->value;
+	  sym->value = bss_sec->_raw_size + add;
+	  add += size;
+	  add = BFD_ALIGN (add, 1 << bss_sec->alignment_power);
+	}
+      nlm_fixed_header (abfd)->uninitializedDataSize += add;
+      bss_sec->_raw_size += add;
+    }
+
   return true;
 }
 
@@ -1497,6 +1616,24 @@ nlm_set_section_contents (abfd, section, location, offset, count)
 
   if (count == 0)
     return true;
+
+  /* i386 NetWare has a very restricted set of relocs.  In order for
+     objcopy to work, the NLM i386 backend needs a chance to rework
+     the section contents so that its set of relocs will work.  If all
+     the relocs are already acceptable, this will not do anything.  */
+  if (section->reloc_count != 0)
+    {
+      boolean (*mangle_relocs_func) PARAMS ((bfd *, asection *, PTR,
+					     bfd_vma, bfd_size_type));
+
+      mangle_relocs_func = nlm_mangle_relocs_func (abfd);
+      if (mangle_relocs_func != NULL)
+	{
+	  if (! (*mangle_relocs_func) (abfd, section, location,
+				       (bfd_vma) offset, count))
+	    return false;
+	}
+    }
 
   if (bfd_seek (abfd, (file_ptr) (section->filepos + offset), SEEK_SET) != 0
       || bfd_write (location, 1, count, abfd) != count)
@@ -1567,6 +1704,7 @@ nlm_write_object_contents (abfd)
   bfd_size_type external_reloc_count, internal_reloc_count, i, c;
   struct reloc_and_sec *external_relocs;
   asymbol **sym_ptr_ptr;
+  file_ptr last;
 
   if (abfd->output_has_begun == false
       && nlm_compute_section_file_positions (abfd) == false)
@@ -1619,12 +1757,9 @@ nlm_write_object_contents (abfd)
 	continue;
 
       /* We can only represent relocs within a code or data 	
-	 section.  */
+	 section.  We ignore them for a debugging section.  */
       if ((bfd_get_section_flags (abfd, sec) & (SEC_CODE | SEC_DATA)) == 0)
-	{
-	  bfd_error = invalid_operation;
-	  return false;
-	}
+	continue;
 
       /* We need to know how to write out relocs.  */
       if (write_reloc_func == NULL)
@@ -1643,7 +1778,7 @@ nlm_write_object_contents (abfd)
 	  rel = *rel_ptr_ptr;
 	  sym = *rel->sym_ptr_ptr;
 
-	  if ((sym->flags & BSF_SECTION_SYM) != 0)
+	  if (bfd_get_section (sym) != &bfd_und_section)
 	    {
 	      ++internal_reloc_count;
 	      if ((*write_reloc_func) (abfd, sec, rel) == false)
@@ -1686,7 +1821,7 @@ nlm_write_object_contents (abfd)
 	  rel = *rel_ptr_ptr;
 	  sym = *rel->sym_ptr_ptr;
 
-	  if ((sym->flags & BSF_SECTION_SYM) != 0)
+	  if (bfd_get_section (sym) != &bfd_und_section)
 	    continue;
 
 	  external_relocs[i].rel = rel;
@@ -1710,7 +1845,7 @@ nlm_write_object_contents (abfd)
       arelent *rel;
       asymbol *sym;
       bfd_byte len;
-      bfd_size_type cnt;
+      bfd_size_type j, cnt;
       bfd_byte temp[NLM_TARGET_LONG_SIZE];
 
       ++c;
@@ -1728,8 +1863,10 @@ nlm_write_object_contents (abfd)
 	}
 
       cnt = 0;
-      while (i < external_reloc_count
-	     && *external_relocs[i].rel->sym_ptr_ptr == sym)
+      for (j = i;
+	   (j < external_reloc_count
+	    && *external_relocs[j].rel->sym_ptr_ptr == sym);
+	   j++)
 	++cnt;
 
       put_word (abfd, (bfd_vma) cnt, temp);
@@ -1763,12 +1900,12 @@ nlm_write_object_contents (abfd)
 	  asymbol *sym;
 	  bfd_byte len;
 	  bfd_vma offset;
-	  asection *sec;
 	  bfd_byte temp[NLM_TARGET_LONG_SIZE];
 
 	  sym = *sym_ptr_ptr;
 
-	  if ((sym->flags & (BSF_EXPORT | BSF_GLOBAL)) == 0)
+	  if ((sym->flags & (BSF_EXPORT | BSF_GLOBAL)) == 0
+	      || bfd_get_section (sym) == &bfd_und_section)
 	    continue;
 
 	  ++c;
@@ -1789,8 +1926,9 @@ nlm_write_object_contents (abfd)
 	      offset -= nlm_get_text_low (abfd);
 	      offset |= NLM_HIBIT;
 	    }
-	  else if (sec->flags & SEC_DATA)
+	  else if (sec->flags & (SEC_DATA | SEC_ALLOC))
 	    {
+	      /* SEC_ALLOC is for the .bss section.  */
 	      offset -= nlm_get_data_low (abfd);
 	    }
 	  else
@@ -1810,95 +1948,103 @@ nlm_write_object_contents (abfd)
 	}	  
       nlm_fixed_header (abfd)->numberOfPublics = c;
 
-      nlm_fixed_header (abfd)->debugInfoOffset = bfd_tell (abfd);
-      c = 0;
-      sym_end = sym_ptr_ptr + bfd_get_symcount (abfd);
-      for (; sym_ptr_ptr < sym_end; sym_ptr_ptr++)
+      /* Write out the debugging records.  The NLM conversion program
+	 wants to be able to inhibit this, so as a special hack if
+	 debugInfoOffset is set to -1 we don't write any debugging
+	 information.  This can not be handled by fiddling with the
+	 symbol table, because exported symbols appear in both the
+	 exported symbol list and the debugging information.  */
+      if (nlm_fixed_header (abfd)->debugInfoOffset == (file_ptr) -1)
 	{
-	  asymbol *sym;
-	  bfd_byte type, len;
-	  bfd_vma offset;
-	  asection *sec;
-	  bfd_byte temp[NLM_TARGET_LONG_SIZE];
-
-	  sym = *sym_ptr_ptr;
-
-	  ++c;
-
-	  offset = bfd_asymbol_value (sym);
-	  sec = sym->section;
-	  if (sec->flags & SEC_CODE)
+	  nlm_fixed_header (abfd)->debugInfoOffset = 0;
+	  nlm_fixed_header (abfd)->numberOfDebugRecords = 0;
+	}
+      else
+	{
+	  nlm_fixed_header (abfd)->debugInfoOffset = bfd_tell (abfd);
+	  c = 0;
+	  sym_ptr_ptr = bfd_get_outsymbols (abfd);
+	  sym_end = sym_ptr_ptr + bfd_get_symcount (abfd);
+	  for (; sym_ptr_ptr < sym_end; sym_ptr_ptr++)
 	    {
-	      offset -= nlm_get_text_low (abfd);
-	      type = 1;
-	    }
-	  else if (sec->flags & SEC_DATA)
-	    {
-	      offset -= nlm_get_data_low (abfd);
-	      type = 0;
-	    }
-	  else
-	    type = 3;
+	      asymbol *sym;
+	      bfd_byte type, len;
+	      bfd_vma offset;
+	      bfd_byte temp[NLM_TARGET_LONG_SIZE];
 
-	  /* The type is 0 for data, 1 for code, 3 for absolute.  */
-	  if (bfd_write (&type, sizeof (bfd_byte), 1, abfd)
-	      != sizeof (bfd_byte))
-	    {
-	      bfd_error = system_call_error;
-	      return false;
-	    }
+	      sym = *sym_ptr_ptr;
 
-	  put_word (abfd, offset, temp);
-	  if (bfd_write (temp, sizeof (temp), 1, abfd) != sizeof (temp))
-	    {
-	      bfd_error = system_call_error;
-	      return false;
-	    }
+	      /* The NLM notion of a debugging symbol is actually what
+		 BFD calls a local or global symbol.  What BFD calls a
+		 debugging symbol NLM does not understand at all.  */
+	      if ((sym->flags & (BSF_LOCAL | BSF_GLOBAL | BSF_EXPORT)) == 0
+		  || (sym->flags & BSF_DEBUGGING) != 0
+		  || bfd_get_section (sym) == &bfd_und_section)
+		continue;
 
-	  len = strlen (sym->name);
-	  if ((bfd_write (&len, sizeof (bfd_byte), 1, abfd)
-	       != sizeof (bfd_byte))
-	      || bfd_write (sym->name, len, 1, abfd) != len)
-	    {
-	      bfd_error = system_call_error;
-	      return false;
-	    }
+	      ++c;
 
-	  /* Exported symbols may get an additional debugging record
-	     without the prefix.  */
-	  if ((sym->flags & (BSF_EXPORT | BSF_GLOBAL)) != 0)
-	    {
-	      char *s;
-
-	      s = strchr (sym->name, '@');
-	      if (s != NULL)
+	      offset = sym->value;
+	      sec = sym->section;
+	      if (sec->flags & SEC_CODE)
+		type = 1;
+	      else if (sec->flags & SEC_DATA)
+		type = 0;
+	      else if (sec->flags & SEC_ALLOC)
 		{
-		  ++c;
-
-		  if ((bfd_write (&type, sizeof (bfd_byte), 1, abfd)
-		       != sizeof (bfd_byte))
-		      || (bfd_write (temp, sizeof (temp), 1, abfd)
-			  != sizeof (temp)))
-		    {
-		      bfd_error = system_call_error;
-		      return false;
-		    }
-
-		  ++s;
-		  
-		  len = strlen (s);
-		  if ((bfd_write (&len, sizeof (bfd_byte), 1, abfd)
-		       != sizeof (bfd_byte))
-		      || bfd_write (s, len, 1, abfd) != len)
-		    {
-		      bfd_error = system_call_error;
-		      return false;
-		    }
+		  type = 0;
+		  offset += nlm_fixed_header (abfd)->dataImageSize;
 		}
-	    }
-	}	  
-      nlm_fixed_header (abfd)->numberOfDebugRecords = c;
+	      else
+		type = 2;
+
+	      /* The type is 0 for data, 1 for code, 2 for absolute.  */
+	      if (bfd_write (&type, sizeof (bfd_byte), 1, abfd)
+		  != sizeof (bfd_byte))
+		{
+		  bfd_error = system_call_error;
+		  return false;
+		}
+
+	      put_word (abfd, offset, temp);
+	      if (bfd_write (temp, sizeof (temp), 1, abfd) != sizeof (temp))
+		{
+		  bfd_error = system_call_error;
+		  return false;
+		}
+
+	      len = strlen (sym->name);
+	      if ((bfd_write (&len, sizeof (bfd_byte), 1, abfd)
+		   != sizeof (bfd_byte))
+		  || bfd_write (sym->name, len, 1, abfd) != len)
+		{
+		  bfd_error = system_call_error;
+		  return false;
+		}
+	    }	  
+	  nlm_fixed_header (abfd)->numberOfDebugRecords = c;
+	}
     }
+
+  /* NLMLINK fills in offset values even if there is no data, so we do
+     the same.  */
+  last = bfd_tell (abfd);
+  if (nlm_fixed_header (abfd)->codeImageOffset == 0)
+    nlm_fixed_header (abfd)->codeImageOffset = last;
+  if (nlm_fixed_header (abfd)->dataImageOffset == 0)
+    nlm_fixed_header (abfd)->dataImageOffset = last;
+  if (nlm_fixed_header (abfd)->customDataOffset == 0)
+    nlm_fixed_header (abfd)->customDataOffset = last;
+  if (nlm_fixed_header (abfd)->moduleDependencyOffset == 0)
+    nlm_fixed_header (abfd)->moduleDependencyOffset = last;
+  if (nlm_fixed_header (abfd)->relocationFixupOffset == 0)
+    nlm_fixed_header (abfd)->relocationFixupOffset = last;
+  if (nlm_fixed_header (abfd)->externalReferencesOffset == 0)
+    nlm_fixed_header (abfd)->externalReferencesOffset = last;
+  if (nlm_fixed_header (abfd)->publicsOffset == 0)
+    nlm_fixed_header (abfd)->publicsOffset = last;
+  if (nlm_fixed_header (abfd)->debugInfoOffset == 0)
+    nlm_fixed_header (abfd)->debugInfoOffset = last;
 
   /* At this point everything has been written out except the fixed
      header.  */
@@ -1906,16 +2052,12 @@ nlm_write_object_contents (abfd)
 	  NLM_SIGNATURE_SIZE);
   nlm_fixed_header (abfd)->version = NLM_HEADER_VERSION;
   nlm_fixed_header (abfd)->codeStartOffset =
-    bfd_get_start_address (abfd) - nlm_get_text_low (abfd);
+    (bfd_get_start_address (abfd)
+     - nlm_get_text_low (abfd));
 
   /* We have no convenient way for the caller to pass in the exit
      procedure or the check unload procedure, so the caller must set
      the values in the header to the values of the symbols.  */
-  if (nlm_fixed_header (abfd)->exitProcedureOffset == 0)
-    {
-      bfd_error = invalid_operation;
-      return false;
-    }
   nlm_fixed_header (abfd)->exitProcedureOffset -= nlm_get_text_low (abfd);
   if (nlm_fixed_header (abfd)->checkUnloadProcedureOffset != 0)
     nlm_fixed_header (abfd)->checkUnloadProcedureOffset -=

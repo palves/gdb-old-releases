@@ -33,7 +33,7 @@ set binfile "gdbme"
 
 if ![file exists $objdir/$subdir/$binfile] then {
     error "$objdir/$subdir/$binfile does not exist."
-    alldone
+    return 0
 }
 
 gdb_exit
@@ -168,8 +168,6 @@ expect {
 }
 
 # And check that whatis shows the name, not "enum {...}".
-# This currently fails for systems using DWARF debugging format.
-setup_xfail "*-*-sysv4*"
 gdb_test "whatis v_boolean" "type = boolean" "whatis unnamed typedef'd enum"
 
 # Same thing with struct and union.
@@ -655,7 +653,7 @@ expect {
 # time to execute over a slow serial link, so increase the timeout.
 
 if [runto main] then {
-    set timeout 60
+    set timeout 120
     setup_xfail "a29k-*-udi" 2416
     gdb_test "ptype \\\"abc\\\""	"type = char \\\[4\\\]"
     setup_xfail "a29k-*-udi" 2416
@@ -663,9 +661,9 @@ if [runto main] then {
     setup_xfail "a29k-*-udi" 2416
     gdb_test "ptype {0,1,2}"		"type = int \\\[3\\\]"
     setup_xfail "a29k-*-udi" 2416
-    gdb_test "ptype {(long)0,1,2}"	"type = long \\\[3\\\]"
+    gdb_test "ptype {(long)0,(long)1,(long)2}"	  "type = long \\\[3\\\]"
     setup_xfail "a29k-*-udi" 2416
-    gdb_test "ptype {(float)0,1,2}"	"type = float \\\[3\\\]"
+    gdb_test "ptype {(float)0,(float)1,(float)2}" "type = float \\\[3\\\]"
     setup_xfail "a29k-*-udi" 2416
     gdb_test "ptype {{0,1,2},{3,4,5}}"	"type = int \\\[2\\\]\\\[3\\\]"
     setup_xfail "a29k-*-udi" 2416

@@ -190,7 +190,7 @@ sh_opcode_info sh_table[]={
 
 /* 0010nnnnmmmm0010 mov.l <REG_M>,@<REG_N>*/{"mov.l",{ A_REG_M,A_IND_N},{HEX_2,REG_N,REG_M,HEX_2}},
 
-/* 0101nnnnmmmmi4*4 mov.l @(<disp>,<REG_N>),<REG_M>*/{"mov.l",{A_DISP_REG_N, A_REG_M},{HEX_5,REG_N,REG_M,IMM_4BY4}},
+/* 0101nnnnmmmmi4*4 mov.l @(<disp>,<REG_M>),<REG_N>*/{"mov.l",{A_DISP_REG_M,A_REG_N},{HEX_5,REG_N,REG_M,IMM_4BY4}},
 
 /* 11000110i4*4 mov.l @(<disp>,GBR),R0*/{"mov.l",{A_DISP_GBR,A_R0},{HEX_C,HEX_6,IMM_4BY4}},
 

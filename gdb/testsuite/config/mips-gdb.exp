@@ -79,7 +79,7 @@ proc gdb_load { arg } {
     if $verbose>1 then {
 	send_user "Loading $arg into $GDB\n"
     }
-    set timeout 1200
+    set timeout 2400
     expect {
 	-re "Loading.*$prompt $" {
 	    if $verbose>1 then {
@@ -107,39 +107,6 @@ proc gdb_load { arg } {
 }
 
 #
-# gdb_exit -- exit the GDB
-#
-proc gdb_exit {} {
-    global GDB
-    global GDBFLAGS
-    global verbose
-
-    set timeout 5
-    send "quit\n"
-    expect {
-	eof { 
-	    if $verbose>1 then {
-		send_user "Got EOF from $GDB\n"
-	    }
-	}
-	timeout { 
-	    if $verbose>1 then {
-		send_user "Got TIMEOUT from $GDB\n"
-	    }
-	}
-	-re "The program is running.  Quit anyway.*? (y or n) $" {
-	    send "y\n"
-	    if $verbose>1 then {
-		send_user "\t\tKilling program being debugged\n"
-	    }
-	}
-    }
-    if $verbose>1 then {
-	send_user "Quitting $GDB $GDBFLAGS\n"
-    }
-}
-
-#
 # gdb_start -- start GDB running.
 #
 proc gdb_start { } {
@@ -163,16 +130,25 @@ proc gdb_start { } {
 	    set baud 9600
 	}
 	set shell_id [ eval $connectmode "$targetname" $baud ]
-	send -i $shell_id "\CC"
-	expect -i $shell_id {
-	    -re "<IDT>$" { }
+	send -i $shell_id "\n"
+	expect {
+	    -i $shell_id -re "<IDT>$" { }
+	    timeout {
+		send -i $shell_id "\CC"
+		expect {
+		    -i $shell_id -re "<IDT>$" { }
+		    timeout {
+			error "(timeout) board did not come up."; return -1
+		    }
+		}
+	    }
+	}
+	send -i $shell_id "go 0xbfc00000\n"
+	expect {
+	    -i $shell_id -re "<IDT>$" { }
 	    timeout     { error "(timeout) board did not come up."; return -1 }
 	}
-	send -i $shell_id "go 0xbfc00000"
-	expect -i $shell_id {
-	    -re "<IDT>$" { }
-	    timeout     { error "(timeout) board did not come up."; return -1 }
-	}
+	verbose "about to exit kermit"
 	exit_remote_shell $shell_id
     }
 
@@ -234,6 +210,10 @@ expect_after {
     timeout			   { error "timeout." }
     "virtual memory exhausted" { error "virtual memory exhausted." }
     "Undefined command"	   { error "send string probably wrong." }
+}
+
+proc gdb_exit { } {
+    catch default_gdb_exit
 }
 
 gdb_start

@@ -36,6 +36,11 @@ nlm_mkobject (abfd)
       bfd_error = no_memory;
       return (false);
     }
+
+  if (nlm_architecture (abfd) != bfd_arch_unknown)
+    bfd_default_set_arch_mach (abfd, nlm_architecture (abfd),
+			       nlm_machine (abfd));
+
   /* since everything is done at close time, do we need any initialization? */
   return (true);
 }

@@ -23,9 +23,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "dis-asm.h"
 #include "opcode/mips.h"
 
-/* FIXME: we need direct access to the swapping functions.  */
-#include "libbfd.h"
-
 /* Mips instructions are never longer than this many bytes.  */
 #define MAXLEN 4
 
@@ -112,6 +109,10 @@ print_insn_arg (d, l, pc, info)
     case 'd':
       (*info->fprintf_func) (info->stream, "$%s",
 			     reg_names[(l >> OP_SH_RD) & OP_MASK_RD]);
+      break;
+
+    case 'z':
+      (*info->fprintf_func) (info->stream, "$%s", reg_names[0]);
       break;
 
     case '<':
@@ -221,7 +222,7 @@ print_insn_big_mips (memaddr, info)
   bfd_byte buffer[4];
   int status = (*info->read_memory_func) (memaddr, buffer, 4, info);
   if (status == 0)
-    return _print_insn_mips (memaddr, _do_getb32 (buffer), info);
+    return _print_insn_mips (memaddr, bfd_getb32 (buffer), info);
   else
     {
       (*info->memory_error_func) (status, memaddr, info);
@@ -237,7 +238,7 @@ print_insn_little_mips (memaddr, info)
   bfd_byte buffer[4];
   int status = (*info->read_memory_func) (memaddr, buffer, 4, info);
   if (status == 0)
-    return _print_insn_mips (memaddr, _do_getl32 (buffer), info);
+    return _print_insn_mips (memaddr, bfd_getl32 (buffer), info);
   else
     {
       (*info->memory_error_func) (status, memaddr, info);

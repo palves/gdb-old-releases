@@ -217,132 +217,100 @@ unpack_long PARAMS ((struct type *type, char *valaddr));
 extern double
 unpack_double PARAMS ((struct type *type, char *valaddr, int *invp));
 
-extern CORE_ADDR
-unpack_pointer PARAMS ((struct type *type, char *valaddr));
+extern CORE_ADDR unpack_pointer PARAMS ((struct type *type, char *valaddr));
 
-extern LONGEST
-unpack_field_as_long PARAMS ((struct type *type, char *valaddr,
-			      int fieldno));
+extern LONGEST unpack_field_as_long PARAMS ((struct type *type, char *valaddr,
+					     int fieldno));
 
-extern value
-value_from_longest PARAMS ((struct type *type, LONGEST num));
+extern value value_from_longest PARAMS ((struct type *type, LONGEST num));
 
-extern value
-value_from_double PARAMS ((struct type *type, double num));
+extern value value_from_double PARAMS ((struct type *type, double num));
 
-extern value
-value_at PARAMS ((struct type *type, CORE_ADDR addr));
+extern value value_at PARAMS ((struct type *type, CORE_ADDR addr));
 
-extern value
-value_at_lazy PARAMS ((struct type *type, CORE_ADDR addr));
+extern value value_at_lazy PARAMS ((struct type *type, CORE_ADDR addr));
 
 /* FIXME:  Assumes equivalence of "struct frame_info *" and "FRAME" */
-extern value
-value_from_register PARAMS ((struct type *type, int regnum,
-			     struct frame_info * frame));
+extern value value_from_register PARAMS ((struct type *type, int regnum,
+					  struct frame_info * frame));
 
-extern value
-value_of_variable PARAMS ((struct symbol *var));
+extern value value_of_variable PARAMS ((struct symbol *var, struct block *b));
 
-extern value
-value_of_register PARAMS ((int regnum));
+extern value value_of_register PARAMS ((int regnum));
 
-/* FIXME:  Assumes equivalence of "struct frame_info *" and "FRAME" */
-extern value
-read_var_value PARAMS ((struct symbol *var, struct frame_info *frame));
+extern int symbol_read_needs_frame PARAMS ((struct symbol *));
 
 /* FIXME:  Assumes equivalence of "struct frame_info *" and "FRAME" */
-extern value
-locate_var_value PARAMS ((struct symbol *var, struct frame_info *frame));
+extern value read_var_value PARAMS ((struct symbol *var,
+				     struct frame_info *frame));
 
-extern value
-allocate_value PARAMS ((struct type *type));
+/* FIXME:  Assumes equivalence of "struct frame_info *" and "FRAME" */
+extern value locate_var_value PARAMS ((struct symbol *var,
+				       struct frame_info *frame));
 
-extern value
-allocate_repeat_value PARAMS ((struct type *type, int count));
+extern value allocate_value PARAMS ((struct type *type));
 
-extern value
-value_mark PARAMS ((void));
+extern value allocate_repeat_value PARAMS ((struct type *type, int count));
 
-extern void
-value_free_to_mark PARAMS ((value mark));
+extern value value_mark PARAMS ((void));
 
-extern value
-value_string PARAMS ((char *ptr, int len));
+extern void value_free_to_mark PARAMS ((value mark));
 
-extern value
-value_array PARAMS ((int lowbound, int highbound, value *elemvec));
+extern value value_string PARAMS ((char *ptr, int len));
 
-extern value
-value_concat PARAMS ((value arg1, value arg2));
+extern value value_array PARAMS ((int lowbound, int highbound,
+				  value *elemvec));
 
-extern value
-value_binop PARAMS ((value arg1, value arg2, enum exp_opcode op));
+extern value value_concat PARAMS ((value arg1, value arg2));
 
-extern value
-value_add PARAMS ((value arg1, value arg2));
+extern value value_binop PARAMS ((value arg1, value arg2, enum exp_opcode op));
 
-extern value
-value_sub PARAMS ((value arg1, value arg2));
+extern value value_add PARAMS ((value arg1, value arg2));
 
-extern value
-value_coerce_array PARAMS ((value arg1));
+extern value value_sub PARAMS ((value arg1, value arg2));
 
-extern value
-value_coerce_function PARAMS ((value arg1));
+extern value value_coerce_array PARAMS ((value arg1));
 
-extern value
-value_ind PARAMS ((value arg1));
+extern value value_coerce_function PARAMS ((value arg1));
 
-extern value
-value_addr PARAMS ((value arg1));
+extern value value_ind PARAMS ((value arg1));
 
-extern value
-value_assign PARAMS ((value toval, value fromval));
+extern value value_addr PARAMS ((value arg1));
 
-extern value
-value_neg PARAMS ((value arg1));
+extern value value_assign PARAMS ((value toval, value fromval));
 
-extern value
-value_complement PARAMS ((value arg1));
+extern value value_neg PARAMS ((value arg1));
 
-extern value
-value_struct_elt PARAMS ((value *argp, value *args, char *name,
-			  int *static_memfuncp, char *err));
+extern value value_complement PARAMS ((value arg1));
 
-extern value
-value_struct_elt_for_reference PARAMS ((struct type *domain,
-					int offset,
-					struct type *curtype,
-					char *name,
-					struct type *intype));
+extern value value_struct_elt PARAMS ((value *argp, value *args, char *name,
+				       int *static_memfuncp, char *err));
 
-extern value
-value_field PARAMS ((value arg1, int fieldno));
+extern value value_struct_elt_for_reference PARAMS ((struct type *domain,
+						     int offset,
+						     struct type *curtype,
+						     char *name,
+						     struct type *intype));
 
-extern value
-value_primitive_field PARAMS ((value arg1, int offset, int fieldno,
-			       struct type *arg_type));
+extern value value_field PARAMS ((value arg1, int fieldno));
 
-extern value
-value_cast PARAMS ((struct type *type, value arg2));
+extern value value_primitive_field PARAMS ((value arg1, int offset,
+					    int fieldno,
+					    struct type *arg_type));
 
-extern value
-value_zero PARAMS ((struct type *type, enum lval_type lv));
+extern value value_cast PARAMS ((struct type *type, value arg2));
 
-extern value
-value_repeat PARAMS ((value arg1, int count));
+extern value value_zero PARAMS ((struct type *type, enum lval_type lv));
 
-extern value
-value_subscript PARAMS ((value array, value idx));
+extern value value_repeat PARAMS ((value arg1, int count));
 
-extern value
-value_from_vtable_info PARAMS ((value arg, struct type *type));
+extern value value_subscript PARAMS ((value array, value idx));
 
-extern value
-value_being_returned PARAMS ((struct type *valtype, 
-			      char retbuf[REGISTER_BYTES],
-			      int struct_return));
+extern value value_from_vtable_info PARAMS ((value arg, struct type *type));
+
+extern value value_being_returned PARAMS ((struct type *valtype, 
+					   char retbuf[REGISTER_BYTES],
+					   int struct_return));
 
 extern int
 using_struct_return PARAMS ((value function, CORE_ADDR funcaddr,
@@ -454,7 +422,7 @@ extern CORE_ADDR
 read_register PARAMS ((int regno));
 
 extern void
-write_register PARAMS ((int regno, int val));
+write_register PARAMS ((int regno, LONGEST val));
 
 extern void
 supply_register PARAMS ((int regno, char *val));

@@ -27,8 +27,13 @@ static char udr_c_AMD[]="@(#)udr.c	2.3, AMD";
 ********************************************************************** HISTORY
 */
 #include <stdio.h>
-#include <sys/fcntl.h>
 #include <sys/types.h>
+
+/* This used to say sys/fcntl.h, but the only systems I know of that
+   require that are old (pre-4.3, at least) BSD systems, which we
+   probably don't need to worry about.  */
+#include <fcntl.h>
+
 #include <sys/socket.h>
 #include "udiproc.h"
 #include "udisoc.h"
@@ -141,7 +146,7 @@ int	size;
 	{   udr_errno =  UDIErrorIPCInternal;
 	    return -1;
         }
-	bcopy((char*)object_p, udrs->putbytes, size);
+	memcpy(udrs->putbytes, (char*)object_p, size);
     	udrs->putbytes += size;
     	if(udrs->putbytes > udrs->putend) udrs->putend = udrs->putbytes;
     }
@@ -164,7 +169,7 @@ int	size;
 	        return -1;		/* return error code */
     	    }
     	}		/* read data from character stream buffer */
-	bcopy(udrs->getbytes, (char*)object_p,  size);
+	memcpy((char*)object_p,  udrs->getbytes, size);
     	udrs->getbytes += size;
     }
     else

@@ -161,7 +161,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
   if (REGISTER_CONVERTIBLE(REGNUM))					\
       convert_from_extended((FROM), (TO));				\
   else									\
-      bcopy ((FROM), (TO), 4);
+      memcpy ((TO), (FROM), 4);
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
@@ -170,7 +170,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
   if (REGISTER_CONVERTIBLE(REGNUM)) 			\
     convert_to_extended((FROM), (TO)); 		\
   else							\
-    bcopy ((FROM), (TO), 4);
+    memcpy ((TO), (FROM), 4);
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -196,7 +196,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
   if (TYPE_CODE (TYPE) == TYPE_CODE_FLT)				\
     convert_from_extended(REGBUF + REGISTER_BYTE (F0_REGNUM), VALBUF);	\
   else									\
-    bcopy (REGBUF, VALBUF, TYPE_LENGTH (TYPE))
+    memcpy (VALBUF, REGBUF, TYPE_LENGTH (TYPE))
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.  */
@@ -287,7 +287,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
     register int next_addr;							\
     register int return_data_save;						\
     register int saved_register_mask;						\
-    bzero (&frame_saved_regs, sizeof frame_saved_regs);				\
+    memset (&frame_saved_regs, '\0', sizeof frame_saved_regs);				\
     frame = (frame_info)->frame;						\
     return_data_save = read_memory_integer(frame, 4) & 0x03fffffc - 12;		\
     saved_register_mask =							\

@@ -64,11 +64,14 @@ TARGETLIB = libopcodes.a
 # To circumvent a Sun make VPATH bug, each file listed here
 # should also have a foo.o: foo.c line further along in this file.
 
-DIS_LIBS = i386-dis.o z8k-dis.o m68k-dis.o mips-dis.o h8500-dis.o \
-	h8300-dis.o dis-buf.o sparc-dis.o a29k-dis.o i960-dis.o \
-	alpha-dis.o sh-dis.o hppa-dis.o m88k-dis.o
+ALL_MACHINES = a29k-dis.o alpha-dis.o h8300-dis.o h8500-dis.o \
+	hppa-dis.o i386-dis.o i960-dis.o m68881-ext.o m68k-dis.o \
+	m88k-dis.o mips-dis.o mips-opc.o sh-dis.o sparc-dis.o \
+	sparc-opc.o z8k-dis.o
 
-OFILES = $(DIS_LIBS) sparc-opc.o mips-opc.o m68881-ext.o
+# BFD_MACHINES is set by configure.in.
+OFILES = $(BFD_MACHINES) dis-buf.o
+
 #### host and target dependent Makefile fragments come in here.
 ###
 

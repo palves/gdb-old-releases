@@ -1,3 +1,15 @@
+Tue Oct 19 18:58:21 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* mh-hp300: Don't define CFLAGS to empty.  Why should hp300 be
+	different from anything else?  ("gdb doesn't understand the native
+	debug format" isn't a good enough answer because we might be using
+	gcc).
+
+Tue Oct  5 12:17:40 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mh-alphaosf: Remove, no longer necessary now that gdb knows
+	how to handle OSF/1 shared libraries.
+
 Tue Jul  6 11:27:33 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
 
 	* mh-alphaosf: New file.

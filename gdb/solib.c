@@ -42,6 +42,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "frame.h"
 #include "regex.h"
 #include "inferior.h"
+#include "language.h"
 
 #define MAX_PATH_SIZE 256		/* FIXME: Should be dynamic */
 
@@ -57,6 +58,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define BKPT_AT_SYMBOL 1
 
+#if defined (BKPT_AT_SYMBOL) && defined (SVR4_SHARED_LIBS)
 static char *bkpt_names[] = {
 #ifdef SOLIB_BKPT_NAME
   SOLIB_BKPT_NAME,		/* Prefer configured name if it exists. */
@@ -65,6 +67,7 @@ static char *bkpt_names[] = {
   "main",
   NULL
 };
+#endif
 
 /* local data declarations */
 
@@ -103,7 +106,7 @@ struct so_list {
   struct section_table *sections;
   struct section_table *sections_end;
   struct section_table *textsection;
-  bfd *bfd;
+  bfd *abfd;
 };
 
 static struct so_list *so_list_head;	/* List of known shared objects */
@@ -212,9 +215,9 @@ solib_map_sections (so)
     {
       perror_with_name (filename);
     }
-  /* Leave scratch_pathname allocated.  bfd->name will point to it.  */
+  /* Leave scratch_pathname allocated.  abfd->name will point to it.  */
 
-  abfd = bfd_fdopenr (scratch_pathname, NULL, scratch_chan);
+  abfd = bfd_fdopenr (scratch_pathname, gnutarget, scratch_chan);
   if (!abfd)
     {
       close (scratch_chan);
@@ -222,7 +225,7 @@ solib_map_sections (so)
 	     scratch_pathname, bfd_errmsg (bfd_error));
     }
   /* Leave bfd open, core_xfer_memory and "info files" need it.  */
-  so -> bfd = abfd;
+  so -> abfd = abfd;
   abfd -> cacheable = true;
 
   if (!bfd_check_format (abfd, bfd_object))
@@ -448,7 +451,7 @@ look_for_base (fd, baseaddr)
      we have no way currently to find the filename.  Don't gripe about
      any problems we might have, just fail. */
 
-  if ((interp_bfd = bfd_fdopenr ("unnamed", NULL, fd)) == NULL)
+  if ((interp_bfd = bfd_fdopenr ("unnamed", gnutarget, fd)) == NULL)
     {
       return (0);
     }
@@ -897,8 +900,12 @@ info_sharedlibrary_command (ignore, from_tty)
 		     "Shared Object Library");
 	      header_done++;
 	    }
-	  printf ("%-12s", local_hex_string_custom ((int) LM_ADDR (so), "08"));
-	  printf ("%-12s", local_hex_string_custom (so -> lmend, "08"));
+	  printf ("%-12s",
+		  local_hex_string_custom ((unsigned long) LM_ADDR (so),
+					   "08l"));
+	  printf ("%-12s",
+		  local_hex_string_custom ((unsigned long) so -> lmend,
+					   "08l"));
 	  printf ("%-12s", so -> symbols_loaded ? "Yes" : "No");
 	  printf ("%s\n",  so -> so_name);
 	}
@@ -967,10 +974,10 @@ clear_solib()
 	{
 	  free ((PTR)so_list_head -> sections);
 	}
-      if (so_list_head -> bfd)
+      if (so_list_head -> abfd)
 	{
-	  bfd_filename = bfd_get_filename (so_list_head -> bfd);
-	  bfd_close (so_list_head -> bfd);
+	  bfd_filename = bfd_get_filename (so_list_head -> abfd);
+	  bfd_close (so_list_head -> abfd);
 	}
       else
 	/* This happens for the executable on SVR4.  */
@@ -1261,7 +1268,7 @@ solib_create_inferior_hook()
   stop_signal = 0;
   do
     {
-      target_resume (inferior_pid, 0, stop_signal);
+      target_resume (-1, 0, stop_signal);
       wait_for_inferior ();
     }
   while (stop_signal != SIGTRAP);

@@ -6,10 +6,10 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.10.
+   This is Edition 4.09, August 1993, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.11.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
+   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
@@ -620,7 +620,7 @@ you can print the contents of `array' with
 with `@' in this way behave just like other arrays in terms of
 subscripting, and are coerced to pointers when used in expressions.
 Artificial arrays most often appear in expressions via the value history
-(*note Value history: Value History.), after printing one out.)
+(*note Value history: Value History.), after printing one out.
 
    Sometimes the artificial array mechanism is not quite enough; in
 moderately complex data structures, the elements of interest may not
@@ -837,7 +837,7 @@ uses `print'.
 
 `display/FMT EXP'
      For FMT specifying only a display format and not a size or count,
-     add the expression EXP to the auto-display list but arranges to
+     add the expression EXP to the auto-display list but arrange to
      display it each time in the specified format FMT.  *Note Output
      formats: Output Formats.
 
@@ -1147,10 +1147,10 @@ the `file' or `symbol-file' commands).  When the symbol table changes,
 the value history is discarded, since the values may contain pointers
 back to the types defined in the symbol table.
 
-   The values printed are given "history numbers" for you to refer to
-them by.  These are successive integers starting with one.  `print'
-shows you the history number assigned to a value by printing `$NUM = '
-before the value; here NUM is the history number.
+   The values printed are given "history numbers" by which you can
+refer to them.  These are successive integers starting with one.
+`print' shows you the history number assigned to a value by printing
+`$NUM = ' before the value; here NUM is the history number.
 
    To refer to any previous value, use `$' followed by the value's
 history number.  The way `print' labels its output is designed to
@@ -1223,7 +1223,7 @@ example:
 would save in `$foo' the value contained in the object pointed to by
 `object_ptr'.
 
-   Using a convenience variable for the first time creates it; but its
+   Using a convenience variable for the first time creates it, but its
 value is `void' until you assign a new value.  You can alter the value
 with another assignment at any time.
 

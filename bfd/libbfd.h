@@ -44,6 +44,14 @@ struct artdata {
   carsym *symdefs;		/* the symdef entries */
   symindex symdef_count;             /* how many there are */
   char *extended_names;		/* clever intel extension */
+  time_t armap_timestamp;	/* Timestamp value written into armap.
+				   This is used for BSD archives to check
+				   that the timestamp is recent enough
+				   for the BSD linker to not complain,
+				   just before we finish writing an
+				   archive.  */
+  file_ptr armap_datepos;	/* Position within archive to seek to
+				   rewrite the date field.  */
 };
 
 #define bfd_ardata(bfd) ((bfd)->tdata.aout_ar_data)
@@ -80,6 +88,9 @@ int		bfd_seek  PARAMS ((bfd* CONST abfd, CONST file_ptr fp,
 				   CONST int direction));
 long		bfd_tell  PARAMS ((bfd *abfd));
 
+int		bfd_flush PARAMS ((bfd *abfd));
+int		bfd_stat  PARAMS ((bfd *abfd, struct stat *));
+
 bfd *	_bfd_create_empty_archive_element_shell PARAMS ((bfd *obfd));
 bfd *	look_for_bfd_in_cache PARAMS ((bfd *arch_bfd, file_ptr index));
 boolean	_bfd_generic_mkarchive PARAMS ((bfd *abfd));
@@ -97,27 +108,6 @@ bfd *	new_bfd PARAMS (());
 boolean	bfd_add_to_string_table PARAMS ((char **table, char *new_string,
 					 unsigned int *table_length,
 					 char **free_ptr));
-
-/* Byte swapping routines from libbfd.c */
-
-bfd_vma		_do_getb64	   PARAMS ((unsigned char *addr));     
-bfd_vma 	_do_getl64	   PARAMS ((unsigned char *addr));     
-bfd_signed_vma	_do_getb_signed_64 PARAMS ((unsigned char *addr));     
-bfd_signed_vma	_do_getl_signed_64 PARAMS ((unsigned char *addr));     
-bfd_vma		_do_getb32	   PARAMS ((unsigned char *addr));
-bfd_vma		_do_getl32	   PARAMS ((unsigned char *addr));
-bfd_signed_vma	_do_getb_signed_32 PARAMS ((unsigned char *addr));
-bfd_signed_vma	_do_getl_signed_32 PARAMS ((unsigned char *addr));
-bfd_vma		_do_getb16	   PARAMS ((unsigned char *addr));
-bfd_vma		_do_getl16	   PARAMS ((unsigned char *addr));
-bfd_signed_vma	_do_getb_signed_16 PARAMS ((unsigned char *addr));
-bfd_signed_vma	_do_getl_signed_16 PARAMS ((unsigned char *addr));
-void		_do_putb64	   PARAMS ((bfd_vma data, unsigned char *addr));
-void		_do_putl64	   PARAMS ((bfd_vma data, unsigned char *addr));
-void		_do_putb32	   PARAMS ((bfd_vma data, unsigned char *addr));
-void		_do_putl32	   PARAMS ((bfd_vma data, unsigned char *addr));
-void		_do_putb16	   PARAMS ((bfd_vma data, unsigned char *addr));
-void		_do_putl16	   PARAMS ((bfd_vma data, unsigned char *addr));
 
 boolean	bfd_false PARAMS ((bfd *ignore));
 boolean	bfd_true PARAMS ((bfd *ignore));

@@ -19,9 +19,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #if !defined (TERMINAL_H)
 #define TERMINAL_H 1
-#if !defined(__GO32__)
+
+#if !defined(__GO32__) && !defined (HAVE_TERMIOS)
+
 /* Define a common set of macros -- BSD based -- and redefine whatever
-   the system offers to make it look like that.  */
+   the system offers to make it look like that.  FIXME: serial.h and
+   ser-*.c deal with this in a much cleaner fashion; as soon as stuff
+   is converted to use them, can get rid of this crap.  */
 
 #ifdef HAVE_TERMIO
 
@@ -35,16 +39,24 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define TIOCSETP TCSETAF
 #define TERMINAL struct termio
 
-#else /* no termio */
+#else /* sgtty */
 
 #include <fcntl.h>
 #include <sgtty.h>
 #include <sys/ioctl.h>
 #define TERMINAL struct sgttyb
 
-#endif /* no termio */
-#endif /* not go32 */
-extern void
-new_tty PARAMS ((void));
+#endif /* sgtty */
+#endif /* termio or sgtty */
+
+extern void new_tty PARAMS ((void));
+
+/* Do we have job control?  Can be assumed to always be the same within
+   a given run of GDB.  In inflow.c.  */
+extern int job_control;
+
+/* Set the process group of the caller to its own pid, or do nothing if
+   we lack job control.  */
+extern int gdb_setpgid PARAMS ((void));
 
 #endif	/* !defined (TERMINAL_H) */

@@ -12,10 +12,13 @@ gdbme: gdbme.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o gdbme gdbme.o $(LIBS)
 
 gdbme.o: gdbme.c
+	$(CC) $(CFLAGS) -c $(srcdir)/gdbme.c
 
 interrupt: interrupt.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o interrupt interrupt.o $(LIBS)
+
 interrupt.o: interrupt.c
+	$(CC) $(CFLAGS) -c $(srcdir)/interrupt.c
 
 clean mostlyclean:
 	-rm -f *.o $(EXECUTABLES) *.diff *~ *.bad core foo

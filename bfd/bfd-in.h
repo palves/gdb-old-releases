@@ -1,8 +1,10 @@
 /* Main header file for the bfd library -- portable access to object files.
-   ==> The bfd.h file is generated from bfd-in.h and various .c files; if you
-   ==> change it, your changes will probably be lost.
    Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
+
+** NOTE: bfd.h and bfd-in2.h are GENERATED files.  Don't change them;
+** instead, change bfd-in.h or the other BFD source files processed to
+** generate these files.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -184,9 +186,6 @@ typedef enum bfd_symclass {
 	      bfd_symclass_debugger, /* some debugger symbol */
 	      bfd_symclass_undefined /* none known */
 	    } symclass;
-
-
-typedef int symtype;		/* Who knows, yet? */
 
 
 /* general purpose part of a symbol;
@@ -383,11 +382,6 @@ CAT(NAME,_bfd_make_debug_symbol)
 
 /* User program access to BFD facilities */
 
-extern CONST short _bfd_host_big_endian;
-#define HOST_BYTE_ORDER_BIG_P	(*(char *)&_bfd_host_big_endian)
-
-/* The bfd itself */
-
 /* Cast from const char * to char * so that caller can assign to
    a char * without a warning.  */
 #define bfd_get_filename(abfd) ((char *) (abfd)->filename)
@@ -398,9 +392,6 @@ extern CONST short _bfd_host_big_endian;
 #define bfd_applicable_section_flags(abfd) ((abfd)->xvec->section_flags)
 #define bfd_my_archive(abfd) ((abfd)->my_archive)
 #define bfd_has_map(abfd) ((abfd)->has_armap)
-#define bfd_header_twiddle_required(abfd) \
-        ((((abfd)->xvec->header_byteorder_big_p)		\
-	  != (boolean)HOST_BYTE_ORDER_BIG_P) ? true:false)
 
 #define bfd_valid_reloc_types(abfd) ((abfd)->xvec->valid_reloc_types)
 #define bfd_usrdata(abfd) ((abfd)->usrdata)
@@ -409,13 +400,28 @@ extern CONST short _bfd_host_big_endian;
 #define bfd_get_symcount(abfd) ((abfd)->symcount)
 #define bfd_get_outsymbols(abfd) ((abfd)->outsymbols)
 #define bfd_count_sections(abfd) ((abfd)->section_count)
-#define bfd_get_architecture(abfd) ((abfd)->obj_arch)
-#define bfd_get_machine(abfd) ((abfd)->obj_machine)
 
 #define bfd_get_symbol_leading_char(abfd) ((abfd)->xvec->symbol_leading_char)
 
-#define BYTE_SIZE 1
-#define SHORT_SIZE 2
-#define LONG_SIZE 4
+/* Byte swapping routines.  */
+
+bfd_vma		bfd_getb64	   PARAMS ((unsigned char *));
+bfd_vma 	bfd_getl64	   PARAMS ((unsigned char *));
+bfd_signed_vma	bfd_getb_signed_64 PARAMS ((unsigned char *));
+bfd_signed_vma	bfd_getl_signed_64 PARAMS ((unsigned char *));
+bfd_vma		bfd_getb32	   PARAMS ((unsigned char *));
+bfd_vma		bfd_getl32	   PARAMS ((unsigned char *));
+bfd_signed_vma	bfd_getb_signed_32 PARAMS ((unsigned char *));
+bfd_signed_vma	bfd_getl_signed_32 PARAMS ((unsigned char *));
+bfd_vma		bfd_getb16	   PARAMS ((unsigned char *));
+bfd_vma		bfd_getl16	   PARAMS ((unsigned char *));
+bfd_signed_vma	bfd_getb_signed_16 PARAMS ((unsigned char *));
+bfd_signed_vma	bfd_getl_signed_16 PARAMS ((unsigned char *));
+void		bfd_putb64	   PARAMS ((bfd_vma, unsigned char *));
+void		bfd_putl64	   PARAMS ((bfd_vma, unsigned char *));
+void		bfd_putb32	   PARAMS ((bfd_vma, unsigned char *));
+void		bfd_putl32	   PARAMS ((bfd_vma, unsigned char *));
+void		bfd_putb16	   PARAMS ((bfd_vma, unsigned char *));
+void		bfd_putl16	   PARAMS ((bfd_vma, unsigned char *));
 
 /* And more from the source.  */

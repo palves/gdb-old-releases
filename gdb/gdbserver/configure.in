@@ -1,5 +1,5 @@
 srcname="Remote GDB server"
-srctrigger=remote-server.c
+srctrigger=server.c
 gdb_serial_driver=../ser-unix.c
 
 # per-host:
@@ -22,6 +22,7 @@ c[12])			gdb_host_cpu=convex ;;
 hppa*)			gdb_host_cpu=pa ;;
 i[34]86)		gdb_host_cpu=i386 ;;
 m68*)			gdb_host_cpu=m68k ;;
+mips*)			gdb_host_cpu=mips ;;
 np1)			gdb_host_cpu=gould ;;
 pyramid)		gdb_host_cpu=pyr ;;
 *)			gdb_host_cpu=$target_cpu ;;
@@ -79,11 +80,11 @@ m68*-sun-*)		gdb_host=sun3os4 ;;
 m88k-motorola-*)	gdb_host=delta88 ;;
 m88k-*-*)		gdb_host=m88k ;;
 
-mips-dec-*)		gdb_host=decstation ;;
-mips-little-*)		gdb_host=littlemips ;;
-mips-sgi-irix3)		gdb_host=irix3 ;;
-mips-sgi-irix4*)	gdb_host=irix4 ;;
-mips-sony-*)		gdb_host=bigmips ;;
+mips*el-*-*)		gdb_host=littlemips ;;
+mips*-dec-*)		gdb_host=decstation ;;
+mips*-sgi-irix3)	gdb_host=irix3 ;;
+mips*-sgi-irix4*)	gdb_host=irix4 ;;
+mips*-sony-*)		gdb_host=bigmips ;;
 
 none-*-*)		gdb_host=none ;;
 
@@ -131,6 +132,7 @@ c[12])			gdb_target_cpu=convex ;;
 hppa*)			gdb_target_cpu=pa ;;
 i[34]86)		gdb_target_cpu=i386 ;;
 m68*)			gdb_target_cpu=m68k ;;
+mips*)			gdb_target_cpu=mips ;;
 np1)			gdb_target_cpu=gould ;;
 pn)			gdb_target_cpu=gould ;;
 pyramid)		gdb_target_cpu=pyr ;;
@@ -218,12 +220,13 @@ m68*-*-vxworks*)	gdb_target=vxworks68 ;;
 m88k-motorola-*)	gdb_target=delta88 ;;
 m88k-*-*)		gdb_target=m88k ;;
 
-mips-big-*)		gdb_target=bigmips ;;
-mips-dec-*)		gdb_target=decstation ;;
-mips-idt-ecoff)		gdb_target=idt ;;
-mips-little-*)		gdb_target=littlemips ;;
-mips-sgi-*)		gdb_target=irix3 ;;
-mips-sony-*)		gdb_target=bigmips ;;
+mips*-big-*)		gdb_target=bigmips ;;
+mips*-dec-*)		gdb_target=decstation ;;
+mips*-idt-ecoff)	gdb_target=idt ;;
+mips*-little-*)		gdb_target=littlemips ;;
+mips*-sgi-*)		gdb_target=irix3 ;;
+mips*-sony-*)		gdb_target=bigmips ;;
+mips*el-*-*)		gdb_target=littlemips ;;
 
 none-*-*)		gdb_target=none ;;
 

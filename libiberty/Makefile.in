@@ -105,19 +105,21 @@ check installcheck:
 # first causes it to figure out the objects missing in libc.
 info install-info clean-info dvi:
 
-# NOTE: If you add new files to the library, edit 'functions.def'
-#       and add them to this list (alphabetical order please)
+# NOTE: If you add new files to the library, add them to this list
+# (alphabetical), and add them to REQUIRED_OFILES or 'functions.def'.
 CFILES = alloca.c argv.c basename.c bcmp.c bcopy.c bzero.c concat.c \
 	 cplus-dem.c fdmatch.c getcwd.c getopt.c getopt1.c getpagesize.c \
          ieee-float.c index.c insque.c \
 	 memchr.c memcmp.c memcpy.c memmove.c memset.c \
          obstack.c random.c rename.c rindex.c sigsetmask.c spaces.c \
+	 strcasecmp.c strncasecmp.c \
          strchr.c strdup.c strerror.c strrchr.c strsignal.c \
          strstr.c strtod.c strtol.c strtoul.c tmpnam.c \
-	 vfork.c vfprintf.c vprintf.c vsprintf.c
+	 vfork.c vfprintf.c vprintf.c vsprintf.c xmalloc.c
 # These are always included in the library.
 REQUIRED_OFILES = argv.o basename.o concat.o cplus-dem.o fdmatch.o \
-  getopt.o getopt1.o ieee-float.o obstack.o spaces.o strerror.o strsignal.o
+  getopt.o getopt1.o ieee-float.o obstack.o spaces.o strerror.o strsignal.o \
+  xmalloc.o 
 
 # Do we want/need any config overrides?
 #	 
@@ -179,7 +181,7 @@ needed2.awk: $(srcdir)/functions.def Makefile
 	 >>needed2.awk
 
 dummy.o: $(srcdir)/dummy.c $(srcdir)/functions.def
-	$(CC) -c $(CFLAGS) -I. -I$(srcdir)/../include $(HDEFINES) $(XTRAFLAGS) $(srcdir)/dummy.c
+	$(CC) -c $(CFLAGS) -I. -I$(srcdir)/../include $(HDEFINES) $(XTRAFLAGS) $(srcdir)/dummy.c 2>/dev/null
 
 errors: dummy.o $(EXTRA_OFILES)
 	-($(CC) -o dummy $(LDFLAGS) dummy.o $(EXTRA_OFILES) $(LOADLIBES)) >errors 2>&1 || true

@@ -1,3 +1,4 @@
 # Target: HP 300 running BSD Unix.
-TDEFAULTS = -DDEFAULT_VECTOR=hp300bsd_vec
-TDEPFILES= hp300bsd.o
+
+DEFAULT_VECTOR=hp300bsd_vec
+SELECT_ARCHITECTURES=bfd_m68k_arch

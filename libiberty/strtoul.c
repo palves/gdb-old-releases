@@ -19,11 +19,13 @@ unsigned long
 strtoul(s, ptr, base)
      CONST char *s; char **ptr; int base;
 {
-  unsigned long total = 0, tmp = 0;
+  unsigned long total = 0;
   unsigned digit;
   CONST char *start=s;
   int did_conversion=0;
+  int overflow = 0;
   int negate = 0;
+  unsigned long maxdiv, maxrem;
 
   if (s==NULL)
     {
@@ -41,6 +43,8 @@ strtoul(s, ptr, base)
     s++, negate = 1;
   if (base==0 || base==16) /*  the 'base==16' is for handling 0x */
     {
+      int tmp;
+
       /*
        * try to infer base from the string
        */
@@ -53,6 +57,9 @@ strtoul(s, ptr, base)
       if (base==0)
 	base = (int)tmp;
     }
+
+  maxdiv = ULONG_MAX / base;
+  maxrem = ULONG_MAX % base;
 
   while ( digit = *s )
     {
@@ -71,16 +78,18 @@ strtoul(s, ptr, base)
 	else
 	  break;
       did_conversion = 1;
-      tmp = (total * base) + digit;
-      if (tmp < total)	/* check overflow */
-	{
-	  errno = ERANGE;
-	  if (ptr != NULL)
-	    *ptr = (char *)s;
-	  return (ULONG_MAX);
-	}
-      total = tmp;
+      if (total > maxdiv
+	  || (total == maxdiv && digit > maxrem))
+	overflow = 1;
+      total = (total * base) + digit;
       s++;
+    }
+  if (overflow)
+    {
+      errno = ERANGE;
+      if (ptr != NULL)
+	*ptr = (char *)s;
+      return (ULONG_MAX);
     }
   if (ptr != NULL)
     *ptr = (char *) ((did_conversion) ? (char *)s : (char *)start);

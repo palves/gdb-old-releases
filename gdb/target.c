@@ -422,8 +422,13 @@ pop_target ()
 {
   (current_target->to_close)(0);	/* Let it clean up */
   current_target = current_target->to_next;
+#if 0
+  /* This will dump core if ever called--push_target expects current_target
+     to be non-NULL.  But I don't think it's needed; I don't see how the
+     dummy_target could ever be removed from the stack.  */
   if (!current_target)		/* At bottom, push dummy.  */
     push_target (&dummy_target);
+#endif
 }
 
 #undef	MIN
@@ -559,7 +564,11 @@ target_xfer_memory (memaddr, myaddr, len, write)
   int curlen;
   int res;
   struct target_ops *t;
-  
+
+  /* to_xfer_memory is not guaranteed to set errno, even when it returns
+     0.  */
+  errno = 0;
+
   /* The quick case is that the top target does it all.  */
   res = current_target->to_xfer_memory
 			(memaddr, myaddr, len, write, current_target);
@@ -676,7 +685,7 @@ find_default_run_target (do_mesg)
      char *do_mesg;
 {
   struct target_ops **t;
-  struct target_ops *runable;
+  struct target_ops *runable = NULL;
   int count;
 
   count = 0;
@@ -732,7 +741,7 @@ struct target_ops *
 find_core_target ()
 {
   struct target_ops **t;
-  struct target_ops *runable;
+  struct target_ops *runable = NULL;
   int count;
   
   count = 0;

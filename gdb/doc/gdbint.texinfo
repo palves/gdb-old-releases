@@ -1,6 +1,6 @@
 \input texinfo
 @setfilename gdbint.info
-@c $Id: gdbint.texinfo,v 1.70 1993/07/29 18:21:12 kingdon Exp $
+@c $Id: gdbint.texinfo,v 1.72 1993/08/11 00:01:55 shebs Exp $
 
 @ifinfo
 @format
@@ -42,7 +42,7 @@ regarded as a program in the language TeX).
 @page
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.70 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.72 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill \manvers\par
@@ -60,14 +60,19 @@ are preserved on all copies.
 @end titlepage
 
 @node Top
-@top
-@c IMHO much information should go into *comments* as you discover it
-@c or design changes to GDB.  It's more likely to get noticed and
-@c easier to maintain there.  -kingdon
-This documents the internals of the GNU debugger, GDB.  It is a
-collection of miscellaneous information with little form at this point.
-Mostly, it is a repository into which you can put information about
-GDB as you discover it (or as you design changes to GDB).
+@c Perhaps this should be the title of the document (but only for info,
+@c not for TeX).  Existing GNU manuals seem inconsistent on this point.
+@top Scope of this Document
+
+This document documents the internals of the GNU debugger, GDB.  It is
+intended to document aspects of GDB which apply across many different
+parts of GDB (for example, @pxref{Coding Style}), or which are global
+aspects of design (for example, what are the major modules and which
+files document them in detail?).  Information which pertains to specific
+data structures, functions, variables, etc., should be put in comments
+in the source code, not here.  It is more likely to get noticed and kept
+up to date there.  Some of the information in this document should
+probably be moved into comments.
 
 @menu
 * README::			The README File
@@ -112,7 +117,7 @@ GDB is a large and complicated program, and if you first starting to
 work on it, it can be hard to know where to start.  Fortunately, if you
 know how to go about it, there are ways to figure out what is going on:
 
-@table @bullet
+@itemize @bullet
 @item
 This manual, the GDB Internals manual, has information which applies
 generally to many parts of GDB.
@@ -190,7 +195,7 @@ on @code{bug-gdb}.  But @emph{never} post a generic question like ``I was
 wondering if anyone could give me some tips about understanding
 GDB''---if we had some magic secret we would put it in this manual.
 Suggestions for improving the manual are always welcome, of course.
-@end table
+@end itemize
 
 Good luck!
 
@@ -399,9 +404,9 @@ Specifies Makefile fragments needed when hosting on machine @var{xxx}.
 In particular, this lists the required machine-dependent object files,
 by defining @samp{XDEPFILES=@dots{}}.  Also
 specifies the header file which describes host @var{xxx}, by defining
-@samp{XM_FILE= xm-@var{xxx}.h}.  You can also define @samp{CC},
-@samp{REGEX} and @samp{REGEX1}, @samp{SYSV_DEFINE}, @samp{XM_CFLAGS},
-@samp{XM_ADD_FILES}, @samp{XM_CLIBS}, @samp{XM_CDEPS},
+@code{XM_FILE= xm-@var{xxx}.h}.  You can also define @code{CC},
+@code{REGEX} and @code{REGEX1}, @code{SYSV_DEFINE}, @code{XM_CFLAGS},
+@code{XM_ADD_FILES}, @code{XM_CLIBS}, @code{XM_CDEPS},
 etc.; see @file{Makefile.in}.
 
 @item gdb/config/@var{arch}/xm-@var{xxx}.h
@@ -1491,12 +1496,10 @@ system.  These macros and their meanings are:
 Eliminate target conditionals from this list as they are identified.}
 
 @table @code
-@item ALIGN_SIZE
-alloca.c
 @item BLOCK_ADDRESS_FUNCTION_RELATIVE
 dbxread.c
 @item GDBINIT_FILENAME
-main.c
+The default name of GDB's initialization file (normally @file{.gdbinit}).
 @item KERNELDEBUG
 tm-hppa.h
 @item MEM_FNS_DECLARED
@@ -1510,22 +1513,6 @@ dbxread.c
 pyr-xdep.c
 @item SIGWINCH_HANDLER_BODY
 utils.c
-@item 1
-buildsym.c
-@item 1
-dbxread.c
-@item 1
-dbxread.c
-@item 1
-buildsym.c
-@item 1
-dwarfread.c
-@item 1
-valops.c
-@item 1
-valops.c
-@item 1
-pyr-xdep.c
 @item ADDITIONAL_OPTIONS
 main.c
 @item ADDITIONAL_OPTION_CASES
@@ -1556,8 +1543,6 @@ main.c
 coffread.c
 @item BELIEVE_PCC_PROMOTION_TYPE
 stabsread.c
-@item BIG_ENDIAN
-defs.h
 @item BITS_BIG_ENDIAN
 defs.h
 @item BKPT_AT_MAIN
@@ -1623,7 +1608,7 @@ hppabsd-xdep.c
 @item DECR_PC_AFTER_BREAK
 breakpoint.c
 @item DEFAULT_PROMPT
-main.c
+The default value of the prompt string (normally @code{"(gdb) "}).
 @item DELTA88
 m88k-xdep.c
 @item DEV_TTY
@@ -1638,10 +1623,6 @@ remote.c
 infrun.c
 @item DO_REGISTERS_INFO
 infcmd.c
-@item END_OF_TEXT_DEFAULT
-dbxread.c
-@item EXTERN
-buildsym.h
 @item EXTRACT_RETURN_VALUE
 tm-m68k.h
 @item EXTRACT_STRUCT_VALUE_ADDRESS
@@ -1652,18 +1633,10 @@ frame.h
 symtab.h
 @item FILES_INFO_HOOK
 target.c
-@item FIXME
-coffread.c
 @item FLOAT_INFO
 infcmd.c
 @item FOPEN_RB
 defs.h
-@item FP0_REGNUM
-a68v-xdep.c
-@item FPC_REGNUM
-mach386-xdep.c
-@item FP_REGNUM
-parse.c
 @item FRAMELESS_FUNCTION_INVOCATION
 blockframe.c
 @item FRAME_ARGS_ADDRESS_CORRECT
@@ -1698,14 +1671,8 @@ dwarfread.c
 findvar.c
 @item GPLUS_PRODUCER
 dwarfread.c
-@item GR64_REGNUM
-remote-adapt.c
-@item GR64_REGNUM
-remote-mm.c
 @item HANDLE_RBRAC
 partial-stab.h
-@item HAVE_68881
-m68k-tdep.c
 @item HAVE_MMAP
 In some cases, use the system call @code{mmap} for reading symbol
 tables.  For some machines this allows for sharing and quick updates.
@@ -1777,8 +1744,6 @@ by using HP-style @code{nlist} on the kernel's image in the root
 directory.
 @item LCC_PRODUCER
 dwarfread.c
-@item LITTLE_ENDIAN
-defs.h
 @item LOG_FILE
 remote-adapt.c
 @item LONGERNAMES
@@ -1800,14 +1765,11 @@ This macro is used as the argument to lseek (or, most commonly, bfd_seek).
 FIXME, it should be replaced by SEEK_SET instead, which is the POSIX equivalent.
 @item MACHKERNELDEBUG
 hppabsd-tdep.c
-@item MAIN
-cplus-dem.c
 @item MAINTENANCE
 dwarfread.c
 @item MAINTENANCE_CMDS
-breakpoint.c
-@item MAINTENANCE_CMDS
-maint.c
+If the value of this is 1, then a number of optional maintenance commands
+are compiled in.
 @item MALLOC_INCOMPATIBLE
 Define this if the system's prototype for @code{malloc} differs from the
 @sc{ANSI} definition.
@@ -1829,10 +1791,8 @@ infrun.c
 exec.c
 @item NFAILURES
 regex.c
-@item NNPC_REGNUM
-infrun.c
 @item NORETURN
-defs.h
+(in defs.h - is this really useful to define/undefine?)
 @item NOTDEF
 regex.c
 @item NOTDEF
@@ -1863,8 +1823,6 @@ of checking the heap with @code{mmcheck}.
 remote-adapt.c
 @item NO_SINGLE_STEP
 infptrace.c
-@item NPC_REGNUM
-infcmd.c
 @item NS32K_SVC_IMMED_OPERANDS
 ns32k-opcode.h
 @item NUMERIC_REG_NAMES
@@ -1889,8 +1847,6 @@ dbxread.c
 inferior.h
 @item PC_LOAD_SEGMENT
 stack.c
-@item PC_REGNUM
-parse.c
 @item PRINT_RANDOM_SIGNAL
 infcmd.c
 @item PRINT_REGISTER_HOOK
@@ -1903,8 +1859,6 @@ buildsym.c
 infrun.c
 @item PSIGNAL_IN_SIGNAL_H
 defs.h
-@item PS_REGNUM
-parse.c
 @item PUSH_ARGUMENTS
 valops.c
 @item PYRAMID_CONTROL_FRAME_DEBUGGING
@@ -1927,8 +1881,6 @@ regex.h
 dwarfread.c
 @item R_OK
 xm-altos.h
-@item SDB_REG_TO_REGNUM
-coffread.c
 @item SEEK_END
 state.c
 @item SEEK_SET
@@ -1962,14 +1914,8 @@ infrun.c
 core.c
 @item SOLIB_CREATE_INFERIOR_HOOK
 infrun.c
-@item SP_REGNUM
-parse.c
-@item STAB_REG_TO_REGNUM
-stabsread.h
 @item STACK_ALIGN
 valops.c
-@item STACK_DIRECTION
-alloca.c
 @item START_INFERIOR_TRAPS_EXPECTED
 infrun.c
 @item STOP_SIGNAL
@@ -2042,8 +1988,6 @@ language.c
 news-xdep.c
 @item __GO32__
 inflow.c
-@item __HAVE_68881__
-m68k-stub.c
 @item __HPUX_ASM__
 xm-hp300hpux.h
 @item __INT_VARARGS_H
@@ -2056,8 +2000,6 @@ defs.h
 defs.h
 @item GOULD_PN
 gould-pinsn.c
-@item emacs
-alloca.c
 @item hp800
 xm-hppabsd.h
 @item hpux
@@ -2076,8 +2018,6 @@ ns32k-opcode.h
 mips-tdep.c
 @item sparc
 regex.c
-@item static
-alloca.c
 @item sun
 m68k-tdep.c
 @item sun386
@@ -2088,10 +2028,6 @@ regex.c
 xm-mips.h
 @item volatile
 defs.h
-@item x_name
-coffread.c
-@item x_zeroes
-coffread.c
 @end table
 
 @node Target Conditionals
@@ -2109,12 +2045,8 @@ Eliminate host conditionals from this list as they are identified.}
 Used in @samp{call_function_by_hand} to create an artificial stack frame.
 @item POP_FRAME
 Used in @samp{call_function_by_hand} to remove an artificial stack frame.
-@item ALIGN_SIZE
-alloca.c
 @item BLOCK_ADDRESS_FUNCTION_RELATIVE
 dbxread.c
-@item GDBINIT_FILENAME
-main.c
 @item KERNELDEBUG
 tm-hppa.h
 @item NO_SYS_FILE
@@ -2151,8 +2083,6 @@ main.c
 coffread.c
 @item BELIEVE_PCC_PROMOTION_TYPE
 stabsread.c
-@item BIG_ENDIAN
-defs.h
 @item BITS_BIG_ENDIAN
 defs.h
 @item BKPT_AT_MAIN
@@ -2211,8 +2141,6 @@ partial-stab.h
 hppabsd-xdep.c
 @item DECR_PC_AFTER_BREAK
 breakpoint.c
-@item DEFAULT_PROMPT
-main.c
 @item DELTA88
 m88k-xdep.c
 @item DEV_TTY
@@ -2228,9 +2156,8 @@ infrun.c
 @item DO_REGISTERS_INFO
 infcmd.c
 @item END_OF_TEXT_DEFAULT
-dbxread.c
-@item EXTERN
-buildsym.h
+This is an expression that should designate the end of the text section
+(? FIXME ?)
 @item EXTRACT_RETURN_VALUE
 tm-m68k.h
 @item EXTRACT_STRUCT_VALUE_ADDRESS
@@ -2241,8 +2168,6 @@ frame.h
 symtab.h
 @item FILES_INFO_HOOK
 target.c
-@item FIXME
-coffread.c
 @item FLOAT_INFO
 infcmd.c
 @item FOPEN_RB
@@ -2378,8 +2303,6 @@ dbxread.c
 tm-ultra3.h
 @item LCC_PRODUCER
 dwarfread.c
-@item LITTLE_ENDIAN
-defs.h
 @item LOG_FILE
 remote-adapt.c
 @item LONGERNAMES
@@ -2396,14 +2319,8 @@ defs.h
 coffread.c
 @item MACHKERNELDEBUG
 hppabsd-tdep.c
-@item MAIN
-cplus-dem.c
 @item MAINTENANCE
 dwarfread.c
-@item MAINTENANCE_CMDS
-breakpoint.c
-@item MAINTENANCE_CMDS
-maint.c
 @item MIPSEL
 mips-tdep.c
 @item MOTOROLA
@@ -2418,8 +2335,6 @@ exec.c
 regex.c
 @item NNPC_REGNUM
 infrun.c
-@item NORETURN
-defs.h
 @item NOTDEF
 regex.c
 @item NOTDEF
@@ -2489,7 +2404,8 @@ dwarfread.c
 @item R_OK
 xm-altos.h
 @item SDB_REG_TO_REGNUM
-coffread.c
+Define this to convert sdb register numbers
+into gdb regnums.  If not defined, no conversion will be done.
 @item SEEK_END
 state.c
 @item SEEK_SET
@@ -2519,11 +2435,10 @@ infrun.c
 @item SP_REGNUM
 parse.c
 @item STAB_REG_TO_REGNUM
-stabsread.h
+Define this to convert stab register numbers (as gotten from `r' declarations)
+into gdb regnums.  If not defined, no conversion will be done.
 @item STACK_ALIGN
 valops.c
-@item STACK_DIRECTION
-alloca.c
 @item START_INFERIOR_TRAPS_EXPECTED
 infrun.c
 @item STOP_SIGNAL
@@ -2613,8 +2528,6 @@ language.c
 language.c
 @item __GO32__
 inflow.c
-@item __HAVE_68881__
-m68k-stub.c
 @item __HPUX_ASM__
 xm-hp300hpux.h
 @item __INT_VARARGS_H
@@ -2623,8 +2536,6 @@ printcmd.c
 pyr-xdep.c
 @item GOULD_PN
 gould-pinsn.c
-@item emacs
-alloca.c
 @item hp800
 xm-hppabsd.h
 @item hpux
@@ -2639,18 +2550,12 @@ ns32k-opcode.h
 mips-tdep.c
 @item sparc
 regex.c
-@item static
-alloca.c
 @item sun
 m68k-tdep.c
 @item sun386
 tm-sun386.h
 @item test
-regex.c
-@item x_name
-coffread.c
-@item x_zeroes
-coffread.c
+(Define this to enable testing code in regex.c.)
 @end table
 
 @node Native Conditionals

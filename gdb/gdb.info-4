@@ -6,10 +6,10 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.10.
+   This is Edition 4.09, August 1993, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.11.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
+   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
@@ -424,7 +424,7 @@ checker:
      but attempt to evaluate the expression anyway.  Evaluating the
      expression may still be impossible for other reasons, such as
      accessing memory that the process does not own (a typical example
-     from many UNIX systems).
+     from many Unix systems).
 
 `show range'
      Show the current setting of the range checker, and whether or not
@@ -579,7 +579,7 @@ of increasing precedence:
 
      For debugging C++, GDB implements a use of `&' beyond what is
      allowed in the C++ language itself: you can use `&(&REF)' (or, if
-     you prefer, simply `&&REF' to examine the address where a C++
+     you prefer, simply `&&REF') to examine the address where a C++
      reference variable (declared with `&REF') is stored.
 
 `-'
@@ -968,7 +968,7 @@ I
 M
      represents an identifier that belongs to a set.  Generally used in
      the same function with the metavariable S.  The type of S should
-     be `SET OF MTYPE' (where MTYPE is the type of M.
+     be `SET OF MTYPE' (where MTYPE is the type of M).
 
 N
      represents a variable or constant of integral or floating-point
@@ -1244,8 +1244,8 @@ looks up the value of `x' in the scope of the file `foo.c'.
      which the variable is always stored.
 
      Note the contrast with `print &SYMBOL', which does not work at all
-     for a register variables, and for a stack local variable prints
-     the exact address of the current instantiation of the variable.
+     for a register variable, and for a stack local variable prints the
+     exact address of the current instantiation of the variable.
 
 `whatis EXP'
      Print the data type of expression EXP.  EXP is not actually
@@ -1258,8 +1258,9 @@ looks up the value of `x' in the scope of the file `foo.c'.
 
 `ptype TYPENAME'
      Print a description of data type TYPENAME.  TYPENAME may be the
-     name of a type, or for C code it may have the form `struct
-     STRUCT-TAG', `union UNION-TAG' or `enum ENUM-TAG'.
+     name of a type, or for C code it may have the form `class
+     CLASS-NAME', `struct STRUCT-TAG', `union UNION-TAG' or `enum
+     ENUM-TAG'.
 
 `ptype EXP'
 `ptype'

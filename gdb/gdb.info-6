@@ -6,10 +6,10 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.10.
+   This is Edition 4.09, August 1993, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.11.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
+   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
@@ -301,8 +301,8 @@ GDB and VxWorks
    GDB enables developers to spawn and debug tasks running on networked
 VxWorks targets from a Unix host.  Already-running tasks spawned from
 the VxWorks shell can also be debugged.  GDB uses code that runs on
-both the UNIX host and on the VxWorks target.  The program `gdb' is
-installed and executed on the UNIX host.  (It may be installed with the
+both the Unix host and on the VxWorks target.  The program `gdb' is
+installed and executed on the Unix host.  (It may be installed with the
 name `vxgdb', to distinguish it from a GDB for debugging programs on
 the host itself.)
 
@@ -323,7 +323,7 @@ manufacturer's manual.
 
    Once you have included the RDB interface in your VxWorks system image
 and set your Unix execution search path to find GDB, you are ready to
-run GDB.  From your UNIX host, run `gdb' (or `vxgdb', depending on your
+run GDB.  From your Unix host, run `gdb' (or `vxgdb', depending on your
 installation).
 
    GDB comes up showing the prompt:
@@ -371,7 +371,7 @@ VxWorks download
 
    If you have connected to the VxWorks target and you want to debug an
 object that has not yet been loaded, you can use the GDB `load' command
-to download a file from UNIX to VxWorks incrementally.  The object file
+to download a file from Unix to VxWorks incrementally.  The object file
 given as an argument to the `load' command is actually opened twice:
 first by the VxWorks target in order to download the code, then by GDB
 in order to read the symbol table.  This can lead to problems if the
@@ -490,10 +490,11 @@ retransmit-timeout'.  (These commands are *only* available when GDB is
 configured for `--target=mips-idt-ecoff'.)
 
    If your target board does not support the MIPS floating point
-coprocessor, use the command `set mipsfpu off' (you may wish to put
-this in your .gdbinit file).  This will tell GDB how to find the return
-value of functions which return floating point values, and tell it to
-call functions on the board without saving the floating point registers.
+coprocessor, you should use the command `set mipsfpu off' (you may wish
+to put this in your .gdbinit file).  This tells GDB how to find the
+return value of functions which return floating point values.  It also
+allows GDB to avoid saving the floating point registers when calling
+functions on the board.
 
 
 File: gdb.info,  Node: Simulator,  Prev: MIPS Remote,  Up: Remote

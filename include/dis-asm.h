@@ -11,17 +11,6 @@
 
 typedef int (*fprintf_ftype) PARAMS((FILE*, const char*, ...));
 
-
-/* This struct is passed into the instruction decoding routine, 
-   and is passed back out into each callback.  The various fields are used
-   for conveying information from your main routine into your callbacks,
-   for passing information into the instruction decoders (such as the
-   addresses of the callback functions), or for passing information
-   back from the instruction decoders to their callers.
-
-   It must be initialized before it is first passed; this can be done
-   by hand, or using one of the initialization macros below.  */
-
 enum dis_insn_type {
   dis_noninsn,			/* Not a valid instruction */
   dis_nonbranch,		/* Not a branch instruction */
@@ -32,6 +21,16 @@ enum dis_insn_type {
   dis_dref,			/* Data reference instruction */
   dis_dref2,			/* Two data references in instruction */
 };
+
+/* This struct is passed into the instruction decoding routine, 
+   and is passed back out into each callback.  The various fields are used
+   for conveying information from your main routine into your callbacks,
+   for passing information into the instruction decoders (such as the
+   addresses of the callback functions), or for passing information
+   back from the instruction decoders to their callers.
+
+   It must be initialized before it is first passed; this can be done
+   by hand, or using one of the initialization macros below.  */
 
 typedef struct disassemble_info {
   fprintf_ftype fprintf_func;

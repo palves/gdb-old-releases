@@ -47,11 +47,19 @@ if ![file exists $binfile] then {
 	    -re " = 4.*$prompt $" { pass "call function when asleep" }
 	    -re "$prompt $" { fail "call function when asleep (wrong output)" }
 	    timeout {
+
+		# This fail probably happens whenever we use /proc (we
+		# don't use PRSABORT), but apparently also happens on
+		# other machines as well.
+
 		setup_xfail "sparc-*-solaris2*"
 		setup_xfail "mips-*-ultrix*"
 		setup_xfail "hppa*-*-*"
 		setup_xfail "i386*-*-bsd*"
 		setup_xfail "*-*-sysv4*"
+		setup_xfail "vax-*-*"
+		setup_xfail "alpha-*-*"
+		setup_xfail "*-*-irix*"
 		fail "call function when asleep (stays asleep)"
 		# Send a newline to wake it up
 		gdb_test "" " = 4" "call function after waking it"
@@ -66,8 +74,7 @@ if ![file exists $binfile] then {
 	# command, because which one it ends up in is timing dependent.
 	send "continue\n"
 	# For some reason, i386-*-sysv4 gdb fails to issue the Continuing
-	# message, but otherwise appears normal.
-	setup_xfail "i*86-*-sysv4*"
+	# message, but otherwise appears normal (FIXME).
 	expect {
 	    -re "^continue\r\nContinuing.\r\n(\r\n|)$" { pass "continue" }
 	    -re "^continue\r\n\r\n" { fail "continue (missing Continuing.)" }

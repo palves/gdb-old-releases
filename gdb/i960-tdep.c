@@ -336,7 +336,7 @@ frame_find_saved_regs (fi, fsr)
       cache_fsr = (struct frame_saved_regs *)
 		  obstack_alloc (&frame_cache_obstack,
 				 sizeof (struct frame_saved_regs));
-      bzero (cache_fsr, sizeof (struct frame_saved_regs));
+      memset (cache_fsr, '\0', sizeof (struct frame_saved_regs));
       fi->fsr = cache_fsr;
 
       /* Find the start and end of the function prologue.  If the PC
@@ -468,11 +468,10 @@ leafproc_return (ip)
   int dst;
   unsigned int insn1, insn2;
   CORE_ADDR return_addr;
-  char *index ();
 
   if ((msymbol = lookup_minimal_symbol_by_pc (ip)) != NULL)
     {
-      if ((p = index (SYMBOL_NAME (msymbol), '.')) && STREQ (p, ".lf"))
+      if ((p = strchr(SYMBOL_NAME (msymbol), '.')) && STREQ (p, ".lf"))
 	{
 	  if (next_insn (SYMBOL_VALUE_ADDRESS (msymbol), &insn1, &insn2)
 	      && (insn1 & 0xff87ffff) == 0x5c80161e       /* mov g14, gx */

@@ -147,7 +147,10 @@ DEFUN(bfd_check_format,(abfd, format),
 	 might match.  People who want those other targets have to set 
 	 the GNUTARGET variable.  */
       if (temp == default_vector[0])
-	break;
+	{
+	  match_count = 1;
+	  break;
+	}
 #ifdef GNU960
       /* Big- and little-endian b.out archives look the same, but it doesn't
        * matter: there is no difference in their headers, and member file byte

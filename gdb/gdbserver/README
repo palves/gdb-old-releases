@@ -69,13 +69,21 @@ command, otherwise you may get an error that looks something like
 
 Building:
 
-Currently, the only target system supported by the server is Lynx.  To build
-the server for Lynx, make a new copy of the distribution onto a disk that is
-NFS shared with the Lynx system.  Lets say that's in a directory called xyzzy.
-Then, follow these steps under the host system:
+Configuring gdbserver you should specify the same machine for host and
+target (which are the machine that gdbserver is going to run on.  This
+is not the same as the machine that gdb is going to run on; building
+gdbserver automatically as part of building a whole tree of tools does
+not currently work if cross-compilation is involved (we don't get the
+right CC in the Makefile, to start with)).
+
+gdbserver should work on sparc-sun-sunos4* or Lynx.  The following
+instructions pertain to Lynx.  To build the server for Lynx, make a
+new copy of the distribution onto a disk that is NFS shared with the
+Lynx system.  Lets say that's in a directory called xyzzy.  Then,
+follow these steps under the host system:
 
 	1) cd xyzzy/gdb/gdbserver
-	2) ../../configure --target i386-none-lynx
+	2) ../../configure i386-none-lynx
 
 When that completes, do the following on the Lynx system:
 

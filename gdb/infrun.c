@@ -18,90 +18,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* Notes on the algorithm used in wait_for_inferior to determine if we
-   just did a subroutine call when stepping.  We have the following
-   information at that point:
-
-                  Current and previous (just before this step) pc.
-		  Current and previous sp.
-		  Current and previous start of current function.
-
-   If the starts of the functions don't match, then
-
-   	a) We did a subroutine call.
-
-   In this case, the pc will be at the beginning of a function.
-
-	b) We did a subroutine return.
-
-   Otherwise.
-
-	c) We did a longjmp.
-
-   If we did a longjump, we were doing "nexti", since a next would
-   have attempted to skip over the assembly language routine in which
-   the longjmp is coded and would have simply been the equivalent of a
-   continue.  I consider this ok behaivior.  We'd like one of two
-   things to happen if we are doing a nexti through the longjmp()
-   routine: 1) It behaves as a stepi, or 2) It acts like a continue as
-   above.  Given that this is a special case, and that anybody who
-   thinks that the concept of sub calls is meaningful in the context
-   of a longjmp, I'll take either one.  Let's see what happens.  
-
-   Acts like a subroutine return.  I can handle that with no problem
-   at all.
-
-   -->So: If the current and previous beginnings of the current
-   function don't match, *and* the pc is at the start of a function,
-   we've done a subroutine call.  If the pc is not at the start of a
-   function, we *didn't* do a subroutine call.  
-
-   -->If the beginnings of the current and previous function do match,
-   either: 
-
-   	a) We just did a recursive call.
-
-	   In this case, we would be at the very beginning of a
-	   function and 1) it will have a prologue (don't jump to
-	   before prologue, or 2) (we assume here that it doesn't have
-	   a prologue) there will have been a change in the stack
-	   pointer over the last instruction.  (Ie. it's got to put
-	   the saved pc somewhere.  The stack is the usual place.  In
-	   a recursive call a register is only an option if there's a
-	   prologue to do something with it.  This is even true on
-	   register window machines; the prologue sets up the new
-	   window.  It might not be true on a register window machine
-	   where the call instruction moved the register window
-	   itself.  Hmmm.  One would hope that the stack pointer would
-	   also change.  If it doesn't, somebody send me a note, and
-	   I'll work out a more general theory.
-	   bug-gdb@prep.ai.mit.edu).  This is true (albeit slipperly
-	   so) on all machines I'm aware of:
-
-	      m68k:	Call changes stack pointer.  Regular jumps don't.
-
-	      sparc:	Recursive calls must have frames and therefor,
-	                prologues.
-
-	      vax:	All calls have frames and hence change the
-	                stack pointer.
-
-	b) We did a return from a recursive call.  I don't see that we
-	   have either the ability or the need to distinguish this
-	   from an ordinary jump.  The stack frame will be printed
-	   when and if the frame pointer changes; if we are in a
-	   function without a frame pointer, it's the users own
-	   lookout.
-
-	c) We did a jump within a function.  We assume that this is
-	   true if we didn't do a recursive call.
-
-	d) We are in no-man's land ("I see no symbols here").  We
-	   don't worry about this; it will make calls look like simple
-	   jumps (and the stack frames will be printed when the frame
-	   pointer moves), which is a reasonably non-violent response.
-*/
-
 #include "defs.h"
 #include <string.h>
 #include <ctype.h>
@@ -232,11 +148,6 @@ int stop_after_trap;
 
 int stop_soon_quietly;
 
-/* Nonzero if pc has been changed by the debugger
-   since the inferior stopped.  */
-
-int pc_changed;
-
 /* Nonzero if proceed is being used for a "finish" command or a similar
    situation when stop_registers should be saved.  */
 
@@ -288,6 +199,14 @@ resume (step, sig)
   struct cleanup *old_cleanups = make_cleanup (resume_cleanups, 0);
   QUIT;
 
+#ifdef CANNOT_STEP_BREAKPOINT
+  /* Most targets can step a breakpoint instruction, thus executing it
+     normally.  But if this one cannot, just continue and we will hit
+     it anyway.  */
+  if (step && breakpoints_inserted && breakpoint_here_p (read_pc ()))
+    step = 0;
+#endif
+
 #ifdef NO_SINGLE_STEP
   if (step) {
     single_step(sig);	/* Do it the hard way, w/temp breakpoints */
@@ -300,7 +219,10 @@ resume (step, sig)
   DO_DEFERRED_STORES;
 #endif
 
-  target_resume (inferior_pid, step, sig);
+  /* Install inferior's terminal modes.  */
+  target_terminal_inferior ();
+
+  target_resume (-1, step, sig);
   discard_cleanups (old_cleanups);
 }
 
@@ -356,7 +278,7 @@ proceed (addr, siggnal, step)
 	 step one instruction before inserting breakpoints
 	 so that we do not stop right away.  */
 
-      if (!pc_changed && breakpoint_here_p (read_pc ()))
+      if (breakpoint_here_p (read_pc ()))
 	oneproc = 1;
     }
   else
@@ -387,9 +309,6 @@ The same program may be running in another process.");
 	}
       breakpoints_inserted = 1;
     }
-
-  /* Install inferior's terminal modes.  */
-  target_terminal_inferior ();
 
   if (siggnal >= 0)
     stop_signal = siggnal;
@@ -444,7 +363,7 @@ init_wait_for_inferior ()
 
   trap_expected_after_continue = 0;
   breakpoints_inserted = 0;
-  mark_breakpoints_out ();
+  breakpoint_init_inferior ();
   stop_signal = 0;		/* Don't confuse first call to proceed(). */
 }
 
@@ -470,15 +389,14 @@ wait_for_inferior ()
   WAITTYPE w;
   int another_trap;
   int random_signal;
-  CORE_ADDR stop_sp;
+  CORE_ADDR stop_sp = 0;
   CORE_ADDR stop_func_start;
   char *stop_func_name;
-  CORE_ADDR prologue_pc, tmp;
+  CORE_ADDR prologue_pc = 0, tmp;
   struct symtab_and_line sal;
   int remove_breakpoints_on_following_step = 0;
   int current_line;
   int handling_longjmp = 0;	/* FIXME */
-  struct symtab *symtab;
   struct breakpoint *step_resume_breakpoint = NULL;
   int pid;
 
@@ -487,14 +405,20 @@ wait_for_inferior ()
   sal = find_pc_line(prev_pc, 0);
   current_line = sal.line;
 
+  /* Are we stepping?  */
+#define CURRENTLY_STEPPING() ((step_resume_breakpoint == NULL \
+			       && !handling_longjmp \
+			       && (step_range_end \
+				   || trap_expected)) \
+			      || bpstat_should_step ())
+
   while (1)
     {
       /* Clean up saved state that will become invalid.  */
-      pc_changed = 0;
       flush_cached_frames ();
       registers_changed ();
 
-      pid = target_wait (&w);
+      pid = target_wait (-1, &w);
 
 #ifdef SIGTRAP_STOP_AFTER_LOAD
 
@@ -550,7 +474,43 @@ wait_for_inferior ()
 #endif
 	  break;
 	}
-      
+
+      stop_signal = WSTOPSIG (w);
+
+      if (pid != inferior_pid)
+	{
+	  int save_pid = inferior_pid;
+
+	  inferior_pid = pid;	/* Setup for target memory/regs */
+	  registers_changed ();
+	  stop_pc = read_pc ();
+	  inferior_pid = save_pid;
+	  registers_changed ();
+	}
+      else
+	stop_pc = read_pc ();
+
+      if (stop_signal == SIGTRAP
+	  && breakpoint_here_p (stop_pc - DECR_PC_AFTER_BREAK))
+	if (!breakpoint_thread_match (stop_pc - DECR_PC_AFTER_BREAK, pid))
+	  {
+	    /* Saw a breakpoint, but it was hit by the wrong thread.  Just continue. */
+	    if (breakpoints_inserted)
+	      {
+		remove_breakpoints ();
+		target_resume (pid, 1, 0); /* Single step */
+		/* FIXME: What if a signal arrives instead of the single-step
+		   happening?  */
+		target_wait (pid, NULL);
+		insert_breakpoints ();
+	      }
+	    target_resume (-1, 0, 0);
+	    continue;
+	  }
+	else
+	  if (pid != inferior_pid)
+	    goto switch_thread;
+
       if (pid != inferior_pid)
 	{
 	  int printed = 0;
@@ -560,13 +520,11 @@ wait_for_inferior ()
 	      fprintf (stderr, "[New %s]\n", target_pid_to_str (pid));
 	      add_thread (pid);
 
-	      target_resume (pid, 0, 0);
+	      target_resume (-1, 0, 0);
 	      continue;
 	    }
 	  else
 	    {
-	      stop_signal = WSTOPSIG (w);
-
 	      if (stop_signal >= NSIG || signal_print[stop_signal])
 		{
 		  char *signame;
@@ -584,12 +542,14 @@ wait_for_inferior ()
 		  fflush (stdout);
 		}
 
-	      if (stop_signal >= NSIG || signal_stop[stop_signal])
+	      if (stop_signal == SIGTRAP
+		  || stop_signal >= NSIG
+		  || signal_stop[stop_signal])
 		{
+switch_thread:
 		  inferior_pid = pid;
 		  printf_filtered ("[Switching to %s]\n", target_pid_to_str (pid));
 
-		  pc_changed = 0;
 		  flush_cached_frames ();
 		  registers_changed ();
 		  trap_expected = 0;
@@ -616,11 +576,13 @@ wait_for_inferior ()
 		  if (signal_program[stop_signal] == 0)
 		    stop_signal = 0;
 
-		  target_resume (pid, 0, stop_signal);
+		  target_resume (-1, 0, stop_signal);
 		  continue;
 		}
 	    }
 	}
+
+same_pid:
 
 #ifdef NO_SINGLE_STEP
       if (one_stepped)
@@ -636,7 +598,6 @@ wait_for_inferior ()
 	  continue;
 	}
 
-      stop_pc = read_pc ();
       set_current_frame ( create_new_frame (read_fp (), stop_pc));
 
       stop_frame_address = FRAME_FP (get_current_frame ());
@@ -646,7 +607,7 @@ wait_for_inferior ()
       /* Don't care about return value; stop_func_start and stop_func_name
 	 will both be 0 if it doesn't work.  */
       find_pc_partial_function (stop_pc, &stop_func_name, &stop_func_start,
-				(CORE_ADDR *)NULL);
+				NULL);
       stop_func_start += FUNCTION_START_OFFSET;
       another_trap = 0;
       bpstat_clear (&stop_bpstat);
@@ -664,8 +625,6 @@ wait_for_inferior ()
 	 (set another_trap to 1 to single step once)
 	 3) set random_signal to 1, and the decision between 1 and 2
 	 will be made according to the signal handling tables.  */
-      
-      stop_signal = WSTOPSIG (w);
       
       /* First, distinguish signals caused by the debugger from signals
 	 that have to do with the program's own actions.
@@ -704,32 +663,33 @@ wait_for_inferior ()
 	  else
 	    {
 	      /* See if there is a breakpoint at the current PC.  */
+	      stop_bpstat = bpstat_stop_status
+		(&stop_pc, stop_frame_address,
 #if DECR_PC_AFTER_BREAK
-	      /* Notice the case of stepping through a jump
-		 that lands just after a breakpoint.
-		 Don't confuse that with hitting the breakpoint.
-		 What we check for is that 1) stepping is going on
-		 and 2) the pc before the last insn does not match
-		 the address of the breakpoint before the current pc.  */
-	      if (prev_pc == stop_pc - DECR_PC_AFTER_BREAK
-		  || !step_range_end
-		  || step_resume_breakpoint != NULL
-		  || handling_longjmp /* FIXME */)
-#endif /* DECR_PC_AFTER_BREAK not zero */
-		{
-		  stop_bpstat =
-		    bpstat_stop_status (&stop_pc, stop_frame_address);
-		  /* Following in case break condition called a
-		     function.  */
-		  stop_print_frame = 1;
-		}
+		 /* Notice the case of stepping through a jump
+		    that lands just after a breakpoint.
+		    Don't confuse that with hitting the breakpoint.
+		    What we check for is that 1) stepping is going on
+		    and 2) the pc before the last insn does not match
+		    the address of the breakpoint before the current pc.  */
+		 (prev_pc != stop_pc - DECR_PC_AFTER_BREAK
+		  && CURRENTLY_STEPPING ())
+#else /* DECR_PC_AFTER_BREAK zero */
+		 0
+#endif /* DECR_PC_AFTER_BREAK zero */
+		 );
+	      /* Following in case break condition called a
+		 function.  */
+	      stop_print_frame = 1;
 	    }
 
 	  if (stop_signal == SIGTRAP)
 	    random_signal
 	      = !(bpstat_explains_signal (stop_bpstat)
 		  || trap_expected
+#ifndef CALL_DUMMY_BREAKPOINT_OFFSET
 		  || PC_IN_CALL_DUMMY (stop_pc, stop_sp, stop_frame_address)
+#endif /* No CALL_DUMMY_BREAKPOINT_OFFSET.  */
 		  || (step_range_end && step_resume_breakpoint == NULL));
 	  else
 	    {
@@ -738,7 +698,9 @@ wait_for_inferior ()
 		    /* End of a stack dummy.  Some systems (e.g. Sony
 		       news) give another signal besides SIGTRAP,
 		       so check here as well as above.  */
+#ifndef CALL_DUMMY_BREAKPOINT_OFFSET
 		    || PC_IN_CALL_DUMMY (stop_pc, stop_sp, stop_frame_address)
+#endif /* No CALL_DUMMY_BREAKPOINT_OFFSET.  */
 		    );
 	      if (!random_signal)
 		stop_signal = SIGTRAP;
@@ -800,6 +762,14 @@ wait_for_inferior ()
 	struct bpstat_what what;
 
 	what = bpstat_what (stop_bpstat);
+
+	if (what.call_dummy)
+	  {
+	    stop_stack_dummy = 1;
+#ifdef HP_OS_BUG
+	    trap_expected_after_continue = 1;
+#endif
+	  }
 
 	switch (what.main_action)
 	  {
@@ -895,18 +865,28 @@ wait_for_inferior ()
 	 test for stepping.  But, if not stepping,
 	 do not stop.  */
 
+#ifndef CALL_DUMMY_BREAKPOINT_OFFSET
+      /* This is the old way of detecting the end of the stack dummy.
+	 An architecture which defines CALL_DUMMY_BREAKPOINT_OFFSET gets
+	 handled above.  As soon as we can test it on all of them, all
+	 architectures should define it.  */
+
       /* If this is the breakpoint at the end of a stack dummy,
-	 just stop silently.  */
-      if (PC_IN_CALL_DUMMY (stop_pc, stop_sp, stop_frame_address))
-	  {
-	    stop_print_frame = 0;
-	    stop_stack_dummy = 1;
+	 just stop silently, unless the user was doing an si/ni, in which
+	 case she'd better know what she's doing.  */
+
+      if (PC_IN_CALL_DUMMY (stop_pc, stop_sp, stop_frame_address)
+	  && !step_range_end)
+	{
+	  stop_print_frame = 0;
+	  stop_stack_dummy = 1;
 #ifdef HP_OS_BUG
-	    trap_expected_after_continue = 1;
+	  trap_expected_after_continue = 1;
 #endif
-	    break;
-	  }
-      
+	  break;
+	}
+#endif /* No CALL_DUMMY_BREAKPOINT_OFFSET.  */
+
       if (step_resume_breakpoint)
 	/* Having a step-resume breakpoint overrides anything
 	   else having to do with stepping commands until
@@ -985,13 +965,45 @@ wait_for_inferior ()
 	  SKIP_PROLOGUE (prologue_pc);
 	}
 
-      /* ==> See comments at top of file on this algorithm.  <==*/
+      if ((/* Might be a non-recursive call.  If the symbols are missing
+	      enough that stop_func_start == prev_func_start even though
+	      they are really two functions, we will treat some calls as
+	      jumps.  */
+	   stop_func_start != prev_func_start
 
-      if ((stop_pc == stop_func_start
-	   || IN_SOLIB_TRAMPOLINE (stop_pc, stop_func_name))
-	  && (stop_func_start != prev_func_start
-	      || prologue_pc != stop_func_start
-	      || stop_sp != prev_sp))
+	   /* Might be a recursive call if either we have a prologue
+	      or the call instruction itself saves the PC on the stack.  */
+	   || prologue_pc != stop_func_start
+	   || stop_sp != prev_sp)
+	  && (/* PC is completely out of bounds of any known objfiles.  Treat
+		 like a subroutine call. */
+	      !stop_func_start
+
+	      /* If we do a call, we will be at the start of a function.  */
+	      || stop_pc == stop_func_start
+
+#if 0
+	      /* Not conservative enough for 4.11.  FIXME: enable this
+		 after 4.11.  */
+	      /* Except on the Alpha with -O (and perhaps other machines
+		 with similar calling conventions), in which we might
+		 call the address after the load of gp.  Since prologues
+		 don't contain calls, we can't return to within one, and
+		 we don't jump back into them, so this check is OK.  */
+	      || stop_pc < prologue_pc
+#endif
+
+	      /* If we end up in certain places, it means we did a subroutine
+		 call.  I'm not completely sure this is necessary now that we
+		 have the above checks with stop_func_start (and now that
+		 find_pc_partial_function is pickier).  */
+	      || IN_SOLIB_TRAMPOLINE (stop_pc, stop_func_name)
+
+	      /* If none of the above apply, it is a jump within a function,
+		 or a return from a subroutine.  The other case is longjmp,
+		 which can no longer happen here as long as the
+		 handling_longjmp stuff is working.  */
+	      ))
 	{
 	  /* It's a subroutine call.  */
 
@@ -1086,8 +1098,7 @@ step_into_function:
 		 since on some machines the prologue
 		 is where the new fp value is established.  */
 	      step_resume_breakpoint =
-		set_momentary_breakpoint (sr_sal, (CORE_ADDR)0,
-					  bp_step_resume);
+		set_momentary_breakpoint (sr_sal, NULL, bp_step_resume);
 	      if (breakpoints_inserted)
 		insert_breakpoints ();
 
@@ -1183,6 +1194,7 @@ step_into_function:
 					  original pc would not have
 					  been at the start of a
 					  function. */
+
       prev_func_name = stop_func_name;
       prev_sp = stop_sp;
 
@@ -1194,10 +1206,7 @@ step_into_function:
 	  /* We took a signal (which we are supposed to pass through to
 	     the inferior, else we'd have done a break above) and we
 	     haven't yet gotten our trap.  Simply continue.  */
-	  resume ((step_range_end && step_resume_breakpoint == NULL)
-		  || (trap_expected && step_resume_breakpoint == NULL)
-		  || bpstat_should_step (),
-		  stop_signal);
+	  resume (CURRENTLY_STEPPING (), stop_signal);
 	}
       else
 	{
@@ -1239,27 +1248,16 @@ step_into_function:
 	  /* I'm not sure when this following segment applies.  I do know, now,
 	     that we shouldn't rewrite the regs when we were stopped by a
 	     random signal from the inferior process.  */
+	  /* FIXME: Shouldn't this be based on the valid bit of the SXIP?
+	     (this is only used on the 88k).  */
 
           if (!bpstat_explains_signal (stop_bpstat)
 	      && (stop_signal != SIGCLD) 
               && !stopped_by_random_signal)
-            {
-            CORE_ADDR pc_contents = read_register (PC_REGNUM);
-            CORE_ADDR npc_contents = read_register (NPC_REGNUM);
-            if (pc_contents != npc_contents)
-              {
-              write_register (NNPC_REGNUM, npc_contents);
-              write_register (NPC_REGNUM, pc_contents);
-	      }
-            }
+            SHIFT_INST_REGS();
 #endif /* SHIFT_INST_REGS */
 
-	  resume ((step_resume_breakpoint == NULL
-		   && !handling_longjmp
-		   && (step_range_end
-		       || trap_expected))
-		  || bpstat_should_step (),
-		  stop_signal);
+	  resume (CURRENTLY_STEPPING (), stop_signal);
 	}
     }
 
@@ -1291,7 +1289,7 @@ normal_stop ()
   /* Make sure that the current_frame's pc is correct.  This
      is a correction for setting up the frame info before doing
      DECR_PC_AFTER_BREAK */
-  if (target_has_execution)
+  if (target_has_execution && get_current_frame())
     (get_current_frame ())->pc = read_pc ();
   
   if (breakpoints_failed)
@@ -1581,7 +1579,7 @@ handle_command (args, from_tty)
       argv++;
     }
 
-  target_notice_signals();
+  target_notice_signals(inferior_pid);
 
   if (from_tty)
     {
@@ -1645,7 +1643,6 @@ save_inferior_status (inf_status, restore_stack_info)
      struct inferior_status *inf_status;
      int restore_stack_info;
 {
-  inf_status->pc_changed = pc_changed;
   inf_status->stop_signal = stop_signal;
   inf_status->stop_pc = stop_pc;
   inf_status->stop_frame_address = stop_frame_address;
@@ -1669,20 +1666,53 @@ save_inferior_status (inf_status, restore_stack_info)
   inf_status->proceed_to_finish = proceed_to_finish;
   
   memcpy (inf_status->stop_registers, stop_registers, REGISTER_BYTES);
-  
+
+  read_register_bytes (0, inf_status->registers, REGISTER_BYTES);
+
   record_selected_frame (&(inf_status->selected_frame_address),
 			 &(inf_status->selected_level));
   return;
+}
+
+struct restore_selected_frame_args {
+  FRAME_ADDR frame_address;
+  int level;
+};
+
+static int restore_selected_frame PARAMS ((char *));
+
+/* Restore the selected frame.  args is really a struct
+   restore_selected_frame_args * (declared as char * for catch_errors)
+   telling us what frame to restore.  Returns 1 for success, or 0 for
+   failure.  An error message will have been printed on error.  */
+static int
+restore_selected_frame (args)
+     char *args;
+{
+  struct restore_selected_frame_args *fr =
+    (struct restore_selected_frame_args *) args;
+  FRAME fid;
+  int level = fr->level;
+
+  fid = find_relative_frame (get_current_frame (), &level);
+
+  /* If inf_status->selected_frame_address is NULL, there was no
+     previously selected frame.  */
+  if (fid == 0 ||
+      FRAME_FP (fid) != fr->frame_address ||
+      level != 0)
+    {
+      warning ("Unable to restore previously selected frame.\n");
+      return 0;
+    }
+  select_frame (fid, fr->level);
+  return(1);
 }
 
 void
 restore_inferior_status (inf_status)
      struct inferior_status *inf_status;
 {
-  FRAME fid;
-  int level = inf_status->selected_level;
-
-  pc_changed = inf_status->pc_changed;
   stop_signal = inf_status->stop_signal;
   stop_pc = inf_status->stop_pc;
   stop_frame_address = inf_status->stop_frame_address;
@@ -1705,32 +1735,33 @@ restore_inferior_status (inf_status)
 
   /* The inferior can be gone if the user types "print exit(0)"
      (and perhaps other times).  */
+  if (target_has_execution)
+    write_register_bytes (0, inf_status->registers, REGISTER_BYTES);
+
+  /* The inferior can be gone if the user types "print exit(0)"
+     (and perhaps other times).  */
+
+  /* FIXME: If we are being called after stopping in a function which
+     is called from gdb, we should not be trying to restore the
+     selected frame; it just prints a spurious error message (The
+     message is useful, however, in detecting bugs in gdb (like if gdb
+     clobbers the stack)).  In fact, should we be restoring the
+     inferior status at all in that case?  .  */
+
   if (target_has_stack && inf_status->restore_stack_info)
     {
-      fid = find_relative_frame (get_current_frame (),
-				 &level);
-
-      /* If inf_status->selected_frame_address is NULL, there was no
-	 previously selected frame.  */
-      if (fid == 0 ||
-	  FRAME_FP (fid) != inf_status->selected_frame_address ||
-	  level != 0)
-	{
-#if 1
-	  /* I'm not sure this error message is a good idea.  I have
-	     only seen it occur after "Can't continue previously
-	     requested operation" (we get called from do_cleanups), in
-	     which case it just adds insult to injury (one confusing
-	     error message after another.  Besides which, does the
-	     user really care if we can't restore the previously
-	     selected frame?  */
-	  fprintf (stderr, "Unable to restore previously selected frame.\n");
-#endif
-	  select_frame (get_current_frame (), 0);
-	  return;
-	}
-      
-      select_frame (fid, inf_status->selected_level);
+      struct restore_selected_frame_args fr;
+      fr.level = inf_status->selected_level;
+      fr.frame_address = inf_status->selected_frame_address;
+      /* The point of catch_errors is that if the stack is clobbered,
+	 walking the stack might encounter a garbage pointer and error()
+	 trying to dereference it.  */
+      if (catch_errors (restore_selected_frame, &fr,
+			"Unable to restore previously selected frame:\n",
+			RETURN_MASK_ERROR) == 0)
+	/* Error in restoring the selected frame.  Select the innermost
+	   frame.  */
+	select_frame (get_current_frame (), 0);
     }
 }
 

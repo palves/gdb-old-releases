@@ -1,6 +1,6 @@
 \input texinfo.tex
 @setfilename bfd.info
-@c $Id: bfd.texinfo,v 1.20 1993/07/08 17:58:06 djm Exp $
+@c $Id: bfd.texinfo,v 1.22 1993/08/10 18:26:23 raeburn Exp $
 @tex
 % NOTE LOCAL KLUGE TO AVOID TOO MUCH WHITESPACE
 \global\long\def\example{%
@@ -67,7 +67,7 @@ into another language, under the above conditions for modified versions.
 
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.20 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.22 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill sac\@cygnus.com\par
@@ -300,6 +300,7 @@ structures.
 * What to Put Where::
 * aout ::	a.out backends
 * coff ::	coff backends
+* elf  ::	elf backends
 @ignore
 * oasys ::	oasys backends
 * ieee ::	ieee backend
@@ -312,8 +313,13 @@ All of BFD lives in one directory.
 @node aout, coff, What to Put Where, BFD back end
 @include  aoutx.texi
 
-@node coff,  , aout, BFD back end
+@node coff, elf, aout, BFD back end
 @include  coffcode.texi
+
+@node elf,  , coff, BFD back end
+@include  elf.texi
+@c Leave this out until the file has some actual contents...
+@c @include  elfcode.texi
 
 @node Index,  , BFD back end, Top
 @unnumbered Index

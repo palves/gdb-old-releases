@@ -62,7 +62,7 @@ struct complaint innerblock_anon_complaint =
   {"inner block not inside outer block", 0, 0};
 
 struct complaint blockvector_complaint = 
-  {"block at 0x%x out of order", 0, 0};
+  {"block at 0x%lx out of order", 0, 0};
 
 
 /* maintain the lists of symbols and blocks */
@@ -98,7 +98,8 @@ add_symbol_to_list (symbol, listhead)
   (*listhead)->symbol[(*listhead)->nsyms++] = symbol;
 }
 
-/* Find a symbol on a pending list.  */
+/* Find a symbol named NAME on a LIST.  NAME need not be '\0'-terminated;
+   LENGTH is the length of the name.  */
 
 struct symbol *
 find_symbol_in_list (list, name, length)
@@ -297,7 +298,7 @@ finish_block (symbol, listhead, old_blocks, start, end, objfile)
 
 static struct blockvector *
 make_blockvector (objfile)
-      struct objfile *objfile;
+     struct objfile *objfile;
 {
   register struct pending_block *next;
   register struct blockvector *blockvector;
@@ -347,7 +348,7 @@ make_blockvector (objfile)
 	      > BLOCK_START(BLOCKVECTOR_BLOCK (blockvector, i)))
 	    {
 	      complain (&blockvector_complaint, 
-			BLOCK_START(BLOCKVECTOR_BLOCK (blockvector, i)));
+			(unsigned long) BLOCK_START(BLOCKVECTOR_BLOCK (blockvector, i)));
 	    }
 	}
     }
@@ -358,7 +359,9 @@ make_blockvector (objfile)
 
 
 /* Start recording information about source code that came from an included
-   (or otherwise merged-in) source file with a different name.  */
+   (or otherwise merged-in) source file with a different name.  NAME is
+   the name of the file (cannot be NULL), DIRNAME is the directory in which
+   it resides (or NULL if not known).  */
 
 void
 start_subfile (name, dirname)
@@ -419,18 +422,15 @@ start_subfile (name, dirname)
      directives which specify a file name ending in .C.
 
      So if the filename of this subfile ends in .C, then change the language
-     of any pending subfiles from C to C++.  .cc is also accepted, even
-     though I don't think cfront allows it.  */
+     of any pending subfiles from C to C++.  We also accept any other C++
+     suffixes accepted by deduce_language_from_filename (in particular,
+     some people use .cxx with cfront).  */
 
   if (subfile->name)
     {
-      char *p;
       struct subfile *s;
 
-      p = strrchr (subfile->name, '.');
-      if (p != NULL
-	  && (p[1] == 'C' && p[2] == '\0'
-	      || p[1] == 'c' && p[2] == 'c' && p[3] == '\0'))
+      if (deduce_language_from_filename (subfile->name) == language_cplus)
 	for (s = subfiles; s != NULL; s = s->next)
 	  if (s->language == language_c)
 	    s->language = language_cplus;
@@ -526,7 +526,8 @@ pop_subfile ()
 }
 
 
-/* Manage the vector of line numbers for each subfile.  */
+/* Add a linetable entry for line number LINE and address PC to the line
+   vector for SUBFILE.  */
 
 void
 record_line (subfile, line, pc)
@@ -572,8 +573,20 @@ compare_line_numbers (ln1p, ln2p)
      const PTR ln1p;
      const PTR ln2p;
 {
-  return (((struct linetable_entry *) ln1p) -> line -
-	  ((struct linetable_entry *) ln2p) -> line);
+  struct linetable_entry *ln1 = (struct linetable_entry *) ln1p;
+  struct linetable_entry *ln2 = (struct linetable_entry *) ln2p;
+
+  /* Note: this code does not assume that CORE_ADDRs can fit in ints.
+     Please keep it that way.  */
+  if (ln1->pc < ln2->pc)
+    return -1;
+
+  if (ln1->pc > ln2->pc)
+    return 1;
+
+  /* If pc equal, sort by line.  I'm not sure whether this is optimum
+     behavior (see comment at struct linetable in symtab.h).  */
+  return ln1->line - ln2->line;
 }
 
 
@@ -637,7 +650,7 @@ end_symtab (end_addr, sort_pending, sort_linevec, objfile, section)
      struct objfile *objfile;
      int section;
 {
-  register struct symtab *symtab;
+  register struct symtab *symtab = NULL;
   register struct blockvector *blockvector;
   register struct subfile *subfile;
   register struct context_stack *cstk;
@@ -654,11 +667,16 @@ end_symtab (end_addr, sort_pending, sort_linevec, objfile, section)
       finish_block (cstk->name, &local_symbols, cstk->old_blocks,
 		    cstk->start_addr, end_addr, objfile);
 
-      /* Debug: if context stack still has something in it,
-	 we are in trouble.  */
       if (context_stack_depth > 0)
 	{
-	  abort ();
+	  /* This is said to happen with SCO.  The old coffread.c code
+	     simply emptied the context stack, so we do the same.  FIXME:
+	     Find out why it is happening.  This is not believed to happen
+	     in most cases (even for coffread.c); it used to be an abort().  */
+	  static struct complaint msg =
+	    {"Context stack not empty in end_symtab", 0, 0};
+	  complain (&msg);
+	  context_stack_depth = 0;
 	}
     }
 
@@ -699,7 +717,13 @@ end_symtab (end_addr, sort_pending, sort_linevec, objfile, section)
   /* Cleanup any undefined types that have been left hanging around
      (this needs to be done before the finish_blocks so that
      file_symbols is still good).
-     FIXME:  Stabs specific. */
+
+     Both cleanup_undefined_types and finish_global_stabs are stabs
+     specific, but harmless for other symbol readers, since on gdb
+     startup or when finished reading stabs, the state is set so these
+     are no-ops.  FIXME: Is this handled right in case of QUIT?  Can
+     we make this cleaner?  */
+
   cleanup_undefined_types ();
   finish_global_stabs (objfile);
 
@@ -729,7 +753,7 @@ end_symtab (end_addr, sort_pending, sort_linevec, objfile, section)
 
   for (subfile = subfiles; subfile; subfile = nextsub)
     {
-      int linetablesize;
+      int linetablesize = 0;
       /* If we have blocks of symbols, make a symtab.
 	 Otherwise, just ignore this file and any line number info in it.  */
       symtab = NULL;
@@ -737,11 +761,20 @@ end_symtab (end_addr, sort_pending, sort_linevec, objfile, section)
 	{
 	  if (subfile->line_vector)
 	    {
-	      /* First, shrink the linetable to make more memory.  */
 	      linetablesize = sizeof (struct linetable) +
 		subfile->line_vector->nitems * sizeof (struct linetable_entry);
+#if 0
+	      /* I think this is artifact from before it went on the obstack.
+		 I doubt we'll need the memory between now and when we
+		 free it later in this function.  */
+	      /* First, shrink the linetable to make more memory.  */
 	      subfile->line_vector = (struct linetable *)
 		xrealloc ((char *) subfile->line_vector, linetablesize);
+#endif
+	      /* If sort_linevec is false, we might want just check to make
+		 sure they are sorted and complain() if not, as a way of
+		 tracking down compilers/symbol readers which don't get
+		 them sorted right.  */
 
 	      if (sort_linevec)
 		qsort (subfile->line_vector->item,
@@ -852,6 +885,37 @@ push_context (desc, valu)
   local_symbols = NULL;
 
   return (new);
+}
+
+
+/* Compute a small integer hash code for the given name. */
+
+int
+hashname (name)
+     char *name;
+{
+  register char *p = name;
+  register int total = p[0];
+  register int c;
+
+  c = p[1];
+  total += c << 2;
+  if (c)
+    {
+      c = p[2];
+      total += c << 4;
+      if (c)
+	{
+	  total += p[3] << 6;
+	}
+    }
+
+  /* Ensure result is positive.  */
+  if (total < 0)
+    {
+      total += (1000 << 6);
+    }
+  return (total % HASHSIZE);
 }
 
 

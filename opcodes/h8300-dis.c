@@ -97,6 +97,8 @@ bfd_h8_disassemble (addr, info, hmode)
   struct h8_opcode *q = h8_opcodes;
   char CONST **pregnames = hmode ? lregnames : wregnames;
   int status;
+  int l;
+  
   unsigned char data[20];  
   void *stream = info->stream;
   fprintf_ftype fprintf = info->fprintf_func;
@@ -113,8 +115,11 @@ bfd_h8_disassemble (addr, info, hmode)
       info->memory_error_func(status, addr, info);
       return -1;
     }
-  status = info->read_memory_func(addr+2, data+2, 8, info);
-
+  for (l = 2; status == 0 && l < 10; l+=2)
+    {
+      status = info->read_memory_func(addr+l, data+l, 2, info);
+    }
+  
   
 
   /* Find the exact opcode/arg combo */

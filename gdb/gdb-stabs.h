@@ -18,11 +18,11 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* This file exists to hold the common definitions required of all the
-   symbol-readers that end up using stabs.  The common use of these 
-   `symbol-type-specific' customizations of the generic data structures
-   makes the stabs-oriented symbol readers able to call each others'
-   functions as required.  */
+/* This file exists to hold the common definitions required of most of
+   the symbol-readers that end up using stabs.  The common use of
+   these `symbol-type-specific' customizations of the generic data
+   structures makes the stabs-oriented symbol readers able to call
+   each others' functions as required.  */
 
 #if !defined (GDBSTABS_H)
 #define GDBSTABS_H
@@ -51,7 +51,7 @@ struct stab_section_info {
 };
 
 /* Information is passed among various dbxread routines for accessing
-   symbol files.  A pointer to this structure is kept in the sym_private
+   symbol files.  A pointer to this structure is kept in the sym_stab_info
    field of the objfile struct.  */
  
 struct dbx_symfile_info {
@@ -65,7 +65,7 @@ struct dbx_symfile_info {
 				   of the original .o files before linking. */
 };
 
-#define DBX_SYMFILE_INFO(o)	((struct dbx_symfile_info *)((o)->sym_private))
+#define DBX_SYMFILE_INFO(o)	((struct dbx_symfile_info *)((o)->sym_stab_info))
 #define DBX_TEXT_SECT(o)	(DBX_SYMFILE_INFO(o)->text_sect)
 #define DBX_SYMCOUNT(o)		(DBX_SYMFILE_INFO(o)->symcount)
 #define DBX_STRINGTAB(o)	(DBX_SYMFILE_INFO(o)->stringtab)

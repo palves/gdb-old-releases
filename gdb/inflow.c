@@ -23,18 +23,33 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "command.h"
 #include "signals.h"
 #include "serial.h"
+#include "terminal.h"
 #include "target.h"
 
-#ifdef USG
-#include <sys/types.h>
-#endif
-
-/* Some USG-esque systems (some of which are BSD-esque enough so that USG
-   is not defined) want this header, and it won't do any harm.  */
+#include <signal.h>
 #include <fcntl.h>
 
-#include <sys/param.h>
-#include <signal.h>
+#if !defined (HAVE_TERMIOS) && !defined (HAVE_TERMIO) && !defined (HAVE_SGTTY) && !defined (__GO32__)
+#define HAVE_SGTTY
+#endif
+
+#if defined (HAVE_TERMIOS)
+#include <termios.h>
+#include <unistd.h>
+#endif
+
+#ifdef HAVE_TERMIOS
+#define PROCESS_GROUP_TYPE pid_t
+#endif
+
+#ifdef HAVE_SGTTY
+#ifdef SHORT_PGRP
+/* This is only used for the ultra.  Does it have pid_t?  */
+#define PROCESS_GROUP_TYPE short
+#else
+#define PROCESS_GROUP_TYPE int
+#endif
+#endif /* sgtty */
 
 static void
 kill_command PARAMS ((char *, int));
@@ -65,6 +80,13 @@ static serial_ttystate our_ttystate;
    {our,inferior}_ttystate.  */
 static int tflags_inferior;
 static int tflags_ours;
+
+#ifdef PROCESS_GROUP_TYPE
+/* Process group for us and the inferior.  Saved and restored just like
+   {our,inferior}_ttystate.  */
+PROCESS_GROUP_TYPE our_process_group;
+PROCESS_GROUP_TYPE inferior_process_group;
+#endif
 
 /* While the inferior is running, we want SIGINT and SIGQUIT to go to the
    inferior only.  If we have job control, that takes care of it.  If not,
@@ -101,15 +123,26 @@ gdb_has_a_terminal ()
 	 all!).  Can't do this in _initialize_inflow because SERIAL_FDOPEN
 	 won't work until the serial_ops_list is initialized.  */
 
+#ifdef F_GETFL
       tflags_ours = fcntl (0, F_GETFL, 0);
+#endif
 
       gdb_has_a_terminal_flag = no;
       stdin_serial = SERIAL_FDOPEN (0);
       if (stdin_serial != NULL)
 	{
 	  our_ttystate = SERIAL_GET_TTY_STATE (stdin_serial);
+
 	  if (our_ttystate != NULL)
-	    gdb_has_a_terminal_flag = yes;
+	    {
+	      gdb_has_a_terminal_flag = yes;
+#ifdef HAVE_TERMIOS
+	      our_process_group = tcgetpgrp (0);
+#endif
+#ifdef HAVE_SGTTY
+	      ioctl (0, TIOCGPGRP, &our_process_group);
+#endif
+	    }
 	}
 
       return gdb_has_a_terminal_flag == yes;
@@ -138,7 +171,9 @@ terminal_init_inferior ()
       if (inferior_ttystate)
 	free (inferior_ttystate);
       inferior_ttystate = SERIAL_GET_TTY_STATE (stdin_serial);
-      SERIAL_SET_PROCESS_GROUP (stdin_serial, inferior_ttystate, inferior_pid);
+#ifdef PROCESS_GROUP_TYPE
+      inferior_process_group = inferior_pid;
+#endif
 
       /* Make sure that next time we call terminal_inferior (which will be
 	 before the program runs, as it needs to be), we install the new
@@ -158,17 +193,26 @@ terminal_inferior ()
     {
       int result;
 
+#ifdef F_GETFL
       /* Is there a reason this is being done twice?  It happens both
 	 places we use F_SETFL, so I'm inclined to think perhaps there
 	 is some reason, however perverse.  Perhaps not though...  */
       result = fcntl (0, F_SETFL, tflags_inferior);
       result = fcntl (0, F_SETFL, tflags_inferior);
       OOPSY ("fcntl F_SETFL");
+#endif
 
       /* Because we were careful to not change in or out of raw mode in
 	 terminal_ours, we will not change in our out of raw mode with
 	 this call, so we don't flush any input.  */
       result = SERIAL_SET_TTY_STATE (stdin_serial, inferior_ttystate);
+      OOPSY ("setting tty state");
+
+      if (!job_control)
+	{
+	  sigint_ours = (void (*) ()) signal (SIGINT, SIG_IGN);
+	  sigquit_ours = (void (*) ()) signal (SIGQUIT, SIG_IGN);
+	}
 
       /* If attach_flag is set, we don't know whether we are sharing a
 	 terminal with the inferior or not.  (attaching a process
@@ -178,18 +222,25 @@ terminal_inferior ()
 	 `sharing' in the sense that we need to save and restore tty
 	 state)).  I don't know if there is any way to tell whether we
 	 are sharing a terminal.  So what we do is to go through all
-	 the saving and restoring of terminal state, but ignore errors
-	 (which will occur, in tcsetpgrp, if we are not sharing a
-	 terminal).  */
+	 the saving and restoring of the tty state, but ignore errors
+	 setting the process group, which will happen if we are not
+	 sharing a terminal).  */
 
-      if (!attach_flag)
-	OOPSY ("setting tty state");
-
-      if (!job_control)
+      if (job_control)
 	{
-	  sigint_ours = (void (*) ()) signal (SIGINT, SIG_IGN);
-	  sigquit_ours = (void (*) ()) signal (SIGQUIT, SIG_IGN);
+#ifdef HAVE_TERMIOS
+	  result = tcsetpgrp (0, inferior_process_group);
+	  if (!attach_flag)
+	    OOPSY ("tcsetpgrp");
+#endif
+
+#ifdef HAVE_SGTTY
+	  result = ioctl (0, TIOCSPGRP, &inferior_process_group);
+	  if (!attach_flag)
+	    OOPSY ("TIOCSPGRP");
+#endif
 	}
+
     }
   terminal_is_ours = 0;
 }
@@ -250,6 +301,12 @@ terminal_ours_1 (output_only)
       if (inferior_ttystate)
 	free (inferior_ttystate);
       inferior_ttystate = SERIAL_GET_TTY_STATE (stdin_serial);
+#ifdef HAVE_TERMIOS
+      inferior_process_group = tcgetpgrp (0);
+#endif
+#ifdef HAVE_SGTTY
+      ioctl (0, TIOCGPGRP, &inferior_process_group);
+#endif
 
       /* Here we used to set ICANON in our ttystate, but I believe this
 	 was an artifact from before when we used readline.  Readline sets
@@ -264,6 +321,26 @@ terminal_ours_1 (output_only)
       SERIAL_NOFLUSH_SET_TTY_STATE (stdin_serial, our_ttystate,
 				    inferior_ttystate);
 
+      if (job_control)
+	{
+#ifdef HAVE_TERMIOS
+	  result = tcsetpgrp (0, our_process_group);
+#if 0
+	  /* This fails on Ultrix with EINVAL if you run the testsuite
+	     in the background with nohup, and then log out.  GDB never
+	     used to check for an error here, so perhaps there are other
+	     such situations as well.  */
+	  if (result == -1)
+	    fprintf (stderr, "[tcsetpgrp failed in terminal_ours: %s]\n",
+		     strerror (errno));
+#endif
+#endif /* termios */
+
+#ifdef HAVE_SGTTY
+	  result = ioctl (0, TIOCSPGRP, &our_process_group);
+#endif
+	}
+
 #ifdef SIGTTOU
       if (job_control)
 	signal (SIGTTOU, osigttou);
@@ -275,6 +352,7 @@ terminal_ours_1 (output_only)
 	  signal (SIGQUIT, sigquit_ours);
 	}
 
+#ifdef F_GETFL
       tflags_inferior = fcntl (0, F_GETFL, 0);
 
       /* Is there a reason this is being done twice?  It happens both
@@ -282,6 +360,7 @@ terminal_ours_1 (output_only)
 	 is some reason, however perverse.  Perhaps not though...  */
       result = fcntl (0, F_SETFL, tflags_ours);
       result = fcntl (0, F_SETFL, tflags_ours);
+#endif
 
       result = result;	/* lint */
     }
@@ -360,6 +439,10 @@ child_terminal_info (args, from_tty)
     printf_filtered ("\n");
   }
 
+#ifdef PROCESS_GROUP_TYPE
+  printf_filtered ("Process group = %d\n", inferior_process_group);
+#endif
+
   SERIAL_PRINT_TTY_STATE (stdin_serial, inferior_ttystate);
 }
 
@@ -385,7 +468,6 @@ void
 new_tty ()
 {
   register int tty;
-  void (*osigttou) ();
 
   if (inferior_thisrun_terminal == 0)
     return;
@@ -397,6 +479,8 @@ new_tty ()
   tty = open("/dev/tty", O_RDWR);
   if (tty > 0)
     {
+      void (*osigttou) ();
+
       osigttou = (void (*)()) signal(SIGTTOU, SIG_IGN);
       ioctl(tty, TIOCNOTTY, 0);
       close(tty);
@@ -444,6 +528,8 @@ kill_command (arg, from_tty)
     error ("Not confirmed.");
   target_kill ();
 
+  init_thread_list();		/* Destroy thread info */
+
   /* Killing off the inferior can leave us with a core file.  If so,
      print the state we are left in.  */
   if (target_has_stack) {
@@ -462,7 +548,7 @@ generic_mourn_inferior ()
 {
   inferior_pid = 0;
   attach_flag = 0;
-  mark_breakpoints_out ();
+  breakpoint_init_inferior ();
   registers_changed ();
 
 #ifdef CLEAR_DEFERRED_STORES
@@ -471,14 +557,8 @@ generic_mourn_inferior ()
 #endif
 
   reopen_exec_file ();
-  if (target_has_stack) {
-    set_current_frame ( create_new_frame (read_register (FP_REGNUM),
-					  read_pc ()));
-    select_frame (get_current_frame (), 0);
-  } else {
-    set_current_frame (0);
-    select_frame ((FRAME) 0, -1);
-  }
+  reinit_frame_cache ();
+
   /* It is confusing to the user for ignore counts to stick around
      from previous runs of the inferior.  So clear them.  */
   breakpoint_clear_ignore_counts ();
@@ -509,6 +589,43 @@ clear_sigint_trap()
   signal (SIGINT, osig);
 }
 
+
+int job_control;
+
+/* This is here because this is where we figure out whether we (probably)
+   have job control.  Just using job_control only does part of it because
+   setpgid or setpgrp might not exist on a system without job control.
+   It might be considered misplaced (on the other hand, process groups and
+   job control are closely related to ttys).
+
+   For a more clean implementation, in libiberty, put a setpgid which merely
+   calls setpgrp and a setpgrp which does nothing (any system with job control
+   will have one or the other).  */
+int
+gdb_setpgid ()
+{
+  int retval = 0;
+  if (job_control)
+    {
+#if defined (NEED_POSIX_SETPGID) || defined (HAVE_TERMIOS)
+      /* Do all systems with termios have setpgid?  I hope so.  */
+      /* setpgid (0, 0) is supposed to work and mean the same thing as
+	 this, but on Ultrix 4.2A it fails with EPERM (and
+	 setpgid (getpid (), getpid ()) succeeds).  */
+      retval = setpgid (getpid (), getpid ());
+#else
+#if defined (TIOCGPGRP)
+#if defined(USG) && !defined(SETPGRP_ARGS)
+      retval = setpgrp ();
+#else
+      retval = setpgrp (getpid (), getpid ());
+#endif /* USG */
+#endif /* TIOCGPGRP.  */
+#endif /* NEED_POSIX_SETPGID */
+    }
+  return retval;
+}
+
 void
 _initialize_inflow ()
 {
@@ -521,4 +638,25 @@ _initialize_inflow ()
   inferior_pid = 0;
 
   terminal_is_ours = 1;
+
+  /* OK, figure out whether we have job control.  If neither termios nor
+     sgtty (i.e. termio or go32), leave job_control 0.  */
+
+#if defined (HAVE_TERMIOS)
+  /* Do all systems with termios have the POSIX way of identifying job
+     control?  I hope so.  */
+#ifdef _POSIX_JOB_CONTROL
+  job_control = 1;
+#else
+  job_control = sysconf (_SC_JOB_CONTROL);
+#endif
+#endif /* termios */
+
+#ifdef HAVE_SGTTY
+#ifdef TIOCGPGRP
+  job_control = 1;
+#else
+  job_control = 0;
+#endif /* TIOCGPGRP */
+#endif /* sgtty */
 }

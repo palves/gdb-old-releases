@@ -57,7 +57,7 @@ static char *xmalloc (), *xrealloc ();
 
 /* System V machines use termio. */
 #if !defined (_POSIX_VERSION)
-#  if defined (USG) || defined (hpux) || defined (Xenix) || defined (sgi) || defined (DGUX)
+#  if defined (USG) || defined (hpux) || defined (Xenix) || defined (sgi) || defined (DGUX) || defined (__H3050R) || defined (__H3050RX)
 #    undef NEW_TTY_DRIVER
 #    define TERMIO_TTY_DRIVER
 #    include <termio.h>
@@ -5791,6 +5791,8 @@ parser_if (args)
 	parsing_conditionalized_out = 0;
       else
 	parsing_conditionalized_out = 1;
+
+      free (tname);
     }
 #if defined (VI_MODE)
   else if (strnicmp (args, "mode=", 5) == 0)

@@ -1,4 +1,4 @@
-#ifndef hosts_i386bsd_H
+#ifndef	hosts_i386bsd_H
 /* Intel 386 running any BSD Unix */
 #include <fcntl.h>
 #include <errno.h>
@@ -12,7 +12,7 @@
 #include <machine/param.h>
 #include <machine/vmparam.h>
 
-#ifndef O_ACCMODE
+#ifndef	O_ACCMODE
 #define O_ACCMODE (O_RDONLY | O_WRONLY | O_RDWR)
 #endif
 
@@ -30,6 +30,7 @@
 #ifdef __bsdi__
 /* This seems to be the right thing for BSDI.  */
 #define	HOST_STACK_END_ADDR		USRSTACK
+#define HOST_DATA_START_ADDR ((bfd_vma)u.u_kproc.kp_eproc.e_vm.vm_daddr)
 #else
 /* This seems to be the right thing for 386BSD release 0.1.  */
 #define	HOST_STACK_END_ADDR		(USRSTACK - MAXSSIZ)
@@ -40,5 +41,6 @@
 #define u_comm u_kproc.kp_proc.p_comm
 
 #include "fopen-same.h"
+
 #define hosts_i386bsd_H
 #endif

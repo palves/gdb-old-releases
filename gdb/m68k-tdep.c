@@ -22,13 +22,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 
 
-/* Things needed for making the inferior call functions.
-   It seems like every m68k based machine has almost identical definitions
-   in the individual machine's configuration files.  Most other cpu types
-   (mips, i386, etc) have routines in their *-tdep.c files to handle this
-   for most configurations.  The m68k family should be able to do this as
-   well.  These macros can still be overridden when necessary.  */
-
 /* Push an empty stack frame, to record the current PC, etc.  */
 
 void
@@ -41,13 +34,15 @@ m68k_push_dummy_frame ()
   sp = push_word (sp, read_register (PC_REGNUM));
   sp = push_word (sp, read_register (FP_REGNUM));
   write_register (FP_REGNUM, sp);
-#if defined (HAVE_68881)
+
+  /* Always save the floating-point registers, whether they exist on
+     this target or not.  */
   for (regnum = FP0_REGNUM + 7; regnum >= FP0_REGNUM; regnum--)
     {
       read_register_bytes (REGISTER_BYTE (regnum), raw_buffer, 12);
       sp = push_bytes (sp, raw_buffer, 12);
     }
-#endif
+
   for (regnum = FP_REGNUM - 1; regnum >= 0; regnum--)
     {
       sp = push_word (sp, read_register (regnum));
@@ -72,7 +67,6 @@ m68k_pop_frame ()
   fi = get_frame_info (frame);
   fp = fi -> frame;
   get_frame_saved_regs (fi, &fsr);
-#if defined (HAVE_68881)
   for (regnum = FP0_REGNUM + 7 ; regnum >= FP0_REGNUM ; regnum--)
     {
       if (fsr.regs[regnum])
@@ -81,7 +75,6 @@ m68k_pop_frame ()
 	  write_register_bytes (REGISTER_BYTE (regnum), raw_buffer, 12);
 	}
     }
-#endif
   for (regnum = FP_REGNUM - 1 ; regnum >= 0 ; regnum--)
     {
       if (fsr.regs[regnum])
@@ -199,11 +192,7 @@ m68k_find_saved_regs (frame_info, saved_regs)
 
   /* First possible address for a pc in a call dummy for this frame.  */
   CORE_ADDR possible_call_dummy_start =
-    (frame_info)->frame - CALL_DUMMY_LENGTH - FP_REGNUM*4 - 4
-#if defined (HAVE_68881)
-      - 8*12
-#endif
-	;
+    (frame_info)->frame - CALL_DUMMY_LENGTH - FP_REGNUM*4 - 4 - 8*12;
 
   int nextinsn;
   memset (saved_regs, 0, sizeof (*saved_regs));
@@ -214,9 +203,7 @@ m68k_find_saved_regs (frame_info, saved_regs)
       /* It is a call dummy.  We could just stop now, since we know
 	 what the call dummy saves and where.  But this code proceeds
 	 to parse the "prologue" which is part of the call dummy.
-	 This is needlessly complex, confusing, and also is the only
-	 reason that the call dummy is customized based on HAVE_68881.
-	 FIXME.  */
+	 This is needlessly complex and confusing.  FIXME.  */
 
       next_addr = (frame_info)->frame;
       pc = possible_call_dummy_start;
@@ -237,7 +224,7 @@ m68k_find_saved_regs (frame_info, saved_regs)
 	next_addr += read_memory_integer (pc += 2, 4), pc += 4;		
     }									
   regmask = read_memory_integer (pc + 2, 2);				
-#if defined (HAVE_68881)
+
   /* Here can come an fmovem.  Check for it.  */		
   nextinsn = 0xffff & read_memory_integer (pc, 2);			
   if (0xf227 == nextinsn						
@@ -247,7 +234,7 @@ m68k_find_saved_regs (frame_info, saved_regs)
 	if (regmask & 1)						
           saved_regs->regs[regnum] = (next_addr -= 12);		
       regmask = read_memory_integer (pc + 2, 2); }
-#endif
+
   /* next should be a moveml to (sp) or -(sp) or a movl r,-(sp) */	
   if (0044327 == read_memory_integer (pc, 2))				
     { pc += 4; /* Regmask's low bit is for register 0, the first written */ 
@@ -274,7 +261,7 @@ m68k_find_saved_regs (frame_info, saved_regs)
 	  saved_regs->regs[regnum] = (next_addr -= 4);
 	}
     }
-#if defined (HAVE_68881)
+
   /* fmovemx to index of sp may follow.  */				
   regmask = read_memory_integer (pc + 2, 2);				
   nextinsn = 0xffff & read_memory_integer (pc, 2);			
@@ -285,7 +272,7 @@ m68k_find_saved_regs (frame_info, saved_regs)
 	if (regmask & 1)						
           saved_regs->regs[regnum] = (next_addr += 12) - 12;	
       regmask = read_memory_integer (pc + 2, 2); }			
-#endif
+
   /* clrw -(sp); movw ccr,-(sp) may follow.  */				
   if (0x426742e7 == read_memory_integer (pc, 4))			
     saved_regs->regs[PS_REGNUM] = (next_addr -= 4);		
@@ -293,6 +280,11 @@ m68k_find_saved_regs (frame_info, saved_regs)
   saved_regs->regs[SP_REGNUM] = (frame_info)->frame + 8;		
   saved_regs->regs[FP_REGNUM] = (frame_info)->frame;		
   saved_regs->regs[PC_REGNUM] = (frame_info)->frame + 4;		
+#ifdef SIG_SP_FP_OFFSET
+  /* Adjust saved SP_REGNUM for fake _sigtramp frames.  */
+  if (frame_info->signal_handler_caller && frame_info->next)
+    saved_regs->regs[SP_REGNUM] = frame_info->next->frame + SIG_SP_FP_OFFSET;
+#endif
 }
 
 
@@ -420,7 +412,7 @@ int regno;
 	{
 	  from = (char *) &registers[REGISTER_BYTE (regi)];
 	  to = (char *) &(fpregsetp -> f_fpregs[regi-FP0_REGNUM][0]);
-	  bcopy (from, to, REGISTER_RAW_SIZE (regi));
+	  memcpy (to, from, REGISTER_RAW_SIZE (regi));
 	}
     }
   if ((regno == -1) || (regno == FPC_REGNUM))

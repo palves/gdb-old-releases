@@ -29,7 +29,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbtypes.h"
 #include "expression.h"
 #include "language.h"
-#include "serial.h" /* For job_control.  */
+#include "terminal.h" /* For job_control.  */
 
 #include "getopt.h"
 
@@ -93,8 +93,7 @@ float_handler PARAMS ((int));
 static void
 source_command PARAMS ((char *, int));
 
-static void
-cd_command PARAMS ((char *, int));
+static void cd_command PARAMS ((char *, int));
 
 static void
 print_gnu_advertisement PARAMS ((void));
@@ -279,7 +278,9 @@ struct cmd_list_element *setchecklist;
 
 struct cmd_list_element *showchecklist;
 
-/* stdio stream that command input is being read from.  */
+/* stdio stream that command input is being read from.  Set to stdin normally.
+   Set by source_command to the file we are sourcing.  Set to NULL if we are
+   executing a user-defined command.  */
 
 FILE *instream;
 
@@ -312,9 +313,13 @@ char *line;
 int linesize = 100;
 
 /* Baud rate specified for talking to serial target systems.  Default
-   is left as a zero pointer, so targets can choose their own defaults.  */
+   is left as -1, so targets can choose their own defaults.  */
 
-char *baud_rate;
+int baud_rate = -1;
+
+/* Non-zero tells remote* modules to output debugging info.  */
+
+int remote_debug = 0;
 
 /* Signal to catch ^Z typed while reading a command: SIGTSTP or SIGCONT.  */
 
@@ -375,6 +380,11 @@ return_to_top_level (reason)
    error, return the value returned by FUNC.  If there is an error,
    print ERRSTRING, print the specific error message, then return
    zero.
+
+   Must not be called with immediate_quit in effect (bad things might
+   happen, say we got a signal in the middle of a memcpy to quit_return).
+   This is an OK restriction; with very few exceptions immediate_quit can
+   be replaced by judicious use of QUIT.
 
    MASK specifies what to catch; it is normally set to
    RETURN_MASK_ALL, if for no other reason than that the code which
@@ -661,8 +671,18 @@ main (argc, argv)
 	    quiet = 1;
 	    break;
 	  case 'b':
-	    baud_rate = optarg;
+	    {
+	      int i;
+	      char *p;
+
+	      i = strtol (optarg, &p, 0);
+	      if (i == 0 && p == optarg)
+		warning ("Could not set baud rate to `%s'.\n", optarg);
+	      else
+		baud_rate = i;
+	    }
 	    break;
+
 #ifdef ADDITIONAL_OPTION_CASES
 	  ADDITIONAL_OPTION_CASES
 #endif
@@ -1113,6 +1133,11 @@ gdb_readline (prrompt)
 
       if (c == EOF)
 	{
+	  if (input_index > 0)
+	    /* The last line does not end with a newline.  Return it, and
+	       if we are called again fgetc will still return EOF and
+	       we'll return NULL then.  */
+	    break;
 	  free (result);
 	  return NULL;
 	}
@@ -2227,7 +2252,9 @@ cd_command (dir, from_tty)
      int from_tty;
 {
   int len;
-  int change;
+  /* Found something other than leading repetitions of "/..".  */
+  int found_real_path;
+  char *p;
 
   /* If the new directory is absolute, repeat is a no-op; if relative,
      repeat might be useful but is more likely to be a mistake.  */
@@ -2248,36 +2275,50 @@ cd_command (dir, from_tty)
     current_directory = dir;
   else
     {
-      current_directory = concat (current_directory, "/", dir, NULL);
+      if (current_directory[0] == '/' && current_directory[1] == '\0')
+	current_directory = concat (current_directory, dir, NULL);
+      else
+	current_directory = concat (current_directory, "/", dir, NULL);
       free (dir);
     }
 
   /* Now simplify any occurrences of `.' and `..' in the pathname.  */
 
-  change = 1;
-  while (change)
+  found_real_path = 0;
+  for (p = current_directory; *p;)
     {
-      char *p;
-      change = 0;
-
-      for (p = current_directory; *p;)
+      if (p[0] == '/' && p[1] == '.' && (p[2] == 0 || p[2] == '/'))
+	strcpy (p, p + 2);
+      else if (p[0] == '/' && p[1] == '.' && p[2] == '.'
+	       && (p[3] == 0 || p[3] == '/'))
 	{
-	  if (!strncmp (p, "/./", 2)
-	      && (p[2] == 0 || p[2] == '/'))
-	    strcpy (p, p + 2);
-	  else if (!strncmp (p, "/..", 3)
-		   && (p[3] == 0 || p[3] == '/')
-		   && p != current_directory)
+	  if (found_real_path)
 	    {
+	      /* Search backwards for the directory just before the "/.."
+		 and obliterate it and the "/..".  */
 	      char *q = p;
-	      while (q != current_directory && q[-1] != '/') q--;
-	      if (q != current_directory)
+	      while (q != current_directory && q[-1] != '/')
+		--q;
+
+	      if (q == current_directory)
+		/* current_directory is
+		   a relative pathname ("can't happen"--leave it alone).  */
+		++p;
+	      else
 		{
-		  strcpy (q-1, p+3);
-		  p = q-1;
+		  strcpy (q - 1, p + 3);
+		  p = q - 1;
 		}
 	    }
-	  else p++;
+	  else
+	    /* We are dealing with leading repetitions of "/..", for example
+	       "/../..", which is the Mach super-root.  */
+	    p += 3;
+	}
+      else
+	{
+	  found_real_path = 1;
+	  ++p;
 	}
     }
 
@@ -2748,4 +2789,11 @@ the previous command number shown.",
 
   add_cmd ("version", no_class, show_version,
 	   "Show what version of GDB this is.", &showlist);
+
+  add_show_from_set (
+    add_set_cmd ("remotedebug", no_class, var_boolean, (char *)&remote_debug,
+		   "Set debugging of remote protocol.\n\
+When enabled, each packet sent or received with the remote target\n\
+is displayed.", &setlist),
+		     &showlist);
 }

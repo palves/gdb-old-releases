@@ -59,6 +59,25 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define ELF_MAXPAGESIZE 1
 #endif
 
+#ifndef elf_backend_symbol_processing
+#define elf_backend_symbol_processing	0	/* elf_backend_symbol_processing */
+#endif
+#ifndef elf_backend_symbol_table_processing
+#define elf_backend_symbol_table_processing	0	/* elf_backend_symbol_table_processing */
+#endif
+#ifndef elf_backend_section_processing
+#define elf_backend_section_processing	0	/* elf_backend_section_processing */
+#endif
+#ifndef elf_backend_section_from_shdr
+#define elf_backend_section_from_shdr	0	/* elf_backend_section_from_shdr */
+#endif
+#ifndef elf_backend_fake_sections
+#define elf_backend_fake_sections	0	/* elf_backend_fake_sections */
+#endif
+#ifndef elf_backend_section_from_bfd_section
+#define elf_backend_section_from_bfd_section	0	/* elf_backend_section_from_bfd_section */
+#endif
+
 static CONST struct elf_backend_data elf32_bed =
 {
 #ifdef USE_REL
@@ -72,6 +91,12 @@ static CONST struct elf_backend_data elf32_bed =
   elf_info_to_howto_rel,	/* elf_info_to_howto_rel */
   ELF_MAXPAGESIZE,		/* maxpagesize */
   bfd_elf32__write_relocs,	/* write_relocs */
+  elf_backend_symbol_processing,	/* elf_backend_symbol_processing */
+  elf_backend_symbol_table_processing,	/* elf_backend_symbol_table_processing */
+  elf_backend_section_processing,	/* elf_backend_section_processing */
+  elf_backend_section_from_shdr,	/* elf_backend_section_from_shdr */
+  elf_backend_fake_sections,		/* elf_backend_fake_sections */
+  elf_backend_section_from_bfd_section,	/* elf_backend_section_from_bfd_section */
 };
 
 #ifdef TARGET_BIG_SYM
@@ -95,7 +120,7 @@ bfd_target TARGET_BIG_SYM =
   
   /* section_flags: mask of all section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |
-   SEC_CODE | SEC_DATA), 
+   SEC_CODE | SEC_DATA | SEC_DEBUGGING),
 
    /* leading_symbol_char: is the first char of a user symbol
       predictable, and if so what is it */
@@ -117,14 +142,14 @@ bfd_target TARGET_BIG_SYM =
   3,
 
   /* Routines to byte-swap various sized integers from the data sections */
-  _do_getb64, _do_getb_signed_64, _do_putb64,
-    _do_getb32, _do_getb_signed_32, _do_putb32,
-    _do_getb16, _do_getb_signed_16, _do_putb16,
+  bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+    bfd_getb32, bfd_getb_signed_32, bfd_putb32,
+    bfd_getb16, bfd_getb_signed_16, bfd_putb16,
 
   /* Routines to byte-swap various sized integers from the file headers */
-  _do_getb64, _do_getb_signed_64, _do_putb64,
-    _do_getb32, _do_getb_signed_32, _do_putb32,
-    _do_getb16, _do_getb_signed_16, _do_putb16,
+  bfd_getb64, bfd_getb_signed_64, bfd_putb64,
+    bfd_getb32, bfd_getb_signed_32, bfd_putb32,
+    bfd_getb16, bfd_getb_signed_16, bfd_putb16,
 
   /* bfd_check_format: check the format of a file being read */
   { _bfd_dummy_target,		/* unknown format */
@@ -177,7 +202,7 @@ bfd_target TARGET_LITTLE_SYM =
   
   /* section_flags: mask of all section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |
-   SEC_DATA), 
+   SEC_CODE | SEC_DATA | SEC_DEBUGGING),
 
    /* leading_symbol_char: is the first char of a user symbol
       predictable, and if so what is it */
@@ -199,14 +224,14 @@ bfd_target TARGET_LITTLE_SYM =
   3,
 
   /* Routines to byte-swap various sized integers from the data sections */
-  _do_getl64, _do_getl_signed_64, _do_putl64,
-    _do_getl32, _do_getl_signed_32, _do_putl32,
-    _do_getl16, _do_getl_signed_16, _do_putl16,
+  bfd_getl64, bfd_getl_signed_64, bfd_putl64,
+    bfd_getl32, bfd_getl_signed_32, bfd_putl32,
+    bfd_getl16, bfd_getl_signed_16, bfd_putl16,
 
   /* Routines to byte-swap various sized integers from the file headers */
-  _do_getl64, _do_getl_signed_64, _do_putl64,
-    _do_getl32, _do_getl_signed_32, _do_putl32,
-    _do_getl16, _do_getl_signed_16, _do_putl16,
+  bfd_getl64, bfd_getl_signed_64, bfd_putl64,
+    bfd_getl32, bfd_getl_signed_32, bfd_putl32,
+    bfd_getl16, bfd_getl_signed_16, bfd_putl16,
 
   /* bfd_check_format: check the format of a file being read */
   { _bfd_dummy_target,		/* unknown format */

@@ -121,4 +121,9 @@ core_open PARAMS ((char *, int));
 void
 core_detach PARAMS ((char *, int));
 
+/* The current default bfd target.  */
+extern char *gnutarget;
+
+extern void set_gnutarget PARAMS ((char *));
+
 #endif	/* !defined (GDBCORE_H) */

@@ -17,6 +17,20 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+/*
+
+SECTION
+	ELF backends
+
+	BFD support for ELF formats is being worked on.
+	Currently, the best supported back ends are for sparc and i386
+	(running svr4 or Solaris 2).
+
+	Documentation of the internals of the support code still needs
+	to be written.  The code is changing quickly enough that we
+	haven't bothered yet.
+ */
+
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"

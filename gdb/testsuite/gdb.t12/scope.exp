@@ -31,7 +31,7 @@ set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
     error "$objdir/$subdir/$binfile does not exist."
-    alldone
+    return 0
 }
 
 # Test locating various things when stopped just inside main, after
@@ -902,8 +902,10 @@ proc test_at_localscopes {} {
     send "print localval\n"
     expect {
 	-re ".* = 10\r\n$prompt $" { incr passcount }
-	-re "$prompt $" { fail "bad value for localval" ; return }
-	timeout { fail "(timeout) bad value for localval" ; return }
+	-re "$prompt $" { fail "bad value for localval, outer scope" ; return }
+	default { 
+	    fail "(timeout) bad value for localval, outer scope" ; return
+	}
     }
     send "print localval1\n"
     expect {
@@ -946,8 +948,13 @@ proc test_at_localscopes {} {
     send "print localval\n"
     expect {
 	-re ".* = 20\r\n$prompt $" { incr passcount }
-	-re "$prompt $" { fail "bad value for localval" ; return }
-	timeout { fail "(timeout) bad value for localval" ; return }
+	-re "$prompt $" { 
+	    fail "bad value for localval, first nested scope" ; return
+	}
+	timeout { 
+	    fail "(timeout) bad value for localval, first nested scope" ; 
+	    return
+	}
     }
     send "print localval1\n"
     expect {
@@ -990,8 +997,12 @@ proc test_at_localscopes {} {
     send "print localval\n"
     expect {
 	-re ".* = 30\r\n$prompt $" { incr passcount }
-	-re "$prompt $" { fail "bad value for localval" ; return }
-	timeout { fail "(timeout) bad value for localval" ; return }
+	-re "$prompt $" { 
+	    fail "bad value for localval, innermost scope" ; return
+	}
+	timeout { 
+	    fail "(timeout) bad value for localval, innermost scope" ; return 
+	}
     }
     send "print localval1\n"
     expect {
@@ -1029,33 +1040,74 @@ if [istarget "*-*-vxworks"] {
 
 # Test that variables in various segments print out correctly before
 # the program is run.  
-# The XFAILS are for the filename::var syntax not working.
-setup_xfail "*-*-*"
 gdb_test "print 'gdbme0.c'::filelocal_ro" "= 201"
-setup_xfail "*-*-*"
-gdb_test "print 'gdbme0.c'::filelocal_bss" "= 0"
-setup_xfail "*-*-*"
+# gdb currently cannot access bss memory on some targets if the inferior
+# is not running.
+send "print 'gdbme0.c'::filelocal_bss\n"
+expect {
+    -re "= 0.*$prompt $" {
+	pass "print 'gdbme0.c'::filelocal_bss"
+    }
+    -re "Cannot access memory.*$prompt $" {
+	setup_xfail "*-*-*"
+	fail "print 'gdbme0.c'::filelocal_bss"
+    }
+    -re ".*$prompt $" {
+	fail "print 'gdbme0.c'::filelocal_bss"
+    }
+    default {
+	fail "print 'gdbme0.c'::filelocal_bss"
+    }
+}
 gdb_test "print 'gdbme0.c'::filelocal" "= 1"
 
 if [runto main] then { test_at_main }
+if [istarget "mips-idt-*"] then {
+    # Restart because IDT/SIM runs out of file descriptors.
+    gdb_exit
+    gdb_start
+    gdb_reinitialize_dir $srcdir/$subdir
+    gdb_load $objdir/$subdir/$binfile
+}
 if [istarget "a29k-*-udi"] then {
     # FIXME: If PR 2415 is fixed, this is not needed.
     gdb_target_udi
     gdb_load $objdir/$subdir/$binfile
 }
 if [runto foo] then { test_at_foo }
+if [istarget "mips-idt-*"] then {
+    # Restart because IDT/SIM runs out of file descriptors.
+    gdb_exit
+    gdb_start
+    gdb_reinitialize_dir $srcdir/$subdir
+    gdb_load $objdir/$subdir/$binfile
+}
 if [istarget "a29k-*-udi"] then {
     # FIXME: If PR 2415 is fixed, this is not needed.
     gdb_target_udi
     gdb_load $objdir/$subdir/$binfile
 }
 if [runto bar] then { test_at_bar }
+if [istarget "mips-idt-*"] then {
+    # Restart because IDT/SIM runs out of file descriptors.
+    gdb_exit
+    gdb_start
+    gdb_reinitialize_dir $srcdir/$subdir
+    gdb_load $objdir/$subdir/$binfile
+}
 if [istarget "a29k-*-udi"] then {
     # FIXME: If PR 2415 is fixed, this is not needed.
     gdb_target_udi
     gdb_load $objdir/$subdir/$binfile
 }
 if [runto localscopes] then { test_at_localscopes }
+if [istarget "mips-idt-*"] then {
+    # Restart because IDT/SIM runs out of file descriptors.
+    gdb_exit
+    gdb_start
+    gdb_reinitialize_dir $srcdir/$subdir
+    gdb_load $objdir/$subdir/$binfile
+}
 if [istarget "a29k-*-udi"] then {
     # FIXME: If PR 2415 is fixed, this is not needed.
     gdb_target_udi

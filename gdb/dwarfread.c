@@ -21,9 +21,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /*
 
-FIXME: Figure out how to get the frame pointer register number in the
-execution environment of the target.  Remove R_FP kludge
-
 FIXME: Do we need to generate dependencies in partial symtabs?
 (Perhaps we don't need to).
 
@@ -47,6 +44,8 @@ other things to work on, if you get bored. :-)
 #include "gdbtypes.h"
 #include "symfile.h"
 #include "objfiles.h"
+#include <time.h> /* For time_t in libbfd.h.  */
+#include <sys/types.h> /* For time_t, if not in time.h.  */
 #include "libbfd.h"	/* FIXME Secret Internal BFD stuff (bfd_read) */
 #include "elf/dwarf.h"
 #include "buildsym.h"
@@ -179,10 +178,6 @@ struct complaint not_row_major =
 {
   "DIE @ 0x%x \"%s\", array not row major; not handled correctly", 0, 0
 };
-
-#ifndef R_FP		/* FIXME */
-#define R_FP 14		/* Kludge to get frame pointer register number */
-#endif
 
 typedef unsigned int DIE_REF;	/* Reference to a DIE */
 
@@ -332,7 +327,11 @@ static int dbsize;	/* Size of dwarf info in bytes */
 static int dbroff;	/* Relative offset from start of .debug section */
 static char *lnbase;	/* Base pointer to line section */
 static int isreg;	/* Kludge to identify register variables */
-static int offreg;	/* Kludge to identify basereg references */
+/* Kludge to identify basereg references.  Nonzero if we have an offset
+   relative to a basereg.  */
+static int offreg;
+/* Which base register is it relative to?  */
+static int basereg;
 
 /* This value is added to each symbol value.  FIXME:  Generalize to 
    the section_offsets structure used by dbxread (once this is done,
@@ -571,10 +570,6 @@ static int
 locval PARAMS ((char *));
 
 static void
-record_minimal_symbol PARAMS ((char *, CORE_ADDR, enum minimal_symbol_type,
-			       struct objfile *));
-
-static void
 set_cu_language PARAMS ((struct dieinfo *));
 
 static struct type *
@@ -777,39 +772,6 @@ dwarf_build_psymtabs (objfile, section_offsets, mainline, dbfoff, dbfsize,
   
   do_cleanups (back_to);
   current_objfile = NULL;
-}
-
-
-/*
-
-LOCAL FUNCTION
-
-	record_minimal_symbol -- add entry to gdb's minimal symbol table
-
-SYNOPSIS
-
-	static void record_minimal_symbol (char *name, CORE_ADDR address,
-					  enum minimal_symbol_type ms_type,
-					  struct objfile *objfile)
-
-DESCRIPTION
-
-	Given a pointer to the name of a symbol that should be added to the
-	minimal symbol table, and the address associated with that
-	symbol, records this information for later use in building the
-	minimal symbol table.
-
- */
-
-static void
-record_minimal_symbol (name, address, ms_type, objfile)
-     char *name;
-     CORE_ADDR address;
-     enum minimal_symbol_type ms_type;
-     struct objfile *objfile;
-{
-  name = obsavestring (name, strlen (name), &objfile -> symbol_obstack);
-  prim_record_minimal_symbol (name, address, ms_type);
 }
 
 /*
@@ -2211,7 +2173,6 @@ locval (loc)
   auto long stack[64];
   int stacki;
   char *end;
-  long regno;
   int loc_atom_code;
   int loc_value_size;
   
@@ -2244,21 +2205,13 @@ locval (loc)
 	    break;
 	  case OP_BASEREG:
 	    /* push value of register (number) */
-	    /* Actually, we compute the value as if register has 0 */
+	    /* Actually, we compute the value as if register has 0, so the
+	       value ends up being the offset from that register.  */
 	    offreg = 1;
-	    regno = target_to_host (loc, loc_value_size, GET_UNSIGNED,
-				    current_objfile);
+	    basereg = target_to_host (loc, loc_value_size, GET_UNSIGNED,
+				      current_objfile);
 	    loc += loc_value_size;
-	    if (regno == R_FP)
-	      {
-		stack[++stacki] = 0;
-	      }
-	    else
-	      {
-		stack[++stacki] = 0;
-
-		complain (&basereg_not_handled, DIE_ID, DIE_NAME, regno);
-	      }
+	    stack[++stacki] = 0;
 	    break;
 	  case OP_ADDR:
 	    /* push address (relocated address) */
@@ -2627,16 +2580,12 @@ add_partial_symbol (dip, objfile)
   switch (dip -> die_tag)
     {
     case TAG_global_subroutine:
-      record_minimal_symbol (dip -> at_name, dip -> at_low_pc, mst_text,
-			    objfile);
       ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
 			   VAR_NAMESPACE, LOC_BLOCK,
 			   objfile -> global_psymbols,
 			   dip -> at_low_pc, cu_language, objfile);
       break;
     case TAG_global_variable:
-      record_minimal_symbol (dip -> at_name, locval (dip -> at_location),
-			    mst_data, objfile);
       ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
 			   VAR_NAMESPACE, LOC_STATIC,
 			   objfile -> global_psymbols,
@@ -3029,7 +2978,8 @@ new_symbol (dip, objfile)
 		}
 	      else if (offreg)
 		{
-		  SYMBOL_CLASS (sym) = LOC_LOCAL;
+		  SYMBOL_CLASS (sym) = LOC_BASEREG;
+		  SYMBOL_BASEREG (sym) = basereg;
 		}
 	      else
 		{
@@ -3047,6 +2997,11 @@ new_symbol (dip, objfile)
 	  if (isreg)
 	    {
 	      SYMBOL_CLASS (sym) = LOC_REGPARM;
+	    }
+	  else if (offreg)
+	    {
+	      SYMBOL_CLASS (sym) = LOC_BASEREG_ARG;
+	      SYMBOL_BASEREG (sym) = basereg;
 	    }
 	  else
 	    {

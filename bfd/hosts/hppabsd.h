@@ -1,6 +1,7 @@
-#ifndef _HPPABSD_H
+#ifndef	_HPPABSD_H
 #define _HPPABSD_H
 
+#include <stddef.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
@@ -9,13 +10,12 @@
 #include <ctype.h>
 #include <string.h>
 #include <sys/file.h>
-
-extern PTR  malloc PARAMS ((unsigned));
-extern void free   PARAMS ((PTR));
+#include <stdlib.h>
+#include <unistd.h>
 
 #define HOST_HPPABSD
 
-#ifndef O_ACCMODE
+#ifndef	O_ACCMODE
 #define O_ACCMODE (O_RDONLY | O_WRONLY | O_RDWR)
 #endif
 
@@ -26,7 +26,7 @@ extern void free   PARAMS ((PTR));
 
 #define	HOST_PAGE_SIZE		NBPG
 #define	HOST_SEGMENT_SIZE	NBPG	/* Data seg start addr rounds to NBPG */
-#define	HOST_MACHINE_ARCH	bfd_arch_m68k
+#define	HOST_MACHINE_ARCH	bfd_arch_hppa
 /* #define	HOST_MACHINE_MACHINE	 */
 
 #define	HOST_TEXT_START_ADDR		UTEXTSEG

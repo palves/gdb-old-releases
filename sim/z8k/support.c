@@ -439,9 +439,12 @@ tm_info_print (x)
   printf ("virtual time taked (at 4Mhz)   : %9.1f\n", virttime);
   printf ("real time taken                : %9.1f\n", timetaken);
 
-  printf ("virtual instructions per second: %9.1f\n",
-	  x->insts / timetaken);
-  printf ("emulation speed                : %9.1f%%\n", virttime / timetaken * 100.0);
+  if (timetaken) 
+    {
+      printf ("virtual instructions per second: %9.1f\n",
+	      x->insts / timetaken);
+      printf ("emulation speed                : %9.1f%%\n", virttime / timetaken * 100.0);
+    }
 #ifdef LOG
   {
     extern int quick[];

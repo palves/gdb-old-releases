@@ -34,7 +34,7 @@ set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
     error "$objdir/$subdir/$binfile does not exist."
-    alldone
+    return 0
 }
 
 gdb_exit
@@ -401,7 +401,7 @@ proc test_next_with_recursion {} {
 	-re "factorial \(value=5\) at .*$prompt $" {
 	    pass "next over recursive call"
 	}
-	-re "factorial \(value=2\) at .*$prompt $" {
+	-re ".*$prompt $" {
 	    fail "next over recursive call" ; return
 	}
 	timeout { fail "next over recursive call (timeout)" ; return }

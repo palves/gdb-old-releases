@@ -11,6 +11,14 @@
 #define SARMAG 8
 #define ARFMAG "`\n"
 
+/* The ar_date field of the armap (__.SYMDEF) member of an archive
+   must be greater than the modified date of the entire file, or 
+   BSD-derived linkers complain.  We originally write the ar_date with
+   this offset from the real file's mod-time.  After finishing the
+   file, we rewrite ar_date if it's not still greater than the mod date.  */
+
+#define ARMAP_TIME_OFFSET       60
+
 struct ar_hdr {
   char ar_name[16];		/* name of this member */
   char ar_date[12];		/* file mtime */

@@ -122,7 +122,7 @@ enum type_code
 
 #define TYPE_FLAG_SIGNED	(1 << 1)
 
-/* This appears in a type's flags word if it is a stub type (eg. if
+/* This appears in a type's flags word if it is a stub type (e.g., if
    someone referenced a type that wasn't defined in a source file
    via (struct sir_not_appearing_in_this_film *)).  */
 
@@ -150,7 +150,9 @@ struct type
      with this feature.
 
      This is used for printing only, except by poorly designed C++ code.
-     For looking up a name, look for a symbol in the STRUCT_NAMESPACE.  */
+     For looking up a name, look for a symbol in the STRUCT_NAMESPACE.
+     One more legitimate use is that if TYPE_FLAG_STUB is set, this is
+     the name to use to look for definitions in other files.  */
 
   char *tag_name;
 
@@ -238,8 +240,10 @@ struct type
       /* Size of this field, in bits, or zero if not packed.
 	 For an unpacked field, the field's type's length
 	 says how many bytes the field occupies.  */
+      /* FIXME: This is abused by TYPE_FIELD_STATIC_PHYSNAME to contain 
+	 a pointer, so it has to be long.  */
 
-      int bitsize;
+      long bitsize;
 
       /* In a struct or enum type, type of this field.
 	 In a function type, type of this argument.

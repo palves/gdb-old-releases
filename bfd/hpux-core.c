@@ -31,6 +31,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #if defined (HOST_HPPAHPUX) || defined (HOST_HP300HPUX)
 
+/* FIXME: sys/core.h doesn't exist for HPUX version 7.  HPUX version
+   5, 6, and 7 core files seem to be standard trad-core.c type core
+   files; can we just use trad-core.c in addition to this file?  */
+
 #include <sys/core.h>
 #include <sys/utsname.h>
 

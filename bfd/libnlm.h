@@ -123,9 +123,10 @@ struct nlm_obj_tdata
 
 struct nlm_backend_data
 {
-  /* Machine architecture.  */
+  /* Architecture.  */
   enum bfd_architecture arch;
-
+  /* Machine.  */
+  long mach;
   /* Read a relocation fixup from abfd.  The reloc information is
      machine specific.  The second argument is the symbol if this is
      an import, or NULL if this is a reloc fixup.  This function
@@ -137,16 +138,25 @@ struct nlm_backend_data
 				     asection **, arelent *));
   /* Write a relocation fixup to abfd.  */
   boolean (*nlm_write_reloc) PARAMS ((bfd *, asection *, arelent *));
+  /* To make objcopy to an i386 NLM work, the i386 backend needs a
+     chance to work over the relocs.  This is a bit icky.  */
+  boolean (*nlm_mangle_relocs) PARAMS ((bfd *, asection *, PTR data,
+					bfd_vma offset,
+					bfd_size_type count));
 };
 
 #define nlm_backend(bfd) \
   ((struct nlm_backend_data *)((bfd) -> xvec -> backend_data))
 #define nlm_architecture(bfd) \
   (nlm_backend(bfd) ? nlm_backend(bfd) -> arch : bfd_arch_unknown)
+#define nlm_machine(bfd) \
+  (nlm_backend(bfd) ? nlm_backend(bfd) -> mach : 0)
 #define nlm_read_reloc_func(bfd) \
   (nlm_backend(bfd) ? nlm_backend(bfd) -> nlm_read_reloc : 0)
 #define nlm_write_reloc_func(bfd) \
   (nlm_backend(bfd) ? nlm_backend(bfd) -> nlm_write_reloc : 0)
+#define nlm_mangle_relocs_func(bfd) \
+  (nlm_backend(bfd) ? nlm_backend(bfd) -> nlm_mangle_relocs : 0)
 
 /* The NLM code, data, and uninitialized sections have no names defined
    in the NLM, but bfd wants to give them names, so use the traditional

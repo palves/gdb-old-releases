@@ -412,7 +412,7 @@ hms_load (args, fromtty)
 
   dcache_flush ();
   inferior_pid = 0;
-  abfd = bfd_openr (args, 0);
+  abfd = bfd_openr (args, gnutarget);
   if (!abfd)
     {
       printf_filtered ("Unable to open file %s\n", args);
@@ -664,7 +664,8 @@ hms_resume (pid, step, sig)
    storing status in STATUS just as `wait' would.  */
 
 int
-hms_wait (status)
+hms_wait (pid, status)
+     int pid;
      WAITTYPE *status;
 {
   /* Strings to look for.  '?' means match any single character.
@@ -702,7 +703,7 @@ hms_wait (status)
       return 0;
     }
 
-  timeout = 99999;		/* Don't time out -- user program is running. */
+  timeout = -1;		/* Don't time out -- user program is running. */
   immediate_quit = 1;		/* Helps ability to QUIT */
   while (1)
     {
@@ -1024,7 +1025,7 @@ hms_xfer_inferior_memory (memaddr, myaddr, len, write, target)
 
       /* Copy data to be written over corresponding part of buffer */
 
-      bcopy (myaddr, (char *) buffer + (memaddr & (sizeof (int) - 1)), len);
+      memcpy ((char *) buffer + (memaddr & (sizeof (int) - 1)), myaddr, len);
 
       /* Write the entire buffer.  */
 
@@ -1055,7 +1056,7 @@ hms_xfer_inferior_memory (memaddr, myaddr, len, write, target)
 	}
 
       /* Copy appropriate bytes out of the buffer.  */
-      bcopy ((char *) buffer + (memaddr & (sizeof (int) - 1)), myaddr, len);
+      memcpy (myaddr, (char *) buffer + (memaddr & (sizeof (int) - 1)), len);
     }
 
   return len;

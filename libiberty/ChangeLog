@@ -1,3 +1,110 @@
+Fri Oct 22 07:53:15 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* config.table: Add * to end of all OS names.
+
+Mon Oct 18 21:59:28 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* strcasecmp.c, strncasecmp.c: Change u_char to unsigned char.
+
+Fri Oct 15 22:17:11 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
+
+	* strncasecmp.c: new file, implements strncasecmp
+	* strcasecmp.c: new file, implement strcasecmp
+
+	* Makefile.in (CFILES): list these two new source files
+
+	* functions.def: add strcasecmp and strncasecmp entries
+
+Fri Oct 15 14:53:05 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* strtoul.c (strtoul), strtol.c (strtol): Handle overflow
+	according to ANSI C.
+
+Thu Oct 14 16:34:19 1993  Kung Hsu  (kung@cirdan.cygnus.com)
+
+	* cplus-dem.c: add support of ARM global constructor/destructor,
+	and 'G' for passing record or union in parameter.
+
+Wed Oct 13 13:36:19 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in: Fix comment to clarify that stuff in REQUIRED_OFILES
+	should not be in functions.def.
+
+Wed Oct 13 13:13:38 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* functions.def: Removed xmalloc.  Stuff in REQUIRED_OFILES should
+	not be in functions.def.
+
+Mon Oct  4 18:26:39 1993  Kung Hsu  (kung@cirdan.cygnus.com)
+
+	* cplus-dem.c: change globl constructor/destructor to proper name
+
+Tue Sep 28 18:11:07 1993  Kung Hsu  (kung@cirdan.cygnus.com)
+
+	* cplus-dem.c: fix bug in constructor/destructor
+
+Tue Sep 28 16:20:49 1993  Kung Hsu  (kung@cirdan.cygnus.com)
+
+	* cplus-dem.c: support both old and new _vt$... vtbl mangled names
+
+Fri Sep 24 19:07:16 1993  Jason Merrill  (jason@deneb.cygnus.com)
+
+	* cplus-dem.c: Fix demangle_template prototype
+
+Fri Sep 24 17:32:55 1993  Kung Hsu  (kung@cirdan.cygnus.com)
+
+	* cplus-dem.c: fix template demangling
+	* cplus-dem.c: fix const type demangling
+	* cplus-dem.c: fix constructor/destructor, virtual table,
+	qualifier, global constructor/destructor demangling
+
+Wed Sep  1 23:13:11 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* strsignal.c, strerror.c: Use fully-bracketed initializer to
+	keep gcc -Wall happy.
+
+Fri Aug 27 10:30:09 1993  Jason Merrill  (jason@deneb.cygnus.com)
+
+	* cplus-dem.c (do_type): Add CONSTS to make gcc happy with last
+	patch.
+
+Fri Aug 27 11:24:54 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	Patch from Paul Flinders:
+	* cplus-dem.c (do_type): Deal with arrays.
+
+Tue Aug 24 14:23:50 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* cplus-dem.c (demangle_qualified: Deal with GNU format for more
+	than 9 classes.
+
+Wed Aug 18 19:50:29 1993  Jason Merrill  (jason@deneb.cygnus.com)
+
+	* Makefile.in (dummy.o): Redirect to /dev/null to avoid "variable
+	not initialized" warnings under HP/UX
+
+Sun Aug 15 20:42:40 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* strerror.c: Move include of stdio.h after sys_errlist #define.
+	Also remove NULL definition (stdio.h always defines NULL, so it
+	never did anything but clutter up the code).
+
+Sat Aug 14 14:21:49 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
+
+	* Makefile.in, functions.def: handle xmalloc.c
+
+	* xmalloc.c: provide xmalloc and xrealloc functions
+
+Sat Aug  7 13:56:35 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* getopt1.c: Declare const the way getopt.c does.
+
+Fri Aug  6 17:03:13 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* obstack.c, alloca.c: Update from FSF.
+	* getopt.c, getopt1.c: Update to current FSF version, which
+	doesn't use alloca. 
+
 Tue Jul 27 14:03:57 1993  Brendan Kehoe  (brendan@lisa.cygnus.com)
 
 	* Makefile.in (demangle): Add the target with a message saying

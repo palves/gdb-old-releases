@@ -163,8 +163,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
 {
   enum exp_opcode op;
   int tem, tem2, tem3;
-  register int pc, pc2, oldpos;
-  register value arg1, arg2, arg3;
+  register int pc, pc2 = 0, oldpos;
+  register value arg1 = NULL, arg2 = NULL, arg3;
   struct type *type;
   int nargs;
   value *argvec;
@@ -197,12 +197,12 @@ evaluate_subexp (expect_type, exp, pos, noside)
 				exp->elts[pc + 2].doubleconst);
 
     case OP_VAR_VALUE:
-      (*pos) += 2;
+      (*pos) += 3;
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
 	{
-	  struct symbol * sym = exp->elts[pc + 1].symbol;
+	  struct symbol * sym = exp->elts[pc + 2].symbol;
 	  enum lval_type lv;
 
 	  switch (SYMBOL_CLASS (sym))
@@ -226,7 +226,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	  return value_zero (SYMBOL_TYPE (sym), lv);
 	}
       else
-	return value_of_variable (exp->elts[pc + 1].symbol);
+	return value_of_variable (exp->elts[pc + 2].symbol,
+				  exp->elts[pc + 1].block);
 
     case OP_LAST:
       (*pos) += 2;
@@ -422,12 +423,9 @@ evaluate_subexp (expect_type, exp, pos, noside)
 			      &static_memfuncp,
 			      op == STRUCTOP_STRUCT
 			      ? "structure" : "structure pointer");
-	  if (VALUE_OFFSET (temp))
-	    {
-	      arg2 = value_from_longest (lookup_pointer_type (VALUE_TYPE (temp)),
-					 VALUE_ADDRESS (temp)+VALUE_OFFSET (temp));
-	      argvec[1] = arg2;
-	    }
+	  arg2 = value_from_longest (lookup_pointer_type (VALUE_TYPE (temp)),
+				     VALUE_ADDRESS (temp)+VALUE_OFFSET (temp));
+	  argvec[1] = arg2;
 	  if (static_memfuncp)
 	    {
 	      argvec[1] = argvec[0];
@@ -1055,14 +1053,14 @@ evaluate_subexp_for_address (exp, pos, noside)
 			 evaluate_subexp (NULL_TYPE, exp, pos, noside));
 
     case OP_VAR_VALUE:
-      var = exp->elts[pc + 1].symbol;
+      var = exp->elts[pc + 2].symbol;
 
       /* C++: The "address" of a reference should yield the address
        * of the object pointed to. Let value_addr() deal with it. */
       if (TYPE_CODE (SYMBOL_TYPE (var)) == TYPE_CODE_REF)
         goto default_case;
 
-      (*pos) += 3;
+      (*pos) += 4;
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
 	{
 	  struct type *type =
@@ -1079,7 +1077,10 @@ evaluate_subexp_for_address (exp, pos, noside)
 	  value_zero (type, not_lval);
 	}
       else
-	return locate_var_value (var, (FRAME) 0);
+	return
+	  locate_var_value
+	    (var,
+	     block_innermost_frame (exp->elts[pc + 1].block));
 
     default:
     default_case:
@@ -1099,14 +1100,15 @@ evaluate_subexp_for_address (exp, pos, noside)
 /* Evaluate like `evaluate_subexp' except coercing arrays to pointers.
    When used in contexts where arrays will be coerced anyway, this is
    equivalent to `evaluate_subexp' but much faster because it avoids
-   actually fetching array contents.
+   actually fetching array contents (perhaps obsolete now that we have
+   VALUE_LAZY).
 
    Note that we currently only do the coercion for C expressions, where
    arrays are zero based and the coercion is correct.  For other languages,
    with nonzero based arrays, coercion loses.  Use CAST_IS_CONVERSION
    to decide if coercion is appropriate.
 
-  */
+   */
 
 static value
 evaluate_subexp_with_coercion (exp, pos, noside)
@@ -1125,17 +1127,21 @@ evaluate_subexp_with_coercion (exp, pos, noside)
   switch (op)
     {
     case OP_VAR_VALUE:
-      var = exp->elts[pc + 1].symbol;
+      var = exp->elts[pc + 2].symbol;
       if (TYPE_CODE (SYMBOL_TYPE (var)) == TYPE_CODE_ARRAY
 	  && CAST_IS_CONVERSION)
 	{
-	  (*pos) += 3;
-	  val = locate_var_value (var, (FRAME) 0);
+	  (*pos) += 4;
+	  val =
+	    locate_var_value
+	      (var, block_innermost_frame (exp->elts[pc + 1].block));
 	  return value_cast (lookup_pointer_type (TYPE_TARGET_TYPE (SYMBOL_TYPE (var))),
 			     val);
 	}
-      default:
-	return evaluate_subexp (NULL_TYPE, exp, pos, noside);
+      /* FALLTHROUGH */
+
+    default:
+      return evaluate_subexp (NULL_TYPE, exp, pos, noside);
     }
 }
 
@@ -1173,9 +1179,11 @@ evaluate_subexp_for_sizeof (exp, pos)
 			      (LONGEST) TYPE_LENGTH (exp->elts[pc + 1].type));
 
     case OP_VAR_VALUE:
-      (*pos) += 3;
-      return value_from_longest (builtin_type_int,
-	 (LONGEST) TYPE_LENGTH (SYMBOL_TYPE (exp->elts[pc + 1].symbol)));
+      (*pos) += 4;
+      return
+	value_from_longest
+	  (builtin_type_int,
+	   (LONGEST) TYPE_LENGTH (SYMBOL_TYPE (exp->elts[pc + 2].symbol)));
 
     default:
       val = evaluate_subexp (NULL_TYPE, exp, pos, EVAL_AVOID_SIDE_EFFECTS);

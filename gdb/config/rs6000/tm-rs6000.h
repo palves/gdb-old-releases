@@ -310,13 +310,13 @@ extern void xcoff_relocate_core PARAMS ((void));
    to virtual format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)	\
-   bcopy ((FROM), (TO), REGISTER_RAW_SIZE (REGNUM))
+   memcpy ((TO), (FROM), REGISTER_RAW_SIZE (REGNUM))
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-   bcopy ((FROM), (TO), REGISTER_RAW_SIZE (REGNUM))
+   memcpy ((TO), (FROM), REGISTER_RAW_SIZE (REGNUM))
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -342,7 +342,7 @@ extern unsigned int rs6000_struct_return_address;
    into VALBUF.  */
 
 /* #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy (REGBUF, VALBUF, TYPE_LENGTH (TYPE)) */
+  memcpy (VALBUF, REGBUF, TYPE_LENGTH (TYPE)) */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
   extract_return_value(TYPE,REGBUF,VALBUF)
@@ -472,7 +472,7 @@ CORE_ADDR rs6000_frame_chain PARAMS ((struct frame_info *));
 									\
   func_start = get_pc_function_start ((FRAME_INFO)->pc) + FUNCTION_START_OFFSET; \
   function_frame_info (func_start, &fdata);				\
-  bzero (&(FRAME_SAVED_REGS), sizeof (FRAME_SAVED_REGS));		\
+  memset (&(FRAME_SAVED_REGS), '\0', sizeof (FRAME_SAVED_REGS));		\
 									\
   /* if there were any saved registers, figure out parent's stack pointer. */ \
   frame_addr = 0;							\

@@ -1,6 +1,11 @@
 /* IBM RS/6000 "XCOFF" back-end for BFD.
    Copyright (C) 1990, 1991 Free Software Foundation, Inc.
-   Written by Metin G. Ozisik, Mimi Phûông-Thåo Võ, and John Gilmore.
+   FIXME: Can someone provide a transliteration of this name into ASCII?
+   Using the following chars caused a compiler warning on HIUX (so I replaced
+   them with octal escapes), and isn't useful without an understanding of what
+   character set it is.
+   Written by Metin G. Ozisik, Mimi Ph\373\364ng-Th\345o V\365, 
+     and John Gilmore.
    Archive support from Damon A. Permezel.
    Contributed by IBM Corporation and Cygnus Support.
 
@@ -327,7 +332,7 @@ rs6000coff_get_section_contents (abfd, section, location, offset, count)
       /* Assert that the only way this code will be executed is reading the
          whole section. */
       if (offset || count != (sizeof(mstatus.gpr) + (4 * NUM_OF_SPEC_REGS)))
-        printf ("ERROR! in rs6000coff_get_section_contents()\n");
+        fprintf (stderr, "ERROR! in rs6000coff_get_section_contents()\n");
 
       /* for `.reg' section, `filepos' is a pointer to the `mstsave' structure
          in the core file. */

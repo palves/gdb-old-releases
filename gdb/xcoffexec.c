@@ -147,7 +147,7 @@ char *filename;
   	if (scratch_chan < 0)
 	  perror_with_name(filename);
 
-  	exec_bfd = bfd_fdopenr(scratch_pathname, NULL, scratch_chan);
+  	exec_bfd = bfd_fdopenr(scratch_pathname, gnutarget, scratch_chan);
   	if (!exec_bfd)
 	  error("Could not open `%s' as an executable file: %s"
   		      , scratch_pathname, bfd_errmsg(bfd_error));
@@ -290,7 +290,7 @@ map_vmap (bfd *bf, bfd *arch)
   struct objfile *obj;
 
   vp = (void*) xmalloc (sizeof (*vp));
-  bzero (vp, sizeof (*vp));
+  memset (vp, '\0', sizeof (*vp));
   vp->nxt = 0;
   vp->bfd = bf;
   vp->name = bfd_get_filename(arch ? arch : bf);
@@ -410,7 +410,7 @@ static struct vmap *
 add_vmap(ldi)
      register struct ld_info *ldi; 
 {
-	bfd *bfd, *last;
+	bfd *abfd, *last;
 	register char *mem, *objname;
 	struct objfile *obj;
 	struct vmap *vp;
@@ -426,32 +426,32 @@ add_vmap(ldi)
 	if (ldi->ldinfo_fd < 0)
 	  /* Note that this opens it once for every member; a possible
 	     enhancement would be to only open it once for every object.  */
-	  bfd = bfd_openr (objname, NULL);
+	  abfd = bfd_openr (objname, gnutarget);
 	else
-	  bfd = bfd_fdopenr(objname, NULL, ldi->ldinfo_fd);
-	if (!bfd)
+	  abfd = bfd_fdopenr(objname, gnutarget, ldi->ldinfo_fd);
+	if (!abfd)
 	  error("Could not open `%s' as an executable file: %s",
 					objname, bfd_errmsg(bfd_error));
 
 
 	/* make sure we have an object file */
 
-	if (bfd_check_format(bfd, bfd_object))
-	  vp = map_vmap (bfd, 0);
+	if (bfd_check_format(abfd, bfd_object))
+	  vp = map_vmap (abfd, 0);
 
-	else if (bfd_check_format(bfd, bfd_archive)) {
+	else if (bfd_check_format(abfd, bfd_archive)) {
 		last = 0;
 		/*
 		 * FIXME??? am I tossing BFDs?  bfd?
 		 */
-		while (last = bfd_openr_next_archived_file(bfd, last))
+		while (last = bfd_openr_next_archived_file(abfd, last))
 			if (STREQ(mem, last->filename))
 				break;
 
 		if (!last) {
-		  bfd_close(bfd);
+		  bfd_close(abfd);
 		  /* FIXME -- should be error */
-		  warning("\"%s\": member \"%s\" missing.", bfd->filename, mem);
+		  warning("\"%s\": member \"%s\" missing.", abfd->filename, mem);
 		  return;
 		}
 
@@ -460,11 +460,11 @@ add_vmap(ldi)
 			goto obj_err;
 		}
 
-		vp = map_vmap (last, bfd);
+		vp = map_vmap (last, abfd);
 	}
 	else {
 	    obj_err:
-		bfd_close(bfd);
+		bfd_close(abfd);
 		error ("\"%s\": not in executable format: %s.",
 		       objname, bfd_errmsg(bfd_error));
 		/*NOTREACHED*/
@@ -732,11 +732,13 @@ print_section_info (t, abfd)
   printf_filtered ("file type %s.\n", bfd_get_target(abfd));
 
   for (p = t->to_sections; p < t->to_sections_end; p++) {
-    printf_filtered ("\t%s", local_hex_string_custom (p->addr, "08"));
-    printf_filtered (" - %s", local_hex_string_custom (p->endaddr, "08"));
+    printf_filtered ("\t%s",
+		     local_hex_string_custom ((unsigned long) p->addr, "08l"));
+    printf_filtered (" - %s",
+		     local_hex_string_custom ((unsigned long) p->endaddr, "08l"));
     if (info_verbose)
       printf_filtered (" @ %s",
-		       local_hex_string_custom (p->sec_ptr->filepos, "08"));
+		       local_hex_string_custom ((unsigned long) p->sec_ptr->filepos, "08l"));
     printf_filtered (" is %s", bfd_section_name (p->bfd, p->sec_ptr));
     if (p->bfd != abfd) {
       printf_filtered (" in %s", bfd_get_filename (p->bfd));

@@ -64,8 +64,13 @@ block_depth PARAMS ((struct block *));
 static void
 print_partial_symbol PARAMS ((struct partial_symbol *, int, char *, FILE *));
 
-static void
-print_symbol PARAMS ((struct symbol *, int, FILE *));
+struct print_symbol_args {
+  struct symbol *symbol;
+  int depth;
+  FILE *outfile;
+};
+
+static int print_symbol PARAMS ((char *));
 
 static void
 free_symtab_block PARAMS ((struct objfile *, struct block *));
@@ -154,8 +159,10 @@ dump_objfile (objfile)
   struct partial_symtab *psymtab;
 
   printf_filtered ("\nObject file %s:  ", objfile -> name);
-  printf_filtered ("Objfile at %x, bfd at %x, %d minsyms\n\n",
-		   objfile, objfile -> obfd, objfile->minimal_symbol_count);
+  printf_filtered ("Objfile at %lx, bfd at %lx, %d minsyms\n\n",
+		   (unsigned long) objfile,
+		   (unsigned long) objfile -> obfd,
+		   objfile->minimal_symbol_count);
 
   if (objfile -> psymtabs)
     {
@@ -164,7 +171,8 @@ dump_objfile (objfile)
 	   psymtab != NULL;
 	   psymtab = psymtab -> next)
 	{
-	  printf_filtered ("%s at %x, ", psymtab -> filename, psymtab);
+	  printf_filtered ("%s at %lx, ",
+			   psymtab -> filename, (unsigned long) psymtab);
 	  if (psymtab -> objfile != objfile)
 	    {
 	      printf_filtered ("NOT ON CHAIN!  ");
@@ -181,7 +189,8 @@ dump_objfile (objfile)
 	   symtab != NULL;
 	   symtab = symtab->next)
 	{
-	  printf_filtered ("%s at %x, ", symtab -> filename, symtab);
+	  printf_filtered ("%s at %lx, ",
+			   symtab -> filename, (unsigned long) symtab);
 	  if (symtab -> objfile != objfile)
 	    {
 	      printf_filtered ("NOT ON CHAIN!  ");
@@ -242,7 +251,7 @@ dump_msymbols (objfile, outfile)
 	    ms_type = '?';
 	    break;
 	}
-      fprintf_filtered (outfile, "[%2d] %c %#10x %s", index, ms_type,
+      fprintf_filtered (outfile, "[%2d] %c %#10lx %s", index, ms_type,
 			SYMBOL_VALUE_ADDRESS (msymbol), SYMBOL_NAME (msymbol));
       if (SYMBOL_DEMANGLED_NAME (msymbol) != NULL)
 	{
@@ -264,33 +273,43 @@ dump_psymtab (objfile, psymtab, outfile)
      struct partial_symtab *psymtab;
      FILE *outfile;
 {
+  int i;
 
   fprintf_filtered (outfile, "\nPartial symtab for source file %s ",
 		    psymtab -> filename);
-  fprintf_filtered (outfile, "(object 0x%x)\n\n", psymtab);
-  fprintf (outfile, "  Read from object file %s (0x%x)\n",
-	   objfile -> name, (unsigned int) objfile);
+  fprintf_filtered (outfile, "(object 0x%lx)\n\n", (unsigned long) psymtab);
+  fprintf (outfile, "  Read from object file %s (0x%lx)\n",
+	   objfile -> name, (unsigned long) objfile);
   
   if (psymtab -> readin)
     {
       fprintf_filtered (outfile,
-		"  Full symtab was read (at 0x%x by function at 0x%x)\n",
-			psymtab -> symtab, psymtab -> read_symtab);
+		"  Full symtab was read (at 0x%lx by function at 0x%lx)\n",
+			(unsigned long) psymtab -> symtab,
+			(unsigned long) psymtab -> read_symtab);
     }
 
   /* FIXME, we need to be able to print the relocation stuff. */
   /* This prints some garbage for anything but stabs right now.  FIXME.  */
   if (psymtab->section_offsets)
-    fprintf_filtered (outfile, "  Relocate symbols by 0x%x, 0x%x, 0x%x, 0x%x.\n",
-		      ANOFFSET (psymtab->section_offsets, 0),
-		      ANOFFSET (psymtab->section_offsets, 1),
-		      ANOFFSET (psymtab->section_offsets, 2),
-		      ANOFFSET (psymtab->section_offsets, 3));
+    fprintf_filtered (outfile,
+		      "  Relocate symbols by 0x%lx, 0x%lx, 0x%lx, 0x%lx.\n",
+		      (unsigned long) ANOFFSET (psymtab->section_offsets, 0),
+		      (unsigned long) ANOFFSET (psymtab->section_offsets, 1),
+		      (unsigned long) ANOFFSET (psymtab->section_offsets, 2),
+		      (unsigned long) ANOFFSET (psymtab->section_offsets, 3));
 
-  fprintf_filtered (outfile, "  Symbols cover text addresses 0x%x-0x%x\n",
-		    psymtab -> textlow, psymtab -> texthigh);
+  fprintf_filtered (outfile, "  Symbols cover text addresses 0x%lx-0x%lx\n",
+		    (unsigned long) psymtab -> textlow,
+		    (unsigned long) psymtab -> texthigh);
   fprintf_filtered (outfile, "  Depends on %d other partial symtabs.\n",
 		    psymtab -> number_of_dependencies);
+  for (i = 0; i < psymtab -> number_of_dependencies; i++)
+    {
+      fprintf_filtered (outfile, "    %d 0x%lx %s\n", i,
+			(unsigned long) psymtab -> dependencies[i],
+			psymtab -> dependencies[i] -> filename);
+    }
   if (psymtab -> n_global_syms > 0)
     {
       print_partial_symbol (objfile -> global_psymbols.list
@@ -320,8 +339,8 @@ dump_symtab (objfile, symtab, outfile)
   int depth;
 
   fprintf (outfile, "\nSymtab for file %s\n", symtab->filename);
-  fprintf (outfile, "Read from object file %s (%x)\n", objfile->name,
-	   (unsigned int) objfile);
+  fprintf (outfile, "Read from object file %s (%lx)\n", objfile->name,
+	   (unsigned long) objfile);
   fprintf (outfile, "Language: %s\n", language_str (symtab -> language));
   
   /* First print the line table.  */
@@ -330,8 +349,8 @@ dump_symtab (objfile, symtab, outfile)
     fprintf (outfile, "\nLine table:\n\n");
     len = l->nitems;
     for (i = 0; i < len; i++)
-      fprintf (outfile, " line %d at %x\n", l->item[i].line,
-	       l->item[i].pc);
+      fprintf (outfile, " line %ld at %lx\n", l->item[i].line,
+	       (unsigned long) l->item[i].pc);
   }
   /* Now print the block info.  */
   fprintf (outfile, "\nBlockvector:\n\n");
@@ -342,10 +361,13 @@ dump_symtab (objfile, symtab, outfile)
       b = BLOCKVECTOR_BLOCK (bv, i);
       depth = block_depth (b) * 2;
       print_spaces (depth, outfile);
-      fprintf (outfile, "block #%03d (object 0x%x) ", i, (unsigned int) b);
-      fprintf (outfile, "[0x%x..0x%x]", BLOCK_START (b), BLOCK_END (b));
+      fprintf (outfile, "block #%03d (object 0x%lx) ", i, (unsigned long) b);
+      fprintf (outfile, "[0x%lx..0x%lx]",
+	       (unsigned long) BLOCK_START (b),
+	       (unsigned long) BLOCK_END (b));
       if (BLOCK_SUPERBLOCK (b))
-	fprintf (outfile, " (under 0x%x)", (unsigned int) BLOCK_SUPERBLOCK (b));
+	fprintf (outfile, " (under 0x%lx)",
+		 (unsigned long) BLOCK_SUPERBLOCK (b));
       if (BLOCK_FUNCTION (b))
 	{
 	  fprintf (outfile, " %s", SYMBOL_NAME (BLOCK_FUNCTION (b)));
@@ -361,7 +383,12 @@ dump_symtab (objfile, symtab, outfile)
       blen = BLOCK_NSYMS (b);
       for (j = 0; j < blen; j++)
 	{
-	  print_symbol (BLOCK_SYM (b, j), depth + 1, outfile);
+	  struct print_symbol_args s;
+	  s.symbol = BLOCK_SYM (b, j);
+	  s.depth = depth + 1;
+	  s.outfile = outfile;
+	  catch_errors (print_symbol, &s, "Error printing symbol:\n",
+			RETURN_MASK_ERROR);
 	}
     }
   fprintf (outfile, "\n");
@@ -418,22 +445,29 @@ maintenance_print_symbols (args, from_tty)
   do_cleanups (cleanups);
 }
 
-static void
-print_symbol (symbol, depth, outfile)
-     struct symbol *symbol;
-     int depth;
-     FILE *outfile;
+/* Print symbol ARGS->SYMBOL on ARGS->OUTFILE.  ARGS->DEPTH says how
+   far to indent.  ARGS is really a struct print_symbol_args *, but is
+   declared as char * to get it past catch_errors.  Returns 0 for error,
+   1 for success.  */
+
+static int
+print_symbol (args)
+     char *args;
 {
+  struct symbol *symbol = ((struct print_symbol_args *)args)->symbol;
+  int depth = ((struct print_symbol_args *)args)->depth;
+  FILE *outfile = ((struct print_symbol_args *)args)->outfile;
+
   print_spaces (depth, outfile);
   if (SYMBOL_NAMESPACE (symbol) == LABEL_NAMESPACE)
     {
-      fprintf (outfile, "label %s at 0x%x\n", SYMBOL_SOURCE_NAME (symbol),
-	       SYMBOL_VALUE_ADDRESS (symbol));
-      return;
+      fprintf (outfile, "label %s at 0x%lx\n", SYMBOL_SOURCE_NAME (symbol),
+	       (unsigned long) SYMBOL_VALUE_ADDRESS (symbol));
+      return 1;
     }
   if (SYMBOL_NAMESPACE (symbol) == STRUCT_NAMESPACE)
     {
-      if (TYPE_NAME (SYMBOL_TYPE (symbol)))
+      if (TYPE_TAG_NAME (SYMBOL_TYPE (symbol)))
 	{
 	  LA_PRINT_TYPE (SYMBOL_TYPE (symbol), "", outfile, 1, depth);
 	}
@@ -456,7 +490,8 @@ print_symbol (symbol, depth, outfile)
       if (SYMBOL_TYPE (symbol))
 	{
 	  /* Print details of types, except for enums where it's clutter.  */
-	  LA_PRINT_TYPE (SYMBOL_TYPE (symbol), SYMBOL_NAME (symbol), outfile,
+	  LA_PRINT_TYPE (SYMBOL_TYPE (symbol), SYMBOL_SOURCE_NAME (symbol),
+			 outfile,
 			 TYPE_CODE (SYMBOL_TYPE (symbol)) != TYPE_CODE_ENUM,
 			 depth);
 	  fprintf (outfile, "; ");
@@ -468,7 +503,8 @@ print_symbol (symbol, depth, outfile)
 	{
 	case LOC_CONST:
 	  fprintf (outfile, "const %ld (0x%lx),",
-		   SYMBOL_VALUE (symbol), SYMBOL_VALUE (symbol));
+		   SYMBOL_VALUE (symbol),
+		   (unsigned long) SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_CONST_BYTES:
@@ -477,14 +513,15 @@ print_symbol (symbol, depth, outfile)
 	  {
 	    unsigned i;
 	    for (i = 0; i < TYPE_LENGTH (SYMBOL_TYPE (symbol)); i++)
-	      fprintf (outfile, " %2x",
+	      fprintf (outfile, " %02x",
 			 (unsigned)SYMBOL_VALUE_BYTES (symbol) [i]);
 	    fprintf (outfile, ",");
 	  }
 	  break;
 
 	case LOC_STATIC:
-	  fprintf (outfile, "static at 0x%x,", SYMBOL_VALUE_ADDRESS (symbol));
+	  fprintf (outfile, "static at 0x%lx,",
+		   (unsigned long) SYMBOL_VALUE_ADDRESS (symbol));
 	  break;
 
 	case LOC_REGISTER:
@@ -492,28 +529,13 @@ print_symbol (symbol, depth, outfile)
 	  break;
 
 	case LOC_ARG:
-	  if (SYMBOL_BASEREG_VALID (symbol))
-	    {
-	      fprintf (outfile, "arg at 0x%lx from register %d,",
-		       SYMBOL_VALUE (symbol), SYMBOL_BASEREG (symbol));
-	    }
-	  else
-	    {
-	      fprintf (outfile, "arg at 0x%lx,", SYMBOL_VALUE (symbol));
-	    }
+	  fprintf (outfile, "arg at 0x%lx,", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_LOCAL_ARG:
-	  if (SYMBOL_BASEREG_VALID (symbol))
-	    {
-	      fprintf (outfile, "arg at offset 0x%lx from register %d,",
-		       SYMBOL_VALUE (symbol), SYMBOL_BASEREG (symbol));
-	    }
-	  else
-	    {
-	      fprintf (outfile, "arg at offset 0x%lx from fp,",
-		       SYMBOL_VALUE (symbol));
-	    }
+	  fprintf (outfile, "arg at offset 0x%lx from fp,",
+		   SYMBOL_VALUE (symbol));
+	  break;
 
 	case LOC_REF_ARG:
 	  fprintf (outfile, "reference arg at 0x%lx,", SYMBOL_VALUE (symbol));
@@ -528,28 +550,31 @@ print_symbol (symbol, depth, outfile)
 	  break;
 
 	case LOC_LOCAL:
-	  if (SYMBOL_BASEREG_VALID (symbol))
-	    {
-	      fprintf (outfile, "local at 0x%lx from register %d",
-		       SYMBOL_VALUE (symbol), SYMBOL_BASEREG (symbol));
-	    }
-	  else
-	    {
-	      fprintf (outfile, "local at 0x%lx,", SYMBOL_VALUE (symbol));
-	    }
+	  fprintf (outfile, "local at 0x%lx,", SYMBOL_VALUE (symbol));
+	  break;
+
+	case LOC_BASEREG:
+	  fprintf (outfile, "local at 0x%lx from register %d",
+		   SYMBOL_VALUE (symbol), SYMBOL_BASEREG (symbol));
+	  break;
+
+	case LOC_BASEREG_ARG:
+	  fprintf (outfile, "arg at 0x%lx from register %d,",
+		   SYMBOL_VALUE (symbol), SYMBOL_BASEREG (symbol));
 	  break;
 
 	case LOC_TYPEDEF:
 	  break;
 
 	case LOC_LABEL:
-	  fprintf (outfile, "label at 0x%lx", SYMBOL_VALUE_ADDRESS (symbol));
+	  fprintf (outfile, "label at 0x%lx",
+		   (unsigned long) SYMBOL_VALUE_ADDRESS (symbol));
 	  break;
 
 	case LOC_BLOCK:
-	  fprintf (outfile, "block (object 0x%x) starting at 0x%x,",
-		   (unsigned int) SYMBOL_BLOCK_VALUE (symbol),
-		   BLOCK_START (SYMBOL_BLOCK_VALUE (symbol)));
+	  fprintf (outfile, "block (object 0x%lx) starting at 0x%lx,",
+		   (unsigned long) SYMBOL_BLOCK_VALUE (symbol),
+		   (unsigned long) BLOCK_START (SYMBOL_BLOCK_VALUE (symbol)));
 	  break;
 
 	case LOC_OPTIMIZED_OUT:
@@ -562,6 +587,7 @@ print_symbol (symbol, depth, outfile)
 	}
     }
   fprintf (outfile, "\n");
+  return 1;
 }
 
 void
@@ -702,7 +728,7 @@ print_partial_symbol (p, count, what, outfile)
 	  break;
 	}
       fputs_filtered (", ", outfile);
-      fprintf_filtered (outfile, "0x%x\n", SYMBOL_VALUE (p));
+      fprintf_filtered (outfile, "0x%lx\n", SYMBOL_VALUE (p));
       p++;
     }
 }

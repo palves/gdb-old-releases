@@ -26,16 +26,12 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-# If we did not use the signed keyword when compiling the file, don't
-# expect GDB to know that char is signed.
-source gdb.t13/comp-info.exp
-
 set binfile "gdbme"
 set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
     error "$objdir/$subdir/$binfile does not exist."
-    alldone
+    return 0
 }
 
 #
@@ -309,7 +305,6 @@ proc bitfield_signedness {} {
     global prompt
     global srcfile
     global det_file
-    global signed_keyword_not_used
 
     send "delete\n"
     expect {
@@ -357,6 +352,10 @@ proc bitfield_signedness {} {
     expect {
 	-re ".* = -256.*$prompt $" {}
 	-re ".* = 256.*$prompt $" {setup_xfail "*-*-*"}
+	-re ".*$prompt $" { fail "\
+determining signed-ness of bitfields (known bug in sparc gcc 2.4.5)"
+	    return
+	}
 	default { fail "determining signed-ness of bitfields" ; return }
     }
     send "print flags\n"
@@ -390,18 +389,39 @@ gdb_load $objdir/$subdir/$binfile
 send "set print sevenbit-strings\n" ; expect -re "$prompt $"
 
 bitfield_uniqueness
+if [istarget "mips-idt-*"] then {
+    # Restart because IDT/SIM runs out of file descriptors.
+    gdb_exit
+    gdb_start
+    gdb_reinitialize_dir $srcdir/$subdir
+    gdb_load $objdir/$subdir/$binfile
+}
 if [istarget "a29k-*-udi"] then {
     # FIXME: If PR 2415 is fixed, this is not needed.
     gdb_target_udi
     gdb_load $objdir/$subdir/$binfile
 }
 bitfield_containment
+if [istarget "mips-idt-*"] then {
+    # Restart because IDT/SIM runs out of file descriptors.
+    gdb_exit
+    gdb_start
+    gdb_reinitialize_dir $srcdir/$subdir
+    gdb_load $objdir/$subdir/$binfile
+}
 if [istarget "a29k-*-udi"] then {
     # FIXME: If PR 2415 is fixed, this is not needed.
     gdb_target_udi
     gdb_load $objdir/$subdir/$binfile
 }
 bitfield_unsignedness
+if [istarget "mips-idt-*"] then {
+    # Restart because IDT/SIM runs out of file descriptors.
+    gdb_exit
+    gdb_start
+    gdb_reinitialize_dir $srcdir/$subdir
+    gdb_load $objdir/$subdir/$binfile
+}
 if [istarget "a29k-*-udi"] then {
     # FIXME: If PR 2415 is fixed, this is not needed.
     gdb_target_udi

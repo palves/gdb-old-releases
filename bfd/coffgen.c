@@ -67,6 +67,13 @@ DEFUN(make_a_section_from_file,(abfd, hdr, target_index),
   return_section = bfd_make_section(abfd, name);
   if (return_section == NULL)
     return_section = bfd_coff_make_section_hook (abfd, name);
+
+  /* Handle several sections of the same name.  For example, if an executable
+     has two .bss sections, GDB better be able to find both of them
+     (PR 3562).  */
+  if (return_section == NULL)
+    return_section = bfd_make_section_anyway (abfd, name);
+
   if (return_section == NULL)
     return false;
 
@@ -904,10 +911,7 @@ coff_section_symbol (abfd, name)
   combined_entry_type *csym;
 
   sym = sec->symbol;
-  if (coff_symbol_from (abfd, sym))
-    csym = coff_symbol_from (abfd, sym)->native;
-  else
-    csym = 0;
+  csym = coff_symbol_from (abfd, sym)->native;
   /* Make sure back-end COFF stuff is there.  */
   if (csym == 0)
     {
@@ -924,18 +928,16 @@ coff_section_symbol (abfd, name)
   csym[0].u.syment.n_sclass = C_STAT;
   csym[0].u.syment.n_numaux = 1;
 /*  SF_SET_STATICS (sym);	@@ ??? */
-  if (sec)
+  csym[1].u.auxent.x_scn.x_scnlen = sec->_raw_size;
+  csym[1].u.auxent.x_scn.x_nreloc = sec->reloc_count;
+  csym[1].u.auxent.x_scn.x_nlinno = sec->lineno_count;
+
+  if (sec->output_section == NULL)
     {
-      csym[1].u.auxent.x_scn.x_scnlen = sec->_raw_size;
-      csym[1].u.auxent.x_scn.x_nreloc = sec->reloc_count;
-      csym[1].u.auxent.x_scn.x_nlinno = sec->lineno_count;
+      sec->output_section = sec;
+      sec->output_offset = 0;
     }
-  else
-    {
-      csym[1].u.auxent.x_scn.x_scnlen = 0;
-      csym[1].u.auxent.x_scn.x_nreloc = 0;
-      csym[1].u.auxent.x_scn.x_nlinno = 0;
-    }
+
   return sym;
 }
 
@@ -1363,13 +1365,13 @@ coff_print_symbol (abfd, filep, symbol, how)
 	
 	  if (l)
 	    {
-	      printf ("\n%s :", l->u.sym->name);
+	      fprintf (file, "\n%s :", l->u.sym->name);
 	      l++;
 	      while (l->line_number) 
 		{
-		  printf ("\n%4d : 0x%x",
+		  fprintf (file, "\n%4d : 0x%x",
 			  l->line_number,
-			  l->u.offset);
+			  l->u.offset + symbol->section->vma);
 		  l++;
 		}
 	    }

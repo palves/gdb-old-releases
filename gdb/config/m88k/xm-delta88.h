@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#define HOST_BYTE_ORDER BIG_ENDIAN
+#include "m88k/xm-m88k.h"
 
 #if !defined (USG)
 #define USG 1
@@ -26,9 +26,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <sys/param.h>
 #include <sys/time.h>
-
-/* Required by <sys/ptrace.h>.  */
-#include <sys/siginfo.h>
 
 #define HAVE_TERMIO
 

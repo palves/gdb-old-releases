@@ -1,5 +1,7 @@
 /* This test code is from Wendell Baker (wbaker@comet.berkeley.edu) */
 
+#include <sys/types.h>
+
 int a_i;
 char a_c;
 double a_d;
@@ -277,7 +279,7 @@ void printf(const char *format, ... )
 
 class T1 {
 public:
-    static void* operator new(unsigned size);
+    static void* operator new(size_t);
     static void operator delete(void *pointer);
 
     void operator=(const T1&);
@@ -352,7 +354,7 @@ public:
 };
 
 void* 
-T1::operator new(unsigned size)
+T1::operator new(size_t)
 { return 0; }
 
 void
@@ -442,7 +444,7 @@ class T5 {
 public:
     T5(int);
     T5(const T5<T>&);
-    static void* operator new(unsigned size);
+    static void* operator new(size_t);
     static void operator delete(void *pointer);
     
     static T X;
@@ -459,7 +461,7 @@ T5<T>::T5(const T5<T>&)
 
 template<class T>
 void*
-T5<T>::operator new(unsigned size)
+T5<T>::operator new(size_t)
 { return 0; }
 
 template<class T>
