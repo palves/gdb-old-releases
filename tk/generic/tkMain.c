@@ -64,6 +64,7 @@ static char *name = NULL;
 static char *display = NULL;
 static char *geometry = NULL;
 static int rest = 0;
+static int print_version;
 
 static Tk_ArgvInfo argTable[] = {
     {"-display", TK_ARGV_STRING, (char *) NULL, (char *) &display,
@@ -74,6 +75,8 @@ static Tk_ArgvInfo argTable[] = {
 	"Name to use for application"},
     {"-sync", TK_ARGV_CONSTANT, (char *) 1, (char *) &synchronize,
 	"Use synchronous mode for display server"},
+    {"-version", TK_ARGV_CONSTANT, (char *) 1, (char *) &print_version,
+        "Print version and exit"},
     {"--", TK_ARGV_REST, (char *) 1, (char *) &rest,
 	"Pass all remaining arguments through to script"},
     {(char *) NULL, TK_ARGV_END, (char *) NULL, (char *) NULL,
@@ -153,6 +156,14 @@ Tk_Main(argc, argv, appInitProc)
 	    != TCL_OK) {
 	fprintf(stderr, "%s\n", interp->result);
 	exit(1);
+    }
+
+    /*
+     * If "-version" was specified, satisfy the request.
+     */
+    if (print_version) {
+	printf ("Tk version %s\n", TK_VERSION);
+	exit (0);
     }
 
     /*

@@ -4487,6 +4487,7 @@ void::function::invalid_arithemetic_operation:cpu *processor, unsigned_word cia,
 	         | MASKED(SRR1, 48, 63));
 	  NIA = MASKED(SRR0, 0, 61);
 	  cpu_synchronize_context(processor);
+	  check_masked_interrupts(processor);
 	}
 
 #
@@ -4503,8 +4504,10 @@ void::function::invalid_arithemetic_operation:cpu *processor, unsigned_word cia,
 	if (IS_PROBLEM_STATE(processor))
 	  program_interrupt(processor, cia,
 	                    privileged_instruction_program_interrupt);
-	else
+	else {
 	  MSR = *rS;
+	  check_masked_interrupts(processor);
+	}
 
 0.31,6.RT,11./,16./,21.83,31./:X:::Move From Machine State Register
 *601: PPC_UNIT_IU,    PPC_UNIT_IU,    1,  1,  0
@@ -4514,8 +4517,10 @@ void::function::invalid_arithemetic_operation:cpu *processor, unsigned_word cia,
 	if (IS_PROBLEM_STATE(processor))
 	  program_interrupt(processor, cia,
 	                    privileged_instruction_program_interrupt);
-	else
+	else {
 	  *rT = MSR;
+	  check_masked_interrupts(processor);
+	}
 
 
 #

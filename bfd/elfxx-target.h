@@ -40,7 +40,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define bfd_elfNN_minisymbol_to_symbol	_bfd_elf_minisymbol_to_symbol
 #define bfd_elfNN_get_dynamic_symtab_upper_bound _bfd_elf_get_dynamic_symtab_upper_bound
 #define bfd_elfNN_get_lineno		_bfd_elf_get_lineno
+#ifndef bfd_elfNN_get_reloc_upper_bound
 #define bfd_elfNN_get_reloc_upper_bound _bfd_elf_get_reloc_upper_bound
+#endif
 #define bfd_elfNN_get_symbol_info	_bfd_elf_get_symbol_info
 #define bfd_elfNN_get_symtab		_bfd_elf_get_symtab
 #define bfd_elfNN_get_symtab_upper_bound _bfd_elf_get_symtab_upper_bound
@@ -145,6 +147,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define elf_symbol_leading_char 0
 #endif
 
+#ifndef elf_info_to_howto
+#define elf_info_to_howto 0
+#endif
+
 #ifndef elf_info_to_howto_rel
 #define elf_info_to_howto_rel 0
 #endif
@@ -235,6 +241,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define ELF_MACHINE_ALT2 0
 #endif
 
+#ifndef elf_backend_size_info
+#define elf_backend_size_info _bfd_elfNN_size_info
+#endif
+
 extern const struct elf_size_info _bfd_elfNN_size_info;
 
 static CONST struct elf_backend_data elfNN_bed =
@@ -275,7 +285,7 @@ static CONST struct elf_backend_data elfNN_bed =
   elf_backend_ecoff_debug_swap,
   ELF_MACHINE_ALT1,
   ELF_MACHINE_ALT2,
-  &_bfd_elfNN_size_info,
+  &elf_backend_size_info,
   elf_backend_want_got_plt,
   elf_backend_plt_readonly,
   elf_backend_want_plt_sym

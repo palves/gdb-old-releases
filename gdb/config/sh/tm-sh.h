@@ -60,7 +60,9 @@ extern CORE_ADDR sh_skip_prologue ();
 
 #define BREAKPOINT {0xc3, 0xc3}  /* 0xc3c3 is trapa #c3, and it works in big 
 				    and little endian modes  */
-#define REMOTE_BREAKPOINT { 0xc3, 0x20}
+
+#define BIG_REMOTE_BREAKPOINT    { 0xc3, 0x20 }
+#define LITTLE_REMOTE_BREAKPOINT { 0x20, 0xc3 }
 
 /* If your kernel resets the pc after the trap happens you may need to
    define this before including this file.  */
@@ -99,7 +101,7 @@ extern CORE_ADDR sh_skip_prologue ();
    of data in register N.  */
 
 #define REGISTER_VIRTUAL_TYPE(N) \
-	((((N) >= FP0_REGNUM && (N) < FP15_REGNUM)	\
+	((((N) >= FP0_REGNUM && (N) <= FP15_REGNUM)	\
 	  || (N) == FPUL_REGNUM)			\
          ? builtin_type_float : builtin_type_int)
 
@@ -110,14 +112,15 @@ extern CORE_ADDR sh_skip_prologue ();
   {"r0", "r1", "r2", "r3", "r4",  "r5",  "r6", "r7", \
    "r8", "r9", "r10","r11","r12", "r13", "r14","r15",\
    "pc", "pr", "gbr","vbr","mach","macl","sr", \
+   "ssr", "spc", \
+   "r0b0", "r1b0", "r2b0", "r3b0", "r4b0", "r5b0", "r6b0", "r7b0", \
+   "r0b1", "r1b1", "r2b1", "r3b1", "r4b1", "r5b1", "r6b1", "r7b1", \
    "fpul","fpscr", \
    "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7", \
-   "fr8", "fr9", "fr10","fr11","fr12","fr13","fr14","fr15",\
-   "r0b0", "r1b0", "r2b0", "r3b0", "r4b0", "r5b0", "r6b0", "r7b0", \
-   "r0b1", "r1b1", "r2b1", "r3b1", "r4b1", "r5b1", "r6b1", "r7b1" \
+   "fr8", "fr9", "fr10","fr11","fr12","fr13","fr14","fr15"\
   }
 
-#define NUM_REGS 57
+#define NUM_REGS 59
 
 /* Register numbers of various important registers.
    Note that some of these values are "real" register numbers,
@@ -137,11 +140,11 @@ extern CORE_ADDR sh_skip_prologue ();
 #define MACL_REGNUM 	21
 #define SR_REGNUM 	22
 #define NUM_REALREGS    23
-#define FPUL_REGNUM	23
-#define FP0_REGNUM	25
-#define FP15_REGNUM	41
+#define FPUL_REGNUM	41
+#define FP0_REGNUM	43
+#define FP15_REGNUM	58
 #undef  NUM_REALREGS
-#define NUM_REALREGS    57
+#define NUM_REALREGS    59
 
 /* Store the address of the place in which to copy the structure the
    subroutine will return.  This is called from call_function. 

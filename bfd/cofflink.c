@@ -81,6 +81,7 @@ _bfd_coff_link_hash_table_init (table, abfd, newfunc)
 						struct bfd_hash_table *,
 						const char *));
 {
+  table->stab_info = NULL;
   return _bfd_link_hash_table_init (&table->root, abfd, newfunc);
 }
 
@@ -412,6 +413,46 @@ coff_link_add_symbols (abfd, info)
       sym_hash += sym.n_numaux + 1;
     }
 
+  /* If this is a non-traditional, non-relocateable link, try to
+     optimize the handling of any .stab/.stabstr sections.  */
+  if (! info->relocateable
+      && ! info->traditional_format
+      && info->hash->creator->flavour == bfd_get_flavour (abfd)
+      && (info->strip != strip_all && info->strip != strip_debugger))
+    {
+      asection *stab, *stabstr;
+
+      stab = bfd_get_section_by_name (abfd, ".stab");
+      if (stab != NULL)
+	{
+	  stabstr = bfd_get_section_by_name (abfd, ".stabstr");
+
+	  if (stabstr != NULL)
+	    {
+	      struct coff_link_hash_table *table;
+	      struct coff_section_tdata *secdata;
+
+	      secdata = coff_section_data (abfd, stab);
+	      if (secdata == NULL)
+		{
+		  stab->used_by_bfd =
+		    (PTR) bfd_zalloc (abfd,
+				      sizeof (struct coff_section_tdata));
+		  if (stab->used_by_bfd == NULL)
+		    return false;
+		  secdata = coff_section_data (abfd, stab);
+		}
+
+	      table = coff_hash_table (info);
+
+	      if (! _bfd_link_section_stabs (abfd, &table->stab_info,
+					     stab, stabstr,
+					     &secdata->stab_info))
+		return false;
+	    }
+	}
+    }
+
   return true;
 }
 
@@ -425,6 +466,7 @@ _bfd_coff_final_link (abfd, info)
   bfd_size_type symesz;
   struct coff_final_link_info finfo;
   boolean debug_merge_allocated;
+  boolean long_section_names;
   asection *o;
   struct bfd_link_order *p;
   size_t max_sym_count;
@@ -447,6 +489,7 @@ _bfd_coff_final_link (abfd, info)
   finfo.strtab = NULL;
   finfo.section_info = NULL;
   finfo.last_file_index = -1;
+  finfo.last_bf_index = -1;
   finfo.internal_syms = NULL;
   finfo.sec_ptrs = NULL;
   finfo.sym_indices = NULL;
@@ -479,18 +522,24 @@ _bfd_coff_final_link (abfd, info)
   max_lineno_count = 0;
   max_reloc_count = 0;
 
+  long_section_names = false;
   for (o = abfd->sections; o != NULL; o = o->next)
     {
       o->reloc_count = 0;
       o->lineno_count = 0;
       for (p = o->link_order_head; p != NULL; p = p->next)
 	{
-
 	  if (p->type == bfd_indirect_link_order)
 	    {
 	      asection *sec;
 
 	      sec = p->u.indirect.section;
+
+	      /* Mark all sections which are to be included in the
+		 link.  This will normally be every section.  We need
+		 to do this so that we can identify any sections which
+		 the linker has decided to not include.  */
+	      sec->linker_mark = true;
 
 	      if (info->strip == strip_none
 		  || info->strip == strip_some)
@@ -518,6 +567,20 @@ _bfd_coff_final_link (abfd, info)
 	  o->flags |= SEC_RELOC;
 	  o->rel_filepos = rel_filepos;
 	  rel_filepos += o->reloc_count * relsz;
+	}
+
+      if (bfd_coff_long_section_names (abfd)
+	  && strlen (o->name) > SCNNMLEN)
+	{
+	  /* This section has a long name which must go in the string
+             table.  This must correspond to the code in
+             coff_write_object_contents which puts the string index
+             into the s_name field of the section header.  That is why
+             we pass hash as false.  */
+	  if (_bfd_stringtab_add (finfo.strtab, o->name, false, false)
+	      == (bfd_size_type) -1)
+	    goto error_return;
+	  long_section_names = true;
 	}
     }
 
@@ -814,8 +877,15 @@ _bfd_coff_final_link (abfd, info)
       finfo.section_info = NULL;
     }
 
+  /* If we have optimized stabs strings, output them.  */
+  if (coff_hash_table (info)->stab_info != NULL)
+    {
+      if (! _bfd_write_stab_strings (abfd, &coff_hash_table (info)->stab_info))
+	return false;
+    }
+
   /* Write out the string table.  */
-  if (obj_raw_syment_count (abfd) != 0)
+  if (obj_raw_syment_count (abfd) != 0 || long_section_names)
     {
       if (bfd_seek (abfd,
 		    (obj_sym_filepos (abfd)
@@ -1079,11 +1149,11 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
   output_index = syment_base;
   outsym = finfo->outsyms;
 
-  if (coff_data(output_bfd)->pe)
-      {
-	if (!process_embedded_commands (output_bfd, finfo->info, input_bfd))
-	  return false;
-      }
+  if (coff_data (output_bfd)->pe)
+    {
+      if (! process_embedded_commands (output_bfd, finfo->info, input_bfd))
+	return false;
+    }
 
   while (esym < esym_end)
     {
@@ -1541,7 +1611,8 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
 
 		  if (ISFCN (isymp->n_type)
 		      || ISTAG (isymp->n_sclass)
-		      || isymp->n_sclass == C_BLOCK)
+		      || isymp->n_sclass == C_BLOCK
+		      || isymp->n_sclass == C_FCN)
 		    {
 		      indx = auxp->x_sym.x_fcnary.x_fcn.x_endndx.l;
 		      if (indx > 0
@@ -1574,6 +1645,81 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
 			auxp->x_sym.x_tagndx.l = 0;
 		      else
 			auxp->x_sym.x_tagndx.l = symindx;
+		    }
+
+		  /* The .bf symbols are supposed to be linked through
+		     the endndx field.  We need to carry this list
+		     across object files.  */
+		  if (i == 0
+		      && h == NULL
+		      && isymp->n_sclass == C_FCN
+		      && (isymp->_n._n_n._n_zeroes != 0
+			  || isymp->_n._n_n._n_offset == 0)
+		      && isymp->_n._n_name[0] == '.'
+		      && isymp->_n._n_name[1] == 'b'
+		      && isymp->_n._n_name[2] == 'f'
+		      && isymp->_n._n_name[3] == '\0')
+		    {
+		      if (finfo->last_bf_index != -1)
+			{
+			  finfo->last_bf.x_sym.x_fcnary.x_fcn.x_endndx.l =
+			    *indexp;
+
+			  if ((bfd_size_type) finfo->last_bf_index
+			      >= syment_base)
+			    {
+			      PTR auxout;
+
+			      /* The last .bf symbol is in this input
+				 file.  This will only happen if the
+				 assembler did not set up the .bf
+				 endndx symbols correctly.  */
+			      auxout = (PTR) (finfo->outsyms
+					      + ((finfo->last_bf_index
+						  - syment_base)
+						 * osymesz));
+			      bfd_coff_swap_aux_out (output_bfd,
+						     (PTR) &finfo->last_bf,
+						     isymp->n_type,
+						     isymp->n_sclass,
+						     0, isymp->n_numaux,
+						     auxout);
+			    }
+			  else
+			    {
+			      /* We have already written out the last
+                                 .bf aux entry.  We need to write it
+                                 out again.  We borrow *outsym
+                                 temporarily.  FIXME: This case should
+                                 be made faster.  */
+			      bfd_coff_swap_aux_out (output_bfd,
+						     (PTR) &finfo->last_bf,
+						     isymp->n_type,
+						     isymp->n_sclass,
+						     0, isymp->n_numaux,
+						     (PTR) outsym);
+			      if (bfd_seek (output_bfd,
+					    (obj_sym_filepos (output_bfd)
+					     + finfo->last_bf_index * osymesz),
+					    SEEK_SET) != 0
+				  || bfd_write (outsym, osymesz, 1,
+						output_bfd) != osymesz)
+				return false;
+			    }
+			}
+
+		      if (auxp->x_sym.x_fcnary.x_fcn.x_endndx.l != 0)
+			finfo->last_bf_index = -1;
+		      else
+			{
+			  /* The endndx field of this aux entry must
+                             be updated with the symbol number of the
+                             next .bf symbol.  */
+			  finfo->last_bf = *auxp;
+			  finfo->last_bf_index = (((outsym - finfo->outsyms)
+						   / osymesz)
+						  + syment_base);
+			}
 		    }
 		}
 
@@ -1744,8 +1890,16 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
   for (o = input_bfd->sections; o != NULL; o = o->next)
     {
       bfd_byte *contents;
+      struct coff_section_tdata *secdata;
 
-      if ((o->flags & SEC_HAS_CONTENTS) == 0)
+      if (! o->linker_mark)
+	{
+	  /* This section was omitted from the link.  */
+	  continue;
+	}
+
+      if ((o->flags & SEC_HAS_CONTENTS) == 0
+	  || (o->_raw_size == 0 && (o->flags & SEC_RELOC) == 0))
 	{
 	  if ((o->flags & SEC_RELOC) != 0
 	      && o->reloc_count != 0)
@@ -1761,9 +1915,9 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
 	  continue;
 	}
 
-      if (coff_section_data (input_bfd, o) != NULL
-	  && coff_section_data (input_bfd, o)->contents != NULL)
-	contents = coff_section_data (input_bfd, o)->contents;
+      secdata = coff_section_data (input_bfd, o);
+      if (secdata != NULL && secdata->contents != NULL)
+	contents = secdata->contents;
       else
 	{
 	  if (! bfd_get_section_contents (input_bfd, o, finfo->contents,
@@ -1890,12 +2044,21 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
 	}
 
       /* Write out the modified section contents.  */
-      if (! bfd_set_section_contents (output_bfd, o->output_section,
-				      contents, o->output_offset,
-				      (o->_cooked_size != 0
-				       ? o->_cooked_size
-				       : o->_raw_size)))
-	return false;
+      if (secdata == NULL || secdata->stab_info == NULL)
+	{
+	  if (! bfd_set_section_contents (output_bfd, o->output_section,
+					  contents, o->output_offset,
+					  (o->_cooked_size != 0
+					   ? o->_cooked_size
+					   : o->_raw_size)))
+	    return false;
+	}
+      else
+	{
+	  if (! _bfd_write_section_stabs (output_bfd, o, &secdata->stab_info,
+					  contents))
+	    return false;
+	}
     }
 
   if (! finfo->info->keep_memory)
@@ -2284,6 +2447,7 @@ _bfd_coff_generic_relocate_section (output_bfd, info, input_bfd,
 		  + input_section->output_section->vma;
 	      if (coff_data(output_bfd)->pe)
 		addr -= pe_data(output_bfd)->pe_opthdr.ImageBase;
+	      /* FIXME: Shouldn't 4 be sizeof (addr)?  */
 	      fwrite (&addr, 1,4, (FILE *) info->base_file);
 	    }
 	}

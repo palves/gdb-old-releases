@@ -1,5 +1,5 @@
 /* HP PA-RISC SOM object file format:  definitions internal to BFD.
-   Copyright (C) 1990, 91, 92, 93, 94 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
    University of Utah (pa-gdb-bugs@cs.utah.edu).
@@ -33,6 +33,46 @@
 #define INLINE
 #endif /* GNU C? */
 #endif /* INLINE */
+
+#if __GNUC__ >= 2 && __GNUC_MINOR__ >= 7
+/* Declare the functions with the unused attribute to avoid warnings.  */
+static INLINE unsigned int assemble_3 (unsigned int)
+     __attribute__ ((__unused__));
+static INLINE void dis_assemble_3 (unsigned int, unsigned int *)
+     __attribute__ ((__unused__));
+static INLINE unsigned int assemble_12 (unsigned int, unsigned int)
+     __attribute__ ((__unused__));
+static INLINE void dis_assemble_12 (unsigned int, unsigned int *,
+				    unsigned int *)
+     __attribute__ ((__unused__));
+static INLINE unsigned long assemble_17 (unsigned int, unsigned int,
+					 unsigned int)
+     __attribute__ ((__unused__));
+static INLINE void dis_assemble_17 (unsigned int, unsigned int *,
+				    unsigned int *, unsigned int *)
+     __attribute__ ((__unused__));
+static INLINE unsigned long assemble_21 (unsigned int)
+     __attribute ((__unused__));
+static INLINE void dis_assemble_21 (unsigned int, unsigned int *)
+     __attribute__ ((__unused__));
+static INLINE unsigned long sign_extend (unsigned int, unsigned int)
+     __attribute__ ((__unused__));
+static INLINE unsigned int ones (int) __attribute ((__unused__));
+static INLINE void sign_unext (unsigned int, unsigned int, unsigned int *)
+     __attribute__ ((__unused__));
+static INLINE unsigned long low_sign_extend (unsigned int, unsigned int)
+     __attribute__ ((__unused__));
+static INLINE void low_sign_unext (unsigned int, unsigned int, unsigned int *)
+     __attribute__ ((__unused__));
+static INLINE unsigned long hppa_field_adjust (unsigned long, unsigned long,
+					       unsigned short)
+     __attribute__ ((__unused__));
+static INLINE char bfd_hppa_insn2fmt (unsigned long)
+     __attribute__ ((__unused__));
+static INLINE  unsigned long hppa_rebuild_insn (bfd *, unsigned long,
+						unsigned long, unsigned long)
+     __attribute__ ((__unused__));
+#endif /* gcc 2.7 or higher */
 
 /* The PA instruction set variants.  */
 enum pa_arch {pa10 = 10, pa11 = 11, pa20 = 20};
@@ -517,9 +557,13 @@ hppa_rebuild_insn (abfd, insn, value, r_format)
       }
 
     case 14:
-      const_part = insn & 0xffffc000;
-      low_sign_unext (value, 14, &rebuilt_part);
-      return const_part | rebuilt_part;
+      {
+	unsigned int ext;
+	
+	const_part = insn & 0xffffc000;
+	low_sign_unext (value, 14, &ext);
+	return const_part | ext;
+      }
 
     case 17:
       {
@@ -532,9 +576,13 @@ hppa_rebuild_insn (abfd, insn, value, r_format)
       }
 
     case 21:
-      const_part = insn & 0xffe00000;
-      dis_assemble_21 (value, &rebuilt_part);
-      return const_part | rebuilt_part;
+      {
+	unsigned int w;
+
+	const_part = insn & 0xffe00000;
+	dis_assemble_21 (value, &w);
+	return const_part | w;
+      }
 
     case 32:
       const_part = 0;

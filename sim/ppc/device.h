@@ -30,6 +30,406 @@
 /* typedef struct _device device; */
 
 
+/* Introduction:
+
+   A key feature of standard IEEE1275-1994 - IEEE Standard for Boot
+   (Initialization Configuration) Firmware is its use of a device tree
+   to provide an abstract representation of a machines architecture.
+
+   In PSIM, this approach has been extended so that the tree structure
+   also provides the framework upon which a target machines underying
+   implementation can be modeled.  For instance, using Open Boot
+   firmware, the abstract operations of read or write can be applied
+   to a device in a device tree.  PSIM has extended this to include
+   more concrete operations such as PIO or DMA data transfers and an
+   interrupt network.
+
+   This document firstly introduces the user to the concept of a
+   device tree (as found in the simulator PSIM).  It then describes in
+   detail how this model can quickly be extended to meet a particuar
+   applications needs. */
+
+/* A device tree:
+
+   In the figure below appears what can best be described as your
+   typical computer architecture.  It is characterized by a number of
+   processors attached to a primary processor/memory bus.  That bus in
+   turn being connected, via a bridge (IOBUS), to a secondary bus.
+   The secondary bus containing a number of I/O devices (eg disk,
+   serial port). In addition, several of the I/O devices have been
+   connected to the Interrupt Controller (PIC), the controller in turn
+   being attached to each processor interrupt port.
+
+   @figure machine
+
+   The nature of such a design lends its self to be represented,
+   abstractly, as a tree of nodes.  In such a representation, primary,
+   secondary and tertary busses would correspond to inner nodes with
+   physical devices correspond to the leaves.  One possible tree
+   representation is depicted below (the cpus node is explained
+   later).
+
+   @figure tree
+
+   As noted in the introduction, both PSIM and IEEE1275 use similar
+   device tree structures to provide an abstract representation of a
+   machines architecture.
+
+   It should be noted that when discussing the device tree, all nodes
+   are refered to as devices and an operation on a given device is
+   called a method.  While both of those terms have been adopted from
+   the Open Boot specification, others I use most certainly have
+   not. */
+
+/* The Device:
+
+   As with IEEE1275, each device in PSIM has a parent, siblings and
+   children.  Once created a device is able to gain access to each of
+   these devices using generic methods. */
+
+
+/* The Property:
+
+   In IEEE1275 many of the the characteristics of a device are stored
+   in the device tree as properties.  Each property consists of a name
+   and an associated (implicitly typed) value.  A device will have a
+   list of properties attached to it.  The user is able to manipulate
+   the list, adding and removing properties and set/modify the value
+   of each property.
+
+   PSIM's device tree follows this model but with the addition of
+   strongly typing each property's value.  The simulator will detect
+   at run time, the incorrect use of a property.
+
+   In addition to the standard use of properties, Both PSIM and
+   individual devices will use properties to record simulation
+   configuration information.  For instance, a disk device might store
+   in a string property called <<file>> the name of the file that
+   contains the disk image to use. */
+
+/* The following are valid property types.  The property `array' is a
+   for generic untyped data. */
+
+typedef enum {
+  array_property,
+  boolean_property,
+  ihandle_property,
+  integer_property,
+  string_property,
+} device_property_type;
+
+typedef struct _device_property device_property;
+struct _device_property {
+  device *owner;
+  const char *name;
+  device_property_type type;
+  unsigned sizeof_array;
+  const void *array;
+  const device_property *original;
+  object_disposition disposition;
+};
+
+
+/* iterate through the properties attached to a device */
+
+INLINE_DEVICE\
+(const device_property *) device_next_property
+(const device_property *previous);
+
+INLINE_DEVICE\
+(const device_property *) device_find_property
+(device *me,
+ const char *property); /* NULL for first property */
+
+
+/* Manipulate the properties belonging to a given device.
+
+   SET on the other hand will force the properties value.  The
+   simulation is aborted if the property was present but of a
+   conflicting type.
+
+   FIND returns the specified properties value, aborting the
+   simulation if the property is missing.  Code locating a property
+   should first check its type (using device_find_property above) and
+   then obtain its value using the below. */
+
+
+INLINE_DEVICE\
+(void) device_set_array_property
+(device *me,
+ const char *property,
+ const void *array,
+ int sizeof_array);
+
+INLINE_DEVICE\
+(const device_property *) device_find_array_property
+(device *me,
+ const char *property);
+
+
+#if 0
+INLINE_DEVICE\
+(void) device_set_boolean_property
+(device *me,
+ const char *property,
+ int bool);
+#endif
+
+INLINE_DEVICE\
+(int) device_find_boolean_property
+(device *me,
+ const char *property);
+
+
+#if 0
+INLINE_DEVICE\
+(void) device_set_ihandle_property
+(device *me,
+ const char *property,
+ device_instance *ihandle);
+#endif
+
+INLINE_DEVICE\
+(device_instance *) device_find_ihandle_property
+(device *me,
+ const char *property);
+
+
+#if 0
+INLINE_DEVICE\
+(void) device_set_integer_property
+(device *me,
+ const char *property,
+ signed_word integer);
+#endif
+
+INLINE_DEVICE\
+(signed_word) device_find_integer_property
+(device *me,
+ const char *property);
+
+
+#if 0
+INLINE_DEVICE\
+(void) device_set_string_property
+(device *me,
+ const char *property,
+ const char *string);
+#endif
+
+INLINE_DEVICE\
+(const char *) device_find_string_property
+(device *me,
+ const char *property);
+
+
+/* Instances:
+
+   As with IEEE1275, a device can be opened, creating an instance.
+   Instances provide more abstract interfaces to the underlying
+   hardware.  For example, the instance methods for a disk may include
+   code that is able to interpret file systems found on disks.  Such
+   methods would there for allow the manipulation of files on the
+   disks file system.  The operations would be implemented using the
+   basic block I/O model provided by the disk.
+
+   This model includes methods that faciliate the creation of device
+   instance and (should a given device support it) standard operations
+   on those instances. */
+
+/* PIO:
+
+   @figure pio
+
+   During initialization, each device attaches its self to is parent
+   registering the address spaces that it is interested in:
+
+   a.	The <<com>> device attaches its self to its parent <<phb>>
+   	device at address <<0x3f8>> through to address <<0x3f8 + 16>>.
+
+   b.   The <<phb>> has in turn attached its self to addresses
+        <<0xf0000000 .. 0xf0100000>>.
+
+   During the execution of the simulation propper, the following then
+   occure:
+	
+   1.	After any virtual to physical translation, the processor
+   	passes the address to be read (or written to the core device).
+	(eg address 0xf00003f8).
+
+   2.   The core device then looks up the specified addresses in its
+        address to device map, determines that in this case the address
+	belongs to the phb and passes it down.
+
+   3.	The <<phb>> in turn determines that the address belongs to the
+   	serial port and passes to that device the request for an access
+	to location <<0x3f8>>.
+
+   @figure mio
+
+   */
+
+/* DMA:
+
+   */
+
+/* Interrupts:
+
+   PSIM models interrupts and their wiring as a directed graph of
+   connections between interrupt sources and destinations.  The source
+   and destination are both a tupple consisting of a port number and
+   device.  Both multiple destinations attached to a single source and
+   multiple sources attached to a single destination are allowed.
+
+   When a device drives an interrupt port with multiple destinations a
+   broadcast of that interrupt event (message to all destinations)
+   occures.  Each of those destination (device/port) are able to
+   further propogate the interrupt until it reaches its ultimate
+   destination.
+
+   Normally an interrupt source would be a model of a real device
+   (such as a keyboard) while an interrupt destination would be an
+   interrupt controller.  The facility that allows an interrupt to be
+   delivered to multiple devices and to be propogated from device to
+   device was designed to support the requirements specified by
+   OpenPIC (ISA interrupts go to both OpenPIC and 8259), CHRP (8259
+   connected to OpenPIC) and hardware designs such as PCI-PCI
+   bridges. */
+
+   
+/* Interrupting a processor
+
+   The cpu object provides methods for delivering external interrupts
+   to a given processor.
+
+   The problem of synchronizing external interrupt delivery with the
+   execution of the cpu is handled internally by the processor object. */
+
+
+
+/* Interrupt Source
+
+   A device drives its interrupt line using the call: */
+
+INLINE_DEVICE\
+(void) device_interrupt_event
+(device *me,
+ int my_port,
+ int value,
+ cpu *processor,
+ unsigned_word cia);
+
+/* This interrupt event will then be propogated to any attached
+   interrupt destinations.
+
+   Any interpretation of PORT and VALUE is model dependant.  However
+   as guidelines the following are recommended: PCI interrupts a-d
+   correspond to lines 0-3; level sensative interrupts be requested
+   with a value of one and withdrawn with a value of 0; edge sensative
+   interrupts always have a value of 1, the event its self is treated
+   as the interrupt.
+
+
+   Interrupt Destinations
+
+   Attached to each interrupt line of a device can be zero or more
+   desitinations.  These destinations consist of a device/port pair.
+   A destination is attached/detached to a device line using the
+   attach and detach calls. */
+
+INLINE_DEVICE\
+(void) device_interrupt_attach
+(device *me,
+ int my_port,
+ device *dest,
+ int dest_port,
+ object_disposition disposition);
+
+INLINE_DEVICE\
+(void) device_interrupt_detach
+(device *me,
+ int my_port,
+ device *dest,
+ int dest_port);
+
+/* DESTINATION is attached (detached) to LINE of the device ME
+
+
+   Interrupt conversion
+
+   Users refer to interrupt port numbers symbolically.  For instance a
+   device may refer to its `INT' signal which is internally
+   represented by port 3.
+
+   To convert to/from the symbolic and internal representation of a
+   port name/number.  The following functions are available. */
+
+INLINE_DEVICE\
+(int) device_interrupt_decode
+(device *me,
+ const char *symbolic_name);
+
+INLINE_DEVICE\
+(int) device_interrupt_encode
+(device *me,
+ int port_number,
+ char *buf,
+ int sizeof_buf);
+ 
+
+
+/* Initialization:
+
+   In PSIM, the device tree is created and then initialized in stages.
+   When using devices it is important to be clear what initialization
+   the simulator assumes is being performed during each of these
+   stages.
+
+   Firstly, each device is created in isolation (using the create from
+   template method).  Only after it has been created will a device be
+   inserted into the tree ready for initialization.
+
+   Once the tree is created, it is initialized as follows:
+
+   	1.      All properties (apart from those containing instances)
+                are (re)initialized
+
+        2.      Any interrupts addeded as part of the simulation run
+		are removed.
+
+        4.      The initialize address method of each device (in top
+		down order) is called.  At this stage the device
+		is expected to:
+
+		o	Clear address maps and delete allocated memory
+			associated with the devices children.
+
+		o	(Re)attach its own addresses to its parent device.
+
+		o	Ensure that it is otherwize sufficiently
+			initialized such that it is ready for a
+			device instance create call.
+
+        5.      All properties containing an instance of
+                a device are (re)initialized
+
+        6.      The initialize data method for each device is called (in
+		top down) order.  At this stage the device is expected to:
+
+		o	Perform any needed data transfers.  Such
+			transfers would include the initialization
+			of memory created during the address initialization
+			stage using DMA.
+
+		*/
+
+INLINE_DEVICE\
+(void) device_tree_init
+(device *root,
+ psim *system);
+
+
+
 /* Devices:
 
    OpenBoot documentation refers to devices, device nodes, packages,
@@ -50,22 +450,32 @@
    both local state (data), a relationship with the device nodes
    around it and an address (unit-address) on the parents bus `bus' */
 
-INLINE_DEVICE(device *) device_parent
+INLINE_DEVICE\
+(device *) device_parent
 (device *me);
 
-INLINE_DEVICE(device *) device_sibling
+INLINE_DEVICE\
+(device *) device_sibling
 (device *me);
 
-INLINE_DEVICE(device *) device_child
+INLINE_DEVICE\
+(device *) device_child
 (device *me);
 
-INLINE_DEVICE(const char *) device_name
+INLINE_DEVICE\
+(const char *) device_name
 (device *me);
 
-INLINE_DEVICE(const char *) device_path
+INLINE_DEVICE\
+(const char *) device_path
 (device *me);
 
-INLINE_DEVICE(void *) device_data
+INLINE_DEVICE\
+(void *) device_data
+(device *me);
+
+INLINE_DEVICE\
+(psim *) device_system
 (device *me);
 
 typedef struct _device_unit {
@@ -73,7 +483,8 @@ typedef struct _device_unit {
   unsigned32 cells[4]; /* unused cells are zero */
 } device_unit;
 
-INLINE_DEVICE(const device_unit *) device_unit_address
+INLINE_DEVICE\
+(const device_unit *) device_unit_address
 (device *me);
 
 /* Each device-node normally corresponds to a hardware component of
@@ -82,18 +493,19 @@ INLINE_DEVICE(const device_unit *) device_unit_address
    
    Device nodes also support methods that are an abstraction of the
    transactions that occure in real hardware.  These operations
-   (io/dma read/writes and interrupts) are discussed separatly later.
+   (io/dma read/writes and interrupts) are discussed separatly.
 
    OpenBoot refers to device nodes by many names.  The most common are
-   device, device node and package.
+   device, device node and package. */
 
 
-   device-template:
+/* device-template:
 
    A device node is created from its template.  The only valid
    operation on a template is to create a device node from it: */
 
-INLINE_DEVICE(device *) device_template_create_device
+INLINE_DEVICE\
+(device *) device_template_create_device
 (device *parent,
  const char *name,
  const char *unit_address,
@@ -108,57 +520,84 @@ INLINE_DEVICE(device *) device_template_create_device
 
 typedef struct _device_callbacks device_callbacks;
 
-INLINE_DEVICE(device *) device_create_from
+INLINE_DEVICE\
+(device *) device_create_from
 (const char *name,
  const device_unit *unit_address,
  void *data,
  const device_callbacks *callbacks,
  device *parent);
 
-/* OpenBoot discusses the creation of packages (devices).
+/* OpenBoot discusses the creation of packages (devices). */
 
 
 
-
-   device-instance:
+/* device-instance:
 
    Devices support an abstract I/O model. A unique I/O instance can be
    created from a device node and then this instance used to perform
    I/O that is independant of other instances. */
 
-INLINE_DEVICE(device_instance *)device_instance_create
-(device *me,
- const char *device_specifier,
- int permanant);
+typedef struct _device_instance_callbacks device_instance_callbacks;
 
-INLINE_DEVICE(void) device_instance_delete
+INLINE_DEVICE\
+(device_instance *) device_create_instance_from
+(device *me, /*OR*/ device_instance *parent,
+ void *data,
+ const char *path,
+ const char *args,
+ const device_instance_callbacks *callbacks);
+
+INLINE_DEVICE\
+(device_instance *) device_create_instance
+(device *me,
+ const char *device_specifier);
+
+INLINE_DEVICE\
+(void) device_instance_delete
 (device_instance *instance);
 
-INLINE_DEVICE(int) device_instance_read
+INLINE_DEVICE\
+(int) device_instance_read
 (device_instance *instance,
  void *addr,
  unsigned_word len);
 
-INLINE_DEVICE(int) device_instance_write
+INLINE_DEVICE\
+(int) device_instance_write
 (device_instance *instance,
  const void *addr,
  unsigned_word len);
 
-INLINE_DEVICE(int) device_instance_seek
+INLINE_DEVICE\
+(int) device_instance_seek
 (device_instance *instance,
  unsigned_word pos_hi,
  unsigned_word pos_lo);
 
-INLINE_DEVICE(device *) device_instance_device
+INLINE_DEVICE\
+(unsigned_word) device_instance_claim
+(device_instance *instance,
+ unsigned_word address,
+ unsigned_word length,
+ unsigned_word alignment);
+
+INLINE_DEVICE\
+(void) device_instance_release
+(device_instance *instance,
+ unsigned_word address,
+ unsigned_word length);
+
+INLINE_DEVICE\
+(device *) device_instance_device
 (device_instance *instance);
 
-INLINE_DEVICE(const char *) device_instance_name
+INLINE_DEVICE\
+(const char *) device_instance_path
 (device_instance *instance);
 
-INLINE_DEVICE(const char *) device_instance_path
-(device_instance *instance);
-
-INLINE_DEVICE(void *) device_instance_data
+INLINE_DEVICE\
+(void *) device_instance_data
 (device_instance *instance);
 
 /* A device instance can be marked (when created) as being permenant.
@@ -166,145 +605,6 @@ INLINE_DEVICE(void *) device_instance_data
    deleted between simulation runs.
 
    OpenBoot refers to a device instace as a package instance */
-
-
-/* Device initialization:
-
-   A device is created once (from its template) but initialized at the
-   start of every simulation run.  This initialization is performed in
-   stages:
-
-	o	All attached addresses are detached
-		Any non-permenant interrupts are detached
-		Any non-permemant device instances are deleted
-
-	o	the devices all initialize their address spaces
-	
-	o	the devices all initialize their data areas
-
-   */
-
-INLINE_DEVICE(void) device_init_address
-(device *me,
- psim *system);
-
-INLINE_DEVICE(void) device_init_data
-(device *me,
- psim *system);
-
-INLINE_DEVICE(void) device_tree_init
-(device *root,
- psim *system);
-
-
-
-/* Device Properties:
-
-   Attached to a device node are its properties.  Properties describe
-   the devices characteristics, for instance the address of its
-   configuration and contrll registers. Unlike OpenBoot PSIM strictly
-   types all properties.properties that profile the devices features.
-   The below allow the manipulation of device properties */
-
-typedef enum {
-  array_property,
-  boolean_property,
-  ihandle_property,
-  integer_property,
-  phandle_property,
-  string_property,
-} device_property_type;
-
-typedef struct _device_property device_property;
-struct _device_property {
-  device *owner;
-  const char *name;
-  device_property_type type;
-  unsigned sizeof_array;
-  const void *array;
-  const device_property *original;
-};
-
-
-/* Locate a devices properties */
-
-INLINE_DEVICE(const device_property *) device_next_property
-(const device_property *previous);
-
-INLINE_DEVICE(const device_property *) device_find_property
-(device *me,
- const char *property); /* NULL for first property */
-
-
-/* Similar to above except that the property *must* be in the device
-   tree and *must* be of the specified type.
-
-   If this isn't the case each function indicates is fail action */
-
-INLINE_DEVICE(const device_property *) device_find_array_property
-(device *me,
- const char *property);
-
-INLINE_DEVICE(int) device_find_boolean_property
-(device *me,
- const char *property);
-
-INLINE_DEVICE(device_instance *) device_find_ihandle_property
-(device *me,
- const char *property);
-
-INLINE_DEVICE(signed_word) device_find_integer_property
-(device *me,
- const char *property);
-
-INLINE_DEVICE(device *) device_find_phandle_property
-(device *me,
- const char *property);
-
-INLINE_DEVICE(const char *) device_find_string_property
-(device *me,
- const char *property);
-
-
-/* INLINE_DEVICE void device_add_property
-   No such external function, all properties, when added are explictly
-   typed */
-
-INLINE_DEVICE(void) device_add_duplicate_property
-(device *me,
- const char *property,
- const device_property *original);
-
-INLINE_DEVICE(void) device_add_array_property
-(device *me,
- const char *property,
- const void *array,
- int sizeof_array);
-
-INLINE_DEVICE(void) device_add_boolean_property
-(device *me,
- const char *property,
- int bool);
-
-INLINE_DEVICE(void) device_add_ihandle_property
-(device *me,
- const char *property,
- device_instance *ihandle);
-
-INLINE_DEVICE(void) device_add_integer_property
-(device *me,
- const char *property,
- signed_word integer);
-
-INLINE_DEVICE(void) device_add_phandle_property
-(device *me,
- const char *property,
- device *phandle);
-
-INLINE_DEVICE(void) device_add_string_property
-(device *me,
- const char *property,
- const char *string);
 
 
 
@@ -330,7 +630,8 @@ INLINE_DEVICE(void) device_add_string_property
    hardware) manipulate either the address or data involved in the
    transfer. */
 
-INLINE_DEVICE(unsigned) device_io_read_buffer
+INLINE_DEVICE\
+(unsigned) device_io_read_buffer
 (device *me,
  void *dest,
  int space,
@@ -339,7 +640,8 @@ INLINE_DEVICE(unsigned) device_io_read_buffer
  cpu *processor,
  unsigned_word cia);
 
-INLINE_DEVICE(unsigned) device_io_write_buffer
+INLINE_DEVICE\
+(unsigned) device_io_write_buffer
 (device *me,
  const void *source,
  int space,
@@ -355,14 +657,16 @@ INLINE_DEVICE(unsigned) device_io_write_buffer
    parent nodes.  The root device (special) converts the DMA transfer
    into reads/writes to memory */
 
-INLINE_DEVICE(unsigned) device_dma_read_buffer
+INLINE_DEVICE\
+(unsigned) device_dma_read_buffer
 (device *me,
  void *dest,
  int space,
  unsigned_word addr,
  unsigned nr_bytes);
 
-INLINE_DEVICE(unsigned) device_dma_write_buffer
+INLINE_DEVICE\
+(unsigned) device_dma_write_buffer
 (device *me,
  const void *source,
  int space,
@@ -391,12 +695,13 @@ typedef enum _access_type {
 /* Address attachement types */
 typedef enum _attach_type {
   attach_invalid,
-  attach_callback,
-  attach_default,
   attach_raw_memory,
+  attach_callback,
+  /* ... */
 } attach_type;
 
-INLINE_DEVICE(void) device_attach_address
+INLINE_DEVICE\
+(void) device_attach_address
 (device *me,
  const char *name,
  attach_type attach,
@@ -406,7 +711,8 @@ INLINE_DEVICE(void) device_attach_address
  access_type access,
  device *who); /*callback/default*/
 
-INLINE_DEVICE(void) device_detach_address
+INLINE_DEVICE\
+(void) device_detach_address
 (device *me,
  const char *name,
  attach_type attach,
@@ -419,150 +725,53 @@ INLINE_DEVICE(void) device_detach_address
 /* where the attached address space can be any of:
 
    callback - all accesses to that range of addresses are past on to
-   the attached child device.
-
-   default - if no other device claims the access, it is passed on to
-   this child device (giving subtractive decoding).
+   the attached child device.  The callback addresses are ordered
+   according to the callback level (attach_callback, .. + 1, .. + 2,
+   ...).  Lower levels are searched first.  This facilitates the
+   implementation of more unusual addressing schema such as
+   subtractive decoding (as seen on the PCI bus).  Within a given
+   callback level addresses must not overlap.
 
    memory - the specified address space contains RAM, the node that is
    having the ram attached is responsible for allocating space for and
    maintaining that space.  The device initiating the attach will not
    be notified of accesses to such an attachement.
 
-   The last type of attachement is very important.  By giving the
-   parent node the responsability (and freedom) of managing RAM, that
-   node is able to implement memory spaces more efficiently.  For
-   instance it could `cache' accesses or merge adjacent memory areas.
+   The memory attachment is very important.  By giving the parent node
+   the responsability (and freedom) of managing the RAM, that node is
+   able to implement memory spaces more efficiently.  For instance it
+   could `cache' accesses or merge adjacent memory areas.
 
 
    In addition to I/O and DMA, devices interact with the rest of the
-   system via interrupts.  Interrupts are discussed in the next
-   section. */
+   system via interrupts.  Interrupts are discussed separatly. */
 
-
-/* Interrupts
-
-   PSIM models interrupts and their wiring as a directed graph of
-   connections between interrupt sources and destinations.  The source
-   and destination are both a tupple consisting of a port number and
-   device.  Both multiple destinations attached to a single source and
-   multiple sources attached to a single destination are allowed.
-
-   When a device drives an interrupt port with multiple destinations a
-   broadcast of that interrupt event (message to all destinations)
-   occures.  Each of those destination (device/port) are able to
-   further propogate the interrupt until it reaches its ultimate
-   destination.
-
-   Normally an interrupt source would be a model of a real device
-   (such as a keyboard) while an interrupt destination would be an
-   interrupt controller.  The facility that allows an interrupt to be
-   delivered to multiple devices and to be propogated from device to
-   device was designed so that requirements specified by OpenPIC (ISA
-   interrupts go to both OpenPIC and 8259), CHRP (8259 connected to
-   OpenPIC) and hardware designs such as PCI-PCI bridges.
-
-
-   Interrupt Source
-
-   A device drives its interrupt line using the call: */
-
-INLINE_DEVICE(void) device_interrupt_event
-(device *me,
- int my_port,
- int value,
- cpu *processor,
- unsigned_word cia);
-
-/* This interrupt event will then be propogated to any attached
-   interrupt destinations.
-
-   Any interpretation of PORT and VALUE is model dependant.  However
-   as guidelines the following are recommended: PCI interrupts a-d
-   correspond to lines 0-3; level sensative interrupts be requested
-   with a value of one and withdrawn with a value of 0; edge sensative
-   interrupts always have a value of 1, the event its self is treated
-   as the interrupt.
-
-
-   Interrupt Destinations
-
-   Attached to each interrupt line of a device can be zero or more
-   desitinations.  These destinations consist of a device/port pair.
-   A destination is attached/detached to a device line using the
-   attach and detach calls. */
-
-INLINE_DEVICE(void) device_interrupt_attach
-(device *me,
- int my_port,
- device *dest,
- int dest_port,
- int permenant);
-
-INLINE_DEVICE(void) device_interrupt_detach
-(device *me,
- int my_port,
- device *dest,
- int dest_port);
-
-/* DESTINATION is attached (detached) to LINE of the device ME
-
-   Should no destination be attached to a given devices interrupt line
-   then that interrupt is propogated up the device tree (through
-   parent nodes) until a parent that has an interrupt destination
-   attached to its special child-interrupt line.  These are attached
-   with: */
-
-INLINE_DEVICE(void) device_child_interrupt_attach
-(device *me,
- device *destination,
- int permenant);
-
-INLINE_DEVICE(void) device_child_interrupt_detach
-(device *me,
- device *destination);
-
-/* It is an error for an interrupt to be propogated past the root node
-
-
-   Interrupting a processor
-
-   While it is possible for an interrupt destination device to
-   directly interrupt a processor (using interrupt.h calls) it is not
-   the norm.  Interrupting a processor midway through the cpu cycle
-   would result in a simulation restart.  This restart may result in
-   the interrupt not being delivered to all the intended destinations.
-
-   Instead, an interrupt controller, when it has been determined that
-   a processor should be interrupted should:
-
-       o   Schedule an immediate timer event (using events.h)
-           These events occure at the end of the cpu cycle.
-
-       o   When this timer event is delivered (at the end of the
-           cpu cycle) the interrupt controller can then deliver
-	   its interrupt.
-
-   It should be noted that interrupts can be delivered to an interrupt
-   controller either during the middle of the cpu cycle or at the end.
-   Further an interrupt could be delivered at the end of a cycle
-   before and after an interrupt controller receives its own timer
-   events.  An interrupt controller must be able to handle these cases
-   gracefully. */
-
-
 /* IOCTL:
 
    Very simply, a catch all for any thing that turns up that until now
    either hasn't been thought of or doesn't justify an extra function. */
 
 EXTERN_DEVICE\
-(void) device_ioctl
+(int) device_ioctl
 (device *me,
- psim *system,
  cpu *processor,
  unsigned_word cia,
  ...);
+
+
+/* I/O:
+
+   Devices interface to the external environment */
+
+/* device_error() reports the problem to the console and aborts the
+   simulation.  The error message is prefixed with the name of the
+   reporting device. */
+
+EXTERN_DEVICE\
+(void volatile) device_error
+(device *me,
+ const char *fmt,
+ ...) __attribute__ ((format (printf, 2, 3)));
 
 
 /* Tree utilities:
@@ -572,7 +781,8 @@ EXTERN_DEVICE\
 
    Create a device or property from a textual representation */
 
-EXTERN_DEVICE(device *) device_tree_add_parsed
+EXTERN_DEVICE\
+(device *) device_tree_add_parsed
 (device *current,
  const char *fmt,
  ...) __attribute__ ((format (printf, 2, 3)));
@@ -642,10 +852,6 @@ EXTERN_DEVICE(device *) device_tree_add_parsed
 
      <device> " " ">" <my-port>  <dest-port> <dest-device>
 
-   Attach child interrupt of <device> to <controller>:
-
-     <device> " " "<" <controller>
-
 
    Once created, a device tree can be traversed in various orders: */
 
@@ -653,7 +859,8 @@ typedef void (device_tree_traverse_function)
      (device *device,
       void *data);
 
-INLINE_DEVICE(void) device_tree_traverse
+INLINE_DEVICE\
+(void) device_tree_traverse
 (device *root,
  device_tree_traverse_function *prefix,
  device_tree_traverse_function *postfix,
@@ -662,19 +869,22 @@ INLINE_DEVICE(void) device_tree_traverse
 /* Or dumped out in a format that can be read back in using
    device_add_parsed() */
 
-INLINE_DEVICE(void) device_tree_print_device
+INLINE_DEVICE\
+(void) device_tree_print_device
 (device *device,
  void *ignore_data_argument);
 
 /* Individual nodes can be located using */
 
-INLINE_DEVICE(device *) device_tree_find_device
+INLINE_DEVICE\
+(device *) device_tree_find_device
 (device *root,
  const char *path);
 
 /* And the current list of devices can be listed */
 
-INLINE_DEVICE(void) device_usage
+INLINE_DEVICE\
+(void) device_usage
 (int verbose);
 
 
@@ -690,18 +900,22 @@ INLINE_DEVICE(void) device_usage
    client program, the following mapping operators `safely' convert
    between the two representations: */
 
-INLINE_DEVICE(device *) external_to_device
+INLINE_DEVICE\
+(device *) external_to_device
 (device *tree_member,
  unsigned32 phandle);
 
-INLINE_DEVICE(unsigned32) device_to_external
+INLINE_DEVICE\
+(unsigned32) device_to_external
 (device *me);
 
-INLINE_DEVICE(device_instance *) external_to_device_instance
+INLINE_DEVICE\
+(device_instance *) external_to_device_instance
 (device *tree_member,
  unsigned32 ihandle);
 
-INLINE_DEVICE(unsigned32) device_instance_to_external
+INLINE_DEVICE\
+(unsigned32) device_instance_to_external
 (device_instance *me);
 
 #endif /* _DEVICE_H_ */

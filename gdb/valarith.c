@@ -1,5 +1,5 @@
 /* Perform arithmetic and other operations on values, for GDB.
-   Copyright 1986, 1989, 1991, 1992, 1993, 1994
+   Copyright 1986, 1989, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -293,9 +293,10 @@ int unop_user_defined_p (op, arg1)
    unused.  */
 
 value_ptr
-value_x_binop (arg1, arg2, op, otherop)
+value_x_binop (arg1, arg2, op, otherop, noside)
      value_ptr arg1, arg2;
      enum exp_opcode op, otherop;
+     enum noside noside;
 {
   value_ptr * argvec;
   char *ptr;
@@ -375,6 +376,13 @@ value_x_binop (arg1, arg2, op, otherop)
 	  argvec[1] = argvec[0];
 	  argvec++;
 	}
+      if (noside == EVAL_AVOID_SIDE_EFFECTS)
+	{
+	  struct type *return_type;
+	  return_type
+	    = TYPE_TARGET_TYPE (check_typedef (VALUE_TYPE (argvec[0])));
+	  return value_zero (return_type, VALUE_LVAL (arg1));
+	}
       return call_function_by_hand (argvec[0], 2 - static_memfuncp, argvec + 1);
     }
   error ("member function %s not found", tstr);
@@ -390,9 +398,10 @@ value_x_binop (arg1, arg2, op, otherop)
    is legal for GNU C++).  */
 
 value_ptr
-value_x_unop (arg1, op)
+value_x_unop (arg1, op, noside)
      value_ptr arg1;
      enum exp_opcode op;
+     enum noside noside;
 {
   value_ptr * argvec;
   char *ptr, *mangle_ptr;
@@ -438,6 +447,13 @@ value_x_unop (arg1, op)
 	{
 	  argvec[1] = argvec[0];
 	  argvec++;
+	}
+      if (noside == EVAL_AVOID_SIDE_EFFECTS)
+	{
+	  struct type *return_type;
+	  return_type
+	    = TYPE_TARGET_TYPE (check_typedef (VALUE_TYPE (argvec[0])));
+	  return value_zero (return_type, VALUE_LVAL (arg1));
 	}
       return call_function_by_hand (argvec[0], 1 - static_memfuncp, argvec + 1);
     }
@@ -1128,6 +1144,7 @@ value_neg (arg1)
      register value_ptr arg1;
 {
   register struct type *type;
+  register struct type *result_type = VALUE_TYPE (arg1);
 
   COERCE_REF (arg1);
   COERCE_ENUM (arg1);
@@ -1135,9 +1152,16 @@ value_neg (arg1)
   type = check_typedef (VALUE_TYPE (arg1));
 
   if (TYPE_CODE (type) == TYPE_CODE_FLT)
-    return value_from_double (type, - value_as_double (arg1));
+    return value_from_double (result_type, - value_as_double (arg1));
   else if (TYPE_CODE (type) == TYPE_CODE_INT)
-    return value_from_longest (type, - value_as_long (arg1));
+    {
+      /* Perform integral promotion for ANSI C/C++.
+	 FIXME: What about FORTRAN and chill ?  */
+      if (TYPE_LENGTH (type) < TYPE_LENGTH (builtin_type_int))
+	result_type = builtin_type_int;
+
+      return value_from_longest (result_type, - value_as_long (arg1));
+    }
   else {
     error ("Argument to negate operation not a number.");
     return 0;  /* For lint -- never reached */
@@ -1148,13 +1172,23 @@ value_ptr
 value_complement (arg1)
      register value_ptr arg1;
 {
+  register struct type *type;
+  register struct type *result_type = VALUE_TYPE (arg1);
+
   COERCE_REF (arg1);
   COERCE_ENUM (arg1);
 
-  if (TYPE_CODE (check_typedef (VALUE_TYPE (arg1))) != TYPE_CODE_INT)
+  type = check_typedef (VALUE_TYPE (arg1));
+
+  if (TYPE_CODE (type) != TYPE_CODE_INT)
     error ("Argument to complement operation not an integer.");
 
-  return value_from_longest (VALUE_TYPE (arg1), ~ value_as_long (arg1));
+  /* Perform integral promotion for ANSI C/C++.
+     FIXME: What about FORTRAN ?  */
+  if (TYPE_LENGTH (type) < TYPE_LENGTH (builtin_type_int))
+    result_type = builtin_type_int;
+
+  return value_from_longest (result_type, ~ value_as_long (arg1));
 }
 
 /* The INDEX'th bit of SET value whose VALUE_TYPE is TYPE,

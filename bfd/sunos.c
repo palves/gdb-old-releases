@@ -78,6 +78,14 @@ static boolean sunos_finish_dynamic_link
 #define MY_check_dynamic_reloc sunos_check_dynamic_reloc
 #define MY_finish_dynamic_link sunos_finish_dynamic_link
 
+/* ??? Where should this go?  */
+#define MACHTYPE_OK(mtype) \
+  (((mtype) == M_SPARC && bfd_lookup_arch (bfd_arch_sparc, 0) != NULL) \
+   || ((mtype) == M_SPARCLET \
+       && bfd_lookup_arch (bfd_arch_sparc, bfd_mach_sparc_sparclet) != NULL) \
+   || (((mtype) == M_UNKNOWN || (mtype) == M_68010 || (mtype) == M_68020) \
+       && bfd_lookup_arch (bfd_arch_m68k, 0) != NULL))
+
 /* Include the usual a.out support.  */
 #include "aoutf1.h"
 
@@ -839,8 +847,7 @@ sunos_create_dynamic_sections (abfd, info, needed)
 }
 
 /* Add dynamic symbols during a link.  This is called by the a.out
-   backend linker when it encounters an object with the DYNAMIC flag
-   set.  */
+   backend linker for each object it encounters.  */
 
 static boolean
 sunos_add_dynamic_symbols (abfd, info, symsp, sym_countp, stringsp)
@@ -854,6 +861,18 @@ sunos_add_dynamic_symbols (abfd, info, symsp, sym_countp, stringsp)
   bfd *dynobj;
   struct sunos_dynamic_info *dinfo;
   unsigned long need;
+
+  /* Make sure we have all the required sections.  */
+  if (! sunos_create_dynamic_sections (abfd, info,
+				       (((abfd->flags & DYNAMIC) != 0
+					 && ! info->relocateable)
+					? true
+					: false)))
+    return false;
+
+  /* There is nothing else to do for a normal object.  */
+  if ((abfd->flags & DYNAMIC) == 0)
+    return true;
 
   /* We do not want to include the sections in a dynamic object in the
      output file.  We hack by simply clobbering the list of sections
@@ -875,10 +894,6 @@ sunos_add_dynamic_symbols (abfd, info, symsp, sym_countp, stringsp)
       bfd_set_error (bfd_error_invalid_operation);
       return false;
     }
-
-  /* Make sure we have all the required information.  */
-  if (! sunos_create_dynamic_sections (abfd, info, true))
-    return false;
 
   /* Make sure we have a .need and a .rules sections.  These are only
      needed if there really is a dynamic object in the link, so they
@@ -950,7 +965,8 @@ sunos_add_dynamic_symbols (abfd, info, symsp, sym_countp, stringsp)
       minor_vno = bfd_get_16 (abfd, buf + 10);
       need = bfd_get_32 (abfd, buf + 12);
 
-      needed = (struct bfd_link_needed_list *) bfd_alloc (abfd, sizeof (struct bfd_link_needed_list));
+      needed = ((struct bfd_link_needed_list *)
+		bfd_alloc (abfd, sizeof (struct bfd_link_needed_list)));
       if (needed == NULL)
 	return false;
       needed->by = abfd;
@@ -1016,17 +1032,6 @@ sunos_add_one_symbol (info, abfd, name, flags, section, value, string,
 {
   struct sunos_link_hash_entry *h;
   int new_flag;
-
-  if (! sunos_hash_table (info)->dynamic_sections_created)
-    {
-      /* We must create the dynamic sections while reading the input
-         files, even though at this point we don't know if any of the
-         sections will be needed.  This will ensure that the dynamic
-         sections are mapped to the right output section.  It does no
-         harm to create these sections if they are not needed.  */
-      if (! sunos_create_dynamic_sections (abfd, info, false))
-	return false;
-    }
 
   if ((flags & (BSF_INDIRECT | BSF_WARNING | BSF_CONSTRUCTOR)) != 0
       || ! bfd_is_und_section (section))

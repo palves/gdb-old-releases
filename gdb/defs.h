@@ -413,7 +413,7 @@ struct command_line
   struct command_line **body_list;
 };
 
-extern struct command_line *read_command_lines PARAMS ((void));
+extern struct command_line *read_command_lines PARAMS ((char *, int));
 
 extern void free_command_lines PARAMS ((struct command_line **));
 
@@ -826,6 +826,71 @@ extern void store_unsigned_integer PARAMS ((void *, int, unsigned LONGEST));
 
 extern void store_address PARAMS ((void *, int, CORE_ADDR));
 
+/* Setup definitions for host and target floating point formats.  We need to
+   consider the format for `float', `double', and `long double' for both target
+   and host.  We need to do this so that we know what kind of conversions need
+   to be done when converting target numbers to and from the hosts DOUBLEST
+   data type.  */
+
+/* This is used to indicate that we don't know the format of the floating point
+   number.  Typically, this is useful for native ports, where the actual format
+   is irrelevant, since no conversions will be taking place.  */
+
+extern const struct floatformat floatformat_unknown;
+
+#if HOST_BYTE_ORDER == BIG_ENDIAN
+#  ifndef HOST_FLOAT_FORMAT
+#    define HOST_FLOAT_FORMAT &floatformat_ieee_single_big
+#  endif
+#  ifndef HOST_DOUBLE_FORMAT
+#    define HOST_DOUBLE_FORMAT &floatformat_ieee_double_big
+#  endif
+#else				/* LITTLE_ENDIAN */
+#  ifndef HOST_FLOAT_FORMAT
+#    define HOST_FLOAT_FORMAT &floatformat_ieee_single_little
+#  endif
+#  ifndef HOST_DOUBLE_FORMAT
+#    define HOST_DOUBLE_FORMAT &floatformat_ieee_double_little
+#  endif
+#endif
+
+#ifndef HOST_LONG_DOUBLE_FORMAT
+#define HOST_LONG_DOUBLE_FORMAT &floatformat_unknown
+#endif
+
+#ifndef TARGET_BYTE_ORDER_SELECTABLE
+#  if TARGET_BYTE_ORDER == BIG_ENDIAN
+#    ifndef TARGET_FLOAT_FORMAT
+#      define TARGET_FLOAT_FORMAT &floatformat_ieee_single_big
+#    endif
+#    ifndef TARGET_DOUBLE_FORMAT
+#      define TARGET_DOUBLE_FORMAT &floatformat_ieee_double_big
+#    endif
+#  else /* LITTLE_ENDIAN */
+#    ifndef TARGET_FLOAT_FORMAT
+#      define TARGET_FLOAT_FORMAT &floatformat_ieee_single_little
+#    endif
+#    ifndef TARGET_DOUBLE_FORMAT
+#      define TARGET_DOUBLE_FORMAT &floatformat_ieee_double_little
+#    endif
+#  endif
+#else				/* TARGET_BYTE_ORDER_SELECTABLE */
+#  ifndef TARGET_FLOAT_FORMAT
+#    define TARGET_FLOAT_FORMAT (target_byte_order == BIG_ENDIAN \
+				 ? &floatformat_ieee_single_big \
+				 : &floatformat_ieee_single_little)
+#  endif
+#  ifndef TARGET_DOUBLE_FORMAT
+#    define TARGET_DOUBLE_FORMAT (target_byte_order == BIG_ENDIAN \
+				  ? &floatformat_ieee_double_big \
+				  : &floatformat_ieee_double_little)
+#  endif
+#endif
+
+#ifndef TARGET_LONG_DOUBLE_FORMAT
+#  define TARGET_LONG_DOUBLE_FORMAT &floatformat_unknown
+#endif
+
 /* Use `long double' if the host compiler supports it.  (Note that this is not
    necessarily any longer than `double'.  On SunOS/gcc, it's the same as
    double.)  This is necessary because GDB internally converts all floating
@@ -835,13 +900,16 @@ extern void store_address PARAMS ((void *, int, CORE_ADDR));
    host's `long double'.  In general, we'll probably reduce the precision of
    any such values and print a warning.  */
 
-
 #ifdef HAVE_LONG_DOUBLE
 typedef long double DOUBLEST;
 #else
 typedef double DOUBLEST;
 #endif
 
+extern void floatformat_to_doublest PARAMS ((const struct floatformat *,
+					     char *, DOUBLEST *));
+extern void floatformat_from_doublest PARAMS ((const struct floatformat *,
+					       DOUBLEST *, char *));
 extern DOUBLEST extract_floating PARAMS ((void *, int));
 
 extern void store_floating PARAMS ((void *, int, DOUBLEST));
@@ -911,7 +979,7 @@ extern void (*fputs_unfiltered_hook) PARAMS ((const char *linebuffer,
 extern void (*print_frame_info_listing_hook) PARAMS ((struct symtab *s,
 						      int line, int stopline,
 						      int noerror));
-extern int (*query_hook) PARAMS (());
+extern int (*query_hook) PARAMS ((const char *, va_list));
 extern void (*flush_hook) PARAMS ((FILE *stream));
 extern void (*create_breakpoint_hook) PARAMS ((struct breakpoint *b));
 extern void (*delete_breakpoint_hook) PARAMS ((struct breakpoint *bpt));
@@ -919,6 +987,9 @@ extern void (*modify_breakpoint_hook) PARAMS ((struct breakpoint *bpt));
 extern void (*target_output_hook) PARAMS ((char *));
 extern void (*interactive_hook) PARAMS ((void));
 extern void (*registers_changed_hook) PARAMS ((void));
+extern void (*readline_begin_hook) PARAMS ((char *, ...));
+extern char * (*readline_hook) PARAMS ((char *));
+extern void (*readline_end_hook) PARAMS ((void));
 
 extern int (*target_wait_hook) PARAMS ((int pid,
 					struct target_waitstatus *status));

@@ -161,18 +161,21 @@ mon_event(mon_events event,
   monitor->event_count[event] += 1;
 }
 
-STATIC_INLINE_MON\
-(count_type)
-mon_get_number_of_insns(cpu_mon *monitor)
+INLINE_MON\
+(unsigned)
+mon_get_number_of_insns(mon *monitor,
+			int cpu_nr)
 {
   itable_index index;
-  count_type total_insns = 0;
+  unsigned total_insns = 0;
+  ASSERT(cpu_nr >= 0 && cpu_nr < monitor->nr_cpus); 
   for (index = 0; index < nr_itable_entries; index++)
-    total_insns += monitor->issue_count[index];
+    total_insns += monitor->cpu_monitor[cpu_nr].issue_count[index];
   return total_insns;
 }
 
-static int
+STATIC_INLINE_MON\
+(int)
 mon_sort_instruction_names(const void *ptr_a, const void *ptr_b)
 {
   itable_index a = *(const itable_index *)ptr_a;
@@ -222,7 +225,7 @@ mon_print_info(psim *system,
   double cpu_time = 0.0;
 
   for (cpu_nr = 0; cpu_nr < monitor->nr_cpus; cpu_nr++) {
-    count_type num_insns = mon_get_number_of_insns(&monitor->cpu_monitor[cpu_nr]);
+    count_type num_insns = mon_get_number_of_insns(monitor, cpu_nr);
 
     total_insns += num_insns;
     len = strlen (mon_add_commas(buffer, sizeof(buffer), num_insns));
@@ -344,7 +347,7 @@ mon_print_info(psim *system,
 		       (monitor->cpu_monitor[cpu_nr].event_count[mon_event_icache_miss] == 1) ? "" : "es");
 
     {
-      long nr_insns = mon_get_number_of_insns(&monitor->cpu_monitor[cpu_nr]);
+      long nr_insns = mon_get_number_of_insns(monitor, cpu_nr);
       if (nr_insns > 0)
 	printf_filtered("CPU #%*d executed %*s instructions in total.\n",
 			len_cpu, cpu_nr+1,

@@ -285,7 +285,10 @@ bfd_open_file (abfd)
 	}
       else
 	{
-	  /*open for creat */
+	  /* Create the file.  Unlink it first, for the convenience of
+             operating systems which worry about overwriting running
+             binaries.  */
+	  unlink (abfd->filename);
 	  abfd->iostream = (PTR) fopen (abfd->filename, FOPEN_WB);
 	  abfd->opened_once = true;
 	}

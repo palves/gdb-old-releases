@@ -611,6 +611,10 @@ extern void target_link PARAMS ((char *, CORE_ADDR *));
 extern char *normal_pid_to_str PARAMS ((int pid));
 #endif
 
+#ifndef target_new_objfile
+#define target_new_objfile(OBJFILE)
+#endif
+
 /* Hook to call target-dependant code after reading in a new symbol table. */
 
 #ifndef TARGET_SYMFILE_POSTREAD

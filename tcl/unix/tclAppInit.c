@@ -48,6 +48,20 @@ main(argc, argv)
     int argc;			/* Number of command-line arguments. */
     char **argv;		/* Values of command-line arguments. */
 {
+    /* CYGNUS LOCAL.  */
+    if (argc == 2) {
+	if (!strcmp (argv[1], "-v") || !strcmp (argv[1], "--version")) {
+	    printf ("Tcl version %s\n", TCL_VERSION);
+	    exit (0);
+	}
+	if (!strcmp (argv[1], "-h") || !strcmp (argv[1], "--help")) {
+	    printf ("Usage: tclsh [OPTIONS | FILE]\n");
+	    printf ("  -h, --help                Print help and exit\n");
+	    printf ("  -v, --version             Print version and exit\n");
+	    exit (0);
+	}
+    }
+    /* END CYGNUS LOCAL.  */
     Tcl_Main(argc, argv, Tcl_AppInit);
     return 0;			/* Needed only to prevent compiler warning. */
 }

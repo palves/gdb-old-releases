@@ -382,37 +382,87 @@ floating_point_assist_interrupt(cpu *processor,
 
 /* handle an externally generated event */
 
+STATIC_INLINE_INTERRUPTS\
+(void)
+deliver_hardware_interrupt(void *data)
+{
+  cpu *processor = (cpu*)data;
+  interrupts *ints = cpu_interrupts(processor);
+  ints->delivery_scheduled = NULL;
+  if (cpu_registers(processor)->msr & msr_external_interrupt_enable) {
+    /* external interrupts have a high priority and remain pending */
+    if (ints->pending_interrupts & external_interrupt_pending) {
+      unsigned_word cia = cpu_get_program_counter(processor);
+      unsigned_word nia = perform_oea_interrupt(processor,
+						cia, 0x00500, 0, 0, 0, 0);
+      cpu_set_program_counter(processor, nia);
+    }
+    /* decrementer interrupts have a lower priority and are once only */
+    else if (ints->pending_interrupts & decrementer_interrupt_pending) {
+      unsigned_word cia = cpu_get_program_counter(processor);
+      unsigned_word nia = perform_oea_interrupt(processor,
+						cia, 0x00900, 0, 0, 0, 0);
+      cpu_set_program_counter(processor, nia);
+      ints->pending_interrupts &= ~decrementer_interrupt_pending;
+    }
+  }
+}
+
+STATIC_INLINE_INTERRUPTS\
+(void)
+schedule_hardware_interrupt_delivery(cpu *processor) 
+{
+  interrupts *ints = cpu_interrupts(processor);
+  if (ints->delivery_scheduled == NULL) {
+    ints->delivery_scheduled =
+      event_queue_schedule(psim_event_queue(cpu_system(processor)),
+			   0, deliver_hardware_interrupt, processor);
+  }
+}
+
+
 INLINE_INTERRUPTS\
-(int)
+(void)
+check_masked_interrupts(cpu *processor)
+{
+  if (cpu_registers(processor)->msr & msr_external_interrupt_enable) {
+    if (cpu_interrupts(processor)->pending_interrupts)
+      schedule_hardware_interrupt_delivery(processor);
+  }
+}
+
+INLINE_INTERRUPTS\
+(void)
 decrementer_interrupt(cpu *processor)
 {
+  interrupts *ints = cpu_interrupts(processor);
+  ints->pending_interrupts |= decrementer_interrupt_pending;
   if (cpu_registers(processor)->msr & msr_external_interrupt_enable) {
-    unsigned_word cia = cpu_get_program_counter(processor);
-    unsigned_word nia = perform_oea_interrupt(processor,
-					      cia, 0x00900, 0, 0, 0, 0);
-    cpu_set_program_counter(processor, nia);
-    return 1;
-  }
-  else {
-    return 0;
+    schedule_hardware_interrupt_delivery(processor);
   }
 }
 
 INLINE_INTERRUPTS\
-(int)
-external_interrupt(cpu *processor)
+(void)
+external_interrupt(cpu *processor,
+		   int is_asserted)
 {
-  if (cpu_registers(processor)->msr & msr_external_interrupt_enable) {
-    unsigned_word cia = cpu_get_program_counter(processor);
-    unsigned_word nia = perform_oea_interrupt(processor,
-					      cia, 0x00500, 0, 0, 0, 0);
-    cpu_set_program_counter(processor, nia);
-    return 1;
+  interrupts *ints = cpu_interrupts(processor);
+  if (is_asserted) {
+    if (!ints->pending_interrupts & external_interrupt_pending) {
+      ints->pending_interrupts |= external_interrupt_pending;
+      if (cpu_registers(processor)->msr & msr_external_interrupt_enable)
+	schedule_hardware_interrupt_delivery(processor);
+    }
+    else {
+      /* check that we haven't missed out on a chance to deliver an
+         interrupt */
+      ASSERT(!(cpu_registers(processor)->msr & msr_external_interrupt_enable));
+    }
   }
   else {
-    return 0; /* not delivered */
+    ints->pending_interrupts &= ~external_interrupt_pending;
   }
 }
-
 
 #endif /* _INTERRUPTS_C_ */

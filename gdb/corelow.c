@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "bfd.h"
 #include "target.h"
 #include "gdbcore.h"
-#include "thread.h"
+#include "gdbthread.h"
 
 /* List of all available core_fns.  On gdb startup, each core file register
    reader calls add_core_fns() to register information on each core format it
@@ -133,7 +133,8 @@ add_to_thread_list (abfd, asect, reg_sect_arg)
 
 /* Warning, Will Robinson, looking at BFD private data! */
 
-  if (asect->filepos == reg_sect->filepos) /* Did we find .reg? */
+  if (reg_sect != NULL
+      && asect->filepos == reg_sect->filepos) /* Did we find .reg? */
     inferior_pid = thread_id;	/* Yes, make it current */
 }
 

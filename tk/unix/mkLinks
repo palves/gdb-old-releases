@@ -24,857 +24,858 @@ echo foo >  xyzzyTestingAVeryLongFileName.foo
 x=`echo xyzzyTe*`
 rm xyzzyTe*
 if test "$x" != "xyzzyTestingAVeryLongFileName.foo"; then
-    exit
+    exit 0
 fi
 if test -r $1/3DBorder.3; then
     rm -f $1/Tk_3DBorderColor.3
-    ln $1/3DBorder.3 $1/Tk_3DBorderColor.3
+    cp $1/3DBorder.3 $1/Tk_3DBorderColor.3
 fi
 if test -r $1/3DBorder.3; then
     rm -f $1/Tk_3DBorderGC.3
-    ln $1/3DBorder.3 $1/Tk_3DBorderGC.3
+    cp $1/3DBorder.3 $1/Tk_3DBorderGC.3
 fi
 if test -r $1/3DBorder.3; then
     rm -f $1/Tk_3DHorizontalBevel.3
-    ln $1/3DBorder.3 $1/Tk_3DHorizontalBevel.3
+    cp $1/3DBorder.3 $1/Tk_3DHorizontalBevel.3
 fi
 if test -r $1/3DBorder.3; then
     rm -f $1/Tk_3DVerticalBevel.3
-    ln $1/3DBorder.3 $1/Tk_3DVerticalBevel.3
+    cp $1/3DBorder.3 $1/Tk_3DVerticalBevel.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_Attributes.3
-    ln $1/WindowId.3 $1/Tk_Attributes.3
+    cp $1/WindowId.3 $1/Tk_Attributes.3
 fi
 if test -r $1/BackgdErr.3; then
     rm -f $1/Tk_BackgroundError.3
-    ln $1/BackgdErr.3 $1/Tk_BackgroundError.3
+    cp $1/BackgdErr.3 $1/Tk_BackgroundError.3
 fi
 if test -r $1/BindTable.3; then
     rm -f $1/Tk_BindEvent.3
-    ln $1/BindTable.3 $1/Tk_BindEvent.3
+    cp $1/BindTable.3 $1/Tk_BindEvent.3
 fi
 if test -r $1/DoWhenIdle.3; then
     rm -f $1/Tk_CancelIdleCall.3
-    ln $1/DoWhenIdle.3 $1/Tk_CancelIdleCall.3
+    cp $1/DoWhenIdle.3 $1/Tk_CancelIdleCall.3
 fi
 if test -r $1/CanvTkwin.3; then
     rm -f $1/Tk_CanvasDrawableCoords.3
-    ln $1/CanvTkwin.3 $1/Tk_CanvasDrawableCoords.3
+    cp $1/CanvTkwin.3 $1/Tk_CanvasDrawableCoords.3
 fi
 if test -r $1/CanvTkwin.3; then
     rm -f $1/Tk_CanvasEventuallyRedraw.3
-    ln $1/CanvTkwin.3 $1/Tk_CanvasEventuallyRedraw.3
+    cp $1/CanvTkwin.3 $1/Tk_CanvasEventuallyRedraw.3
 fi
 if test -r $1/CanvTkwin.3; then
     rm -f $1/Tk_CanvasGetCoord.3
-    ln $1/CanvTkwin.3 $1/Tk_CanvasGetCoord.3
+    cp $1/CanvTkwin.3 $1/Tk_CanvasGetCoord.3
 fi
 if test -r $1/CanvPsY.3; then
     rm -f $1/Tk_CanvasPsBitmap.3
-    ln $1/CanvPsY.3 $1/Tk_CanvasPsBitmap.3
+    cp $1/CanvPsY.3 $1/Tk_CanvasPsBitmap.3
 fi
 if test -r $1/CanvPsY.3; then
     rm -f $1/Tk_CanvasPsColor.3
-    ln $1/CanvPsY.3 $1/Tk_CanvasPsColor.3
+    cp $1/CanvPsY.3 $1/Tk_CanvasPsColor.3
 fi
 if test -r $1/CanvPsY.3; then
     rm -f $1/Tk_CanvasPsFont.3
-    ln $1/CanvPsY.3 $1/Tk_CanvasPsFont.3
+    cp $1/CanvPsY.3 $1/Tk_CanvasPsFont.3
 fi
 if test -r $1/CanvPsY.3; then
     rm -f $1/Tk_CanvasPsPath.3
-    ln $1/CanvPsY.3 $1/Tk_CanvasPsPath.3
+    cp $1/CanvPsY.3 $1/Tk_CanvasPsPath.3
 fi
 if test -r $1/CanvPsY.3; then
     rm -f $1/Tk_CanvasPsStipple.3
-    ln $1/CanvPsY.3 $1/Tk_CanvasPsStipple.3
+    cp $1/CanvPsY.3 $1/Tk_CanvasPsStipple.3
 fi
 if test -r $1/CanvPsY.3; then
     rm -f $1/Tk_CanvasPsY.3
-    ln $1/CanvPsY.3 $1/Tk_CanvasPsY.3
+    cp $1/CanvPsY.3 $1/Tk_CanvasPsY.3
 fi
 if test -r $1/CanvTkwin.3; then
     rm -f $1/Tk_CanvasSetStippleOrigin.3
-    ln $1/CanvTkwin.3 $1/Tk_CanvasSetStippleOrigin.3
+    cp $1/CanvTkwin.3 $1/Tk_CanvasSetStippleOrigin.3
 fi
 if test -r $1/CanvTxtInfo.3; then
     rm -f $1/Tk_CanvasTextInfo.3
-    ln $1/CanvTxtInfo.3 $1/Tk_CanvasTextInfo.3
+    cp $1/CanvTxtInfo.3 $1/Tk_CanvasTextInfo.3
 fi
 if test -r $1/CanvTkwin.3; then
     rm -f $1/Tk_CanvasTkwin.3
-    ln $1/CanvTkwin.3 $1/Tk_CanvasTkwin.3
+    cp $1/CanvTkwin.3 $1/Tk_CanvasTkwin.3
 fi
 if test -r $1/CanvTkwin.3; then
     rm -f $1/Tk_CanvasWindowCoords.3
-    ln $1/CanvTkwin.3 $1/Tk_CanvasWindowCoords.3
+    cp $1/CanvTkwin.3 $1/Tk_CanvasWindowCoords.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_ChangeWindowAttributes.3
-    ln $1/ConfigWind.3 $1/Tk_ChangeWindowAttributes.3
+    cp $1/ConfigWind.3 $1/Tk_ChangeWindowAttributes.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_Changes.3
-    ln $1/WindowId.3 $1/Tk_Changes.3
+    cp $1/WindowId.3 $1/Tk_Changes.3
 fi
 if test -r $1/SetClass.3; then
     rm -f $1/Tk_Class.3
-    ln $1/SetClass.3 $1/Tk_Class.3
+    cp $1/SetClass.3 $1/Tk_Class.3
 fi
 if test -r $1/ClrSelect.3; then
     rm -f $1/Tk_ClearSelection.3
-    ln $1/ClrSelect.3 $1/Tk_ClearSelection.3
+    cp $1/ClrSelect.3 $1/Tk_ClearSelection.3
 fi
 if test -r $1/Clipboard.3; then
     rm -f $1/Tk_ClipboardAppend.3
-    ln $1/Clipboard.3 $1/Tk_ClipboardAppend.3
+    cp $1/Clipboard.3 $1/Tk_ClipboardAppend.3
 fi
 if test -r $1/Clipboard.3; then
     rm -f $1/Tk_ClipboardClear.3
-    ln $1/Clipboard.3 $1/Tk_ClipboardClear.3
+    cp $1/Clipboard.3 $1/Tk_ClipboardClear.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_Colormap.3
-    ln $1/WindowId.3 $1/Tk_Colormap.3
+    cp $1/WindowId.3 $1/Tk_Colormap.3
 fi
 if test -r $1/ConfigWidg.3; then
     rm -f $1/Tk_ConfigureInfo.3
-    ln $1/ConfigWidg.3 $1/Tk_ConfigureInfo.3
+    cp $1/ConfigWidg.3 $1/Tk_ConfigureInfo.3
 fi
 if test -r $1/ConfigWidg.3; then
     rm -f $1/Tk_ConfigureValue.3
-    ln $1/ConfigWidg.3 $1/Tk_ConfigureValue.3
+    cp $1/ConfigWidg.3 $1/Tk_ConfigureValue.3
 fi
 if test -r $1/ConfigWidg.3; then
     rm -f $1/Tk_ConfigureWidget.3
-    ln $1/ConfigWidg.3 $1/Tk_ConfigureWidget.3
+    cp $1/ConfigWidg.3 $1/Tk_ConfigureWidget.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_ConfigureWindow.3
-    ln $1/ConfigWind.3 $1/Tk_ConfigureWindow.3
+    cp $1/ConfigWind.3 $1/Tk_ConfigureWindow.3
 fi
 if test -r $1/CoordToWin.3; then
     rm -f $1/Tk_CoordsToWindow.3
-    ln $1/CoordToWin.3 $1/Tk_CoordsToWindow.3
+    cp $1/CoordToWin.3 $1/Tk_CoordsToWindow.3
 fi
 if test -r $1/BindTable.3; then
     rm -f $1/Tk_CreateBinding.3
-    ln $1/BindTable.3 $1/Tk_CreateBinding.3
+    cp $1/BindTable.3 $1/Tk_CreateBinding.3
 fi
 if test -r $1/BindTable.3; then
     rm -f $1/Tk_CreateBindingTable.3
-    ln $1/BindTable.3 $1/Tk_CreateBindingTable.3
+    cp $1/BindTable.3 $1/Tk_CreateBindingTable.3
 fi
 if test -r $1/CrtErrHdlr.3; then
     rm -f $1/Tk_CreateErrorHandler.3
-    ln $1/CrtErrHdlr.3 $1/Tk_CreateErrorHandler.3
+    cp $1/CrtErrHdlr.3 $1/Tk_CreateErrorHandler.3
 fi
 if test -r $1/EventHndlr.3; then
     rm -f $1/Tk_CreateEventHandler.3
-    ln $1/EventHndlr.3 $1/Tk_CreateEventHandler.3
+    cp $1/EventHndlr.3 $1/Tk_CreateEventHandler.3
 fi
 if test -r $1/FileHndlr.3; then
     rm -f $1/Tk_CreateFileHandler.3
-    ln $1/FileHndlr.3 $1/Tk_CreateFileHandler.3
+    cp $1/FileHndlr.3 $1/Tk_CreateFileHandler.3
 fi
 if test -r $1/FileHndlr.3; then
     rm -f $1/Tk_CreateFileHandler2.3
-    ln $1/FileHndlr.3 $1/Tk_CreateFileHandler2.3
+    cp $1/FileHndlr.3 $1/Tk_CreateFileHandler2.3
 fi
 if test -r $1/CrtGenHdlr.3; then
     rm -f $1/Tk_CreateGenericHandler.3
-    ln $1/CrtGenHdlr.3 $1/Tk_CreateGenericHandler.3
+    cp $1/CrtGenHdlr.3 $1/Tk_CreateGenericHandler.3
 fi
 if test -r $1/CrtImgType.3; then
     rm -f $1/Tk_CreateImageType.3
-    ln $1/CrtImgType.3 $1/Tk_CreateImageType.3
+    cp $1/CrtImgType.3 $1/Tk_CreateImageType.3
 fi
 if test -r $1/CrtItemType.3; then
     rm -f $1/Tk_CreateItemType.3
-    ln $1/CrtItemType.3 $1/Tk_CreateItemType.3
+    cp $1/CrtItemType.3 $1/Tk_CreateItemType.3
 fi
 if test -r $1/CrtMainWin.3; then
     rm -f $1/Tk_CreateMainWindow.3
-    ln $1/CrtMainWin.3 $1/Tk_CreateMainWindow.3
+    cp $1/CrtMainWin.3 $1/Tk_CreateMainWindow.3
 fi
 if test -r $1/CrtPhImgFmt.3; then
     rm -f $1/Tk_CreatePhotoImageFormat.3
-    ln $1/CrtPhImgFmt.3 $1/Tk_CreatePhotoImageFormat.3
+    cp $1/CrtPhImgFmt.3 $1/Tk_CreatePhotoImageFormat.3
 fi
 if test -r $1/CrtSelHdlr.3; then
     rm -f $1/Tk_CreateSelHandler.3
-    ln $1/CrtSelHdlr.3 $1/Tk_CreateSelHandler.3
+    cp $1/CrtSelHdlr.3 $1/Tk_CreateSelHandler.3
 fi
 if test -r $1/TimerHndlr.3; then
     rm -f $1/Tk_CreateTimerHandler.3
-    ln $1/TimerHndlr.3 $1/Tk_CreateTimerHandler.3
+    cp $1/TimerHndlr.3 $1/Tk_CreateTimerHandler.3
 fi
 if test -r $1/CrtMainWin.3; then
     rm -f $1/Tk_CreateWindow.3
-    ln $1/CrtMainWin.3 $1/Tk_CreateWindow.3
+    cp $1/CrtMainWin.3 $1/Tk_CreateWindow.3
 fi
 if test -r $1/CrtMainWin.3; then
     rm -f $1/Tk_CreateWindowFromPath.3
-    ln $1/CrtMainWin.3 $1/Tk_CreateWindowFromPath.3
+    cp $1/CrtMainWin.3 $1/Tk_CreateWindowFromPath.3
 fi
 if test -r $1/GetBitmap.3; then
     rm -f $1/Tk_DefineBitmap.3
-    ln $1/GetBitmap.3 $1/Tk_DefineBitmap.3
+    cp $1/GetBitmap.3 $1/Tk_DefineBitmap.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_DefineCursor.3
-    ln $1/ConfigWind.3 $1/Tk_DefineCursor.3
+    cp $1/ConfigWind.3 $1/Tk_DefineCursor.3
 fi
 if test -r $1/BindTable.3; then
     rm -f $1/Tk_DeleteAllBindings.3
-    ln $1/BindTable.3 $1/Tk_DeleteAllBindings.3
+    cp $1/BindTable.3 $1/Tk_DeleteAllBindings.3
 fi
 if test -r $1/BindTable.3; then
     rm -f $1/Tk_DeleteBinding.3
-    ln $1/BindTable.3 $1/Tk_DeleteBinding.3
+    cp $1/BindTable.3 $1/Tk_DeleteBinding.3
 fi
 if test -r $1/BindTable.3; then
     rm -f $1/Tk_DeleteBindingTable.3
-    ln $1/BindTable.3 $1/Tk_DeleteBindingTable.3
+    cp $1/BindTable.3 $1/Tk_DeleteBindingTable.3
 fi
 if test -r $1/CrtErrHdlr.3; then
     rm -f $1/Tk_DeleteErrorHandler.3
-    ln $1/CrtErrHdlr.3 $1/Tk_DeleteErrorHandler.3
+    cp $1/CrtErrHdlr.3 $1/Tk_DeleteErrorHandler.3
 fi
 if test -r $1/EventHndlr.3; then
     rm -f $1/Tk_DeleteEventHandler.3
-    ln $1/EventHndlr.3 $1/Tk_DeleteEventHandler.3
+    cp $1/EventHndlr.3 $1/Tk_DeleteEventHandler.3
 fi
 if test -r $1/FileHndlr.3; then
     rm -f $1/Tk_DeleteFileHandler.3
-    ln $1/FileHndlr.3 $1/Tk_DeleteFileHandler.3
+    cp $1/FileHndlr.3 $1/Tk_DeleteFileHandler.3
 fi
 if test -r $1/CrtGenHdlr.3; then
     rm -f $1/Tk_DeleteGenericHandler.3
-    ln $1/CrtGenHdlr.3 $1/Tk_DeleteGenericHandler.3
+    cp $1/CrtGenHdlr.3 $1/Tk_DeleteGenericHandler.3
 fi
 if test -r $1/DeleteImg.3; then
     rm -f $1/Tk_DeleteImage.3
-    ln $1/DeleteImg.3 $1/Tk_DeleteImage.3
+    cp $1/DeleteImg.3 $1/Tk_DeleteImage.3
 fi
 if test -r $1/CrtSelHdlr.3; then
     rm -f $1/Tk_DeleteSelHandler.3
-    ln $1/CrtSelHdlr.3 $1/Tk_DeleteSelHandler.3
+    cp $1/CrtSelHdlr.3 $1/Tk_DeleteSelHandler.3
 fi
 if test -r $1/TimerHndlr.3; then
     rm -f $1/Tk_DeleteTimerHandler.3
-    ln $1/TimerHndlr.3 $1/Tk_DeleteTimerHandler.3
+    cp $1/TimerHndlr.3 $1/Tk_DeleteTimerHandler.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_Depth.3
-    ln $1/WindowId.3 $1/Tk_Depth.3
+    cp $1/WindowId.3 $1/Tk_Depth.3
 fi
 if test -r $1/CrtMainWin.3; then
     rm -f $1/Tk_DestroyWindow.3
-    ln $1/CrtMainWin.3 $1/Tk_DestroyWindow.3
+    cp $1/CrtMainWin.3 $1/Tk_DestroyWindow.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_Display.3
-    ln $1/WindowId.3 $1/Tk_Display.3
+    cp $1/WindowId.3 $1/Tk_Display.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_DisplayName.3
-    ln $1/WindowId.3 $1/Tk_DisplayName.3
+    cp $1/WindowId.3 $1/Tk_DisplayName.3
 fi
 if test -r $1/DoOneEvent.3; then
     rm -f $1/Tk_DoOneEvent.3
-    ln $1/DoOneEvent.3 $1/Tk_DoOneEvent.3
+    cp $1/DoOneEvent.3 $1/Tk_DoOneEvent.3
 fi
 if test -r $1/DoWhenIdle.3; then
     rm -f $1/Tk_DoWhenIdle.3
-    ln $1/DoWhenIdle.3 $1/Tk_DoWhenIdle.3
+    cp $1/DoWhenIdle.3 $1/Tk_DoWhenIdle.3
 fi
 if test -r $1/3DBorder.3; then
     rm -f $1/Tk_Draw3DPolygon.3
-    ln $1/3DBorder.3 $1/Tk_Draw3DPolygon.3
+    cp $1/3DBorder.3 $1/Tk_Draw3DPolygon.3
 fi
 if test -r $1/3DBorder.3; then
     rm -f $1/Tk_Draw3DRectangle.3
-    ln $1/3DBorder.3 $1/Tk_Draw3DRectangle.3
+    cp $1/3DBorder.3 $1/Tk_Draw3DRectangle.3
 fi
 if test -r $1/DrawFocHlt.3; then
     rm -f $1/Tk_DrawFocusHighlight.3
-    ln $1/DrawFocHlt.3 $1/Tk_DrawFocusHighlight.3
+    cp $1/DrawFocHlt.3 $1/Tk_DrawFocusHighlight.3
 fi
 if test -r $1/EventInit.3; then
     rm -f $1/Tk_EventInit.3
-    ln $1/EventInit.3 $1/Tk_EventInit.3
+    cp $1/EventInit.3 $1/Tk_EventInit.3
 fi
 if test -r $1/Preserve.3; then
     rm -f $1/Tk_EventuallyFree.3
-    ln $1/Preserve.3 $1/Tk_EventuallyFree.3
+    cp $1/Preserve.3 $1/Tk_EventuallyFree.3
 fi
 if test -r $1/3DBorder.3; then
     rm -f $1/Tk_Fill3DPolygon.3
-    ln $1/3DBorder.3 $1/Tk_Fill3DPolygon.3
+    cp $1/3DBorder.3 $1/Tk_Fill3DPolygon.3
 fi
 if test -r $1/3DBorder.3; then
     rm -f $1/Tk_Fill3DRectangle.3
-    ln $1/3DBorder.3 $1/Tk_Fill3DRectangle.3
+    cp $1/3DBorder.3 $1/Tk_Fill3DRectangle.3
 fi
 if test -r $1/FindPhoto.3; then
     rm -f $1/Tk_FindPhoto.3
-    ln $1/FindPhoto.3 $1/Tk_FindPhoto.3
+    cp $1/FindPhoto.3 $1/Tk_FindPhoto.3
 fi
 if test -r $1/3DBorder.3; then
     rm -f $1/Tk_Free3DBorder.3
-    ln $1/3DBorder.3 $1/Tk_Free3DBorder.3
+    cp $1/3DBorder.3 $1/Tk_Free3DBorder.3
 fi
 if test -r $1/GetBitmap.3; then
     rm -f $1/Tk_FreeBitmap.3
-    ln $1/GetBitmap.3 $1/Tk_FreeBitmap.3
+    cp $1/GetBitmap.3 $1/Tk_FreeBitmap.3
 fi
 if test -r $1/GetColor.3; then
     rm -f $1/Tk_FreeColor.3
-    ln $1/GetColor.3 $1/Tk_FreeColor.3
+    cp $1/GetColor.3 $1/Tk_FreeColor.3
 fi
 if test -r $1/GetClrmap.3; then
     rm -f $1/Tk_FreeColormap.3
-    ln $1/GetClrmap.3 $1/Tk_FreeColormap.3
+    cp $1/GetClrmap.3 $1/Tk_FreeColormap.3
 fi
 if test -r $1/GetCursor.3; then
     rm -f $1/Tk_FreeCursor.3
-    ln $1/GetCursor.3 $1/Tk_FreeCursor.3
+    cp $1/GetCursor.3 $1/Tk_FreeCursor.3
 fi
 if test -r $1/GetFontStr.3; then
     rm -f $1/Tk_FreeFontStruct.3
-    ln $1/GetFontStr.3 $1/Tk_FreeFontStruct.3
+    cp $1/GetFontStr.3 $1/Tk_FreeFontStruct.3
 fi
 if test -r $1/GetGC.3; then
     rm -f $1/Tk_FreeGC.3
-    ln $1/GetGC.3 $1/Tk_FreeGC.3
+    cp $1/GetGC.3 $1/Tk_FreeGC.3
 fi
 if test -r $1/GetImage.3; then
     rm -f $1/Tk_FreeImage.3
-    ln $1/GetImage.3 $1/Tk_FreeImage.3
+    cp $1/GetImage.3 $1/Tk_FreeImage.3
 fi
 if test -r $1/ConfigWidg.3; then
     rm -f $1/Tk_FreeOptions.3
-    ln $1/ConfigWidg.3 $1/Tk_FreeOptions.3
+    cp $1/ConfigWidg.3 $1/Tk_FreeOptions.3
 fi
 if test -r $1/GetPixmap.3; then
     rm -f $1/Tk_FreePixmap.3
-    ln $1/GetPixmap.3 $1/Tk_FreePixmap.3
+    cp $1/GetPixmap.3 $1/Tk_FreePixmap.3
 fi
 if test -r $1/FreeXId.3; then
     rm -f $1/Tk_FreeXId.3
-    ln $1/FreeXId.3 $1/Tk_FreeXId.3
+    cp $1/FreeXId.3 $1/Tk_FreeXId.3
 fi
 if test -r $1/GeomReq.3; then
     rm -f $1/Tk_GeometryRequest.3
-    ln $1/GeomReq.3 $1/Tk_GeometryRequest.3
+    cp $1/GeomReq.3 $1/Tk_GeometryRequest.3
 fi
 if test -r $1/3DBorder.3; then
     rm -f $1/Tk_Get3DBorder.3
-    ln $1/3DBorder.3 $1/Tk_Get3DBorder.3
+    cp $1/3DBorder.3 $1/Tk_Get3DBorder.3
 fi
 if test -r $1/BindTable.3; then
     rm -f $1/Tk_GetAllBindings.3
-    ln $1/BindTable.3 $1/Tk_GetAllBindings.3
+    cp $1/BindTable.3 $1/Tk_GetAllBindings.3
 fi
 if test -r $1/GetAnchor.3; then
     rm -f $1/Tk_GetAnchor.3
-    ln $1/GetAnchor.3 $1/Tk_GetAnchor.3
+    cp $1/GetAnchor.3 $1/Tk_GetAnchor.3
 fi
 if test -r $1/InternAtom.3; then
     rm -f $1/Tk_GetAtomName.3
-    ln $1/InternAtom.3 $1/Tk_GetAtomName.3
+    cp $1/InternAtom.3 $1/Tk_GetAtomName.3
 fi
 if test -r $1/BindTable.3; then
     rm -f $1/Tk_GetBinding.3
-    ln $1/BindTable.3 $1/Tk_GetBinding.3
+    cp $1/BindTable.3 $1/Tk_GetBinding.3
 fi
 if test -r $1/GetBitmap.3; then
     rm -f $1/Tk_GetBitmap.3
-    ln $1/GetBitmap.3 $1/Tk_GetBitmap.3
+    cp $1/GetBitmap.3 $1/Tk_GetBitmap.3
 fi
 if test -r $1/GetBitmap.3; then
     rm -f $1/Tk_GetBitmapFromData.3
-    ln $1/GetBitmap.3 $1/Tk_GetBitmapFromData.3
+    cp $1/GetBitmap.3 $1/Tk_GetBitmapFromData.3
 fi
 if test -r $1/GetCapStyl.3; then
     rm -f $1/Tk_GetCapStyle.3
-    ln $1/GetCapStyl.3 $1/Tk_GetCapStyle.3
+    cp $1/GetCapStyl.3 $1/Tk_GetCapStyle.3
 fi
 if test -r $1/GetColor.3; then
     rm -f $1/Tk_GetColor.3
-    ln $1/GetColor.3 $1/Tk_GetColor.3
+    cp $1/GetColor.3 $1/Tk_GetColor.3
 fi
 if test -r $1/GetColor.3; then
     rm -f $1/Tk_GetColorByValue.3
-    ln $1/GetColor.3 $1/Tk_GetColorByValue.3
+    cp $1/GetColor.3 $1/Tk_GetColorByValue.3
 fi
 if test -r $1/GetClrmap.3; then
     rm -f $1/Tk_GetColormap.3
-    ln $1/GetClrmap.3 $1/Tk_GetColormap.3
+    cp $1/GetClrmap.3 $1/Tk_GetColormap.3
 fi
 if test -r $1/GetCursor.3; then
     rm -f $1/Tk_GetCursor.3
-    ln $1/GetCursor.3 $1/Tk_GetCursor.3
+    cp $1/GetCursor.3 $1/Tk_GetCursor.3
 fi
 if test -r $1/GetCursor.3; then
     rm -f $1/Tk_GetCursorFromData.3
-    ln $1/GetCursor.3 $1/Tk_GetCursorFromData.3
+    cp $1/GetCursor.3 $1/Tk_GetCursorFromData.3
 fi
 if test -r $1/GetFontStr.3; then
     rm -f $1/Tk_GetFontStruct.3
-    ln $1/GetFontStr.3 $1/Tk_GetFontStruct.3
+    cp $1/GetFontStr.3 $1/Tk_GetFontStruct.3
 fi
 if test -r $1/GetGC.3; then
     rm -f $1/Tk_GetGC.3
-    ln $1/GetGC.3 $1/Tk_GetGC.3
+    cp $1/GetGC.3 $1/Tk_GetGC.3
 fi
 if test -r $1/GetImage.3; then
     rm -f $1/Tk_GetImage.3
-    ln $1/GetImage.3 $1/Tk_GetImage.3
+    cp $1/GetImage.3 $1/Tk_GetImage.3
 fi
 if test -r $1/CrtItemType.3; then
     rm -f $1/Tk_GetItemTypes.3
-    ln $1/CrtItemType.3 $1/Tk_GetItemTypes.3
+    cp $1/CrtItemType.3 $1/Tk_GetItemTypes.3
 fi
 if test -r $1/GetJoinStl.3; then
     rm -f $1/Tk_GetJoinStyle.3
-    ln $1/GetJoinStl.3 $1/Tk_GetJoinStyle.3
+    cp $1/GetJoinStl.3 $1/Tk_GetJoinStyle.3
 fi
 if test -r $1/GetJustify.3; then
     rm -f $1/Tk_GetJustify.3
-    ln $1/GetJustify.3 $1/Tk_GetJustify.3
+    cp $1/GetJustify.3 $1/Tk_GetJustify.3
 fi
 if test -r $1/GetOption.3; then
     rm -f $1/Tk_GetOption.3
-    ln $1/GetOption.3 $1/Tk_GetOption.3
+    cp $1/GetOption.3 $1/Tk_GetOption.3
 fi
 if test -r $1/GetPixels.3; then
     rm -f $1/Tk_GetPixels.3
-    ln $1/GetPixels.3 $1/Tk_GetPixels.3
+    cp $1/GetPixels.3 $1/Tk_GetPixels.3
 fi
 if test -r $1/GetPixmap.3; then
     rm -f $1/Tk_GetPixmap.3
-    ln $1/GetPixmap.3 $1/Tk_GetPixmap.3
+    cp $1/GetPixmap.3 $1/Tk_GetPixmap.3
 fi
 if test -r $1/GetRelief.3; then
     rm -f $1/Tk_GetRelief.3
-    ln $1/GetRelief.3 $1/Tk_GetRelief.3
+    cp $1/GetRelief.3 $1/Tk_GetRelief.3
 fi
 if test -r $1/GetRootCrd.3; then
     rm -f $1/Tk_GetRootCoords.3
-    ln $1/GetRootCrd.3 $1/Tk_GetRootCoords.3
+    cp $1/GetRootCrd.3 $1/Tk_GetRootCoords.3
 fi
 if test -r $1/GetPixels.3; then
     rm -f $1/Tk_GetScreenMM.3
-    ln $1/GetPixels.3 $1/Tk_GetScreenMM.3
+    cp $1/GetPixels.3 $1/Tk_GetScreenMM.3
 fi
 if test -r $1/GetScroll.3; then
     rm -f $1/Tk_GetScrollInfo.3
-    ln $1/GetScroll.3 $1/Tk_GetScrollInfo.3
+    cp $1/GetScroll.3 $1/Tk_GetScrollInfo.3
 fi
 if test -r $1/GetSelect.3; then
     rm -f $1/Tk_GetSelection.3
-    ln $1/GetSelect.3 $1/Tk_GetSelection.3
+    cp $1/GetSelect.3 $1/Tk_GetSelection.3
 fi
 if test -r $1/GetUid.3; then
     rm -f $1/Tk_GetUid.3
-    ln $1/GetUid.3 $1/Tk_GetUid.3
+    cp $1/GetUid.3 $1/Tk_GetUid.3
 fi
 if test -r $1/GetVRoot.3; then
     rm -f $1/Tk_GetVRootGeometry.3
-    ln $1/GetVRoot.3 $1/Tk_GetVRootGeometry.3
+    cp $1/GetVRoot.3 $1/Tk_GetVRootGeometry.3
 fi
 if test -r $1/GetVisual.3; then
     rm -f $1/Tk_GetVisual.3
-    ln $1/GetVisual.3 $1/Tk_GetVisual.3
+    cp $1/GetVisual.3 $1/Tk_GetVisual.3
 fi
 if test -r $1/HandleEvent.3; then
     rm -f $1/Tk_HandleEvent.3
-    ln $1/HandleEvent.3 $1/Tk_HandleEvent.3
+    cp $1/HandleEvent.3 $1/Tk_HandleEvent.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_Height.3
-    ln $1/WindowId.3 $1/Tk_Height.3
+    cp $1/WindowId.3 $1/Tk_Height.3
 fi
 if test -r $1/IdToWindow.3; then
     rm -f $1/Tk_IdToWindow.3
-    ln $1/IdToWindow.3 $1/Tk_IdToWindow.3
+    cp $1/IdToWindow.3 $1/Tk_IdToWindow.3
 fi
 if test -r $1/QueueEvent.3; then
     rm -f $1/Tk_IdlePending.3
-    ln $1/QueueEvent.3 $1/Tk_IdlePending.3
+    cp $1/QueueEvent.3 $1/Tk_IdlePending.3
 fi
 if test -r $1/Notifier.3; then
     rm -f $1/Tk_IgnoreDisplay.3
-    ln $1/Notifier.3 $1/Tk_IgnoreDisplay.3
+    cp $1/Notifier.3 $1/Tk_IgnoreDisplay.3
 fi
 if test -r $1/Notifier.3; then
     rm -f $1/Tk_IgnoreFile.3
-    ln $1/Notifier.3 $1/Tk_IgnoreFile.3
+    cp $1/Notifier.3 $1/Tk_IgnoreFile.3
 fi
 if test -r $1/ImgChanged.3; then
     rm -f $1/Tk_ImageChanged.3
-    ln $1/ImgChanged.3 $1/Tk_ImageChanged.3
+    cp $1/ImgChanged.3 $1/Tk_ImageChanged.3
 fi
 if test -r $1/InternAtom.3; then
     rm -f $1/Tk_InternAtom.3
-    ln $1/InternAtom.3 $1/Tk_InternAtom.3
+    cp $1/InternAtom.3 $1/Tk_InternAtom.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_InternalBorderWidth.3
-    ln $1/WindowId.3 $1/Tk_InternalBorderWidth.3
+    cp $1/WindowId.3 $1/Tk_InternalBorderWidth.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_IsMapped.3
-    ln $1/WindowId.3 $1/Tk_IsMapped.3
+    cp $1/WindowId.3 $1/Tk_IsMapped.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_IsTopLevel.3
-    ln $1/WindowId.3 $1/Tk_IsTopLevel.3
+    cp $1/WindowId.3 $1/Tk_IsTopLevel.3
 fi
 if test -r $1/DoOneEvent.3; then
     rm -f $1/Tk_MainLoop.3
-    ln $1/DoOneEvent.3 $1/Tk_MainLoop.3
+    cp $1/DoOneEvent.3 $1/Tk_MainLoop.3
 fi
 if test -r $1/MainWin.3; then
     rm -f $1/Tk_MainWindow.3
-    ln $1/MainWin.3 $1/Tk_MainWindow.3
+    cp $1/MainWin.3 $1/Tk_MainWindow.3
 fi
 if test -r $1/MaintGeom.3; then
     rm -f $1/Tk_MaintainGeometry.3
-    ln $1/MaintGeom.3 $1/Tk_MaintainGeometry.3
+    cp $1/MaintGeom.3 $1/Tk_MaintainGeometry.3
 fi
 if test -r $1/CrtMainWin.3; then
     rm -f $1/Tk_MakeWindowExist.3
-    ln $1/CrtMainWin.3 $1/Tk_MakeWindowExist.3
+    cp $1/CrtMainWin.3 $1/Tk_MakeWindowExist.3
 fi
 if test -r $1/ManageGeom.3; then
     rm -f $1/Tk_ManageGeometry.3
-    ln $1/ManageGeom.3 $1/Tk_ManageGeometry.3
+    cp $1/ManageGeom.3 $1/Tk_ManageGeometry.3
 fi
 if test -r $1/MapWindow.3; then
     rm -f $1/Tk_MapWindow.3
-    ln $1/MapWindow.3 $1/Tk_MapWindow.3
+    cp $1/MapWindow.3 $1/Tk_MapWindow.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_MoveResizeWindow.3
-    ln $1/ConfigWind.3 $1/Tk_MoveResizeWindow.3
+    cp $1/ConfigWind.3 $1/Tk_MoveResizeWindow.3
 fi
 if test -r $1/MoveToplev.3; then
     rm -f $1/Tk_MoveToplevelWindow.3
-    ln $1/MoveToplev.3 $1/Tk_MoveToplevelWindow.3
+    cp $1/MoveToplev.3 $1/Tk_MoveToplevelWindow.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_MoveWindow.3
-    ln $1/ConfigWind.3 $1/Tk_MoveWindow.3
+    cp $1/ConfigWind.3 $1/Tk_MoveWindow.3
 fi
 if test -r $1/Name.3; then
     rm -f $1/Tk_Name.3
-    ln $1/Name.3 $1/Tk_Name.3
+    cp $1/Name.3 $1/Tk_Name.3
 fi
 if test -r $1/3DBorder.3; then
     rm -f $1/Tk_NameOf3DBorder.3
-    ln $1/3DBorder.3 $1/Tk_NameOf3DBorder.3
+    cp $1/3DBorder.3 $1/Tk_NameOf3DBorder.3
 fi
 if test -r $1/GetAnchor.3; then
     rm -f $1/Tk_NameOfAnchor.3
-    ln $1/GetAnchor.3 $1/Tk_NameOfAnchor.3
+    cp $1/GetAnchor.3 $1/Tk_NameOfAnchor.3
 fi
 if test -r $1/GetBitmap.3; then
     rm -f $1/Tk_NameOfBitmap.3
-    ln $1/GetBitmap.3 $1/Tk_NameOfBitmap.3
+    cp $1/GetBitmap.3 $1/Tk_NameOfBitmap.3
 fi
 if test -r $1/GetCapStyl.3; then
     rm -f $1/Tk_NameOfCapStyle.3
-    ln $1/GetCapStyl.3 $1/Tk_NameOfCapStyle.3
+    cp $1/GetCapStyl.3 $1/Tk_NameOfCapStyle.3
 fi
 if test -r $1/GetColor.3; then
     rm -f $1/Tk_NameOfColor.3
-    ln $1/GetColor.3 $1/Tk_NameOfColor.3
+    cp $1/GetColor.3 $1/Tk_NameOfColor.3
 fi
 if test -r $1/GetCursor.3; then
     rm -f $1/Tk_NameOfCursor.3
-    ln $1/GetCursor.3 $1/Tk_NameOfCursor.3
+    cp $1/GetCursor.3 $1/Tk_NameOfCursor.3
 fi
 if test -r $1/GetFontStr.3; then
     rm -f $1/Tk_NameOfFontStruct.3
-    ln $1/GetFontStr.3 $1/Tk_NameOfFontStruct.3
+    cp $1/GetFontStr.3 $1/Tk_NameOfFontStruct.3
 fi
 if test -r $1/NameOfImg.3; then
     rm -f $1/Tk_NameOfImage.3
-    ln $1/NameOfImg.3 $1/Tk_NameOfImage.3
+    cp $1/NameOfImg.3 $1/Tk_NameOfImage.3
 fi
 if test -r $1/GetJoinStl.3; then
     rm -f $1/Tk_NameOfJoinStyle.3
-    ln $1/GetJoinStl.3 $1/Tk_NameOfJoinStyle.3
+    cp $1/GetJoinStl.3 $1/Tk_NameOfJoinStyle.3
 fi
 if test -r $1/GetJustify.3; then
     rm -f $1/Tk_NameOfJustify.3
-    ln $1/GetJustify.3 $1/Tk_NameOfJustify.3
+    cp $1/GetJustify.3 $1/Tk_NameOfJustify.3
 fi
 if test -r $1/GetRelief.3; then
     rm -f $1/Tk_NameOfRelief.3
-    ln $1/GetRelief.3 $1/Tk_NameOfRelief.3
+    cp $1/GetRelief.3 $1/Tk_NameOfRelief.3
 fi
 if test -r $1/Name.3; then
     rm -f $1/Tk_NameToWindow.3
-    ln $1/Name.3 $1/Tk_NameToWindow.3
+    cp $1/Name.3 $1/Tk_NameToWindow.3
 fi
 if test -r $1/Notifier.3; then
     rm -f $1/Tk_NotifyDisplay.3
-    ln $1/Notifier.3 $1/Tk_NotifyDisplay.3
+    cp $1/Notifier.3 $1/Tk_NotifyDisplay.3
 fi
 if test -r $1/Notifier.3; then
     rm -f $1/Tk_NotifyFile.3
-    ln $1/Notifier.3 $1/Tk_NotifyFile.3
+    cp $1/Notifier.3 $1/Tk_NotifyFile.3
 fi
 if test -r $1/Notifier.3; then
     rm -f $1/Tk_NotifyTimer.3
-    ln $1/Notifier.3 $1/Tk_NotifyTimer.3
+    cp $1/Notifier.3 $1/Tk_NotifyTimer.3
 fi
 if test -r $1/ConfigWidg.3; then
     rm -f $1/Tk_Offset.3
-    ln $1/ConfigWidg.3 $1/Tk_Offset.3
+    cp $1/ConfigWidg.3 $1/Tk_Offset.3
 fi
 if test -r $1/OwnSelect.3; then
     rm -f $1/Tk_OwnSelection.3
-    ln $1/OwnSelect.3 $1/Tk_OwnSelection.3
+    cp $1/OwnSelect.3 $1/Tk_OwnSelection.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_Parent.3
-    ln $1/WindowId.3 $1/Tk_Parent.3
+    cp $1/WindowId.3 $1/Tk_Parent.3
 fi
 if test -r $1/ParseArgv.3; then
     rm -f $1/Tk_ParseArgv.3
-    ln $1/ParseArgv.3 $1/Tk_ParseArgv.3
+    cp $1/ParseArgv.3 $1/Tk_ParseArgv.3
 fi
 if test -r $1/Name.3; then
     rm -f $1/Tk_PathName.3
-    ln $1/Name.3 $1/Tk_PathName.3
+    cp $1/Name.3 $1/Tk_PathName.3
 fi
 if test -r $1/FindPhoto.3; then
     rm -f $1/Tk_PhotoBlank.3
-    ln $1/FindPhoto.3 $1/Tk_PhotoBlank.3
+    cp $1/FindPhoto.3 $1/Tk_PhotoBlank.3
 fi
 if test -r $1/FindPhoto.3; then
     rm -f $1/Tk_PhotoExpand.3
-    ln $1/FindPhoto.3 $1/Tk_PhotoExpand.3
+    cp $1/FindPhoto.3 $1/Tk_PhotoExpand.3
 fi
 if test -r $1/FindPhoto.3; then
     rm -f $1/Tk_PhotoGetImage.3
-    ln $1/FindPhoto.3 $1/Tk_PhotoGetImage.3
+    cp $1/FindPhoto.3 $1/Tk_PhotoGetImage.3
 fi
 if test -r $1/FindPhoto.3; then
     rm -f $1/Tk_PhotoGetSize.3
-    ln $1/FindPhoto.3 $1/Tk_PhotoGetSize.3
+    cp $1/FindPhoto.3 $1/Tk_PhotoGetSize.3
 fi
 if test -r $1/FindPhoto.3; then
     rm -f $1/Tk_PhotoPutBlock.3
-    ln $1/FindPhoto.3 $1/Tk_PhotoPutBlock.3
+    cp $1/FindPhoto.3 $1/Tk_PhotoPutBlock.3
 fi
 if test -r $1/FindPhoto.3; then
     rm -f $1/Tk_PhotoPutZoomedBlock.3
-    ln $1/FindPhoto.3 $1/Tk_PhotoPutZoomedBlock.3
+    cp $1/FindPhoto.3 $1/Tk_PhotoPutZoomedBlock.3
 fi
 if test -r $1/FindPhoto.3; then
     rm -f $1/Tk_PhotoSetSize.3
-    ln $1/FindPhoto.3 $1/Tk_PhotoSetSize.3
+    cp $1/FindPhoto.3 $1/Tk_PhotoSetSize.3
 fi
 if test -r $1/Preserve.3; then
     rm -f $1/Tk_Preserve.3
-    ln $1/Preserve.3 $1/Tk_Preserve.3
+    cp $1/Preserve.3 $1/Tk_Preserve.3
 fi
 if test -r $1/QueueEvent.3; then
     rm -f $1/Tk_QueueEvent.3
-    ln $1/QueueEvent.3 $1/Tk_QueueEvent.3
+    cp $1/QueueEvent.3 $1/Tk_QueueEvent.3
 fi
 if test -r $1/GetImage.3; then
     rm -f $1/Tk_RedrawImage.3
-    ln $1/GetImage.3 $1/Tk_RedrawImage.3
+    cp $1/GetImage.3 $1/Tk_RedrawImage.3
 fi
 if test -r $1/Preserve.3; then
     rm -f $1/Tk_Release.3
-    ln $1/Preserve.3 $1/Tk_Release.3
+    cp $1/Preserve.3 $1/Tk_Release.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_ReqHeight.3
-    ln $1/WindowId.3 $1/Tk_ReqHeight.3
+    cp $1/WindowId.3 $1/Tk_ReqHeight.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_ReqWidth.3
-    ln $1/WindowId.3 $1/Tk_ReqWidth.3
+    cp $1/WindowId.3 $1/Tk_ReqWidth.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_ResizeWindow.3
-    ln $1/ConfigWind.3 $1/Tk_ResizeWindow.3
+    cp $1/ConfigWind.3 $1/Tk_ResizeWindow.3
 fi
 if test -r $1/Restack.3; then
     rm -f $1/Tk_RestackWindow.3
-    ln $1/Restack.3 $1/Tk_RestackWindow.3
+    cp $1/Restack.3 $1/Tk_RestackWindow.3
 fi
 if test -r $1/RestrictEv.3; then
     rm -f $1/Tk_RestrictEvents.3
-    ln $1/RestrictEv.3 $1/Tk_RestrictEvents.3
+    cp $1/RestrictEv.3 $1/Tk_RestrictEvents.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_Screen.3
-    ln $1/WindowId.3 $1/Tk_Screen.3
+    cp $1/WindowId.3 $1/Tk_Screen.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_ScreenNumber.3
-    ln $1/WindowId.3 $1/Tk_ScreenNumber.3
+    cp $1/WindowId.3 $1/Tk_ScreenNumber.3
 fi
 if test -r $1/QueueEvent.3; then
     rm -f $1/Tk_ServiceEvent.3
-    ln $1/QueueEvent.3 $1/Tk_ServiceEvent.3
+    cp $1/QueueEvent.3 $1/Tk_ServiceEvent.3
 fi
 if test -r $1/QueueEvent.3; then
     rm -f $1/Tk_ServiceIdle.3
-    ln $1/QueueEvent.3 $1/Tk_ServiceIdle.3
+    cp $1/QueueEvent.3 $1/Tk_ServiceIdle.3
 fi
 if test -r $1/SetAppName.3; then
     rm -f $1/Tk_SetAppName.3
-    ln $1/SetAppName.3 $1/Tk_SetAppName.3
+    cp $1/SetAppName.3 $1/Tk_SetAppName.3
 fi
 if test -r $1/3DBorder.3; then
     rm -f $1/Tk_SetBackgroundFromBorder.3
-    ln $1/3DBorder.3 $1/Tk_SetBackgroundFromBorder.3
+    cp $1/3DBorder.3 $1/Tk_SetBackgroundFromBorder.3
 fi
 if test -r $1/SetClass.3; then
     rm -f $1/Tk_SetClass.3
-    ln $1/SetClass.3 $1/Tk_SetClass.3
+    cp $1/SetClass.3 $1/Tk_SetClass.3
 fi
 if test -r $1/SetGrid.3; then
     rm -f $1/Tk_SetGrid.3
-    ln $1/SetGrid.3 $1/Tk_SetGrid.3
+    cp $1/SetGrid.3 $1/Tk_SetGrid.3
 fi
 if test -r $1/GeomReq.3; then
     rm -f $1/Tk_SetInternalBorder.3
-    ln $1/GeomReq.3 $1/Tk_SetInternalBorder.3
+    cp $1/GeomReq.3 $1/Tk_SetInternalBorder.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_SetWindowBackground.3
-    ln $1/ConfigWind.3 $1/Tk_SetWindowBackground.3
+    cp $1/ConfigWind.3 $1/Tk_SetWindowBackground.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_SetWindowBackgroundPixmap.3
-    ln $1/ConfigWind.3 $1/Tk_SetWindowBackgroundPixmap.3
+    cp $1/ConfigWind.3 $1/Tk_SetWindowBackgroundPixmap.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_SetWindowBorder.3
-    ln $1/ConfigWind.3 $1/Tk_SetWindowBorder.3
+    cp $1/ConfigWind.3 $1/Tk_SetWindowBorder.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_SetWindowBorderPixmap.3
-    ln $1/ConfigWind.3 $1/Tk_SetWindowBorderPixmap.3
+    cp $1/ConfigWind.3 $1/Tk_SetWindowBorderPixmap.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_SetWindowBorderWidth.3
-    ln $1/ConfigWind.3 $1/Tk_SetWindowBorderWidth.3
+    cp $1/ConfigWind.3 $1/Tk_SetWindowBorderWidth.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_SetWindowColormap.3
-    ln $1/ConfigWind.3 $1/Tk_SetWindowColormap.3
+    cp $1/ConfigWind.3 $1/Tk_SetWindowColormap.3
 fi
 if test -r $1/SetVisual.3; then
     rm -f $1/Tk_SetWindowVisual.3
-    ln $1/SetVisual.3 $1/Tk_SetWindowVisual.3
+    cp $1/SetVisual.3 $1/Tk_SetWindowVisual.3
 fi
 if test -r $1/GetBitmap.3; then
     rm -f $1/Tk_SizeOfBitmap.3
-    ln $1/GetBitmap.3 $1/Tk_SizeOfBitmap.3
+    cp $1/GetBitmap.3 $1/Tk_SizeOfBitmap.3
 fi
 if test -r $1/GetImage.3; then
     rm -f $1/Tk_SizeOfImage.3
-    ln $1/GetImage.3 $1/Tk_SizeOfImage.3
+    cp $1/GetImage.3 $1/Tk_SizeOfImage.3
 fi
 if test -r $1/Sleep.3; then
     rm -f $1/Tk_Sleep.3
-    ln $1/Sleep.3 $1/Tk_Sleep.3
+    cp $1/Sleep.3 $1/Tk_Sleep.3
 fi
 if test -r $1/StrictMotif.3; then
     rm -f $1/Tk_StrictMotif.3
-    ln $1/StrictMotif.3 $1/Tk_StrictMotif.3
+    cp $1/StrictMotif.3 $1/Tk_StrictMotif.3
 fi
 if test -r $1/GetUid.3; then
     rm -f $1/Tk_Uid.3
-    ln $1/GetUid.3 $1/Tk_Uid.3
+    cp $1/GetUid.3 $1/Tk_Uid.3
 fi
 if test -r $1/ConfigWind.3; then
     rm -f $1/Tk_UndefineCursor.3
-    ln $1/ConfigWind.3 $1/Tk_UndefineCursor.3
+    cp $1/ConfigWind.3 $1/Tk_UndefineCursor.3
 fi
 if test -r $1/MaintGeom.3; then
     rm -f $1/Tk_UnmaintainGeometry.3
-    ln $1/MaintGeom.3 $1/Tk_UnmaintainGeometry.3
+    cp $1/MaintGeom.3 $1/Tk_UnmaintainGeometry.3
 fi
 if test -r $1/MapWindow.3; then
     rm -f $1/Tk_UnmapWindow.3
-    ln $1/MapWindow.3 $1/Tk_UnmapWindow.3
+    cp $1/MapWindow.3 $1/Tk_UnmapWindow.3
 fi
 if test -r $1/SetGrid.3; then
     rm -f $1/Tk_UnsetGrid.3
-    ln $1/SetGrid.3 $1/Tk_UnsetGrid.3
+    cp $1/SetGrid.3 $1/Tk_UnsetGrid.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_Visual.3
-    ln $1/WindowId.3 $1/Tk_Visual.3
+    cp $1/WindowId.3 $1/Tk_Visual.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_Width.3
-    ln $1/WindowId.3 $1/Tk_Width.3
+    cp $1/WindowId.3 $1/Tk_Width.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_WindowId.3
-    ln $1/WindowId.3 $1/Tk_WindowId.3
+    cp $1/WindowId.3 $1/Tk_WindowId.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_X.3
-    ln $1/WindowId.3 $1/Tk_X.3
+    cp $1/WindowId.3 $1/Tk_X.3
 fi
 if test -r $1/WindowId.3; then
     rm -f $1/Tk_Y.3
-    ln $1/WindowId.3 $1/Tk_Y.3
+    cp $1/WindowId.3 $1/Tk_Y.3
 fi
-if test -r $1/menubar.n; then
-    rm -f $1/tk_bindForTraversal.n
-    ln $1/menubar.n $1/tk_bindForTraversal.n
+if test -r $1/menubar.3; then
+    rm -f $1/tk_bindForTraversal.3
+    cp $1/menubar.3 $1/tk_bindForTraversal.3
 fi
-if test -r $1/palette.n; then
-    rm -f $1/tk_bisque.n
-    ln $1/palette.n $1/tk_bisque.n
+if test -r $1/palette.3; then
+    rm -f $1/tk_bisque.3
+    cp $1/palette.3 $1/tk_bisque.3
 fi
-if test -r $1/dialog.n; then
-    rm -f $1/tk_dialog.n
-    ln $1/dialog.n $1/tk_dialog.n
+if test -r $1/dialog.3; then
+    rm -f $1/tk_dialog.3
+    cp $1/dialog.3 $1/tk_dialog.3
 fi
-if test -r $1/focusNext.n; then
-    rm -f $1/tk_focusFollowsMouse.n
-    ln $1/focusNext.n $1/tk_focusFollowsMouse.n
+if test -r $1/focusNext.3; then
+    rm -f $1/tk_focusFollowsMouse.3
+    cp $1/focusNext.3 $1/tk_focusFollowsMouse.3
 fi
-if test -r $1/focusNext.n; then
-    rm -f $1/tk_focusNext.n
-    ln $1/focusNext.n $1/tk_focusNext.n
+if test -r $1/focusNext.3; then
+    rm -f $1/tk_focusNext.3
+    cp $1/focusNext.3 $1/tk_focusNext.3
 fi
-if test -r $1/focusNext.n; then
-    rm -f $1/tk_focusPrev.n
-    ln $1/focusNext.n $1/tk_focusPrev.n
+if test -r $1/focusNext.3; then
+    rm -f $1/tk_focusPrev.3
+    cp $1/focusNext.3 $1/tk_focusPrev.3
 fi
-if test -r $1/menubar.n; then
-    rm -f $1/tk_menuBar.n
-    ln $1/menubar.n $1/tk_menuBar.n
+if test -r $1/menubar.3; then
+    rm -f $1/tk_menuBar.3
+    cp $1/menubar.3 $1/tk_menuBar.3
 fi
-if test -r $1/optionMenu.n; then
-    rm -f $1/tk_optionMenu.n
-    ln $1/optionMenu.n $1/tk_optionMenu.n
+if test -r $1/optionMenu.3; then
+    rm -f $1/tk_optionMenu.3
+    cp $1/optionMenu.3 $1/tk_optionMenu.3
 fi
-if test -r $1/popup.n; then
-    rm -f $1/tk_popup.n
-    ln $1/popup.n $1/tk_popup.n
+if test -r $1/popup.3; then
+    rm -f $1/tk_popup.3
+    cp $1/popup.3 $1/tk_popup.3
 fi
-if test -r $1/palette.n; then
-    rm -f $1/tk_setPalette.n
-    ln $1/palette.n $1/tk_setPalette.n
+if test -r $1/palette.3; then
+    rm -f $1/tk_setPalette.3
+    cp $1/palette.3 $1/tk_setPalette.3
 fi
+exit 0

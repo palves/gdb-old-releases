@@ -1698,6 +1698,7 @@ search_struct_method (name, arg1p, args, offset, static_memfuncp, type)
   for (i = TYPE_NFN_FIELDS (type) - 1; i >= 0; i--)
     {
       char *t_field_name = TYPE_FN_FIELDLIST_NAME (type, i);
+      /* FIXME!  May need to check for ARM demangling here */
       if (strncmp(t_field_name, "__", 2)==0 ||
 	strncmp(t_field_name, "op", 2)==0 ||
 	strncmp(t_field_name, "type", 4)==0 )
@@ -2214,7 +2215,7 @@ value_slice (array, lowbound, length)
      done with it.  */
   slice_range_type = create_range_type ((struct type*) NULL,
 					TYPE_TARGET_TYPE (range_type),
-					lowerbound, lowerbound + length - 1);
+					lowbound, lowbound + length - 1);
   if (TYPE_CODE (array_type) == TYPE_CODE_BITSTRING)
     {
       int i;

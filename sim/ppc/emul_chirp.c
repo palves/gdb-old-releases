@@ -79,6 +79,7 @@ struct _os_emul_data {
   int real_mode;
   int floating_point_available;
   int interrupt_prefix;
+  unsigned_word load_base;
   /* hash table */
   unsigned_word nr_page_table_entry_groups;
   unsigned_word htab_ra;
@@ -99,6 +100,18 @@ struct _os_emul_data {
   unsigned_word code_loop_va;
   unsigned_word code_loop_ra;
 };
+
+
+/* returns the name of the corresponding Ihandle */
+static const char *
+ihandle_name(device_instance *ihandle)
+{
+  if (ihandle == NULL)
+    return "";
+  else
+    return device_name(device_instance_device(ihandle));
+}
+
 
 
 /* Read/write the argument list making certain that all values are
@@ -130,6 +143,7 @@ chirp_read_t2h_args(void *args,
   if (sizeof(unsigned32) * (data->n_args + data->n_returns) > sizeof_args)
     return -1;
   /* bring in the data */
+  memset(args, sizeof_args, 0);
   emul_read_buffer(args, data->arguments + 3 * sizeof(unsigned32),
 		   sizeof(unsigned32) * (data->n_args + data->n_returns),
 		   processor, cia);
@@ -357,7 +371,7 @@ chirp_emul_instance_to_package(os_emul_data *data,
   TRACE(trace_os_emul, ("instance-to-package - in - ihandle=0x%lx(0x%lx`%s')\n",
 			(unsigned long)args.ihandle,
 			(unsigned long)ihandle,
-			(ihandle == NULL ? "" : device_instance_name(ihandle))));
+			ihandle_name(ihandle)));
   /* find the corresponding phandle */
   if (args.ihandle == 0
       || ihandle == NULL) {
@@ -702,7 +716,7 @@ chirp_emul_instance_to_path(os_emul_data *data,
   TRACE(trace_os_emul, ("instance-to-path - in - ihandle=0x%lx(0x%lx`%s') buf=0x%lx buflen=%ld\n",
 			(unsigned long)args.ihandle,
 			(unsigned long)ihandle,
-			(ihandle == NULL ? "" : device_instance_name(ihandle)),
+			ihandle_name(ihandle),
 			(unsigned long)args.buf,
 			(unsigned long)args.buflen));
   /* get the devices name */
@@ -785,6 +799,11 @@ chirp_emul_call_method(os_emul_data *data,
   } args;
   char method[32];
   device_instance *ihandle;
+  /* some useful info about our mini stack */
+  int n_stack_args;
+  int n_stack_returns;
+  int stack_catch_result;
+  int stack_returns;
   /* read the args */
   if (chirp_read_t2h_args(&args, sizeof(args), -1, -1, data, processor, cia))
     return -1;
@@ -793,15 +812,46 @@ chirp_emul_call_method(os_emul_data *data,
 		   sizeof(method),
 		   processor, cia);
   ihandle = external_to_device_instance(data->root, args.ihandle);
+  n_stack_args = data->n_args - 2;
+  n_stack_returns = data->n_returns - 1;
+  stack_catch_result = n_stack_args;
+  stack_returns = stack_catch_result + 1;
   TRACE(trace_os_emul, ("call-method - in - n_args=%ld n_returns=%ld method=`%s' ihandle=0x%lx(0x%lx`%s')\n",
 			(unsigned long)data->n_args,
 			(unsigned long)data->n_returns,
 			method,
 			(unsigned long)args.ihandle,
 			(unsigned long)ihandle,
-			(ihandle == NULL ? "" : device_instance_name(ihandle))));
-  printf_filtered("warning chirp: call-method %s not implemented\n", method);
-  args.stack[data->n_args-2+1] = 0;
+			ihandle_name(ihandle)));
+  /* see if we can emulate this method */
+  if (strcmp(method, "claim") == 0
+      && (n_stack_args == 2 || n_stack_args == 3)
+      && (n_stack_returns == 0 || n_stack_returns == 1)) {
+    /* NOTE: this is the claim method and not the claim client
+       callback.  The two are very different. */
+    unsigned_word alignment = args.stack[0]; /*top*/
+    unsigned_word length = args.stack[1];
+    unsigned_word address = ((n_stack_args == 3) ? args.stack[2] : 0);
+    unsigned_word base;
+    TRACE(trace_os_emul, ("call-method - claim - in - address=0x%lx length=%ld alignment=%ld\n",
+			  (unsigned long)address,
+			  (unsigned long)length,
+			  (unsigned long)alignment));
+    base = device_instance_claim(ihandle, address, length, alignment);
+    TRACE(trace_os_emul, ("call-method - claim - out - base=0x%lx\n",
+			  (unsigned long)base));    
+    if (n_stack_returns == 1)
+      args.stack[stack_returns] = base;
+    args.stack[stack_catch_result] = 0;
+  }
+  else {
+    printf_filtered("warning chirp: call-method %s invalid or unimplemented\n",
+		    method);
+    args.stack[stack_catch_result] = 0;
+  }
+  /* finished */
+  TRACE(trace_os_emul, ("call-method - out - catch-result=%ld\n",
+			(unsigned long)args.stack[stack_catch_result]));
   chirp_write_h2t_args(&args,
 		       sizeof(args),
 		       data,
@@ -835,7 +885,7 @@ chirp_emul_open(os_emul_data *data,
   TRACE(trace_os_emul, ("open - in - device_specifier=`%s'\n",
 			device_specifier));
   /* open the device */
-  ihandle = device_instance_create(data->root, device_specifier, 0);
+  ihandle = device_create_instance(data->root, device_specifier);
   if (ihandle == NULL)
     args.ihandle = -1;
   else
@@ -844,7 +894,7 @@ chirp_emul_open(os_emul_data *data,
   TRACE(trace_os_emul, ("open - out - ihandle=0x%lx(0x%lx`%s')\n",
 			(unsigned long)args.ihandle,
 			(unsigned long)ihandle,
-			(ihandle == NULL ? "" : device_instance_name(ihandle))));
+			ihandle_name(ihandle)));
   chirp_write_h2t_args(&args,
 		       sizeof(args),
 		       data,
@@ -870,7 +920,7 @@ chirp_emul_close(os_emul_data *data,
   TRACE(trace_os_emul, ("close - in - ihandle=0x%lx(0x%lx`%s')\n",
 			(unsigned long)args.ihandle,
 			(unsigned long)ihandle,
-			(ihandle == NULL ? "" : device_instance_name(ihandle))));
+			ihandle_name(ihandle)));
   /* close the device */
   if (ihandle != NULL)
     device_instance_delete(ihandle);
@@ -906,7 +956,7 @@ chirp_emul_read(os_emul_data *data,
   TRACE(trace_os_emul, ("read - in - ihandle=0x%lx(0x%lx`%s') addr=0x%lx len=%ld\n",
 			(unsigned long)args.ihandle,
 			(unsigned long)ihandle,
-			(ihandle == NULL ? "" : device_instance_name(ihandle)),
+			ihandle_name(ihandle),
 			(unsigned long)args.addr,
 			(unsigned long)args.len));
   if (ihandle == NULL)
@@ -969,7 +1019,7 @@ chirp_emul_write(os_emul_data *data,
   TRACE(trace_os_emul, ("write - in - ihandle=0x%lx(0x%lx`%s') `%s' (%ld)\n",
 			(unsigned long)args.ihandle,
 			(unsigned long)ihandle,
-			(ihandle == NULL ? "" : device_instance_name(ihandle)),
+			ihandle_name(ihandle),
 			buf, (long)actual));
   if (ihandle == NULL)
     return -1;
@@ -1011,7 +1061,7 @@ chirp_emul_seek(os_emul_data *data,
   TRACE(trace_os_emul, ("seek - in - ihandle=0x%lx(0x%lx`%s') pos.hi=0x%lx pos.lo=0x%lx\n",
 			(unsigned long)args.ihandle,
 			(unsigned long)ihandle,
-			(ihandle == NULL ? "" : device_instance_name(ihandle)),
+			ihandle_name(ihandle),
 			args.pos_hi, args.pos_lo));
   if (ihandle == NULL)
     return -1;
@@ -1038,6 +1088,8 @@ chirp_emul_claim(os_emul_data *data,
 		 cpu *processor,
 		 unsigned_word cia)
 {
+  /* NOTE: this claim uses virtual addresses and does not correspond
+     to the claim method. */
   error("chirp: claim not implemented\n");
   return 0;
 }
@@ -1047,6 +1099,8 @@ chirp_emul_release(os_emul_data *data,
 		   cpu *processor,
 		   unsigned_word cia)
 {
+  /* NOTE: this release uses virtual addresses and does not correspond
+     to the release method. */
   error("chirp: release not implemented\n");
   return 0;
 }
@@ -1077,7 +1131,15 @@ chirp_emul_exit(os_emul_data *data,
 		cpu *processor,
 		unsigned_word cia)
 {
-  cpu_halt(processor, cia, was_exited, 0); /* always succeeds */
+  /* unlike OpenBoot this one can take an argument */
+  struct exit_args {
+    /*in*/
+    int status;
+    /*out*/
+  } args;
+  if (chirp_read_t2h_args(&args, sizeof(args), -1, 0, data, processor, cia))
+    cpu_halt(processor, cia, was_exited, -1);
+  cpu_halt(processor, cia, was_exited, args.status);
   return 0;
 }
 
@@ -1138,7 +1200,7 @@ chirp_emul_milliseconds(os_emul_data *data,
   if (chirp_read_t2h_args(&args, sizeof(args), 1, 1, data, processor, cia))
     return -1;
   /* make up a number */
-  time = event_queue_time(cpu_event_queue(processor)) / 1000000;
+  time = event_queue_time(psim_event_queue(cpu_system(processor))) / 1000000;
   args.ms = time;
   /* write the arguments back out */
   TRACE(trace_os_emul, ("milliseconds - out - ms=%ld\n",
@@ -1316,9 +1378,7 @@ emul_chirp_create(device *root,
     return NULL;
 
   /* the root node */
-  device_add_string_property(root,
-			     "name",
-			     "gpl,clayton");
+  device_tree_add_parsed(root, "/name \"gpl,clayton");
 
   /* default options */
   emul_add_tree_options(root, image, "chirp", "oea",
@@ -1333,6 +1393,8 @@ emul_chirp_create(device *root,
     = device_find_integer_property(root, "/openprom/options/oea-memory-size");
   chirp->little_endian
     = device_find_boolean_property(root, "/options/little-endian?");
+  chirp->load_base
+    = device_find_integer_property(root, "/options/load-base");
   chirp->floating_point_available
     = device_find_boolean_property(root, "/openprom/options/floating-point?");
   chirp->interrupt_prefix =
@@ -1434,7 +1496,8 @@ emul_chirp_create(device *root,
   device_tree_add_parsed(node, "./data 0x%lx",
 			 (unsigned long)emul_blr_instruction);
   
-  /* return address for client callbacks - an emul-call instruction */
+  /* return address for client callbacks - an emul-call instruction
+     that is again followed by a return instruction */
   
   node = device_tree_add_parsed(root, "/openprom/init/data@0x%lx",
 				(unsigned long)chirp->code_callback_ra);
@@ -1442,6 +1505,13 @@ emul_chirp_create(device *root,
 			 (unsigned long)chirp->code_callback_ra);
   device_tree_add_parsed(node, "./data 0x%lx",
 			 (unsigned long)emul_call_instruction);
+  
+  node = device_tree_add_parsed(root, "/openprom/init/data@0x%lx",
+				(unsigned long)(chirp->code_callback_ra + 4));
+  device_tree_add_parsed(node, "./real-address 0x%lx",
+			 (unsigned long)(chirp->code_callback_ra + 4));
+  device_tree_add_parsed(node, "./data 0x%lx",
+			 (unsigned long)emul_blr_instruction);
   
   /* loop to keep other processors busy */
   
@@ -1452,16 +1522,19 @@ emul_chirp_create(device *root,
   device_tree_add_parsed(node, "./data 0x%lx",
 			 (unsigned long)emul_loop_instruction);
   
-  /* hash table and vm */
+  /* hash table: create a hash table */
   node = device_tree_add_parsed(root, "/openprom/init/htab@0x%lx",
 				(unsigned long)chirp->htab_ra);
+  device_tree_add_parsed(node, "./claim 0");
   device_tree_add_parsed(node, "./real-address 0x%lx",
 			 (unsigned long)chirp->htab_ra);
   device_tree_add_parsed(node, "./nr-bytes 0x%lx",
 			 (unsigned long)chirp->sizeof_htab);
   
+  /* map in the stack */
   node = device_tree_add_parsed(root, "/openprom/init/htab/pte@0x%lx",
 				(unsigned long)chirp->stack_ra);
+  device_tree_add_parsed(node, "./claim 0");
   device_tree_add_parsed(node, "./virtual-address 0x%lx",
 			 (unsigned long)chirp->stack_va);
   device_tree_add_parsed(node, "./real-address 0x%lx",
@@ -1471,8 +1544,10 @@ emul_chirp_create(device *root,
   device_tree_add_parsed(node, "./wimg %d", 0x7);
   device_tree_add_parsed(node, "./pp %d", 0x2);
   
+  /* map in the chrp openboot callback code */
   node = device_tree_add_parsed(root, "/openprom/init/htab/pte@0x%lx",
 				(unsigned long)chirp->code_ra);
+  device_tree_add_parsed(node, "./claim 0");
   device_tree_add_parsed(node, "./virtual-address 0x%lx",
 			 (unsigned long)chirp->code_va);
   device_tree_add_parsed(node, "./real-address 0x%lx",
@@ -1482,21 +1557,12 @@ emul_chirp_create(device *root,
   device_tree_add_parsed(node, "./wimg %d", 0x7);
   device_tree_add_parsed(node, "./pp %d", 0x2);
   
+  /* map in the program to run */
   node = device_tree_add_parsed(root, "/openprom/init/htab/pte@0x%lx",
-				(unsigned long)chirp->htab_ra);
-  device_tree_add_parsed(node, "./virtual-address 0x%lx",
-			 (unsigned long)chirp->htab_va);
+				(unsigned long)chirp->load_base);
+  device_tree_add_parsed(node, "./claim 0");
   device_tree_add_parsed(node, "./real-address 0x%lx",
-			 (unsigned long)chirp->htab_ra);
-  device_tree_add_parsed(node, "./nr-bytes 0x%lx",
-			 (unsigned long)chirp->sizeof_stack);
-  device_tree_add_parsed(node, "./wimg %d", 0x7);
-  device_tree_add_parsed(node, "./pp %d", 0x2);
-  
-  node = device_tree_add_parsed(root, "/openprom/init/htab/pte@0x%lx",
-				(unsigned long)0x4000 /*magic*/);
-  device_tree_add_parsed(node, "./real-address 0x%lx",
-			 (unsigned long)0x4000);
+			 (unsigned long)chirp->load_base);
   device_tree_add_parsed(node, "./file-name \"%s", bfd_get_filename(image));
   device_tree_add_parsed(node, "./wimg %d", 0x7);
   device_tree_add_parsed(node, "./pp %d", 0x2);

@@ -65,6 +65,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "aout/aout64.h"
 #include "aout/stab_gnu.h"	/* We always use GNU stabs, not native, now */
 
+/* defined in stabsread.c; used for completing cfront stabs strings */
+extern void 
+resolve_cfront_continuation PARAMS((struct objfile * objfile, 
+		struct symbol * sym, char * p));
+
 
 /* We put a pointer to this structure in the read_symtab_private field
    of the psymtab.  */
@@ -742,6 +747,68 @@ dbx_symfile_finish (objfile)
 static struct internal_nlist symbuf[4096];
 static int symbuf_idx;
 static int symbuf_end;
+
+/* cont_elem is used for continuing information in cfront.
+   It saves information about which types need to be fixed up and 
+   completed after all the stabs are read.  */
+struct cont_elem 
+  {
+    /* sym and stabsstring for continuing information in cfront */
+    struct symbol * sym;
+    char * stabs;
+    /* state dependancies (statics that must be preserved) */
+    int sym_idx;
+    int sym_end;
+    int symnum;
+    /* other state dependancies include:
+       (assumption is that these will not change since process_now FIXME!!)
+        stringtab_global
+        n_stabs
+        objfile
+        symfile_bfd */
+};
+static struct cont_elem cont_list[100];
+static int cont_count = 0;
+
+void 
+process_later(sym,p)
+  struct symbol * sym;
+  char * p;
+{
+  /* save state so we can process these stabs later */
+  cont_list[cont_count].sym_idx = symbuf_idx;
+  cont_list[cont_count].sym_end = symbuf_end;
+  cont_list[cont_count].symnum = symnum;
+  cont_list[cont_count].sym = sym;
+  cont_list[cont_count].stabs = p;
+  cont_count++;
+}
+
+void 
+process_now(objfile) 
+  struct objfile * objfile;
+{
+  int i;
+  /* save original state */
+  int save_symbuf_idx = symbuf_idx;
+  int save_symbuf_end = symbuf_end;
+  int save_symnum = symnum;
+  for (i=0; i<cont_count; i++) 
+    {
+      /* set state as if we were parsing stabs strings 
+         for this symbol */
+      symbuf_idx = cont_list[i].sym_idx;   /* statics used by gdb */
+      symbuf_end = cont_list[i].sym_end;  
+      symnum = cont_list[i].symnum;  
+      resolve_cfront_continuation(objfile,cont_list[i].sym,cont_list[i].stabs);
+    }
+  /* restore original state */
+  symbuf_idx = save_symbuf_idx;
+  symbuf_end = save_symbuf_end;
+  symnum = save_symnum;
+  cont_count=0;  /* reset for next run */
+}
+
 
 /* Name of last function encountered.  Used in Solaris to approximate
    object file boundaries.  */
@@ -1683,6 +1750,10 @@ read_ofile_symtab (pst)
     last_source_start_addr = text_offset;
 
   pst->symtab = end_symtab (text_offset + text_size, objfile, SECT_OFF_TEXT);
+
+  if (ARM_DEMANGLING)	/* process incomplete C++ types now */
+    process_now(objfile);
+
   end_stabs ();
 }
 

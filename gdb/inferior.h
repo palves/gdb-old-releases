@@ -1,6 +1,6 @@
 /* Variables that describe the inferior process running under GDB:
    Where it is, why it stopped, and how to step it.
-   Copyright 1986, 1989, 1992 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1992, 1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -183,7 +183,7 @@ extern int proc_iterate_over_mappings PARAMS ((int (*) (int, CORE_ADDR)));
 
 extern void fork_inferior PARAMS ((char *, char *, char **,
 				   void (*) (void),
-				   void (*) (int), char *));
+				   int (*) (int), char *));
 
 extern void startup_inferior PARAMS ((int));
 

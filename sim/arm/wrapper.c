@@ -180,7 +180,7 @@ sim_info (verbose)
 }
 
 
-int 
+static int 
 frommem (state, memory)
      struct ARMul_State *state;
      unsigned char *memory;
@@ -202,7 +202,7 @@ frommem (state, memory)
 }
 
 
-void 
+static void
 tomem (state, memory,  val)
      struct ARMul_State *state;
      unsigned char *memory;

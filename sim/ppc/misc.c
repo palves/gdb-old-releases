@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <ctype.h>
 
 #include "config.h"
 #include "misc.h"
@@ -92,7 +93,71 @@ it_is(const char *flag,
 unsigned
 a2i(const char *a)
 {
-  return strtoul(a, 0, 0);
+  int neg = 0;
+  int base = 10;
+  unsigned num = 0;
+  int looping;
+
+  while (isspace (*a))
+    a++;
+
+  if (*a == '-') {
+    neg = 1;
+    a++;
+  }
+
+  if (*a == '0') {
+    if (a[1] == 'x' || a[1] == 'X') {
+      a += 2;
+      base = 16;
+    }
+    else
+      base = 8;
+  }
+
+  looping = 1;
+  while (looping) {
+    int ch = *a++;
+
+    switch (base) {
+    default:
+      looping = 0;
+      break;
+
+    case 10:
+      if (ch >= '0' && ch <= '9') {
+	num = (num * 10) + (ch - '0');
+      } else {
+	looping = 0;
+      }
+      break;
+
+    case 8:
+      if (ch >= '0' && ch <= '7') {
+	num = (num * 8) + (ch - '0');
+      } else {
+	looping = 0;
+      }
+      break;
+
+    case 16:
+      if (ch >= '0' && ch <= '9') {
+	num = (num * 16) + (ch - '0');
+      } else if (ch >= 'a' && ch <= 'f') {
+	num = (num * 16) + (ch - 'a' + 10);
+      } else if (ch >= 'A' && ch <= 'F') {
+	num = (num * 16) + (ch - 'A' + 10);
+      } else {
+	looping = 0;
+      }
+      break;
+    }
+  }
+
+  if (neg)
+    num = - num;
+
+  return num;
 }
 
 unsigned
@@ -100,9 +165,9 @@ target_a2i(int ms_bit_nr,
 	   const char *a)
 {
   if (ms_bit_nr)
-    return (ms_bit_nr - strtoul(a, 0, 0));
+    return (ms_bit_nr - a2i(a));
   else
-    return strtoul(a, 0, 0);
+    return a2i(a);
 }
 
 unsigned

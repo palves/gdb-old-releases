@@ -40,7 +40,12 @@ esac
 frags=$frag
 
 # If they didn't specify --enable-shared, don't generate shared libs.
-if [ "${enable_shared}" = "yes" ]; then
+case "${enable_shared}" in
+  yes) shared=yes ;;
+  no) shared=no ;;
+  *) shared=yes ;;
+esac
+if [ "${shared}" = "yes" ]; then
   case "${host}" in
     hppa*-*-*)	  frags="${frags} ../../config/mh-papic" ;;
     i[345]86-*-*) frags="${frags} ../../config/mh-x86pic" ;;

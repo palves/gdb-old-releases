@@ -1,3 +1,9 @@
+Tue May 28 13:51:22 1996  Fred Fish  <fnf@cygnus.com>
+
+	From: Thomas A Peterson <tap@src.honeywell.com>
+	* Makefile.in (install-info): Apply patch to install
+	mmalloc.info from srcdir if not found in build dir.
+
 Sun Apr  7 20:55:30 1996  Fred Fish  <fnf@rtl.cygnus.com>
 
 	From: Miles Bader  <miles@gnu.ai.mit.edu>

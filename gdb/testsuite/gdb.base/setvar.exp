@@ -38,18 +38,19 @@ if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
     return -1
 }
 
+# Create and source the file that provides information about the compiler
+# used to compile the test case.
 execute_anywhere "rm -f ${binfile}.ci"
 if  { [compile "-E ${srcdir}/${subdir}/compiler.c > ${binfile}.ci"] != "" } {
-    perror "Couldn't make ${testfile}.ci file"
+    perror "Couldn't make ${binfile}.ci file"
     return -1
 }
+source ${binfile}.ci
 
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load $binfile
-
-source ${binfile}.ci
 
 #
 # set it up at a breakpoint so we canplay with the variable values
@@ -783,6 +784,7 @@ expect {
 	send "print v_unsigned_int\n"
 	expect {
 	    -re ".\[0-9\]* = 4294967295.*$prompt $"       { pass "set variable unsigned int=~0 (minus)" }
+	    -re ".\[0-9\]* = 65535.*$prompt $"       { pass "set variable unsigned int=~0 (minus)" }
 	    -re "$prompt $"                      { fail "set variable unsigned int=~0 (minus)" }
 	    timeout                              { fail "(timeout) set variable unsigned int=~0 (minus)" }
 	}
@@ -1228,6 +1230,7 @@ expect {
 	send "print v_unsigned_int_array\n"
 	expect {
 	    -re "print.*.\[0-9\]* =.*\{123,.*4294966840\}.*$prompt $"       { pass "set variable unsigned int array" }
+	    -re "print.*.\[0-9\]* =.*\{123,.*65080\}.*$prompt $"       { pass "set variable unsigned int array" }
 	    -re "$prompt $"                      { fail "set variable unsigned int array" }
 	    timeout                              { fail "(timeout) set variable unsigned int array" }
 	}
@@ -1566,6 +1569,15 @@ expect {
 
 		}
 	    }
+	    -re "print.*.\[0-9\]* =.*\{123,.*65080\}.*$prompt $" {
+		send "print *(v_unsigned_int_pointer+1)\n"
+		expect {
+		    -re "print.*.\[0-9\]* = 65080.*$prompt $"    { pass "set variable unsigned int pointer" }
+		    -re "$prompt $"                { fail "set variable unsigned int pointer" }
+		    timeout                              { fail "(timeout) set variable unsigned int pointer" }
+
+		}
+	    }
 	    -re "$prompt $"                { fail "set variable unsigned int pointer" }
 	    timeout                              { fail "(timeout) set variable unsigned int pointer" }
 	}
@@ -1834,6 +1846,7 @@ v_long_member = 3,.*v_float_member = 4,.*v_double_member = 5.*\}" \
 # the type of the structure to be specified, as in
 # v_struct1 = (struct t_struct) {32, 33, 34, 35, 36, 37}
 # GDB should do the same if it wants to provide this feature.
+setup_xfail "h8300*-*-*"
 gdb_test "set variable v_struct1 = {32, 33, 34, 35, 36, 37}" "Invalid.*"
 
 # And after the error the structure should be unchanged.

@@ -901,6 +901,10 @@ coff_symtab_read (symtab_offset, nsyms, section_offsets, objfile)
 	    in_source_file = 1;
 	    break;
 
+	  /* C_LABEL is used for labels and static functions.  Including
+	     it here allows gdb to see static functions when no debug
+	     info is available.  */
+	  case C_LABEL:
           case C_STAT:
 	    if (cs->c_name[0] == '.')
 	      {

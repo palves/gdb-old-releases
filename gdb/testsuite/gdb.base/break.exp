@@ -34,7 +34,7 @@ set bug_id 0
 set testfile "break"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
-if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
+if  { [compile "${srcdir}/${subdir}/${srcfile} -w -g -o ${binfile}"] != "" } {
     perror "Couldn't compile ${srcfile}"
     return -1
 }

@@ -1,5 +1,6 @@
 /* Definitions for values of C expressions, for GDB.
-   Copyright 1986, 1987, 1989, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -366,9 +367,11 @@ extern value_ptr value_of_this PARAMS ((int complain));
 
 extern value_ptr value_x_binop PARAMS ((value_ptr arg1, value_ptr arg2,
 					enum exp_opcode op,
-					enum exp_opcode otherop));
+					enum exp_opcode otherop,
+					enum noside noside));
 
-extern value_ptr value_x_unop PARAMS ((value_ptr arg1, enum exp_opcode op));
+extern value_ptr value_x_unop PARAMS ((value_ptr arg1, enum exp_opcode op,
+				       enum noside noside));
 
 extern value_ptr value_fn_field PARAMS ((value_ptr *arg1p, struct fn_field *f,
 					 int j,

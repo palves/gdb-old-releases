@@ -583,6 +583,8 @@ _bfd_elf_link_hash_table_init (table, abfd, newfunc)
   table->dynstr = NULL;
   table->bucketcount = 0;
   table->needed = NULL;
+  table->hgot = NULL;
+  table->stab_info = NULL;
   return _bfd_link_hash_table_init (&table->root, abfd, newfunc);
 }
 
@@ -799,7 +801,6 @@ bfd_section_from_shdr (abfd, shindex)
       {
 	asection *target_sect;
 	Elf_Internal_Shdr *hdr2;
-	int use_rela_p = get_elf_backend_data (abfd)->use_rela_p;
 
 	/* For some incomprehensible reason Oracle distributes
 	   libraries for Solaris in which some of the objects have
@@ -844,30 +845,24 @@ bfd_section_from_shdr (abfd, shindex)
 	if (hdr->sh_link != elf_onesymtab (abfd))
 	  return _bfd_elf_make_section_from_shdr (abfd, hdr, name);
 
-	/* Don't allow REL relocations on a machine that uses RELA and
-	   vice versa.  */
-	/* @@ Actually, the generic ABI does suggest that both might be
-	   used in one file.  But the four ABI Processor Supplements I
-	   have access to right now all specify that only one is used on
-	   each of those architectures.  It's conceivable that, e.g., a
-	   bunch of absolute 32-bit relocs might be more compact in REL
-	   form even on a RELA machine...  */
-	BFD_ASSERT (use_rela_p
-		    ? (hdr->sh_type == SHT_RELA
-		       && hdr->sh_entsize == bed->s->sizeof_rela)
-		    : (hdr->sh_type == SHT_REL
-		       && hdr->sh_entsize == bed->s->sizeof_rel));
-
 	if (! bfd_section_from_shdr (abfd, hdr->sh_info))
 	  return false;
 	target_sect = bfd_section_from_elf_index (abfd, hdr->sh_info);
 	if (target_sect == NULL)
 	  return false;
 
-	hdr2 = &elf_section_data (target_sect)->rel_hdr;
+	if ((target_sect->flags & SEC_RELOC) == 0
+	    || target_sect->reloc_count == 0)
+	  hdr2 = &elf_section_data (target_sect)->rel_hdr;
+	else
+	  {
+	    BFD_ASSERT (elf_section_data (target_sect)->rel_hdr2 == NULL);
+	    hdr2 = (Elf_Internal_Shdr *) bfd_alloc (abfd, sizeof (*hdr2));
+	    elf_section_data (target_sect)->rel_hdr2 = hdr2;
+	  }
 	*hdr2 = *hdr;
 	elf_elfsections (abfd)[shindex] = hdr2;
-	target_sect->reloc_count = hdr->sh_size / hdr->sh_entsize;
+	target_sect->reloc_count += hdr->sh_size / hdr->sh_entsize;
 	target_sect->flags |= SEC_RELOC;
 	target_sect->relocation = NULL;
 	target_sect->rel_filepos = hdr->sh_offset;
@@ -2582,9 +2577,9 @@ _bfd_elf_section_from_bfd_section (abfd, asect)
 int
 _bfd_elf_symbol_from_bfd_symbol (abfd, asym_ptr_ptr)
      bfd *abfd;
-     struct symbol_cache_entry **asym_ptr_ptr;
+     asymbol **asym_ptr_ptr;
 {
-  struct symbol_cache_entry *asym_ptr = *asym_ptr_ptr;
+  asymbol *asym_ptr = *asym_ptr_ptr;
   int idx;
   flagword flags = asym_ptr->flags;
 
@@ -3316,3 +3311,101 @@ _bfd_elf_no_info_to_howto_rel (abfd, cache_ptr, dst)
   abort ();
 }
 #endif
+
+/* Try to convert a non-ELF reloc into an ELF one.  */
+
+boolean
+_bfd_elf_validate_reloc (abfd, areloc)
+     bfd *abfd;
+     arelent *areloc;
+{
+  /* Check whether we really have an ELF howto. */
+
+  if ((*areloc->sym_ptr_ptr)->the_bfd->xvec != abfd->xvec) 
+    {
+      bfd_reloc_code_real_type code;
+      reloc_howto_type *howto;
+      
+      /* Alien reloc: Try to determine its type to replace it with an
+	 equivalent ELF reloc. */
+
+      if (areloc->howto->pc_relative)
+	{
+	  switch (areloc->howto->bitsize)
+	    {
+	    case 8:
+	      code = BFD_RELOC_8_PCREL; 
+	      break;
+	    case 12:
+	      code = BFD_RELOC_12_PCREL; 
+	      break;
+	    case 16:
+	      code = BFD_RELOC_16_PCREL; 
+	      break;
+	    case 24:
+	      code = BFD_RELOC_24_PCREL; 
+	      break;
+	    case 32:
+	      code = BFD_RELOC_32_PCREL; 
+	      break;
+	    case 64:
+	      code = BFD_RELOC_64_PCREL; 
+	      break;
+	    default:
+	      goto fail;
+	    }
+
+	  howto = bfd_reloc_type_lookup (abfd, code);
+
+	  if (areloc->howto->pcrel_offset != howto->pcrel_offset)
+	    {
+	      if (howto->pcrel_offset)
+		areloc->addend += areloc->address;
+	      else
+		areloc->addend -= areloc->address; /* addend is unsigned!! */
+	    }
+	}
+      else
+	{
+	  switch (areloc->howto->bitsize)
+	    {
+	    case 8:
+	      code = BFD_RELOC_8; 
+	      break;
+	    case 14:
+	      code = BFD_RELOC_14; 
+	      break;
+	    case 16:
+	      code = BFD_RELOC_16; 
+	      break;
+	    case 26:
+	      code = BFD_RELOC_26; 
+	      break;
+	    case 32:
+	      code = BFD_RELOC_32; 
+	      break;
+	    case 64:
+	      code = BFD_RELOC_64; 
+	      break;
+	    default:
+	      goto fail;
+	    }
+
+	  howto = bfd_reloc_type_lookup (abfd, code);
+	}
+
+      if (howto)
+	areloc->howto = howto;
+      else
+	goto fail;
+    }
+
+  return true;
+
+ fail:
+  (*_bfd_error_handler)
+    ("%s: unsupported relocation type %s",
+     bfd_get_filename (abfd), areloc->howto->name);
+  bfd_set_error (bfd_error_bad_value);
+  return false;
+}

@@ -125,12 +125,15 @@ kill_inferior ()
 {
   if (inferior_pid == 0)
     return;
-  /* ptrace PT_KILL only works if process is stopped!!!  So stop it with
-     a real signal first, if we can.  FIXME: This is bogus.  When the inferior
-     is not stopped, GDB should just be waiting for it.  Either the following
-     line is unecessary, or there is some problem elsewhere in GDB which
-     causes us to get here when the inferior is not stopped.  */
-  kill (inferior_pid, SIGKILL);
+
+  /* This once used to call "kill" to kill the inferior just in case
+     the inferior was still running.  As others have noted in the past
+     (kingdon) there shouldn't be any way to get here if the inferior
+     is still running -- else there's a major problem elsewere in gdb
+     and it needs to be fixed.
+
+     The kill call causes problems under hpux10, so it's been removed;
+     if this causes problems we'll deal with them as they arise.  */
   ptrace (PT_KILL, inferior_pid, (PTRACE_ARG3_TYPE) 0, 0);
   wait ((int *)0);
   target_mourn_inferior ();

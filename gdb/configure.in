@@ -96,6 +96,24 @@ AC_MSG_RESULT($gdb_cv_printf_has_long_double)
 
 AC_FUNC_MMAP
 
+dnl See if thread_db library is around for Solaris thread debugging.  Note that
+dnl we must explicitly test for version 1 of the library because version 0
+dnl (present on Solaris 2.4 or earlier) doesn't have the same API.
+
+if test ${host} = ${target} ; then
+	AC_MSG_CHECKING(for Solaris thread debugging library)
+	if test -f /usr/lib/libthread_db.so.1 ; then
+		AC_MSG_RESULT(yes)
+		THREAD_DB_OBS=sol-thread.o
+		AC_DEFINE(HAVE_THREAD_DB_LIB)
+		CONFIG_LDFLAGS="${CONFIG_LDFLAGS} -Xlinker -export-dynamic"
+	else
+		AC_MSG_RESULT(no)
+	fi
+	AC_SUBST(THREAD_DB_OBS)
+	AC_SUBST(CONFIG_LDFLAGS)
+fi
+
 dnl Handle optional features that can be enabled.
 ENABLE_CFLAGS=
 ENABLE_CLIBS=
@@ -274,6 +292,7 @@ a29k-*-*)		gdb_host=ultra3 ;;
 alpha-*-osf1*)		gdb_host=alpha-osf1 ;;
 alpha-*-osf2*)		gdb_host=alpha-osf2 ;;
 alpha-*-osf[3456789]*)	gdb_host=alpha-osf3 ;;
+alpha-*-linux*)		gdb_host=alpha-linux ;;
 
 arm-*-*)		gdb_host=arm ;;
 
@@ -363,6 +382,7 @@ ns32k-utek-sysv*)	gdb_host=merlin ;;
 
 powerpc-*-aix*)		gdb_host=aix ;;
 powerpcle-*-cygwin32)	gdb_host=cygwin32 ;;
+powerpcle-*-solaris*)	gdb_host=solaris ;;
 pn-*-*)			gdb_host=pn ;;
 
 pyramid-*-*)		gdb_host=pyramid ;;
@@ -428,6 +448,7 @@ a29k-*-udi*)		gdb_target=a29k-udi ;;
 a29k-*-vxworks*)        gdb_target=vx29k ;;
 
 alpha-*-osf*)		gdb_target=alpha-osf1 ;;
+alpha-*-linux*)		gdb_target=alpha-linux ;;
 
 
 arm-*-*)		gdb_target=arm ;;
@@ -439,7 +460,6 @@ h8300-*-*)		gdb_target=h8300 ;;
 h8500-*-*)		gdb_target=h8500 ;;
 
 sh-*-*)			gdb_target=sh ;;
-
 
 hppa*-*-bsd*)		gdb_target=hppabsd ;;
 hppa*-*-pro*)		gdb_target=hppapro ;;
@@ -532,6 +552,8 @@ mips64*el-*-ecoff*)	gdb_target=embedl64 ;;
 mips64*-*-ecoff*)	gdb_target=embed64 ;;
 mips64*vr4300*el-*-elf*)	gdb_target=vr4300el ;;
 mips64*vr4300*-*-elf*)	gdb_target=vr4300 ;;
+mips64*vr4100*el-*-elf*)	gdb_target=vr4300el ;;
+mips64*vr4100*-*-elf*)	gdb_target=vr4300 ;;
 mips64*el-*-elf*)	gdb_target=embedl64 ;;
 mips64*-*-elf*)		gdb_target=embed64 ;;
 mips*el-*-ecoff*)	gdb_target=embedl ;;
@@ -565,6 +587,7 @@ powerpc-*-netware*)	gdb_target=ppc-nw
 powerpc-*-aix4*)	gdb_target=aix4 ;;
 powerpc-*-aix*)		gdb_target=aix ;;
 powerpcle-*-cygwin32)	gdb_target=cygwin32 ;;
+powerpcle-*-solaris*)	gdb_target=solaris ;;
 powerpc-*-eabi*)	if test x"$powerpc_sim" = x"yes"; then
 			  gdb_target=ppc-sim
 			else
@@ -596,7 +619,12 @@ sparc-*-*)		gdb_target=sun4os4 ;;
 # Use sparc-em for sparclet for now.
 sparclet-*-*)		gdb_target=sparc-em ;;
 sparclite*-*-*)		gdb_target=sparclite ;;
-sparc64-*-solaris2*)	gdb_target=sp64sol2 ;;
+# It's not clear what the right solution for "v8plus" systems is yet.
+# For now, stick with sparc-sun-solaris2 since that's what config.guess
+# should return.  Work is still needed to get gdb to print the 64 bit
+# regs (some of which are usable in v8plus) so sp64sol.mt hasn't been
+# deleted though presumably it should be eventually.
+#sparc64-*-solaris2*)	gdb_target=sp64sol2 ;;
 sparc64-*-*)		gdb_target=sp64 ;;
 
 tahoe-*-*)		gdb_target=tahoe ;;

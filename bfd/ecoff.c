@@ -140,18 +140,7 @@ _bfd_ecoff_new_section_hook (abfd, section)
      bfd *abfd;
      asection *section;
 {
-  /* For the .pdata section, which has a special meaning on the Alpha,
-     we set the alignment power to 3.  We correct this later in
-     ecoff_compute_section_file_positions.  We do this hackery because
-     we need to know the exact unaligned size of the .pdata section in
-     order to set the lnnoptr field correctly.  For every other
-     section we use an alignment power of 4; this could be made target
-     dependent by adding a field to ecoff_backend_data, but 4 appears
-     to be correct for both the MIPS and the Alpha.  */
-  if (strcmp (section->name, _PDATA) == 0)
-    section->alignment_power = 3;
-  else
-    section->alignment_power = 4;
+  section->alignment_power = 4;
 
   if (strcmp (section->name, _TEXT) == 0)
     section->flags |= SEC_CODE | SEC_LOAD | SEC_ALLOC;
@@ -161,7 +150,8 @@ _bfd_ecoff_new_section_hook (abfd, section)
   else if (strcmp (section->name, _RDATA) == 0
 	   || strcmp (section->name, _LIT8) == 0
 	   || strcmp (section->name, _LIT4) == 0
-	   || strcmp (section->name, _RCONST) == 0)
+	   || strcmp (section->name, _RCONST) == 0
+	   || strcmp (section->name, _PDATA) == 0)
     section->flags |= SEC_DATA | SEC_LOAD | SEC_ALLOC | SEC_READONLY;
   else if (strcmp (section->name, _BSS) == 0
 	   || strcmp (section->name, _SBSS) == 0)
@@ -842,6 +832,10 @@ ecoff_set_symbol_info (abfd, ecoff_sym, asym, ext, weak)
 	case N_SETD:
 	case N_SETB:
 	  {
+	    /* This code is no longer needed.  It used to be used to
+	       make the linker handle set symbols, but they are now
+	       handled in the add_symbols routine instead.  */
+#if 0
 	    const char *name;
 	    asection *section;
 	    arelent_chain *reloc_chain;
@@ -900,6 +894,8 @@ ecoff_set_symbol_info (abfd, ecoff_sym, asym, ext, weak)
 	    reloc_chain->next = section->constructor_chain;
 	    section->constructor_chain = reloc_chain;
 	    section->_raw_size += bitsize / 8;
+
+#endif /* 0 */
 
 	    /* Mark the symbol as a constructor.  */
 	    asym->flags |= BSF_CONSTRUCTOR;
@@ -1822,12 +1818,9 @@ _bfd_ecoff_find_nearest_line (abfd, section, ignore_symbols, offset,
     {
       ecoff_data (abfd)->find_line_info =
 	((struct ecoff_find_line *)
-	 bfd_alloc (abfd, sizeof (struct ecoff_find_line)));
+	 bfd_zalloc (abfd, sizeof (struct ecoff_find_line)));
       if (ecoff_data (abfd)->find_line_info == NULL)
 	return false;
-      ecoff_data (abfd)->find_line_info->find_buffer = NULL;
-      ecoff_data (abfd)->find_line_info->fdrtab_len = 0;
-      ecoff_data (abfd)->find_line_info->fdrtab = NULL;
     }
   line_info = ecoff_data (abfd)->find_line_info;
 
@@ -2043,7 +2036,7 @@ static boolean
 ecoff_compute_section_file_positions (abfd)
      bfd *abfd;
 {
-  file_ptr sofar;
+  file_ptr sofar, file_sofar;
   asection **sorted_hdrs;
   asection *current;
   unsigned int i;
@@ -2052,6 +2045,7 @@ ecoff_compute_section_file_positions (abfd)
   const bfd_vma round = ecoff_backend (abfd)->round;
 
   sofar = _bfd_ecoff_sizeof_headers (abfd, false);
+  file_sofar = sofar;
 
   /* Sort the sections by VMA.  */
   sorted_hdrs = (asection **) bfd_malloc (abfd->section_count
@@ -2079,13 +2073,10 @@ ecoff_compute_section_file_positions (abfd)
 	 supposed to indicate the number of .pdata entries that are
 	 really in the section.  Each entry is 8 bytes.  We store this
 	 away in line_filepos before increasing the section size.  */
-      if (strcmp (current->name, _PDATA) != 0)
-	alignment_power = current->alignment_power;
-      else
-	{
-	  current->line_filepos = current->_raw_size / 8;
-	  alignment_power = 4;
-	}
+      if (strcmp (current->name, _PDATA) == 0)
+	current->line_filepos = current->_raw_size / 8;
+
+      alignment_power = current->alignment_power;
 
       /* On Ultrix, the data sections in an executable file must be
 	 aligned to a page boundary within the file.  This does not
@@ -2103,6 +2094,7 @@ ecoff_compute_section_file_positions (abfd)
 	  && strcmp (current->name, _RCONST) != 0)
 	{
 	  sofar = (sofar + round - 1) &~ (round - 1);
+	  file_sofar = (file_sofar + round - 1) &~ (round - 1);
 	  first_data = false;
 	}
       else if (strcmp (current->name, _LIB) == 0)
@@ -2112,6 +2104,7 @@ ecoff_compute_section_file_positions (abfd)
 	     page boundary.  */
 
 	  sofar = (sofar + round - 1) &~ (round - 1);
+	  file_sofar = (file_sofar + round - 1) &~ (round - 1);
 	}
       else if (first_nonalloc
 	       && (current->flags & SEC_ALLOC) == 0
@@ -2122,32 +2115,42 @@ ecoff_compute_section_file_positions (abfd)
              for the .bss section.  */
 	  first_nonalloc = false;
 	  sofar = (sofar + round - 1) &~ (round - 1);
+	  file_sofar = (file_sofar + round - 1) &~ (round - 1);
 	}
 
       /* Align the sections in the file to the same boundary on
 	 which they are aligned in virtual memory.  */
-      old_sofar = sofar;
       sofar = BFD_ALIGN (sofar, 1 << alignment_power);
+      if ((current->flags & SEC_HAS_CONTENTS) != 0)
+	file_sofar = BFD_ALIGN (file_sofar, 1 << alignment_power);
 
       if ((abfd->flags & D_PAGED) != 0
 	  && (current->flags & SEC_ALLOC) != 0)
-	sofar += (current->vma - sofar) % round;
+	{
+	  sofar += (current->vma - sofar) % round;
+	  if ((current->flags & SEC_HAS_CONTENTS) != 0)
+	    file_sofar += (current->vma - file_sofar) % round;
+	}
 
       if ((current->flags & (SEC_HAS_CONTENTS | SEC_LOAD)) != 0)
-	current->filepos = sofar;
+	current->filepos = file_sofar;
 
       sofar += current->_raw_size;
+      if ((current->flags & SEC_HAS_CONTENTS) != 0)
+	file_sofar += current->_raw_size;
 
       /* make sure that this section is of the right size too */
       old_sofar = sofar;
       sofar = BFD_ALIGN (sofar, 1 << alignment_power);
+      if ((current->flags & SEC_HAS_CONTENTS) != 0)
+	file_sofar = BFD_ALIGN (file_sofar, 1 << alignment_power);
       current->_raw_size += sofar - old_sofar;
     }
 
   free (sorted_hdrs);
   sorted_hdrs = NULL;
 
-  ecoff_data (abfd)->reloc_filepos = sofar;
+  ecoff_data (abfd)->reloc_filepos = file_sofar;
 
   return true;
 }
@@ -2227,11 +2230,22 @@ _bfd_ecoff_set_section_contents (abfd, section, location, offset, count)
 	return false;
     }
 
-  /* If this is a .lib section, bump the vma address so that it winds
-     up being the number of .lib sections output.  This is right for
-     Irix 4.  Ian Taylor <ian@cygnus.com>.  */
+  /* Handle the .lib section specially so that Irix 4 shared libraries
+     work out.  See coff_set_section_contents in coffcode.h.  */
   if (strcmp (section->name, _LIB) == 0)
-    ++section->vma;
+    {
+      bfd_byte *rec, *recend;
+
+      rec = (bfd_byte *) location;
+      recend = rec + count;
+      while (rec < recend)
+	{
+	  ++section->lma;
+	  rec += bfd_get_32 (abfd, rec) * 4;
+	}
+
+      BFD_ASSERT (rec == recend);
+    }
 
   if (count == 0)
     return true;

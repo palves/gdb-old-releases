@@ -26,7 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 static reloc_howto_type *elf32_sparc_reloc_type_lookup
   PARAMS ((bfd *, bfd_reloc_code_real_type));
-static void elf_info_to_howto
+static void elf32_sparc_info_to_howto
   PARAMS ((bfd *, arelent *, Elf_Internal_Rela *));
 static boolean elf32_sparc_check_relocs
   PARAMS ((bfd *, struct bfd_link_info *, asection *,
@@ -126,7 +126,7 @@ reloc_howto_type _bfd_sparc_elf_howto_table[] =
 #endif
   HOWTO(R_SPARC_WDISP16,   2,2,16,true, 0,complain_overflow_signed,  sparc_elf_wdisp16_reloc,"R_SPARC_WDISP16", false,0,0x00000000,true),
   HOWTO(R_SPARC_WDISP19,   2,2,22,true, 0,complain_overflow_signed,  bfd_elf_generic_reloc,  "R_SPARC_WDISP19", false,0,0x0007ffff,true),
-  HOWTO(R_SPARC_GLOB_JMP,  0,0,00,false,0,complain_overflow_dont,    bfd_elf_generic_reloc,  "R_SPARC_GLOB_DAT",false,0,0x00000000,true),
+  HOWTO(R_SPARC_GLOB_JMP,  0,0,00,false,0,complain_overflow_dont,    bfd_elf_generic_reloc,  "R_SPARC_GLOB_JMP",false,0,0x00000000,true),
   HOWTO(R_SPARC_7,         0,2, 7,false,0,complain_overflow_bitfield,bfd_elf_generic_reloc,  "R_SPARC_7",       false,0,0x0000007f,true),
   HOWTO(R_SPARC_5,         0,2, 5,false,0,complain_overflow_bitfield,bfd_elf_generic_reloc,  "R_SPARC_5",       false,0,0x0000001f,true),
   HOWTO(R_SPARC_6,         0,2, 6,false,0,complain_overflow_bitfield,bfd_elf_generic_reloc,  "R_SPARC_6",       false,0,0x0000003f,true),
@@ -202,7 +202,7 @@ elf32_sparc_reloc_type_lookup (abfd, code)
    and elf64-sparc.c has its own copy.  */
 
 static void
-elf_info_to_howto (abfd, cache_ptr, dst)
+elf32_sparc_info_to_howto (abfd, cache_ptr, dst)
      bfd *abfd;
      arelent *cache_ptr;
      Elf_Internal_Rela *dst;
@@ -452,6 +452,13 @@ elf32_sparc_check_relocs (abfd, info, sec, relocs)
 	    }
 
 	  sgot->_raw_size += 4;
+
+	  /* If the .got section is more than 0x1000 bytes, we add
+	     0x1000 to the value of _GLOBAL_OFFSET_TABLE_, so that 13
+	     bit relocations have a greater chance of working.  */
+	  if (sgot->_raw_size >= 0x1000
+	      && elf_hash_table (info)->hgot->root.u.def.value == 0)
+	    elf_hash_table (info)->hgot->root.u.def.value = 0x1000;
 
 	  break;
 
@@ -937,6 +944,7 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
   Elf_Internal_Shdr *symtab_hdr;
   struct elf_link_hash_entry **sym_hashes;
   bfd_vma *local_got_offsets;
+  bfd_vma got_base;
   asection *sgot;
   asection *splt;
   asection *sreloc;
@@ -947,6 +955,11 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
   symtab_hdr = &elf_tdata (input_bfd)->symtab_hdr;
   sym_hashes = elf_sym_hashes (input_bfd);
   local_got_offsets = elf_local_got_offsets (input_bfd);
+
+  if (elf_hash_table (info)->hgot == NULL)
+    got_base = 0;
+  else
+    got_base = elf_hash_table (info)->hgot->root.u.def.value;
 
   sgot = NULL;
   splt = NULL;
@@ -1121,7 +1134,7 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 		    }
 		}
 
-	      relocation = sgot->output_offset + off;
+	      relocation = sgot->output_offset + off - got_base;
 	    }
 	  else
 	    {
@@ -1166,7 +1179,7 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 		  local_got_offsets[r_symndx] |= 1;
 		}
 
-	      relocation = sgot->output_offset + off;
+	      relocation = sgot->output_offset + off - got_base;
 	    }
 
 	  break;
@@ -1771,6 +1784,7 @@ elf32_sparc_final_write_processing (abfd, linker)
 #define ELF_MAXPAGESIZE 0x10000
 
 #define bfd_elf32_bfd_reloc_type_lookup	elf32_sparc_reloc_type_lookup
+#define elf_info_to_howto		elf32_sparc_info_to_howto
 #define elf_backend_create_dynamic_sections \
 					_bfd_elf_create_dynamic_sections
 #define elf_backend_check_relocs	elf32_sparc_check_relocs

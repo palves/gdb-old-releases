@@ -4104,8 +4104,12 @@ som_slurp_symbol_table (abfd)
       sym++;
     }
 
- /* Save our results and return success.  */
- obj_som_symtab (abfd) = symbase;
+  /* We modify the symbol count to record the number of BFD symbols we
+     created.  */
+  bfd_get_symcount (abfd) = sym - symbase;
+
+  /* Save our results and return success.  */
+  obj_som_symtab (abfd) = symbase;
  successful_return:
   if (buf != NULL)
     free (buf);
@@ -4621,6 +4625,7 @@ som_slurp_reloc_table (abfd, section, symbols, just_count)
 
   /* We're done with the external relocations.  Free them.  */
   free (external_relocs);
+  som_section_data (section)->reloc_stream = NULL;
 
   /* Save our results and return success.  */
   section->relocation = internal_relocs;

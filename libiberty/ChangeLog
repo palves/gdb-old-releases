@@ -1,3 +1,60 @@
+Mon Jun 10 13:17:17 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* pexecute.c: New file.
+
+Wed Jun  5 16:57:45 1996  Richard Henderson  <rth@tamu.edu>
+
+	* xmalloc.c: Declare sbrk.
+
+Sat May  4 05:08:45 1996  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* alloca-norm.h:  Add SPARCworks cc compatible __builtin_alloca
+	declaration.
+
+Mon Apr 22 18:41:49 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* xstrerror.c: Include <stdio.h>.
+
+Sun Apr 21 11:55:12 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (CFILES): Add atexit.c.
+
+Sun Apr 21 09:50:09 1996  Stephen L Moshier  (moshier@world.std.com)
+
+	* choose-temp.c: Include sys/types.h before sys/file.h for sco3.2v5.
+
+Wed Apr 17 11:17:55 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* choose-temp.c: Don't #include sys/file.h ifdef NO_SYS_FILE_H.
+	#include <stdio.h>
+	* config/mt-vxworks5 (HDEFINES): Define NO_SYS_FILE_H.
+
+Tue Apr 16 11:27:16 1996  Jeffrey A Law  (law@cygnus.com)
+
+        * Makefile.in (lneeded-list): If alloca.o is needed, so is xmalloc.o.
+	Reverts Feb 8, 1995 change.
+
+Mon Apr 15 12:53:26 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* choose-temp.c: New file.
+	* Makefile.in (CFILES): Add choose-temp.c.
+	(REQUIRED_OFILES): Add choose-temp.o.
+
+Sat Apr 13 14:19:30 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* floatformat.c (floatformat_to_double):  Don't bias exponent when
+	handling zero's, denorms or NaNs.
+
+Thu Apr 11 13:36:56 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* floatformat.c (floatformat_to_double):  Fix bugs with handling
+	numbers with fractions < 32 bits.
+
+Mon Apr  8 14:48:34 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* config.table: Permit --enable-shared to specify a list of
+	directories.
+
 Tue Mar 19 22:02:07 1996  Jason Merrill  <jason@yorick.cygnus.com>
 
 	* cplus-dem.c (demangle_template): Fix for non-mangled pointer

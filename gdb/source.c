@@ -715,7 +715,7 @@ find_source_lines (s, desc)
   int nlines = 0;
   int lines_allocated = 1000;
   int *line_charpos;
-  long exec_mtime;
+  long mtime;
   int size;
 
   line_charpos = (int *) xmmalloc (s -> objfile -> md,
@@ -723,10 +723,16 @@ find_source_lines (s, desc)
   if (fstat (desc, &st) < 0)
     perror_with_name (s->filename);
 
-  if (exec_bfd)
+  if (s && s->objfile && s->objfile->obfd)
     {
-      exec_mtime = bfd_get_mtime(exec_bfd);
-      if (exec_mtime && exec_mtime < st.st_mtime)
+      mtime = bfd_get_mtime(s->objfile->obfd);
+      if (mtime && mtime < st.st_mtime)
+	printf_filtered ("Source file is more recent than executable.\n");
+    }
+  else if (exec_bfd)
+    {
+      mtime = bfd_get_mtime(exec_bfd);
+      if (mtime && mtime < st.st_mtime)
 	printf_filtered ("Source file is more recent than executable.\n");
     }
 

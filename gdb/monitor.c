@@ -30,6 +30,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    (or possibly TELNET) stream to a terminal multiplexor,
    which in turn talks to the target board.  */
 
+/* FIXME 32x64: This code assumes that registers and addresses are at
+   most 32 bits long.  If they can be larger, you will need to declare
+   values as LONGEST and use %llx or some such to print values when
+   building commands to send to the monitor.  Since we don't know of
+   any actual 64-bit targets with ROM monitors that use this code,
+   it's not an issue right now.  -sts 4/18/96  */
+
 #include "defs.h"
 #include "gdbcore.h"
 #include "target.h"
@@ -439,7 +446,7 @@ monitor_expect_prompt (buf, buflen)
      char *buf;
      int buflen;
 {
-  return monitor_expect (PROMPT, buf, buflen);
+  return monitor_expect (current_monitor->prompt, buf, buflen);
 }
 
 /* Get N 32-bit words from remote, each preceded by a space, and put
@@ -644,7 +651,7 @@ monitor_supply_register (regno, valstr)
      int regno;
      char *valstr;
 {
-  unsigned LONGEST val;
+  unsigned int val;
   unsigned char regbuf[MAX_REGISTER_RAW_SIZE];
   char *p;
 
@@ -672,10 +679,10 @@ monitor_resume (pid, step, sig)
 {
   dcache_flush (remote_dcache);
   if (step)
-    monitor_printf (STEP_CMD);
+    monitor_printf (current_monitor->step);
   else
     {
-      monitor_printf (CONT_CMD);
+      monitor_printf (current_monitor->cont);
       if (current_monitor->flags & MO_NEED_REGDUMP_AFTER_CONT)
 	dump_reg_flag = 1;
     }
@@ -843,7 +850,7 @@ monitor_fetch_register (regno)
   char regbuf[MAX_REGISTER_RAW_SIZE * 2 + 1];
   int i;
 
-  name = REGNAMES (regno);
+  name = current_monitor->regnames[regno];
 
   if (!name)
     {
@@ -946,9 +953,9 @@ monitor_store_register (regno)
      int regno;
 {
   char *name;
-  unsigned LONGEST val;
+  unsigned int val;
 
-  name = REGNAMES (regno);
+  name = current_monitor->regnames[regno];
   if (!name)
     return;
 
@@ -1007,7 +1014,7 @@ monitor_write_memory (memaddr, myaddr, len)
      char *myaddr;
      int len;
 {
-  unsigned LONGEST val;
+  unsigned int val;
   char *cmd;
   int i;
 
@@ -1071,8 +1078,8 @@ monitor_read_memory_single (memaddr, myaddr, len)
      char *myaddr;
      int len;
 {
-  unsigned LONGEST val;
-  char membuf[sizeof(LONGEST) * 2 + 1];
+  unsigned int val;
+  char membuf[sizeof(int) * 2 + 1];
   char *p;
   char *cmd;
   int i;
@@ -1174,7 +1181,7 @@ monitor_read_memory (memaddr, myaddr, len)
      char *myaddr;
      int len;
 {
-  unsigned LONGEST val;
+  unsigned int val;
   unsigned char regbuf[MAX_REGISTER_RAW_SIZE];
   char buf[512];
   char *p, *p1;
@@ -1344,7 +1351,7 @@ monitor_insert_breakpoint (addr, shadow)
 	{
 	  breakaddr[i] = addr;
 	  monitor_read_memory (addr, shadow, sizeof (break_insn));
-	  monitor_printf (SET_BREAK_CMD, addr);
+	  monitor_printf (current_monitor->set_break, addr);
 	  monitor_expect_prompt (NULL, 0);
 	  return 0;
 	}
@@ -1369,15 +1376,27 @@ monitor_remove_breakpoint (addr, shadow)
 	  breakaddr[i] = 0;
 	  /* some monitors remove breakpoints based on the address */
 	  if (current_monitor->flags & MO_CLR_BREAK_USES_ADDR)   
-	    monitor_printf (CLR_BREAK_CMD, addr);
+	    monitor_printf (current_monitor->clr_break, addr);
 	  else
-	    monitor_printf (CLR_BREAK_CMD, i);
+	    monitor_printf (current_monitor->clr_break, i);
 	  monitor_expect_prompt (NULL, 0);
 	  return 0;
 	}
     }
   fprintf_unfiltered (stderr, "Can't find breakpoint associated with 0x%x\n", addr);
   return 1;
+}
+
+/* monitor_wait_srec_ack -- wait for the target to send an acknowledgement for
+   an S-record.  Return non-zero if the ACK is received properly.  */
+
+static int
+monitor_wait_srec_ack ()
+{
+  /* FIXME: eventually we'll want to be able to handle acknowledgements
+     of something other than a '+' character.  Right now this is only
+     going to work for EST visionICE.  */
+  return readchar (timeout) == '+';
 }
 
 /* monitor_load -- download a file. */
@@ -1393,11 +1412,13 @@ monitor_load (file, from_tty)
     current_monitor->load_routine (monitor_desc, file, hashmark);
   else
     {				/* The default is ascii S-records */
-      monitor_printf (LOAD_CMD);	/* tell the monitor to load */
+      monitor_printf (current_monitor->load);
       if (current_monitor->loadresp)
 	monitor_expect (current_monitor->loadresp, NULL, 0);
 
-      load_srec (monitor_desc, file, 32, SREC_ALL, hashmark);
+      load_srec (monitor_desc, file, 32, SREC_ALL, hashmark,
+		 current_monitor->flags & MO_SREC_ACK ?
+		   monitor_wait_srec_ack : NULL);
 
       monitor_expect_prompt (NULL, 0);
     }
@@ -1443,7 +1464,7 @@ monitor_command (args, from_tty)
   if (monitor_desc == NULL)
     error ("monitor target not open.");
 
-  p = PROMPT;
+  p = current_monitor->prompt;
 
   /* Send the command.  Note that if no args were supplied, then we're
      just sending the monitor a newline, which is sometimes useful.  */

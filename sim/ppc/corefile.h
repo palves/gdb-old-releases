@@ -61,8 +61,8 @@ INLINE_CORE\
    callback-memory:
 
    All access are passed onto the specified devices callback routines
-   after being `translated'.  DEFAULT indicates that the specified
-   memory should be called if all other mappings fail.
+   after being `translated'.  The callback addresses being ordered
+   according to the callback level (lower levels being checked first).
    
    For callback-memory, the device must be specified.
 
@@ -73,14 +73,8 @@ INLINE_CORE\
    directly in the read/write operators.
 
    For raw-memory, the device is ignored and the core alloc's a
-   block to act as the memory.
+   block to act as the memory. */
 
-   default-memory:
-
-   Should, for the core, there be no defined mapping for a given
-   address then the default map (if present) is called.
-
-   For default-memory, the device must be specified. */
 
 INLINE_CORE\
 (void) core_attach

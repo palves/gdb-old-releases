@@ -128,9 +128,9 @@ $(TARGETLIB): $(OFILES)
 	 $(RANLIB) $(TARGETLIB)
 
 LIBIBERTY_LISTS = ../libiberty/required-list ../libiberty/needed-list
-BFD_LIST = ../bfd/piclist
+BFD_PICLIST = @BFD_PICLIST@
 
-stamp-piclist: Makefile $(LIBIBERTY_LISTS) $(BFD_LIST)
+stamp-piclist: Makefile $(LIBIBERTY_LISTS) $(BFD_PICLIST)
 	rm -f tpiclist
 	if [ -n "$(PICFLAG)" ]; then \
 	  echo $(OFILES) | sed -e 's,\([^ ][^ ]*\),pic/\1,g' > tpiclist; \
@@ -144,7 +144,7 @@ stamp-piclist: Makefile $(LIBIBERTY_LISTS) $(BFD_LIST)
 	  fi; \
 	  lobjs=`echo $$lobjs | sed -e 's,\([^ ][^ ]*\),../libiberty/\1,g'`; \
 	  echo $$lobjs >> tpiclist; \
-	  sed -e 's,\([^ ][^ ]*\),../bfd/\1,g' $(BFD_LIST) >> tpiclist; \
+	  sed -e 's,\([^ ][^ ]*\),../bfd/\1,g' $(BFD_PICLIST) >> tpiclist; \
 	else true; fi
 	$(srcdir)/../move-if-change tpiclist piclist
 	touch stamp-piclist
@@ -283,7 +283,7 @@ config.h: stamp-h ; @true
 stamp-h: config.in config.status
 	CONFIG_FILES= CONFIG_HEADERS=config.h:config.in $(SHELL) ./config.status
 
-config.status : configure $(srcdir)/../bfd/configure.host $(srcdir)/../bfd/config.bfd
+config.status: configure $(srcdir)/../bfd/configure.host $(srcdir)/../bfd/config.bfd $(srcdir)/../bfd/VERSION
 	$(SHELL) config.status --recheck
 
 dep: $(CFILES)

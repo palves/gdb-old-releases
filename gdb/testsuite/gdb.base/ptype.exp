@@ -37,18 +37,19 @@ if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
     return -1
 }
 
+# Create and source the file that provides information about the compiler
+# used to compile the test case.
 execute_anywhere "rm -f ${binfile}.ci"
 if  { [compile "-E ${srcdir}/${subdir}/compiler.c > ${binfile}.ci"] != "" } {
-    perror "Couldn't make ${testfile}.ci file"
+    perror "Couldn't make ${binfile}.ci file"
     return -1
 }
+source ${binfile}.ci
 
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load ${binfile}
-
-source ${binfile}.ci
 
 # Test ptype of unnamed enumeration members before any action causes
 # the partial symbol table to be expanded to full symbols.  This fails
@@ -700,20 +701,28 @@ expect {
 
 if ![istarget "*-*-udi*"] then {
   if [runto_main] then {
+    setup_xfail "h8300*-*-*"
     setup_xfail "a29k-*-udi" 2416
     gdb_test "ptype \"abc\""	"type = char \\\[4\\\]"
+    setup_xfail "h8300*-*-*"
     setup_xfail "a29k-*-udi" 2416
     gdb_test "ptype {'a','b','c'}"	"type = char \\\[3\\\]"
+    setup_xfail "h8300*-*-*"
     setup_xfail "a29k-*-udi" 2416
     gdb_test "ptype {0,1,2}"		"type = int \\\[3\\\]"
+    setup_xfail "h8300*-*-*"
     setup_xfail "a29k-*-udi" 2416
     gdb_test "ptype {(long)0,(long)1,(long)2}"	  "type = long \\\[3\\\]"
+    setup_xfail "h8300*-*-*"
     setup_xfail "a29k-*-udi" 2416
     gdb_test "ptype {(float)0,(float)1,(float)2}" "type = float \\\[3\\\]"
+    setup_xfail "h8300*-*-*"
     setup_xfail "a29k-*-udi" 2416
     gdb_test "ptype {{0,1,2},{3,4,5}}"	"type = int \\\[2\\\]\\\[3\\\]"
+    setup_xfail "h8300*-*-*"
     setup_xfail "a29k-*-udi" 2416
     gdb_test "ptype {4,5,6}\[2\]"	"type = int"
+    setup_xfail "h8300*-*-*"
     setup_xfail "a29k-*-udi" 2416
     gdb_test "ptype *&{4,5,6}\[1\]"	"type = int"
   }

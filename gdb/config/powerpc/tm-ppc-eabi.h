@@ -1,5 +1,5 @@
 /* Macro definitions for Power PC running embedded ABI.
-   Copyright 1995 Free Software Foundation, Inc.
+   Copyright 1995, 1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -33,6 +33,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #undef TEXT_SEGMENT_BASE
 #define TEXT_SEGMENT_BASE 1
+
+/* Say that we're using ELF, not XCOFF.  */
+#define ELF_OBJECT_FORMAT 1
 
 /* return true if a given `pc' value is in `call dummy' function. */
 /* FIXME: This just checks for the end of the stack, which is broken

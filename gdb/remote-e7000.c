@@ -44,7 +44,7 @@
 #include "serial.h"
 #include "remote-utils.h"
 #include "symfile.h"
-#include <sys/time.h>
+#include <time.h>
 
 #if 0
 #define HARD_BREAKPOINTS
@@ -57,6 +57,11 @@
 #define CTRLZ 0x1a
 
 extern void notice_quit PARAMS ((void));
+
+extern void report_transfer_performance PARAMS ((unsigned long,
+						 time_t, time_t));
+
+extern char *sh_processor_type;
 
 /* Local function declarations.  */
 
@@ -515,7 +520,7 @@ or \t\ttarget e7000 <host>[:<port>]\n\
 or \t\ttarget e7000 pc\n");
 	}
 
-#ifndef __GO32__
+#if !defined(__GO32__) && !defined(__WIN32__)
       if (n == 1 && strchr (dev_name, ':') == 0)
 	{
 	  /* Default to normal telnet port */
@@ -670,6 +675,26 @@ char *want_nopc = "%16 SR=%22\n\
  R0-7  %0 %1 %2 %3 %4 %5 %6 %7\n\
  R8-15 %8 %9 %10 %11 %12 %13 %14 %15";
 
+char *want_sh3 = "PC=%16 SR=%22\n\
+PR=%17 GBR=%18 VBR=%19\n\
+MACH=%20 MACL=%21 SSR=%23 SPC=%24\n\
+R0-7  %0 %1 %2 %3 %4 %5 %6 %7\n\
+R8-15 %8 %9 %10 %11 %12 %13 %14 %15\n\
+R0_BANK0-R3_BANK0 %25 %26 %27 %28\n\
+R4_BANK0-R7_BANK0 %29 %30 %31 %32\n\
+R0_BANK1-R3_BANK1 %33 %34 %35 %36\n\
+R4_BANK1-R7_BANK1 %37 %38 %39 %40";
+
+char *want_sh3_nopc = "%16 SR=%22\n\
+ PR=%17 GBR=%18 VBR=%19\n\
+ MACH=%20 MACL=%21 SSR=%22 SPC=%23\n\
+ R0-7  %0 %1 %2 %3 %4 %5 %6 %7\n\
+ R8-15 %8 %9 %10 %11 %12 %13 %14 %15\n\
+ R0_BANK0-R3_BANK0 %25 %26 %27 %28\n\
+ R4_BANK0-R7_BANK0 %29 %30 %31 %32\n\
+ R0_BANK1-R3_BANK1 %33 %34 %35 %36\n\
+ R4_BANK1-R7_BANK1 %37 %38 %39 %40";
+
 #endif
 
 static int
@@ -809,7 +834,16 @@ e7000_fetch_registers ()
   int regno;
 
   puts_e7000debug ("R\r");
+
+#ifdef GDB_TARGET_IS_SH
+  if  ((sh_processor_type != NULL) && (*(sh_processor_type+2) == '3')) 
+     fetch_regs_from_dump (gch, want_sh3);
+  else
+     fetch_regs_from_dump (gch, want);
+#else
   fetch_regs_from_dump (gch, want);
+#endif
+
 
   /* And supply the extra ones the simulator uses */
   for (regno = NUM_REALREGS; regno < NUM_REGS; regno++)
@@ -1551,8 +1585,7 @@ e7000_load (args, from_tty)
 /*      start_routine (entry);*/
     }
 
-  printf_filtered ("Transfer rate: %d bits/sec.\n",
-		   (data_count * 8)/(end_time - start_time));
+  report_transfer_performance (data_count, start_time, end_time);
 
   do_cleanups (old_chain);
 }
@@ -1936,7 +1969,15 @@ e7000_wait (pid, status)
 
   /* Skip till the PC= */
   expect ("=");
+
+#ifdef GDB_TARGET_IS_SH
+  if  ((sh_processor_type != NULL) && (*(sh_processor_type+2) == '3')) 
+     fetch_regs_from_dump (gch, want_sh3_nopc);
+  else
+     fetch_regs_from_dump (gch, want_nopc);
+#else
   fetch_regs_from_dump (gch, want_nopc);
+#endif
 
   /* And supply the extra ones the simulator uses */
   for (regno = NUM_REALREGS; regno < NUM_REGS; regno++)

@@ -760,7 +760,7 @@ locate_base ()
 	debug_base = elf_locate_base ();
 #ifdef HANDLE_SVR4_EXEC_EMULATORS
       /* Try it the hard way for emulated executables.  */
-      else if (inferior_pid != 0)
+      else if (inferior_pid != 0 && target_has_execution)
 	proc_iterate_over_mappings (look_for_base);
 #endif
     }

@@ -1,3 +1,4 @@
+#include <stdio.h>
 /*  Test "return" command.  */
 
 func1 ()

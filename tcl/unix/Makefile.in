@@ -38,6 +38,12 @@ INSTALL_ROOT =
 # run-time to override this value):
 TCL_LIBRARY =	$(prefix)/lib/tcl$(VERSION)
 
+# CYGNUS LOCAL location independence
+# What is appended to the prefix to get the library name.  Note that
+# this MUST begin with a "/".
+TCL_LIB_TRAILER = /lib/tcl$(VERSION)
+# END CYGNUS LOCAL
+
 # Path name to use when installing library scripts:
 SCRIPT_INSTALL_DIR =	$(INSTALL_ROOT)$(TCL_LIBRARY)
 
@@ -71,7 +77,7 @@ LIBS = @LIBS@
 
 # To change the compiler switches, for example to change from -O
 # to -g, change the following line:
-CFLAGS = -g
+CFLAGS = @CFLAGS@
 
 # To change how objects are made into a library archive, change the
 # following line:
@@ -99,7 +105,7 @@ GENERIC_FLAGS =
 #GENERIC_FLAGS = -DTCL_GENERIC_ONLY
 UNIX_OBJS = panic.o tclEnv.o tclGlob.o tclMain.o tclMtherr.o \
 	tclUnixAZ.o tclUnixFile.o tclUnixPipe.o tclUnixStr.o tclUnixUtil.o \
-	tclUnixInit.o
+	tclUnixInit.o findself.o
 #UNIX_OBJS =
 
 # To enable memory debugging reverse the comment characters on the following
@@ -198,7 +204,8 @@ CC =			@CC@
 CC_SWITCHES =	${CFLAGS} -I${GENERIC_DIR} -I${SRC_DIR} \
 ${AC_FLAGS} ${MATH_FLAGS} \
 ${GENERIC_FLAGS} ${PROTO_FLAGS} ${MEM_DEBUG_FLAGS} \
--DTCL_LIBRARY=\"${TCL_LIBRARY}\" -DTCL_SHLIB_EXT=\"${SHLIB_SUFFIX}\"
+-DTCL_LIBRARY=\"${TCL_LIBRARY}\" -DTCL_SHLIB_EXT=\"${SHLIB_SUFFIX}\" \
+-DTCL_LIB_TRAILER=\"${TCL_LIB_TRAILER}\"
 
 TCLSH_OBJS = tclAppInit.o
 
@@ -255,7 +262,8 @@ UNIX_SRCS = \
 	$(UNIX_DIR)/tclUnixPipe.c \
 	$(UNIX_DIR)/tclUnixStr.c \
 	$(UNIX_DIR)/tclUnixUtil.c \
-	$(UNIX_DIR)/tclUnixInit.c
+	$(UNIX_DIR)/tclUnixInit.c \
+	$(UNIX_DIR)/findself.c
 
 DL_SRCS = \
 	$(UNIX_DIR)/tclLoadAix.c \
@@ -332,7 +340,7 @@ configInfo: Makefile
 	@echo LD_FLAGS="'"'${LD_FLAGS}'"'" >> configInfo
 
 .PHONY: install-binaries install-libraries install-man
-install: install-binaries install-libraries # install-man
+install: install-binaries install-libraries install-man
 
 install-binaries: libtcl.a tclsh
 	@for i in $(LIB_INSTALL_DIR) $(BIN_INSTALL_DIR) ; \
@@ -348,7 +356,7 @@ install-binaries: libtcl.a tclsh
 	@$(INSTALL_DATA) libtcl.a $(LIB_INSTALL_DIR)/libtcl$(VERSION).a
 	@$(RANLIB) $(LIB_INSTALL_DIR)/libtcl$(VERSION).a
 	@echo "Installing tclsh"
-	@$(INSTALL_PROGRAM) tclsh $(BIN_INSTALL_DIR)/tclsh$(VERSION)
+	@$(INSTALL_PROGRAM) tclsh $(BIN_INSTALL_DIR)/tclsh
 
 install-libraries: configInfo
 	@for i in $(INSTALL_ROOT)$(prefix)/lib $(INCLUDE_INSTALL_DIR) \
@@ -372,7 +380,7 @@ install-libraries: configInfo
 	    done;
 
 install-man:
-	@for i in $(MAN_INSTALL_DIR) $(MAN1_INSTALL_DIR) $(MAN3_INSTALL_DIR) $(MANN_INSTALL_DIR) ; \
+	@for i in $(MAN_INSTALL_DIR) $(MAN1_INSTALL_DIR) $(MAN3_INSTALL_DIR) ; \
 	    do \
 	    if [ ! -d $$i ] ; then \
 		echo "Making directory $$i"; \
@@ -398,16 +406,16 @@ install-man:
 		    $$i > $(MAN3_INSTALL_DIR)/$$i; \
 	    chmod 444 $(MAN3_INSTALL_DIR)/$$i; \
 	    done;
-	$(UNIX_DIR)/mkLinks $(MAN3_INSTALL_DIR)
 	@cd $(TOP_DIR)/doc; for i in *.n; \
 	    do \
 	    echo "Installing doc/$$i"; \
-	    rm -f $(MANN_INSTALL_DIR)/$$i; \
+	    name=`echo $$i | sed -e 's/n$$/3/'`; \
+	    rm -f $(MAN3_INSTALL_DIR)/$$name; \
 	    sed -e '/man\.macros/r man.macros' -e '/man\.macros/d' \
-		    $$i > $(MANN_INSTALL_DIR)/$$i; \
-	    chmod 444 $(MANN_INSTALL_DIR)/$$i; \
+		    $$i > $(MAN3_INSTALL_DIR)/$$name; \
+	    chmod 444 $(MAN3_INSTALL_DIR)/$$name; \
 	    done;
-	$(UNIX_DIR)/mkLinks $(MANN_INSTALL_DIR)
+	$(UNIX_DIR)/mkLinks $(MAN3_INSTALL_DIR)
 
 Makefile: $(UNIX_DIR)/Makefile.in
 	$(SHELL) ./config.status
@@ -451,6 +459,22 @@ tclTestInit.o: tclAppInit.c
 	  || cp $(SRC_DIR)/tclAppInit.c tclTestInit.c
 	$(CC) -c $(CC_SWITCHES) -DTCL_TEST tclTestInit.c
 	rm -f tclTestInit.c
+
+# Dependencies for Sun's VPATH.
+panic.o: panic.c
+tclAppInit.o: tclAppInit.c
+tclEnv.o: tclEnv.c
+tclGlob.o: tclGlob.c
+tclMain.o: tclMain.c
+tclMtherr.o: tclMtherr.c
+tclUnixAZ.o: tclUnixAZ.c
+tclUnixFile.o: tclUnixFile.c
+tclUnixPipe.o: tclUnixPipe.c
+tclUnixStr.o: tclUnixStr.c
+tclUnixUtil.o: tclUnixUtil.c
+tclUnixInit.o: tclUnixInit.c
+tclLoadDl.o: tclLoadDl.c
+findself.o: findself.c
 
 # Generic binaries:
 

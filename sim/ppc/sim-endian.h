@@ -153,24 +153,86 @@ INLINE_SIM_ENDIAN(unsigned_8) endian_be2h_8(unsigned_8 x);
 #define ntohl(IN) __extension__ ({ int _out; __asm__ ("bswap %0" : "=r" (_out) : "0" (IN)); _out; })
 #endif
 
-
-/* Configure defines WORDS_BIGENDIAN if the host is big endian.  */
-
-#if (WITH_HOST_BYTE_ORDER == 0)
-# undef WITH_HOST_BYTE_ORDER
-# ifdef WORDS_BIGENDIAN
+/* Power or PowerPC running AIX  */
+#if defined(_POWER) && defined(_AIX)
+# if (WITH_HOST_BYTE_ORDER == 0)
+#  undef WITH_HOST_BYTE_ORDER
 #  define WITH_HOST_BYTE_ORDER BIG_ENDIAN
-# else
+# endif
+# if (WITH_HOST_BYTE_ORDER != BIG_ENDIAN)
+#  error "Power/PowerPC AIX was big endian last time I looked ..."
+# endif
+#endif
+
+/* Solaris running PowerPC */
+#if defined(__PPC) && defined(__sun__)
+# if (WITH_HOST_BYTE_ORDER == 0)
+#  undef WITH_HOST_BYTE_ORDER
 #  define WITH_HOST_BYTE_ORDER LITTLE_ENDIAN
+# endif
+# if (WITH_HOST_BYTE_ORDER != LITTLE_ENDIAN)
+#  error "Solaris on PowerPCs was little endian last time I looked ..."
+# endif
+#endif
+
+/* HP/PA */
+#if defined(__hppa__)
+# if (WITH_HOST_BYTE_ORDER == 0)
+#  undef WITH_HOST_BYTE_ORDER
+#  define WITH_HOST_BYTE_ORDER BIG_ENDIAN
+# endif
+# if (WITH_HOST_BYTE_ORDER != BIG_ENDIAN)
+#  error "HP/PA was big endian last time I looked ..."
+# endif
+#endif
+
+/* Big endian MIPS */
+#if defined(__MIPSEB__)
+# if (WITH_HOST_BYTE_ORDER == 0)
+#  undef WITH_HOST_BYTE_ORDER
+#  define WITH_HOST_BYTE_ORDER BIG_ENDIAN
+# endif
+# if (WITH_HOST_BYTE_ORDER != BIG_ENDIAN)
+#  error "MIPSEB was big endian last time I looked ..."
+# endif
+#endif
+
+/* Little endian MIPS */
+#if defined(__MIPSEL__)
+# if (WITH_HOST_BYTE_ORDER == 0)
+#  undef WITH_HOST_BYTE_ORDER
+#  define WITH_HOST_BYTE_ORDER LITTLE_ENDIAN
+# endif
+# if (WITH_HOST_BYTE_ORDER != LITTLE_ENDIAN)
+#  error "MIPSEL was little endian last time I looked ..."
+# endif
+#endif
+
+/* Windows NT */
+#if defined(__WIN32__)
+# if (WITH_HOST_BYTE_ORDER == 0)
+#  undef WITH_HOST_BYTE_ORDER
+#  define WITH_HOST_BYTE_ORDER LITTLE_ENDIAN
+# endif
+# if (WITH_HOST_BYTE_ORDER != LITTLE_ENDIAN)
+#  error "Windows NT was little endian last time I looked ..."
+# endif
+#endif
+
+/* Alpha running DEC unix */
+#if defined(__osf__) && defined(__alpha__)
+# if (WITH_HOST_BYTE_ORDER == 0)
+#  undef WITH_HOST_BYTE_ORDER
+#  define WITH_HOST_BYTE_ORDER LITTLE_ENDIAN
+# endif
+# if (WITH_HOST_BYTE_ORDER != LITTLE_ENDIAN)
+#  error "AXP running DEC unix was little endian last time I looked ..."
 # endif
 #endif
 
 
-
 /* INSERT HERE - additional hosts that do not have LITTLE_ENDIAN and
    BIG_ENDIAN definitions available.  */
-
-
 
 /* SWAP */
 

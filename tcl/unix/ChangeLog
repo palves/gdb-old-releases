@@ -1,9 +1,128 @@
+Mon Jun 10 16:21:21 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (install-binaries): Don't add version info to
+	installed tclsh.
+
+Tue Jun  4 17:57:10 1996  Gordon Irlam  <gordoni@snuffle.cygnus.com>
+
+	* install-sh: Add MIT copyright.
+
+Tue May 21 10:13:37 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* configure: Regenerated.
+	* aclocal.m4: Typo fix.
+
+Thu May 16 09:50:12 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* configure: Regenerated.
+	* configure.in: Removed AC_CANONICAL_SYSTEM, AC_CONFIG_AUX_DIR.
+	Use CY_AC_C_WORKS instead of CY_AC_C_CROSS.
+	* aclocal.m4: Replaced CY_AC_C_CROSS with CY_AC_C_WORKS.
+
+Thu May  9 10:01:31 1996  Tom Tromey  <tromey@snuffle.cygnus.com>
+
+	* Makefile.in (CFLAGS): Set to @CFLAGS@.
+
+Mon May  6 20:54:10 1996  Fred Fish  <fnf@cygnus.com>
+
+	* findself.c (find_self): Test argv0 for NULL before
+	dereferencing it.
+
+Mon May  6 11:27:52 1996  Tom Tromey  <tromey@lisa.cygnus.com>
+
+	* Makefile.in (install-man): Install man pages in section 3, not
+	section n.
+
+	* mkLinks: Use cp, not ln.
+
+Mon May  6 11:27:52 1996  Tom Tromey  <tromey@lisa.cygnus.com>
+
+	* findself.c (find_self_base): Changed expected location of
+	arch-specific info.
+
+Fri May  3 08:36:01 1996  Tom Tromey  <tromey@lisa.cygnus.com>
+
+	* Makefile.in: Moved html generation into devo/inet.
+
+Thu May  2 23:47:32 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* Makefile.in (install-html): Create html directory if it isn't
+	already created.
+
+Thu May  2 10:09:25 1996  Tom Tromey  <tromey@lisa.cygnus.com>
+
+	* findself.c (cache_valid): New global.
+	(find_self_base): Allow caching of NULL.  Ensure that stripped
+	components have correct names for scheme.
+
+	* findself.c: Don't include <stdlib.h> in Tcl case.
+
+Wed May  1 12:51:50 1996  Tom Tromey  <tromey@lisa.cygnus.com>
+
+	* Makefile.in (html): New target.
+	(install-html): New target.
+	(install): Depend on install-html.
+	(stamp-html): new target.
+	(all): Depend on html.
+	(TCL_HTML_DIR): New macro.
+	(install-html): Use it.
+
+Wed May  1 09:09:13 1996  Tom Tromey  <tromey@snuffle.cygnus.com>
+
+	* findself.c: Include <stdlib.h> whenever possible.
+	(find_self): Cast result of realpath.
+
+Tue Apr 30 13:39:48 1996  Tom Tromey  <tromey@snuffle.cygnus.com>
+
+	* findself.c (find_self_base): Strip new "arch" directory from
+	prefix.
+
+	* tclAppInit.c (main): Removed "-inet-1.0".
+
+Mon Apr 29 16:57:10 1996  Tom Tromey  <tromey@snuffle.cygnus.com>
+
+	* Makefile.in (install): Install man pages again.
+
+	* tclAppInit.c (main): Print version number.
+
+	* findself.c (find_self): Now static.
+	(find_self): Removed defines.
+	(cached_name): Removed.
+	(resolved): New static global.
+	(find_self_base): Look for INETHOME environment variable.
+
+Tue Apr 23 10:13:32 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (UNIX_SRCS): Added findself.c.
+	(UNIX_OBJS): Added findself.o.
+
+	* configure: Regenerated.
+	* configure.in: Look for realpath().  Always define HAVE_GETCWD.
+
+	* Makefile.in (TCL_LIB_TRAILER): New macro.
+	(CC_SWITCHES): Define TCL_LIB_TRAILER.
+
+	* tclUnixInit.c (TclPlatformInit): Handle location independence.
+
+	* Makefile.in: Add explicit .c.o dependencies for Sun's VPATH.
+	From Doug Evans <dje@cygnus.com>.
+
 Mon Apr  1 23:05:49 1996  Fred Fish  <fnf@cygnus.com>
 
 	* configure.in (case $system): For HP-UX test $have_dl before
 	setting SHLIB_CFLAGS, SHLIB_LD, SHLIB_SUFFIX, DL_OBJS, and DL_LIBS
 	* configure: Regenerate.
 	
+Fri Mar 29 08:23:00 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* mkLinks: Exit with status 0.
+
+Mon Mar 25 17:01:01 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* configure.in: Changed most "ac_cv" variables to "tcl_cv";
+	otherwise Tcl-specific tests could clobber values in a global
+	cache file.
+
 Fri Mar 15 09:03:31 1996  Fred Fish  <fnf@cygnus.com>
 
 	* configure.in: Some UNIX_SV* systems have linkers that

@@ -482,11 +482,13 @@ extern const bfd_target b_out_vec_big_host;
 extern const bfd_target b_out_vec_little_host;
 extern const bfd_target bfd_elf32_big_generic_vec;
 extern const bfd_target bfd_elf32_bigmips_vec;
+extern const bfd_target bfd_elf64_bigmips_vec;
 extern const bfd_target bfd_elf32_hppa_vec;
 extern const bfd_target bfd_elf32_i386_vec;
 extern const bfd_target bfd_elf32_i860_vec;
 extern const bfd_target bfd_elf32_little_generic_vec;
 extern const bfd_target bfd_elf32_littlemips_vec;
+extern const bfd_target bfd_elf64_littlemips_vec;
 extern const bfd_target bfd_elf32_m68k_vec;
 extern const bfd_target bfd_elf32_m88k_vec;
 extern const bfd_target bfd_elf32_powerpc_vec;
@@ -546,6 +548,7 @@ extern const bfd_target nlm32_powerpc_vec;
 extern const bfd_target pc532netbsd_vec;
 extern const bfd_target oasys_vec;
 extern const bfd_target pc532machaout_vec;
+extern const bfd_target ppcboot_vec;
 extern const bfd_target riscix_vec;
 extern const bfd_target pmac_xcoff_vec;
 extern const bfd_target rs6000coff_vec;
@@ -615,11 +618,17 @@ const bfd_target * const bfd_target_vector[] = {
 	   the file even if we don't recognize the machine type.  */
 	&bfd_elf32_big_generic_vec,
 	&bfd_elf32_bigmips_vec,
+#ifdef BFD64
+	&bfd_elf64_bigmips_vec,
+#endif
 	&bfd_elf32_hppa_vec,
 	&bfd_elf32_i386_vec,
 	&bfd_elf32_i860_vec,
 	&bfd_elf32_little_generic_vec,
 	&bfd_elf32_littlemips_vec,
+#ifdef BFD64
+	&bfd_elf64_littlemips_vec,
+#endif
 	&bfd_elf32_m68k_vec,
 	&bfd_elf32_m88k_vec,
 	&bfd_elf32_sparc_vec,
@@ -730,6 +739,7 @@ const bfd_target * const bfd_target_vector[] = {
 	&pmac_xcoff_vec,
 #endif
 	&rs6000coff_vec,
+	&ppcboot_vec,
 	&shcoff_vec,
 	&shlcoff_vec,
 	&sparclynx_aout_vec,

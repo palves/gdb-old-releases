@@ -552,7 +552,8 @@ if test "${enable_shared+set}" = set; then
   case "${enableval}" in
   yes) shared=true ;;
   no)  shared=false ;;
-  *)   { echo "configure: error: bad value ${enableval} for opcodes shared option" 1>&2; exit 1; } ;;
+  *opcodes*) shared=true ;;
+  *) shared=false ;;
 esac
 fi
 # Check whether --enable-commonbfdlib or --disable-commonbfdlib was given.
@@ -799,7 +800,7 @@ else
   yes;
 #endif
 EOF
-if { ac_try='${CC-cc} -E conftest.c'; { (eval echo configure:803: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }; } | egrep yes >/dev/null 2>&1; then
+if { ac_try='${CC-cc} -E conftest.c'; { (eval echo configure:804: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }; } | egrep yes >/dev/null 2>&1; then
   ac_cv_prog_gcc=yes
 else
   ac_cv_prog_gcc=no
@@ -1018,10 +1019,13 @@ if test "${commonbfdlib}" = "true"; then
   COMMON_SHLIB=yes
   # Rebuild the shared library if libiberty or libbfd changes.
   SHLIB_DEP="../libiberty/libiberty.a ../bfd/libbfd.a"
+  BFD_PICLIST=../bfd/piclist
 else
   COMMON_SHLIB=
   SHLIB_DEP=
+  BFD_PICLIST=
 fi
+
 
 
 
@@ -1041,13 +1045,13 @@ else
   # On the NeXT, cc -E runs the code through the compiler's parser,
   # not just through cpp.
   cat > conftest.$ac_ext <<EOF
-#line 1045 "configure"
+#line 1049 "configure"
 #include "confdefs.h"
 #include <assert.h>
 Syntax Error
 EOF
 ac_try="$ac_cpp conftest.$ac_ext >/dev/null 2>conftest.out"
-{ (eval echo configure:1051: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
+{ (eval echo configure:1055: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
 ac_err=`grep -v '^ *+' conftest.out`
 if test -z "$ac_err"; then
   :
@@ -1056,13 +1060,13 @@ else
   rm -rf conftest*
   CPP="${CC-cc} -E -traditional-cpp"
   cat > conftest.$ac_ext <<EOF
-#line 1060 "configure"
+#line 1064 "configure"
 #include "confdefs.h"
 #include <assert.h>
 Syntax Error
 EOF
 ac_try="$ac_cpp conftest.$ac_ext >/dev/null 2>conftest.out"
-{ (eval echo configure:1066: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
+{ (eval echo configure:1070: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
 ac_err=`grep -v '^ *+' conftest.out`
 if test -z "$ac_err"; then
   :
@@ -1090,12 +1094,12 @@ if eval "test \"`echo '$''{'ac_cv_header_$ac_safe'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
   cat > conftest.$ac_ext <<EOF
-#line 1094 "configure"
+#line 1098 "configure"
 #include "confdefs.h"
 #include <$ac_hdr>
 EOF
 ac_try="$ac_cpp conftest.$ac_ext >/dev/null 2>conftest.out"
-{ (eval echo configure:1099: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
+{ (eval echo configure:1103: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
 ac_err=`grep -v '^ *+' conftest.out`
 if test -z "$ac_err"; then
   rm -rf conftest*
@@ -1367,6 +1371,7 @@ s%@SHLIB_CC@%$SHLIB_CC%g
 s%@SHLIB_CFLAGS@%$SHLIB_CFLAGS%g
 s%@COMMON_SHLIB@%$COMMON_SHLIB%g
 s%@SHLIB_DEP@%$SHLIB_DEP%g
+s%@BFD_PICLIST@%$BFD_PICLIST%g
 s%@SHLINK@%$SHLINK%g
 s%@CPP@%$CPP%g
 s%@archdefs@%$archdefs%g

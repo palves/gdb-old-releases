@@ -406,9 +406,6 @@ SUBSUBSECTION
 	file at the end of <<NAME(aout,final_link)>>.
 */
 
-static struct bfd_hash_entry *generic_link_hash_newfunc
-  PARAMS ((struct bfd_hash_entry *, struct bfd_hash_table *,
-	   const char *));
 static boolean generic_link_read_symbols
   PARAMS ((bfd *));
 static boolean generic_link_add_symbols
@@ -633,8 +630,8 @@ bfd_link_add_undef (table, h)
 
 /* Routine to create an entry in an generic link hash table.  */
 
-static struct bfd_hash_entry *
-generic_link_hash_newfunc (entry, table, string)
+struct bfd_hash_entry *
+_bfd_generic_link_hash_newfunc (entry, table, string)
      struct bfd_hash_entry *entry;
      struct bfd_hash_table *table;
      const char *string;
@@ -678,7 +675,7 @@ _bfd_generic_link_hash_table_create (abfd)
   if (ret == NULL)
     return (struct bfd_link_hash_table *) NULL;
   if (! _bfd_link_hash_table_init (&ret->root, abfd,
-				   generic_link_hash_newfunc))
+				   _bfd_generic_link_hash_newfunc))
     {
       free (ret);
       return (struct bfd_link_hash_table *) NULL;
@@ -1400,7 +1397,7 @@ static const enum link_action link_action[8][8] =
   /* DEFW_ROW 	*/  {DEFW,  DEFW,  DEFW,  NOACT, NOACT, NOACT, NOACT, CYCLE },
   /* COMMON_ROW	*/  {COM,   COM,   COM,   CREF,  CREF,  BIG,   CREF,  WARNC },
   /* INDR_ROW	*/  {IND,   IND,   IND,   MDEF,  IND,   CIND,  MIND,  CYCLE },
-  /* WARN_ROW   */  {MWARN, WARN,  WARN,  CWARN, CWARN, WARN,  CWARN, CYCLE },
+  /* WARN_ROW   */  {MWARN, WARN,  WARN,  CWARN, CWARN, WARN,  CWARN, MWARN },
   /* SET_ROW	*/  {SET,   SET,   SET,   SET,   SET,   SET,   CYCLE, CYCLE }
 };
 
@@ -1524,11 +1521,13 @@ _bfd_generic_link_add_one_symbol (info, abfd, name, flags, section, value,
 	}
     }
 
-  if (info->notice_hash != (struct bfd_hash_table *) NULL
-      && (bfd_hash_lookup (info->notice_hash, name, false, false)
-	  != (struct bfd_hash_entry *) NULL))
+  if (info->notice_all
+      || (info->notice_hash != (struct bfd_hash_table *) NULL
+	  && (bfd_hash_lookup (info->notice_hash, name, false, false)
+	      != (struct bfd_hash_entry *) NULL)))
     {
-      if (! (*info->callbacks->notice) (info, name, abfd, section, value))
+      if (! (*info->callbacks->notice) (info, h->root.string, abfd, section,
+					value))
 	return false;
     }
 
@@ -1568,7 +1567,7 @@ _bfd_generic_link_add_one_symbol (info, abfd, name, flags, section, value,
 	     previously common.  */
 	  BFD_ASSERT (h->type == bfd_link_hash_common);
 	  if (! ((*info->callbacks->multiple_common)
-		 (info, name,
+		 (info, h->root.string,
 		  h->u.c.p->section->owner, bfd_link_hash_common, h->u.c.size,
 		  abfd, bfd_link_hash_defined, (bfd_vma) 0)))
 	    return false;
@@ -1631,7 +1630,7 @@ _bfd_generic_link_add_one_symbol (info, abfd, name, flags, section, value,
 			if (! ((*info->callbacks->constructor)
 			       (info,
 				c == 'I' ? true : false,
-				name, abfd, section, value)))
+				h->root.string, abfd, section, value)))
 			  return false;
 		      }
 		  }
@@ -1702,7 +1701,7 @@ _bfd_generic_link_add_one_symbol (info, abfd, name, flags, section, value,
 	     two sizes.  */
 	  BFD_ASSERT (h->type == bfd_link_hash_common);
 	  if (! ((*info->callbacks->multiple_common)
-		 (info, name,
+		 (info, h->root.string,
 		  h->u.c.p->section->owner, bfd_link_hash_common, h->u.c.size,
 		  abfd, bfd_link_hash_common, value)))
 	    return false;
@@ -1735,7 +1734,7 @@ _bfd_generic_link_add_one_symbol (info, abfd, name, flags, section, value,
 	    else
 	      obfd = NULL;
 	    if (! ((*info->callbacks->multiple_common)
-		   (info, name, obfd, h->type, (bfd_vma) 0,
+		   (info, h->root.string, obfd, h->type, (bfd_vma) 0,
 		    abfd, bfd_link_hash_common, value)))
 	      return false;
 	  }
@@ -1776,8 +1775,8 @@ _bfd_generic_link_add_one_symbol (info, abfd, name, flags, section, value,
 	      break;
 
 	    if (! ((*info->callbacks->multiple_definition)
-		   (info, name, msec->owner, msec, mval, abfd, section,
-		    value)))
+		   (info, h->root.string, msec->owner, msec, mval, abfd,
+		    section, value)))
 	      return false;
 	  }
 	  break;
@@ -1786,7 +1785,7 @@ _bfd_generic_link_add_one_symbol (info, abfd, name, flags, section, value,
 	  /* Create an indirect symbol from an existing common symbol.  */
 	  BFD_ASSERT (h->type == bfd_link_hash_common);
 	  if (! ((*info->callbacks->multiple_common)
-		 (info, name,
+		 (info, h->root.string,
 		  h->u.c.p->section->owner, bfd_link_hash_common, h->u.c.size,
 		  abfd, bfd_link_hash_indirect, (bfd_vma) 0)))
 	    return false;
@@ -1834,8 +1833,9 @@ _bfd_generic_link_add_one_symbol (info, abfd, name, flags, section, value,
 	  /* Issue a warning and cycle.  */
 	  if (h->u.i.warning != NULL)
 	    {
-	      if (! (*info->callbacks->warning) (info, h->u.i.warning, name,
-						 abfd, (asection *) NULL,
+	      if (! (*info->callbacks->warning) (info, h->u.i.warning,
+						 h->root.string, abfd,
+						 (asection *) NULL,
 						 (bfd_vma) 0))
 		return false;
 	      /* Only issue a warning once.  */
@@ -1858,7 +1858,7 @@ _bfd_generic_link_add_one_symbol (info, abfd, name, flags, section, value,
 
 	case WARN:
 	  /* Issue a warning.  */
-	  if (! (*info->callbacks->warning) (info, string, name,
+	  if (! (*info->callbacks->warning) (info, string, h->root.string,
 					     hash_entry_bfd (h),
 					     (asection *) NULL, (bfd_vma) 0))
 	    return false;
@@ -1872,7 +1872,7 @@ _bfd_generic_link_add_one_symbol (info, abfd, name, flags, section, value,
 	     ensure this.  */
 	  if (h->next != NULL || info->hash->undefs_tail == h)
 	    {
-	      if (! (*info->callbacks->warning) (info, string, name,
+	      if (! (*info->callbacks->warning) (info, string, h->root.string,
 						 hash_entry_bfd (h),
 						 (asection *) NULL,
 						 (bfd_vma) 0))

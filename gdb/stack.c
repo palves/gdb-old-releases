@@ -286,14 +286,11 @@ print_frame_info (fi, level, source, args)
     }
   else
     {
-      if (find_pc_section (fi->pc))
+      struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (fi->pc);
+      if (msymbol != NULL)
 	{
-	  struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (fi->pc);
-	  if (msymbol != NULL)
-	    {
-	      funname = SYMBOL_NAME (msymbol);
-	      funlang = SYMBOL_LANGUAGE (msymbol);
-	    }
+	  funname = SYMBOL_NAME (msymbol);
+	  funlang = SYMBOL_LANGUAGE (msymbol);
 	}
     }
 

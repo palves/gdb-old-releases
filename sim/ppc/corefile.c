@@ -29,16 +29,18 @@
 
 typedef struct _core_mapping core_mapping;
 struct _core_mapping {
-  /* ram map */
-  int free_buffer;
-  void *buffer;
-  /* device map */
-  device *device;
   /* common */
+  int level;
   int space;
   unsigned_word base;
   unsigned_word bound;
   unsigned nr_bytes;
+  /* memory map */
+  int free_buffer;
+  void *buffer;
+  /* callback map */
+  device *device;
+  /* growth */
   core_mapping *next;
 };
 
@@ -138,24 +140,23 @@ new_core_mapping(attach_type attach,
 		 int free_buffer)
 {
   core_mapping *new_mapping = ZALLOC(core_mapping);
-  switch (attach) {
-  case attach_default:
-  case attach_callback:
-    new_mapping->device = device;
-    break;
-  case attach_raw_memory:
-    new_mapping->buffer = buffer;
-    new_mapping->free_buffer = free_buffer;
-    break;
-  default:
-    error("new_core_mapping() - internal error - unknown attach type %d\n",
-	  attach);
-  }
   /* common */
+  new_mapping->level = attach;
   new_mapping->space = space;
   new_mapping->base = addr;
   new_mapping->nr_bytes = nr_bytes;
   new_mapping->bound = addr + (nr_bytes - 1);
+  if (attach == attach_raw_memory) {
+    new_mapping->buffer = buffer;
+    new_mapping->free_buffer = free_buffer;
+  }
+  else if (attach >= attach_callback) {
+    new_mapping->device = device;
+  }
+  else {
+    error("new_core_mapping() - internal error - unknown attach type %d\n",
+	  attach);
+  }
   return new_mapping;
 }
 
@@ -171,44 +172,40 @@ core_map_attach(core_map *access_map,
 		void *buffer, /*raw_memory*/
 		int free_buffer) /*raw_memory*/
 {
-  if (attach == attach_default) {
-    if (access_map->default_map != NULL)
-      error("core_map_attach() default mapping already in place\n");
-    ASSERT(buffer == NULL);
-    access_map->default_map = new_core_mapping(attach, 
-					       space, addr, nr_bytes,
-					       device, buffer, free_buffer);
+  /* find the insertion point for this additional mapping and insert */
+  core_mapping *next_mapping;
+  core_mapping **last_mapping;
+
+  /* actually do occasionally get a zero size map */
+  if (nr_bytes == 0)
+    error("core_map_attach() size == 0\n");
+
+  /* find the insertion point (between last/next) */
+  next_mapping = access_map->first;
+  last_mapping = &access_map->first;
+  while(next_mapping != NULL
+	&& (next_mapping->level < attach
+	    || (next_mapping->level == attach
+		&& next_mapping->bound < addr))) {
+    /* provided levels are the same */
+    /* assert: next_mapping->base > all bases before next_mapping */
+    /* assert: next_mapping->bound >= all bounds before next_mapping */
+    last_mapping = &next_mapping->next;
+    next_mapping = next_mapping->next;
   }
-  else {
-    /* find the insertion point for this additional mapping and insert */
-    core_mapping *next_mapping;
-    core_mapping **last_mapping;
 
-    /* actually do occasionally get a zero size map */
-    if (nr_bytes == 0)
-      error("core_map_attach() size == 0\n");
-
-    /* find the insertion point (between last/next) */
-    next_mapping = access_map->first;
-    last_mapping = &access_map->first;
-    while(next_mapping != NULL && next_mapping->bound < addr) {
-      /* assert: next_mapping->base > all bases before next_mapping */
-      /* assert: next_mapping->bound >= all bounds before next_mapping */
-      last_mapping = &next_mapping->next;
-      next_mapping = next_mapping->next;
-    }
-
-    /* check insertion point correct */
-    if (next_mapping != NULL && next_mapping->base < (addr + (nr_bytes - 1))) {
-      error("core_map_attach() map overlap\n");
-    }
-
-    /* create/insert the new mapping */
-    *last_mapping = new_core_mapping(attach,
-				     space, addr, nr_bytes,
-				     device, buffer, free_buffer);
-    (*last_mapping)->next = next_mapping;
+  /* check insertion point correct */
+  ASSERT(next_mapping == NULL || next_mapping->level >= attach);
+  if (next_mapping != NULL && next_mapping->level == attach
+      && next_mapping->base < (addr + (nr_bytes - 1))) {
+    error("core_map_attach() map overlap\n");
   }
+
+  /* create/insert the new mapping */
+  *last_mapping = new_core_mapping(attach,
+				   space, addr, nr_bytes,
+				   device, buffer, free_buffer);
+  (*last_mapping)->next = next_mapping;
 }
 
 
@@ -225,7 +222,6 @@ core_attach(core *memory,
   core_map_types access_map;
   int free_buffer = 0;
   void *buffer = NULL;
-  ASSERT(attach == attach_default || nr_bytes > 0);
   if (attach == attach_raw_memory)
     buffer = zalloc(nr_bytes);
   for (access_map = 0; 
@@ -405,8 +401,7 @@ core_map_write_buffer(core_map *map,
 
 STATIC_INLINE_CORE\
 (void)
-core_init_address_callback(device *me,
-			   psim *system)
+core_init_address_callback(device *me)
 {
   core *memory = (core*)device_data(me);
   core_init(memory);
@@ -473,24 +468,14 @@ core_dma_write_buffer_callback(device *me,
 }
 
 static device_callbacks const core_callbacks = {
-  core_init_address_callback,
-  ignore_device_init,
-  core_attach_address_callback,
-  unimp_device_detach_address,
-  unimp_device_io_read_buffer,
-  unimp_device_io_write_buffer,
-  core_dma_read_buffer_callback,
-  core_dma_write_buffer_callback,
-  unimp_device_interrupt_event,
-  unimp_device_child_interrupt_event,
-  generic_device_unit_decode,
-  generic_device_unit_encode,
-  unimp_device_instance_create,
-  unimp_device_instance_delete,
-  unimp_device_instance_read,
-  unimp_device_instance_write,
-  unimp_device_instance_seek,
-  unimp_device_ioctl,
+  { core_init_address_callback, },
+  { core_attach_address_callback, },
+  { NULL, }, /* IO */
+  { core_dma_read_buffer_callback,
+    core_dma_write_buffer_callback, },
+  { NULL, }, /* interrupt */
+  { generic_device_unit_decode,
+    generic_device_unit_encode, }
 };
 
 

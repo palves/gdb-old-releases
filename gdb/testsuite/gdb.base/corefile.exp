@@ -39,11 +39,14 @@ if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
     return -1
 }
 
+# Create and source the file that provides information about the compiler
+# used to compile the test case.
 execute_anywhere "rm -f ${binfile}.ci"
 if  { [compile "-E ${srcdir}/${subdir}/compiler.c > ${binfile}.ci"] != "" } {
-    perror "Couldn't make ${testfile}.ci file"
+    perror "Couldn't make ${binfile}.ci file"
     return -1
 }
+source ${binfile}.ci
 
 # Create a core file named "corefile" rather than just "core", to
 # avoid problems with sys admin types that like to regularly prune all
@@ -161,8 +164,6 @@ gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load ${binfile}
-
-source gdb.base/coremaker.ci
 
 # Test basic corefile recognition via core-file command.
 

@@ -35,6 +35,7 @@ TkPlatformInit(interp)
     Tcl_Interp *interp;
 {
     char *libDir = Tcl_GetVar(interp, "tk_library", TCL_GLOBAL_ONLY);
+    int freeLib = 0;
     
     if (libDir == NULL) {
 	/*
@@ -44,9 +45,28 @@ TkPlatformInit(interp)
 
 	libDir = getenv("TK_LIBRARY");
 	if (libDir == NULL) {
-	    libDir = TK_LIBRARY;
+	    /* CYGNUS LOCAL: location independence.  */
+#ifdef TK_LIB_TRAILER
+	    extern char *tclExecutableName;
+	    extern char *Tcl_findSelfBase _ANSI_ARGS_ ((char *argv0));
+	    libDir = Tcl_findSelfBase (tclExecutableName);
+	    if (libDir != NULL) {
+	        char *newLib;
+		newLib = (char *) ckalloc((unsigned) (strlen (libDir)
+						  + strlen (TK_LIB_TRAILER)
+						  + 1));
+		strcpy(newLib, libDir);
+		strcat(newLib, TK_LIB_TRAILER);
+		libDir = newLib;
+		freeLib = 1;
+	    } else
+#endif /* TK_LIB_TRAILER */
+	    /* END CYGNUS LOCAL */
+	      libDir = TK_LIBRARY;
 	}
 	Tcl_SetVar(interp, "tk_library", libDir, TCL_GLOBAL_ONLY);
+	if (freeLib)
+	  ckfree (libDir);
     }
 }
 

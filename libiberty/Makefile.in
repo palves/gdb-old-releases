@@ -1,6 +1,6 @@
 #
 # Makefile
-#   Copyright (C) 1990, 1991, 1992, 1995 Free Software Foundation
+#   Copyright (C) 1990, 1991, 1992, 1995, 1996 Free Software Foundation
 #
 # This file is part of the libiberty library.
 # Libiberty is free software; you can redistribute it and/or
@@ -14,8 +14,8 @@
 # Library General Public License for more details.
 #
 # You should have received a copy of the GNU Library General Public
-# License along with libiberty; see the file COPYING.LIB.  If
-# not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+# License along with libiberty; see the file COPYING.LIB.  If not,
+# write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 #
 
@@ -145,8 +145,8 @@ HFILES =
 
 # NOTE: If you add new files to the library, add them to this list
 # (alphabetical), and add them to REQUIRED_OFILES or 'functions.def'.
-CFILES = alloca.c argv.c basename.c bcmp.c bcopy.c bzero.c \
-	 clock.c concat.c cplus-dem.c fdmatch.c \
+CFILES = alloca.c argv.c atexit.c basename.c bcmp.c bcopy.c bzero.c \
+	 choose-temp.c clock.c concat.c cplus-dem.c fdmatch.c \
 	 getcwd.c getopt.c getopt1.c getpagesize.c getruntime.c \
          floatformat.c hex.c index.c insque.c \
 	 memchr.c memcmp.c memcpy.c memmove.c memset.c \
@@ -157,8 +157,8 @@ CFILES = alloca.c argv.c basename.c bcmp.c bcopy.c bzero.c \
 	 vasprintf.c vfork.c vfprintf.c vprintf.c vsprintf.c waitpid.c \
 	 xatexit.c xexit.c xmalloc.c xstrdup.c xstrerror.c
 # These are always included in the library.
-REQUIRED_OFILES = argv.o basename.o concat.o cplus-dem.o fdmatch.o \
-  getopt.o getopt1.o getruntime.o hex.o \
+REQUIRED_OFILES = argv.o basename.o choose-temp.o concat.o cplus-dem.o \
+  fdmatch.o getopt.o getopt1.o getruntime.o hex.o \
   floatformat.o obstack.o spaces.o strerror.o strsignal.o \
   vasprintf.o xatexit.o xexit.o xmalloc.o xstrdup.o xstrerror.o
 
@@ -199,6 +199,9 @@ lneeded-list: $(EXTRA_OFILES) needed.awk errors
 	    *) f="$$f $$i" ;; \
 	  esac ; \
 	done ; \
+	case $$f in \
+	    *alloca.o*) f="$$f xmalloc.o" ;; \
+	esac ; \
 	echo $$f >>lneeded-list
 
 # Generate an awk script that looks for functions in functions.def

@@ -260,10 +260,8 @@ bfd_read (ptr, size, nitems, abfd)
     }
 
   nread = real_read (ptr, 1, (size_t)(size*nitems), bfd_cache_lookup(abfd));
-#ifdef FILE_OFFSET_IS_CHAR_INDEX
   if (nread > 0)
     abfd->where += nread;
-#endif
 
   /* Set bfd_error if we did not read as much data as we expected.
 
@@ -384,8 +382,8 @@ bfd_get_file_window (abfd, offset, size, windowp, writable)
   if (debug_windows)
     fprintf (stderr, "bfd_get_file_window (%p, %6ld, %6ld, %p<%p,%lx,%p>, %d)",
 	     abfd, (long) offset, (long) size,
-	     windowp, windowp->data, windowp->size, windowp->i,
-	     writable);
+	     windowp, windowp->data, (unsigned long) windowp->size,
+	     windowp->i, writable);
 
   /* Make sure we know the page size, so we can be friendly to mmap.  */
   if (pagesize == 0)
@@ -527,10 +525,8 @@ bfd_write (ptr, size, nitems, abfd)
 
   nwrote = fwrite (ptr, 1, (size_t) (size * nitems),
 		   bfd_cache_lookup (abfd));
-#ifdef FILE_OFFSET_IS_CHAR_INDEX
   if (nwrote > 0)
     abfd->where += nwrote;
-#endif
   if ((bfd_size_type) nwrote != size * nitems)
     {
 #ifdef ENOSPC
@@ -647,7 +643,6 @@ bfd_seek (abfd, position, direction)
       return 0;
     }
 
-#ifdef FILE_OFFSET_IS_CHAR_INDEX
   if (abfd->format != bfd_archive && abfd->my_archive == 0)
     {
 #if 0
@@ -681,7 +676,6 @@ bfd_seek (abfd, position, direction)
 
 	 In the meantime, no optimization for archives.  */
     }
-#endif
 
   f = bfd_cache_lookup (abfd);
   file_position = position;
@@ -698,13 +692,11 @@ bfd_seek (abfd, position, direction)
     }
   else
     {
-#ifdef FILE_OFFSET_IS_CHAR_INDEX
       /* Adjust `where' field.  */
       if (direction == SEEK_SET)
 	abfd->where = position;
       else
 	abfd->where += position;
-#endif
     }
   return result;
 }

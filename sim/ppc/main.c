@@ -44,7 +44,7 @@
 
 extern char **environ;
 
-static psim *simulation;
+static psim *simulation = NULL;
 
 
 void
@@ -71,7 +71,7 @@ error (char *msg, ...)
   va_end(ap);
 
   /* any final clean up */
-  if (ppc_trace[trace_print_info])
+  if (ppc_trace[trace_print_info] && simulation != NULL)
     psim_print_info (simulation, ppc_trace[trace_print_info]);
 
   exit (1);

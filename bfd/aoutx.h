@@ -692,8 +692,11 @@ NAME(aout,machine_type) (arch, machine, unknown)
   case bfd_arch_sparc:
     if (machine == 0
 	|| machine == bfd_mach_sparc
+	|| machine == bfd_mach_sparc_sparclite
 	|| machine == bfd_mach_sparc_v9)
       arch_flags = M_SPARC;
+    else if (machine == bfd_mach_sparc_sparclet)
+      arch_flags = M_SPARCLET;
     break;
 
   case bfd_arch_m68k:
@@ -744,7 +747,6 @@ NAME(aout,machine_type) (arch, machine, unknown)
   case bfd_arch_vax:
     *unknown = false;
     break;
-
 
   default:
     arch_flags = M_UNKNOWN;
@@ -1406,6 +1408,10 @@ translate_from_native_sym_flags (abfd, cache_ptr)
     case N_SETD: case N_SETD | N_EXT:
     case N_SETB: case N_SETB | N_EXT:
       {
+	/* This code is no longer needed.  It used to be used to make
+           the linker handle set symbols, but they are now handled in
+           the add_symbols routine instead.  */
+#if 0
 	asection *section;
 	arelent_chain *reloc;
 	asection *into_section;
@@ -1481,6 +1487,24 @@ translate_from_native_sym_flags (abfd, cache_ptr)
 	section->_raw_size += BYTES_IN_WORD;
 
 	reloc->relent.howto = CTOR_TABLE_RELOC_HOWTO(abfd);
+
+#endif /* 0 */
+
+	switch (cache_ptr->type & N_TYPE)
+	  {
+	  case N_SETA:
+	    cache_ptr->symbol.section = bfd_abs_section_ptr;
+	    break;
+	  case N_SETT:
+	    cache_ptr->symbol.section = obj_textsec (abfd);
+	    break;
+	  case N_SETD:
+	    cache_ptr->symbol.section = obj_datasec (abfd);
+	    break;
+	  case N_SETB:
+	    cache_ptr->symbol.section = obj_bsssec (abfd);
+	    break;
+	  }
 
 	cache_ptr->symbol.flags |= BSF_CONSTRUCTOR;
       }
@@ -1559,8 +1583,9 @@ translate_to_native_sym_flags (abfd, cache_ptr, sym_pointer)
       /* This case occurs, e.g., for the *DEBUG* section of a COFF
 	 file.  */
       (*_bfd_error_handler)
-	("%s: can not represent section `%s' in a.out object file format",
-	 bfd_get_filename (abfd), bfd_get_section_name (abfd, sec));
+	("%s: can not represent section for symbol `%s' in a.out object file format",
+	 bfd_get_filename (abfd), 
+	 cache_ptr->name != NULL ? cache_ptr->name : "*unknown*");
       bfd_set_error (bfd_error_nonrepresentable_section);
       return false;
     }
@@ -1963,7 +1988,7 @@ NAME(aout,swap_std_reloc_out) (abfd, g, natptr)
       {
 	/* Whoops, looked like an abs symbol, but is really an offset
 	   from the abs section */
-	r_index = 0;
+	r_index = N_ABS;
 	r_extern = 0;
        }
       else
@@ -2042,7 +2067,7 @@ NAME(aout,swap_ext_reloc_out) (abfd, g, natptr)
   if (bfd_is_abs_section (bfd_get_section (sym)))
     {
       r_extern = 0;
-      r_index = 0;
+      r_index = N_ABS;
     }
   else if ((sym->flags & BSF_SECTION_SYM) == 0)
     {
@@ -2343,7 +2368,8 @@ NAME(aout,squirt_out_relocs) (abfd, section)
   unsigned int count = section->reloc_count;
   size_t natsize;
 
-  if (count == 0) return true;
+  if (count == 0 || section->orelocation == NULL)
+    return true;
 
   each_size = obj_reloc_entry_size (abfd);
   natsize = each_size * count;
@@ -2646,7 +2672,49 @@ NAME(aout,find_nearest_line)
       aout_symbol_type  *q = (aout_symbol_type *)(*p);
     next:
       switch (q->type){
+      case N_TEXT:
+	/* If this looks like a file name symbol, and it comes after
+           the line number we have found so far, but before the
+           offset, then we have probably not found the right line
+           number.  */
+	if (q->symbol.value <= offset
+	    && ((q->symbol.value > low_line_vma
+		 && (line_file_name != NULL
+		     || *line_ptr != 0))
+		|| (q->symbol.value > low_func_vma
+		    && func != NULL)))
+	  {
+	    const char *symname;
+
+	    symname = q->symbol.name;
+	    if (strcmp (symname + strlen (symname) - 2, ".o") == 0)
+	      {
+		if (q->symbol.value > low_line_vma)
+		  {
+		    *line_ptr = 0;
+		    line_file_name = NULL;
+		  }
+		if (q->symbol.value > low_func_vma)
+		  func = NULL;
+	      }
+	  }
+	break;
+
       case N_SO:
+	/* If this symbol is less than the offset, but greater than
+           the line number we have found so far, then we have not
+           found the right line number.  */
+	if (q->symbol.value <= offset)
+	  {
+	    if (q->symbol.value > low_line_vma)
+	      {
+		*line_ptr = 0;
+		line_file_name = NULL;
+	      }
+	    if (q->symbol.value > low_func_vma)
+	      func = NULL;
+	  }
+
 	main_file_name = current_file_name = q->symbol.name;
 	/* Look ahead to next symbol to check if that too is an N_SO. */
 	p++;
@@ -2717,7 +2785,7 @@ NAME(aout,find_nearest_line)
     adata (abfd).line_buf = buf = NULL;
   else
     {
-      buf = (char *) bfd_malloc (filelen + funclen + 2);
+      buf = (char *) bfd_malloc (filelen + funclen + 3);
       adata (abfd).line_buf = buf;
       if (buf == NULL)
 	return false;
@@ -3174,8 +3242,7 @@ aout_link_add_symbols (abfd, info)
   else
     copy = true;
 
-  if ((abfd->flags & DYNAMIC) != 0
-      && aout_backend_info (abfd)->add_dynamic_symbols != NULL)
+  if (aout_backend_info (abfd)->add_dynamic_symbols != NULL)
     {
       if (! ((*aout_backend_info (abfd)->add_dynamic_symbols)
 	     (abfd, info, &syms, &sym_count, &strings)))
@@ -3676,6 +3743,19 @@ NAME(aout,final_link) (abfd, info, callback)
   for (sub = info->input_bfds; sub != (bfd *) NULL; sub = sub->link_next)
     sub->output_has_begun = false;
 
+  /* Mark all sections which are to be included in the link.  This
+     will normally be every section.  We need to do this so that we
+     can identify any sections which the linker has decided to not
+     include.  */
+  for (o = abfd->sections; o != NULL; o = o->next)
+    {
+      for (p = o->link_order_head; p != NULL; p = p->next)
+	{
+	  if (p->type == bfd_indirect_link_order)
+	    p->u.indirect.section->linker_mark = true;
+	}
+    }
+
   have_link_order_relocs = false;
   for (o = abfd->sections; o != (asection *) NULL; o = o->next)
     {
@@ -3831,16 +3911,25 @@ aout_link_input_bfd (finfo, input_bfd)
     return false;
 
   /* Relocate and write out the sections.  These functions use the
-     symbol map created by aout_link_write_symbols.  */
-  if (! aout_link_input_section (finfo, input_bfd,
-				 obj_textsec (input_bfd),
-				 &finfo->treloff,
-				 exec_hdr (input_bfd)->a_trsize)
-      || ! aout_link_input_section (finfo, input_bfd,
-				    obj_datasec (input_bfd),
-				    &finfo->dreloff,
-				    exec_hdr (input_bfd)->a_drsize))
-    return false;
+     symbol map created by aout_link_write_symbols.  The linker_mark
+     field will be set if these sections are to be included in the
+     link, which will normally be the case.  */
+  if (obj_textsec (input_bfd)->linker_mark)
+    {
+      if (! aout_link_input_section (finfo, input_bfd,
+				     obj_textsec (input_bfd),
+				     &finfo->treloff,
+				     exec_hdr (input_bfd)->a_trsize))
+	return false;
+    }
+  if (obj_datasec (input_bfd)->linker_mark)
+    {
+      if (! aout_link_input_section (finfo, input_bfd,
+				     obj_datasec (input_bfd),
+				     &finfo->dreloff,
+				     exec_hdr (input_bfd)->a_drsize))
+	return false;
+    }
 
   /* If we are not keeping memory, we don't need the symbols any
      longer.  We still need them if we are keeping memory, because the
@@ -4888,7 +4977,9 @@ aout_link_input_section_std (finfo, input_bfd, input_section, relocs,
 	      {
 		const char *name;
 
-		if (r_extern)
+		if (h != NULL)
+		  name = h->root.root.string;
+		else if (r_extern)
 		  name = strings + GET_WORD (input_bfd,
 					     syms[r_index].e_strx);
 		else
@@ -5273,10 +5364,12 @@ aout_link_input_section_ext (finfo, input_bfd, input_section, relocs,
 		  {
 		    const char *name;
 
-		    if (r_extern
-			|| r_type == RELOC_BASE10
-			|| r_type == RELOC_BASE13
-			|| r_type == RELOC_BASE22)
+		    if (h != NULL)
+		      name = h->root.root.string;
+		    else if (r_extern
+			     || r_type == RELOC_BASE10
+			     || r_type == RELOC_BASE13
+			     || r_type == RELOC_BASE22)
 		      name = strings + GET_WORD (input_bfd,
 						 syms[r_index].e_strx);
 		    else

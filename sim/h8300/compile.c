@@ -74,7 +74,7 @@ int debug;
 #endif
 
 #ifndef SEXTCHAR
-#define SEXTCHAR(x) ((x & 0x80) ? (x | ~0xff):x)
+#define SEXTCHAR(x) ((x & 0x80) ? (x | ~0xff): x & 0xff)
 #endif
 
 #define UEXTCHAR(x) ((x) & 0xff)
@@ -153,6 +153,7 @@ decode (addr, data, dst)
   int rdisp = 0;
   int abs = 0;
   int plen = 0;
+  int bit = 0;
 
   struct h8_opcode *q = h8_opcodes;
   int size = 0;
@@ -286,7 +287,13 @@ decode (addr, data, dst)
 		    {
 		      abs = SEXTCHAR (data[len >> 1]);
 		    }
-		  else
+		  else if (looking_for & ABS8MEM)
+		    {
+		      plen = 8;
+		      abs = h8300hmode ? ~0xff0000ff : ~0xffff00ff;
+		      abs |= data[len >> 1] & 0xff ;
+		    }
+		   else
 		    {
 		      abs = data[len >> 1] & 0xff;
 		    }
@@ -295,7 +302,7 @@ decode (addr, data, dst)
 		{
 		  plen = 3;
 
-		  abs = thisnib;
+		  bit = thisnib;
 		}
 	      else if (looking_for == E)
 		{
@@ -321,7 +328,12 @@ decode (addr, data, dst)
 			    p = &(dst->src);
 			  }
 
-			if (x & (IMM | KBIT | DBIT))
+			if (x & (L_3))
+			  {
+			    p->type = X (OP_IMM, size);
+			    p->literal = bit;
+			  }
+			else if (x & (IMM | KBIT | DBIT))
 			  {
 			    p->type = X (OP_IMM, size);
 			    p->literal = abs;
@@ -351,7 +363,7 @@ decode (addr, data, dst)
 			    p->reg = rn & 0x7;
 			    p->literal = 0;
 			  }
-			else if (x & (ABS | ABSJMP | ABSMOV))
+			else if (x & (ABS | ABSJMP | ABS8MEM))
 			  {
 			    p->type = X (OP_DISP, size);
 			    p->literal = abs;
@@ -482,26 +494,34 @@ static unsigned int *lreg[18];
 #define SET_L_REG(x,y) (*(lreg[x])) = (y)
 
 #define GET_MEMORY_L(x) \
-  ((cpu.memory[x+0] << 24) | (cpu.memory[x+1] << 16) | (cpu.memory[x+2] << 8) | cpu.memory[x+3])
+  (x < memory_size \
+   ? ((cpu.memory[x+0] << 24) | (cpu.memory[x+1] << 16) \
+      | (cpu.memory[x+2] << 8) | cpu.memory[x+3]) \
+   : ((cpu.eightbit[(x+0) & 0xff] << 24) | (cpu.eightbit[(x+1) & 0xff] << 16) \
+      | (cpu.eightbit[(x+2) & 0xff] << 8) | cpu.eightbit[(x+3) & 0xff]))
 
 #define GET_MEMORY_W(x) \
-  ((cpu.memory[x+0] << 8) | (cpu.memory[x+1] << 0))
+  (x < memory_size \
+   ? ((cpu.memory[x+0] << 8) | (cpu.memory[x+1] << 0)) \
+   : ((cpu.eightbit[(x+0) & 0xff] << 8) | (cpu.eightbit[(x+1) & 0xff] << 0)))
 
 
-#define SET_MEMORY_B(x,y) \
-  (cpu.memory[(x)] = y)
-
-#define SET_MEMORY_W(x,y) \
-{register unsigned char *_p = cpu.memory+x;\
-   register int __y = y;\
-     _p[0] = (__y)>>8;\
-       _p[1] =(__y);     }
+#define GET_MEMORY_B(x) \
+  (x < memory_size ? (cpu.memory[x]) : (cpu.eightbit[x & 0xff]))
 
 #define SET_MEMORY_L(x,y)  \
-{register unsigned char *_p = cpu.memory+x;register int __y = y;\
-   _p[0] = (__y)>>24;	 _p[1] = (__y)>>16;	 _p[2] = (__y)>>8;	 _p[3] = (__y)>>0;}
+{  register unsigned char *_p; register int __y = y; \
+   _p = (x < memory_size ? cpu.memory+x : cpu.eightbit + (x & 0xff)); \
+   _p[0] = (__y)>>24; _p[1] = (__y)>>16; \
+   _p[2] = (__y)>>8; _p[3] = (__y)>>0;}
 
-#define GET_MEMORY_B(x)  (cpu.memory[x])
+#define SET_MEMORY_W(x,y) \
+{  register unsigned char *_p; register int __y = y; \
+   _p = (x < memory_size ? cpu.memory+x : cpu.eightbit + (x & 0xff)); \
+   _p[0] = (__y)>>8; _p[1] =(__y);}
+
+#define SET_MEMORY_B(x,y) \
+  (x < memory_size ? (cpu.memory[(x)] = y) : (cpu.eightbit[x & 0xff] = y))
 
 int
 fetch (arg, n)
@@ -682,6 +702,7 @@ init_pointers ()
 	memory_size = H8300_MSIZE;
       cpu.memory = (unsigned char *) calloc (sizeof (char), memory_size);
       cpu.cache_idx = (unsigned short *) calloc (sizeof (short), memory_size);
+      cpu.eightbit = (unsigned char *) calloc (sizeof (char), 256);
 
       /* `msize' must be a power of two */
       if ((memory_size & (memory_size - 1)) != 0)
@@ -867,6 +888,10 @@ sim_resume (step, siggnal)
     }
 
   pc = cpu.pc;
+
+  /* The PC should never be odd.  */
+  if (pc & 0x1)
+    abort ();
 
   GETSR ();
   oldmask = cpu.mask;
@@ -1318,8 +1343,8 @@ sim_resume (step, siggnal)
 	    ea = GET_B_REG (code->src.reg);
 	    if (ea)
 	      {
-		tmp = rd % ea;
-		rd = rd / ea;
+		tmp = (unsigned)rd % ea;
+		rd = (unsigned)rd / ea;
 	      }
 	    SET_W_REG (code->dst.reg, (rd & 0xff) | (tmp << 8));
 	    n = ea & 0x80;
@@ -1335,8 +1360,8 @@ sim_resume (step, siggnal)
 	    nz = ea & 0xffff;
 	    if (ea)
 	      {
-		tmp = rd % ea;
-		rd = rd / ea;
+		tmp = (unsigned)rd % ea;
+		rd = (unsigned)rd / ea;
 	      }
 	    SET_L_REG (code->dst.reg, (rd & 0xffff) | (tmp << 16));
 	    goto next;
@@ -1496,8 +1521,22 @@ sim_resume (step, siggnal)
     just_flags_alu8:
       n = res & 0x80;
       nz = res & 0xff;
-      v = ((ea & 0x80) == (rd & 0x80)) && ((ea & 0x80) != (res & 0x80));
       c = (res & 0x100);
+      switch (code->opcode / 4)
+	{
+	case O_ADD:
+	  v = ((rd & 0x80) == (ea & 0x80)
+	       && (rd & 0x80) != (res & 0x80));
+	  break;
+	case O_SUB:
+	case O_CMP:
+	  v = ((rd & 0x80) != (-ea & 0x80)
+	       && (rd & 0x80) != (res & 0x80));
+	  break;
+	case O_NEG:
+	  v = (rd == 0x80);
+	  break;
+	}
       goto next;
 
     alu16:
@@ -1505,8 +1544,22 @@ sim_resume (step, siggnal)
     just_flags_alu16:
       n = res & 0x8000;
       nz = res & 0xffff;
-      v = ((ea & 0x8000) == (rd & 0x8000)) && ((ea & 0x8000) != (res & 0x8000));
       c = (res & 0x10000);
+      switch (code->opcode / 4)
+	{
+	case O_ADD:
+	  v = ((rd & 0x8000) == (ea & 0x8000)
+	       && (rd & 0x8000) != (res & 0x8000));
+	  break;
+	case O_SUB:
+	case O_CMP:
+	  v = ((rd & 0x8000) != (-ea & 0x8000)
+	       && (rd & 0x8000) != (res & 0x8000));
+	  break;
+	case O_NEG:
+	  v = (rd == 0x8000);
+	  break;
+	}
       goto next;
 
     alu32:
@@ -1514,18 +1567,21 @@ sim_resume (step, siggnal)
     just_flags_alu32:
       n = res & 0x80000000;
       nz = res & 0xffffffff;
-      v = ((ea & 0x80000000) == (rd & 0x80000000))
-	&& ((ea & 0x80000000) != (res & 0x80000000));
       switch (code->opcode / 4)
 	{
 	case O_ADD:
+	  v = ((rd & 0x80000000) == (ea & 0x80000000)
+	       && (rd & 0x80000000) != (res & 0x80000000));
 	  c = ((unsigned) res < (unsigned) rd) || ((unsigned) res < (unsigned) ea);
 	  break;
 	case O_SUB:
 	case O_CMP:
+	  v = ((rd & 0x80000000) != (-ea & 0x80000000)
+	       && (rd & 0x80000000) != (res & 0x80000000));
 	  c = (unsigned) rd < (unsigned) -ea;
 	  break;
 	case O_NEG:
+	  v = (rd == 0x80000000);
 	  c = res != 0;
 	  break;
 	}
@@ -1584,12 +1640,17 @@ sim_write (addr, buffer, size)
   int i;
 
   init_pointers ();
-  if (addr < 0 || addr + size > memory_size)
+  if (addr < 0)
     return 0;
   for (i = 0; i < size; i++)
     {
-      cpu.memory[addr + i] = buffer[i];
-      cpu.cache_idx[addr + i] = 0;
+      if (addr < memory_size)
+	{
+	  cpu.memory[addr + i] = buffer[i];
+	  cpu.cache_idx[addr + i] = 0;
+	}
+      else
+	cpu.eightbit[(addr + i) & 0xff] = buffer[i];
     }
   return size;
 }
@@ -1601,9 +1662,12 @@ sim_read (addr, buffer, size)
      int size;
 {
   init_pointers ();
-  if (addr < 0 || addr + size > memory_size)
+  if (addr < 0)
     return 0;
-  memcpy (buffer, cpu.memory + addr, size);
+  if (addr < memory_size)
+    memcpy (buffer, cpu.memory + addr, size);
+  else
+    memcpy (buffer, cpu.eightbit + (addr & 0xff), size);
   return size;
 }
 
@@ -1831,6 +1895,41 @@ sim_load (prog, from_tty)
 	set_h8300h (abfd->arch_info->mach == bfd_mach_h8300h);
       bfd_close (abfd);
     }
+
+  /* If we're using gdb attached to the simulator, then we have to
+     reallocate memory for the simulator.
+
+     When gdb first starts, it calls fetch_registers (among other
+     functions), which in turn calls init_pointers, which allocates
+     simulator memory.
+
+     The problem is when we do that, we don't know whether we're
+     debugging an h8/300 or h8/300h program.
+
+     This is the first point at which we can make that determination,
+     so we just reallocate memory now; this will also allow us to handle
+     switching between h8/300 and h8/300h programs without exiting
+     gdb.  */
+  if (h8300hmode)
+    memory_size = H8300H_MSIZE;
+  else
+    memory_size = H8300_MSIZE;
+
+  if (cpu.memory)
+    free (cpu.memory);
+  if (cpu.cache_idx)
+    free (cpu.cache_idx);
+  if (cpu.eightbit)
+    free (cpu.eightbit);
+
+  cpu.memory = (unsigned char *) calloc (sizeof (char), memory_size);
+  cpu.cache_idx = (unsigned short *) calloc (sizeof (short), memory_size);
+  cpu.eightbit = (unsigned char *) calloc (sizeof (char), 256);
+
+  /* `msize' must be a power of two */
+  if ((memory_size & (memory_size - 1)) != 0)
+    abort ();
+  cpu.mask = memory_size - 1;
 
   /* Return non-zero so gdb will handle it.  */
   return 1;

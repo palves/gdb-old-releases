@@ -177,6 +177,8 @@ struct coff_section_tdata
   unsigned int i;
   const char *function;
   int line_base;
+  /* A pointer used for .stab linking optimizations.  */
+  PTR stab_info;
   /* Available for individual backends.  */
   PTR tdata;
 };
@@ -204,6 +206,18 @@ struct xcoff_section_tdata
 /* An accessor macro the xcoff_section_tdata structure.  */
 #define xcoff_section_data(abfd, sec) \
   ((struct xcoff_section_tdata *) coff_section_data ((abfd), (sec))->tdata)
+
+/* Tdata for sections in PEI image files.  */
+
+struct pei_section_tdata
+{
+  /* The virtual size of the section.  */
+  bfd_size_type virt_size;
+};
+
+/* An accessor macro for the pei_section_tdata structure.  */
+#define pei_section_data(abfd, sec) \
+  ((struct pei_section_tdata *) coff_section_data ((abfd), (sec))->tdata)
 
 /* COFF linker hash table entries.  */
 
@@ -236,6 +250,8 @@ struct coff_link_hash_entry
 struct coff_link_hash_table
 {
   struct bfd_link_hash_table root;
+  /* A pointer to information used to link stabs in sections.  */
+  PTR stab_info;
 };
 
 /* Look up an entry in a COFF linker hash table.  */
@@ -408,6 +424,11 @@ struct coff_final_link_info
   long last_file_index;
   /* Contents of last C_FILE symbol.  */
   struct internal_syment last_file;
+  /* Symbol index of first aux entry of last .bf symbol with an empty
+     endndx field (-1 if none).  */
+  long last_bf_index;
+  /* Contents of last_bf_index aux entry.  */
+  union internal_auxent last_bf;
   /* Hash table used to merge debug information.  */
   struct coff_debug_merge_hash_table debug_merge;
   /* Buffer large enough to hold swapped symbols of any input file.  */
@@ -468,6 +489,12 @@ extern boolean _bfd_coff_reloc_link_order
 
 /* Functions in xcofflink.c.  */
 
+extern long _bfd_xcoff_get_dynamic_symtab_upper_bound PARAMS ((bfd *));
+extern long _bfd_xcoff_canonicalize_dynamic_symtab
+  PARAMS ((bfd *, asymbol **));
+extern long _bfd_xcoff_get_dynamic_reloc_upper_bound PARAMS ((bfd *));
+extern long _bfd_xcoff_canonicalize_dynamic_reloc
+  PARAMS ((bfd *, arelent **, asymbol **));
 extern struct bfd_link_hash_table *_bfd_xcoff_bfd_link_hash_table_create
   PARAMS ((bfd *));
 extern boolean _bfd_xcoff_bfd_link_add_symbols
@@ -602,6 +629,7 @@ typedef struct
  unsigned int _bfd_relsz;
  unsigned int _bfd_linesz;
  boolean _bfd_coff_long_filenames;
+ boolean _bfd_coff_long_section_names;
  void (*_bfd_coff_swap_filehdr_in) PARAMS ((
        bfd     *abfd,
        PTR     ext,
@@ -753,6 +781,8 @@ typedef struct
 #define bfd_coff_relsz(abfd)  (coff_backend_info (abfd)->_bfd_relsz)
 #define bfd_coff_linesz(abfd) (coff_backend_info (abfd)->_bfd_linesz)
 #define bfd_coff_long_filenames(abfd) (coff_backend_info (abfd)->_bfd_coff_long_filenames)
+#define bfd_coff_long_section_names(abfd) \
+        (coff_backend_info (abfd)->_bfd_coff_long_section_names)
 #define bfd_coff_swap_filehdr_in(abfd, i,o) \
         ((coff_backend_info (abfd)->_bfd_coff_swap_filehdr_in) (abfd, i, o))
 

@@ -1,9 +1,96 @@
-Sun Apr  7 15:06:17 1996  Fred Fish  <fnf@cygnus.com>
+Mon Jun 10 18:50:38 1996  Ian Lance Taylor  <ian@cygnus.com>
 
-	From: Miles Bader  <miles@gnu.ai.mit.edu>
-	* configure.in: Use AC_CHECK_TOOL to find AR & RANLIB.
-	* configure: Regenerate with autoconf.
-	
+	* h8300-dis.c (bfd_h8_disassemble): Always print ABS8MEM with :8,
+	regardless of plen.
+
+Tue Jun  4 09:15:53 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* i386-dis.c (OP_OFF): Call append_prefix.
+
+Thu May 23 15:18:23 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* ppc-opc.c (instruction encoding macros): Add explicit casts to
+	unsigned long to silence a warning from the Solaris PowerPC
+	compiler.
+
+Thu Apr 25 19:33:32 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc-opc.c (sparc_opcodes): Add ultrasparc vis extensions.
+
+Mon Apr 22 17:12:35 1996  Doug Evans  <dje@blues.cygnus.com>
+
+	* sparc-dis.c (X_IMM,X_SIMM): New macros.
+	(X_IMM13): Delete.
+	(print_insn_sparc): Merge cases i,I,j together.  New cases X,Y.
+	* sparc-opc.c (sparc_opcodes): Use X for 5 bit shift constants,
+	Y for 6 bit shift constants.  Rewrite entries for crdcxt, cwrcxt,
+	cpush, cpusha, cpull sparclet insns.
+
+Wed Apr 17 14:20:22 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc-dis.c (compute_arch_mask): Replace ANSI style def with K&R.
+
+Thu Apr 11 17:30:02 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* sparc-opc.c: Set F_FBR on floating point branch instructions.
+	Set F_FLOAT on other floating point instructions.
+
+Mon Apr  8 17:02:48 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* ppc-opc.c (PPC860): Macro for 860/821 specific instructions and
+	registers.
+ 	(powerpc_opcodes): Add 860/821 specific SPRs.
+
+Mon Apr  8 14:00:44 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: Permit --enable-shared to specify a list of
+	directories.  Set and substitute BFD_PICLIST.
+	* configure: Rebuild.
+	* Makefile.in (BFD_PICLIST): Rename from BFD_LIST.  Change all
+	uses.  Set to @BFD_PICLIST@.
+
+Fri Apr  5 17:12:27 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* h8300-dis.c (bfd_h8_disassemble): Use "bit" for L_3 immediates,
+	not "abs", which may be needed for the absolute in something
+	like btst #0,@10:8.  Print L_3 immediates separately from other
+	immediates.  Change ABSMOV reference to ABS8MEM.
+
+Wed Apr  3 10:40:45 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc-dis.c (opcodes_initialized): Move inside print_insn_sparc.
+	(current_arch_mask): New static global.
+	(compute_arch_mask): New static function.
+	(print_insn_sparc): Delete sparc_v9_p.  New static local
+	current_mach.  Resort opcode table if current_mach changes.
+	Generalize "insn not supported" test.
+	(compare_opcodes): Prefer supported opcodes to nonsupported ones.
+	Delete test for v9/!v9.
+	* sparc-opc.c (MASK_*): Use SPARC_OPCODE_ARCH_MASK.
+	(v6notlet): Define.
+	(brfc): Split into CBR and FBR for coprocessor/fp branches.
+	(brfcx): Renamed to FBRX.
+	(condfc): Renamed to CONDFC.  Pass v6notlet to CBR (standard
+	coprocessor mnemonics are not supported on the sparclet).
+	(condf): Renamed to CONDF.
+	(SLCBCC2): Delete F_ALIAS flag.
+
+Sat Mar 30 21:45:59 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc-opc.c (sparc_opcodes): rd must be 0 for
+	mov foo,{%y,%psr,%wim,%tbr}.  Support mov foo,%asrX.
+
+Fri Mar 29 13:02:40 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (config.status): Depend upon BFD VERSION file, so
+	that the shared library version number is set correctly.
+
+Tue Mar 26 15:47:14 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: Use AC_CHECK_TOOL to find ar and ranlib.  From
+	Miles Bader <miles@gnu.ai.mit.edu>.
+	* configure: Rebuild.
+
 Sat Mar 16 13:04:07 1996  Fred Fish  <fnf@cygnus.com>
 
 	* z8kgen.c (internal, gas): Call xmalloc rather than unchecked

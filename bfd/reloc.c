@@ -1407,7 +1407,7 @@ _bfd_final_link_relocate (howto, input_bfd, input_section, contents, address,
   bfd_vma relocation;
 
   /* Sanity check the address.  */
-  if (address > input_section->_cooked_size)
+  if (address > input_section->_raw_size)
     return bfd_reloc_outofrange;
 
   /* This function assumes that we are dealing with a basic relocation

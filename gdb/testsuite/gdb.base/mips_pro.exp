@@ -9,13 +9,13 @@ set testfile mips_pro
 set srcfile ${srcdir}/$subdir/${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
 
-if  { [compile "-E ${srcdir}/${subdir}/compiler.c >> ${objdir}/${subdir}/mips_pro.tmp"] != "" } {
-    perror "Couldn't make ${testfile}.tmp"
+# Create and source the file that provides information about the compiler
+# used to compile the test case.
+execute_anywhere "rm -f ${binfile}.ci"
+if  { [compile "-E ${srcdir}/${subdir}/compiler.c >> ${binfile}.ci"] != "" } {
+    perror "Couldn't make ${binfile}.ci"
     return -1
 }
-
-execute_anywhere "mv ${objdir}/${subdir}/${testfile}.tmp ${binfile}.ci"
-
 source ${binfile}.ci
 
 # This test must be compiled with -O2 if using gcc.
@@ -37,6 +37,7 @@ gdb_load $binfile
 
 if [runto middle] then {
     # PR 3016
+    setup_xfail "hppa*-*-*"
     gdb_test "backtrace" "#0.*middle.*#1.*top.*#2.*main.*"
 }
 return 0

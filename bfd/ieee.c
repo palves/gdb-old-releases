@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "ieee.h"
 #include "libieee.h"
 
-static boolean ieee_write_byte PARAMS ((bfd *, bfd_byte));
+static boolean ieee_write_byte PARAMS ((bfd *, int));
 static boolean ieee_write_2bytes PARAMS ((bfd *, int));
 static boolean ieee_write_int PARAMS ((bfd *, bfd_vma));
 static boolean ieee_write_id PARAMS ((bfd *, const char *));
@@ -55,10 +55,13 @@ static boolean ieee_slurp_section_data PARAMS ((bfd *));
    standard requires. */
 
 static boolean
-ieee_write_byte (abfd, byte)
+ieee_write_byte (abfd, barg)
      bfd *abfd;
-     bfd_byte byte;
+     int barg;
 {
+  bfd_byte byte;
+
+  byte = barg;
   if (bfd_write ((PTR) &byte, 1, 1, abfd) != 1)
     return false;
   return true;
@@ -408,7 +411,7 @@ typedef struct
 } ieee_value_type;
 
 
-#ifdef KEEPMINUSPCININST
+#if KEEPMINUSPCININST
 
 #define SRC_MASK(arg) arg
 #define PCREL_OFFSET false
@@ -3432,6 +3435,27 @@ ieee_write_object_contents (abfd)
   ieee->w.r.environmental_record = bfd_tell (abfd);
   if (bfd_write ((char *) envi, 1, sizeof (envi), abfd) != sizeof (envi))
     return false;
+
+  /* The HP emulator database requires a timestamp in the file.  */
+  {
+    time_t now;
+    const struct tm *t;
+
+    time (&now);
+    t = (struct tm *) localtime (&now);
+    if (! ieee_write_2bytes (abfd, (int) ieee_atn_record_enum)
+	|| ! ieee_write_byte (abfd, 0x21)
+	|| ! ieee_write_byte (abfd, 0)
+	|| ! ieee_write_byte (abfd, 50)
+	|| ! ieee_write_int (abfd, t->tm_year + 1900)
+	|| ! ieee_write_int (abfd, t->tm_mon + 1)
+	|| ! ieee_write_int (abfd, t->tm_mday)
+	|| ! ieee_write_int (abfd, t->tm_hour)
+	|| ! ieee_write_int (abfd, t->tm_min)
+	|| ! ieee_write_int (abfd, t->tm_sec))
+      return false;
+  }
+
   output_bfd = abfd;
 
   flush ();
@@ -3557,21 +3581,28 @@ ieee_generic_stat_arch_elt (abfd, buf)
      struct stat *buf;
 {
   ieee_ar_data_type *ar = abfd->my_archive->tdata.ieee_ar_data;
+  ieee_data_type *ieee;
+
   if (ar == (ieee_ar_data_type *) NULL)
     {
       bfd_set_error (bfd_error_invalid_operation);
       return -1;
     }
-  else if (ieee_object_p (abfd))
-    {
-      ieee_data_type *ieee = IEEE_DATA (abfd);
 
-      buf->st_size = ieee->w.r.me_record + 1;
-      buf->st_mode = 0644;
-      return 0;
+  if (IEEE_DATA (abfd) == NULL)
+    {
+      if (ieee_object_p (abfd) == NULL)
+	{
+	  bfd_set_error (bfd_error_wrong_format);
+	  return -1;
+	}
     }
-  else
-    return -1;
+
+  ieee = IEEE_DATA (abfd);
+
+  buf->st_size = ieee->w.r.me_record + 1;
+  buf->st_mode = 0644;
+  return 0;
 }
 
 static int

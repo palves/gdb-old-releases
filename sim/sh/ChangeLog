@@ -1,3 +1,13 @@
+Thu May 16 15:44:29 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* interp.c (saved_state_type): Add memstalls field.
+	(MA) Define macro.
+	(sim_resume): New local variable memstalls.  Add it back in to
+	saved_state at the end of the function.
+	(sim_info): Report memstalls.
+	* gencode.c (tab): Add MA() to the execution string of all
+	instructions which access memory.
+
 Wed Feb 21 12:16:41 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* configure: Regenerate with autoconf 2.7.

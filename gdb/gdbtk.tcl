@@ -28,6 +28,9 @@ set line_numbers 1
 set breakpoint_file(-1) {[garbage]}
 set disassemble_with_source nosource
 set expr_update_list(0) 0
+set gdb_prompt "(gdb) "
+
+set debug_interface 0
 
 #option add *Foreground Black
 #option add *Background White
@@ -260,6 +263,86 @@ proc gdbtk_tcl_breakpoint {action bpnum} {
 	}
 
 	${action}_breakpoint $bpnum $file $line $pc
+}
+
+#
+# GDB Callback:
+#
+#	gdbtk_tcl_readline_begin (message) - Notify Tk to open an interaction
+#	window and start gathering user input
+#
+# Description:
+#
+#	GDB calls this to notify TK that it needs to open an interaction
+#	window, displaying the given message, and be prepared to accept
+#	calls to gdbtk_tcl_readline to gather user input.
+
+proc gdbtk_tcl_readline_begin {message} {
+    global readline_text
+
+    # If another readline window already exists, just bring it to the front.
+    if {[winfo exists .rl]} {raise .rl ; return}
+
+    # Create top level frame with scrollbar and text widget.
+    toplevel .rl
+    wm title .rl "Interaction Window"
+    wm iconname .rl "Input"
+    message .rl.msg -text $message -aspect 7500 -justify left
+    text .rl.text -width 80 -height 20 -setgrid true -cursor hand2 \
+	    -yscrollcommand {.rl.scroll set}
+    scrollbar .rl.scroll -command {.rl.text yview}
+    pack .rl.msg -side top -fill x
+    pack .rl.scroll -side right -fill y
+    pack .rl.text -side left -fill both -expand true
+
+    # When the user presses return, get the text from the command start mark to the
+    # current insert point, stash it in the readline text variable, and update the
+    # command start mark to the current insert point
+    bind .rl.text <Return> {
+	set readline_text [.rl.text get cmdstart {end - 1 char}]
+	.rl.text mark set cmdstart insert
+    }
+    bindtags .rl.text {.rl.text Text all}
+}
+
+#
+# GDB Callback:
+#
+#	gdbtk_tcl_readline (prompt) - Get one user input line
+#
+# Description:
+#
+#	GDB calls this to get one line of input from the user interaction
+#	window, using "prompt" as the command line prompt.
+
+proc gdbtk_tcl_readline {prompt} {
+    global readline_text
+
+    .rl.text insert end $prompt
+    .rl.text mark set cmdstart insert
+    .rl.text mark gravity cmdstart left
+    .rl.text see insert
+
+    # Make this window the current one for input.
+    focus .rl.text
+    grab .rl
+    tkwait variable readline_text
+    grab release .rl
+    return $readline_text
+}
+
+#
+# GDB Callback:
+#
+#	gdbtk_tcl_readline_end  - Terminate a user interaction
+#
+# Description:
+#
+#	GDB calls this when it is done getting interactive user input.
+#	Destroy the interaction window.
+
+proc gdbtk_tcl_readline_end {} {
+    if {[winfo exists .rl]} { destroy .rl }
 }
 
 proc create_breakpoints_window {} {
@@ -635,9 +718,7 @@ proc insert_breakpoint_tag {win line} {
 	$win configure -state normal
 	$win delete $line.0
 	$win insert $line.0 "B"
-	$win tag add $line $line.0
-	$win tag add delete $line.0 "$line.0 lineend"
-	$win tag add margin $line.0 "$line.0 lineend"
+	$win tag add margin $line.0 $line.8
 
 	$win configure -state disabled
 }
@@ -661,13 +742,14 @@ proc delete_breakpoint_tag {win line} {
 	} else {
 		$win insert $line.0 " "
 	}
-	$win tag delete $line
-	$win tag add delete $line.0 "$line.0 lineend"
-	$win tag add margin $line.0 "$line.0 lineend"
+	$win tag add margin $line.0 $line.8
 	$win configure -state disabled
 }
 
 proc gdbtk_tcl_busy {} {
+	if {[winfo exists .cmd]} {
+		.cmd.text configure -state disabled
+	}
 	if {[winfo exists .src]} {
 		.src.start configure -state disabled
 		.src.stop configure -state normal
@@ -692,6 +774,9 @@ proc gdbtk_tcl_busy {} {
 }
 
 proc gdbtk_tcl_idle {} {
+	if {[winfo exists .cmd]} {
+		.cmd.text configure -state normal
+	}
 	if {[winfo exists .src]} {
 		.src.start configure -state normal
 		.src.stop configure -state disabled
@@ -703,7 +788,6 @@ proc gdbtk_tcl_idle {} {
 		.src.down configure -state normal
 		.src.bottom configure -state normal
 	}
-
 	if {[winfo exists .asm]} {
 		.asm.stepi configure -state normal
 		.asm.nexti configure -state normal
@@ -798,67 +882,18 @@ bind .file_popup <Any-ButtonRelease-1> {
 #
 # Local procedure:
 #
-#	file_popup_menu (win x y xrel yrel) - Popup the file popup menu.
+#	listing_window_popup (win x y xrel yrel) - Handle popups for listing window
 #
 # Description:
 #
-#	This procedure is invoked as a result of a command binding in the
-#	listing window.  It does several things:
-#		o - It highlights the line under the cursor.
-#		o - It pops up the file popup menu which is intended to do
-#		    various things to the aforementioned line.
-#		o - Grabs the mouse for the file popup menu.
-#
-
-# Button 1 has been pressed in a listing window.  Pop up a menu.
-
-proc file_popup_menu {win x y xrel yrel} {
-	global wins
-	global win_to_file
-	global file_to_debug_file
-	global highlight
-	global selected_line
-	global selected_file
-	global selected_win
-
-# Map TK window name back to file name.
-
-	set file $win_to_file($win)
-
-	set pos [$win index @$xrel,$yrel]
-
-# Record selected file and line for menu button actions
-
-	set selected_file $file_to_debug_file($file)
-	set selected_line [lindex [split $pos .] 0]
-	set selected_win $win
-
-# Highlight the selected line
-
-	eval $win tag config breaktag $highlight
-	$win tag add breaktag "$pos linestart" "$pos linestart + 1l"
-
-# Post the menu near the pointer, (and grab it)
-
-	.file_popup entryconfigure 0 -label "$selected_file:$selected_line"
-	tk_popup .file_popup $x $y
-}
-
-#
-# Local procedure:
-#
-#	listing_window_button_1 (win x y xrel yrel) - Handle button 1 in listing window
-#
-# Description:
-#
-#	This procedure is invoked as a result of holding down button 1 in the
+#	This procedure is invoked by holding down button 2 (usually) in the
 #	listing window.  The action taken depends upon where the button was
 #	pressed.  If it was in the left margin (the breakpoint column), it
 #	sets or clears a breakpoint.  In the main text area, it will pop up a
 #	menu.
 #
 
-proc listing_window_button_1 {win x y xrel yrel} {
+proc listing_window_popup {win x y xrel yrel} {
 	global wins
 	global win_to_file
 	global file_to_debug_file
@@ -881,26 +916,60 @@ proc listing_window_button_1 {win x y xrel yrel} {
 	set selected_col [lindex $pos 1]
 	set selected_win $win
 
-# If we're in the margin, then toggle the breakpoint
-
-	if {$selected_col < 8} {
-		set pos_break $selected_file:$selected_line
-		set pos $file:$selected_line
-		set tmp pos_to_breakpoint($pos)
-		if {[info exists $tmp]} {
-			set bpnum [set $tmp]
-			gdb_cmd "delete	$bpnum"
-		} else {
-			gdb_cmd "break $pos_break"
-		}
-		return
-	}
-
 # Post the menu near the pointer, (and grab it)
 
 	.file_popup entryconfigure 0 -label "$selected_file:$selected_line"
 
         tk_popup .file_popup $x $y
+}
+
+#
+# Local procedure:
+#
+#	toggle_breakpoint (win x y xrel yrel) - Handle clicks on breakdots
+#
+# Description:
+#
+#	This procedure sets or clears breakpoints where the button clicked.
+#
+
+proc toggle_breakpoint {win x y xrel yrel} {
+	global wins
+	global win_to_file
+	global file_to_debug_file
+	global highlight
+	global selected_line
+	global selected_file
+	global selected_win
+	global pos_to_breakpoint
+
+# Map TK window name back to file name.
+
+	set file $win_to_file($win)
+
+	set pos [split [$win index @$xrel,$yrel] .]
+
+# Record selected file and line
+
+	set selected_file $file_to_debug_file($file)
+	set selected_line [lindex $pos 0]
+	set selected_col [lindex $pos 1]
+	set selected_win $win
+
+# If we're in the margin, then toggle the breakpoint
+
+	if {$selected_col < 8} {  # this is alway true actually
+              set pos_break $selected_file:$selected_line
+              set pos $file:$selected_line
+              set tmp pos_to_breakpoint($pos)
+              if {[info exists $tmp]} {
+                      set bpnum [set $tmp]
+                      gdb_cmd "delete $bpnum"
+              } else {
+                      gdb_cmd "break $pos_break"
+              }
+              return
+	}
 }
 
 #
@@ -1177,6 +1246,7 @@ proc create_file_win {filename debug_file} {
 	global breakpoint_file
 	global breakpoint_line
 	global line_numbers
+	global debug_interface
 
 # Replace all the dirty characters in $filename with clean ones, and generate
 # a unique name for the text widget.
@@ -1227,6 +1297,12 @@ proc create_file_win {filename debug_file} {
 	bind $win u {interactive_cmd up}
 	bind $win d {interactive_cmd down}
 
+	if $debug_interface {
+	    bind $win <Control-C> {
+		puts stdout burp
+	    }
+	}
+
 	$win delete 0.0 end
 	$win insert 0.0 [read $fh]
 	close $fh
@@ -1255,7 +1331,26 @@ proc create_file_win {filename debug_file} {
 		$win tag add margin $i.0 $i.8
 		}
 
-	$win tag bind margin <1> {listing_window_button_1 %W %X %Y %x %y}
+	# A debugging trick to highlight sensitive regions.
+	if $debug_interface {
+	    $win tag bind source <Enter> {
+		%W tag configure source -background yellow
+	    }
+	    $win tag bind source <Leave> {
+		%W tag configure source -background green
+	    }
+	    $win tag bind margin <Enter> {
+		%W tag configure margin -background red
+	    }
+	    $win tag bind margin <Leave> {
+		%W tag configure margin -background skyblue
+	    }
+	}
+
+	$win tag bind margin <1> {
+		toggle_breakpoint %W %X %Y %x %y
+		}
+
 	$win tag bind source <1> {
 		%W mark set anchor "@%x,%y wordstart"
 		set last [%W index "@%x,%y wordend"]
@@ -1278,11 +1373,15 @@ proc create_file_win {filename debug_file} {
 		}
 	$win tag bind sel <1> break
 	$win tag bind sel <Double-Button-1> {
-	  display_expression [selection get]
-	  break
+	    display_expression [selection get]
+	    break
 	}
         $win tag bind sel <B1-Motion> break
 	$win tag lower sel
+
+	$win tag bind source <2> {
+		listing_window_popup %W %X %Y %x %y
+		}
 
         # Make these bindings do nothing on the text window -- they
 	# are completely handled by the tag bindings above.
@@ -1955,7 +2054,7 @@ proc files_command {} {
 
   wm minsize .files_window 1 1
   #	wm overrideredirect .files_window true
-  listbox .files_window.list -geometry 30x20 -setgrid true \
+  listbox .files_window.list -width 30 -height 20 -setgrid true \
     -yscrollcommand {.files_window.scroll set} -relief sunken \
     -borderwidth 2
   scrollbar .files_window.scroll -orient vertical \
@@ -1963,21 +2062,8 @@ proc files_command {} {
   button .files_window.close -text Close -command {destroy .files_window}
   .files_window.list configure -selectmode single
 
-  # Get the file list from GDB, sort it, and format it as one entry per line.
-  set lastSeen {};			# Value that won't appear in
-					# list.
-  set fileList {}
-  foreach file [lsort [gdb_listfiles]] {
-    if {$file != $lastSeen} then {
-      lappend fileList $file
-      set lastSeen $file
-    }
-  }
-  set filelist [join [lsort [gdb_listfiles]] "\n"]
-
-  # Insert the file list into the widget
-
-  eval .files_window.list insert 0 $filelist
+  # Get the file list from GDB, sort it, and insert into the widget.
+  eval .files_window.list insert 0 [lsort [gdb_listfiles]]
 
   pack .files_window.close -side bottom -fill x -expand no -anchor s
   pack .files_window.scroll -side right -fill both
@@ -2286,6 +2372,7 @@ proc find_completion {cmd completions} {
 proc create_command_window {} {
 	global command_line
 	global saw_tab
+	global gdb_prompt
 
 	set saw_tab 0
 	if {[winfo exists .cmd]} {raise .cmd ; return}
@@ -2301,14 +2388,23 @@ proc create_command_window {} {
 	gdb_cmd {set height 0}
 	gdb_cmd {set width 0}
 
+	bind .cmd.text <Control-c> gdb_stop
+
         # Tk uses the Motifism that Delete means delete forward.  I
 	# hate this, and I'm not gonna take it any more.
         set bsBinding [bind Text <BackSpace>]
         bind .cmd.text <Delete> "delete_char %W ; $bsBinding; break"
-	bind .cmd.text <BackSpace> {delete_char %W}
-	bind .cmd.text <Control-c> gdb_stop
-	bind .cmd.text <Control-u> {delete_line %W ; break}
+	bind .cmd.text <BackSpace> {
+	  if {([%W cget -state] == "disabled")} { break }
+	  delete_char %W
+	}
+	bind .cmd.text <Control-u> {
+	  if {([%W cget -state] == "disabled")} { break }
+	  delete_line %W
+	  break
+	}
 	bind .cmd.text <Any-Key> {
+	  if {([%W cget -state] == "disabled")} { break }
 	  set saw_tab 0
 	  %W insert end %A
 	  %W see end
@@ -2316,6 +2412,7 @@ proc create_command_window {} {
 	  break
 	}
 	bind .cmd.text <Key-Return> {
+	  if {([%W cget -state] == "disabled")} { break }
 	  set saw_tab 0
 	  %W insert end \n
 	  interactive_cmd $command_line
@@ -2325,7 +2422,7 @@ proc create_command_window {} {
 	  # %W insert end $result
 	  set command_line {}
 	  # update_ptr
-	  %W insert end "(gdb) "
+	  %W insert end "$gdb_prompt"
 	  %W see end
 	  break
 	}
@@ -2338,6 +2435,7 @@ proc create_command_window {} {
         bind .cmd.text <B2-Motion> break
         bind .cmd.text <ButtonRelease-2> break
 	bind .cmd.text <Key-Tab> {
+	  if {([%W cget -state] == "disabled")} { break }
 	  set choices [gdb_cmd "complete $command_line"]
 	  set choices [string trimright $choices \n]
 	  set choices [split $choices \n]
@@ -2375,12 +2473,14 @@ proc create_command_window {} {
 	    if {[regexp ".* " $command_line prefix]} {
 	      regsub -all $prefix $choices {} choices
 	    }
-	    %W insert end "\n[join $choices { }]\n(gdb) $command_line"
+	    %W insert end "\n[join $choices { }]\n$gdb_prompt$command_line"
 	    %W see end
 	  }
 	  break
 	}
 }
+
+# Trim one character off the command line.  The argument is ignored.
 
 proc delete_char {win} {
   global command_line
@@ -2388,12 +2488,19 @@ proc delete_char {win} {
   set command_line [string range $command_line 0 $tmp]
 }
 
-proc delete_line {win} {
-  global command_line
+# FIXME: This should actually check that the first characters of the current
+# line  match the gdb prompt, since the user can move the insertion point
+# anywhere.  It should also check that the insertion point is in the last
+# line of the text widget.
 
-  $win delete {end linestart + 6 chars} end
-  $win see insert
-  set command_line {}
+proc delete_line {win} {
+    global command_line
+    global gdb_prompt
+
+    set tmp [string length $gdb_prompt]
+    $win delete "insert linestart + $tmp chars" "insert lineend"
+    $win see insert
+    set command_line {}
 }
 
 #
@@ -3076,6 +3183,79 @@ proc create_copyright_window {} {
 
   wm transient .c .
   center_window .c
+}
+
+# Begin support primarily for debugging the tcl/tk portion of gdbtk.  You can
+# start gdbtk, and then issue the command "tk tclsh" and a window will pop up
+# giving you direct access to the tcl interpreter.  With this, it is very easy
+# to examine the values of global variables, directly invoke routines that are
+# part of the gdbtk interface, replace existing proc's with new ones, etc.
+# This code was inspired from example 11-3 in Brent Welch's "Practical
+# Programming in Tcl and Tk"
+
+set tcl_prompt "tcl> "
+
+# Get the current command that user has typed, from cmdstart to end of text
+# widget.  Evaluate it, insert result back into text widget, issue a new
+# prompt, update text widget and update command start mark.
+
+proc evaluate_tcl_command { twidget } {
+    global tcl_prompt
+
+    set command [$twidget get cmdstart end]
+    if [info complete $command] {
+	set err [catch {uplevel #0 $command} result]
+	$twidget insert insert \n$result\n
+	$twidget insert insert $tcl_prompt
+	$twidget see insert
+	$twidget mark set cmdstart insert
+	return
+    }
+}
+
+# Create the evaluation window and set up the keybindings to evaluate the
+# last single line entered by the user.  FIXME: allow multiple lines?
+
+proc tclsh {} {
+    global tcl_prompt
+
+    # If another evaluation window already exists, just bring it to the front.
+    if {[winfo exists .eval]} {raise .eval ; return}
+
+    # Create top level frame with scrollbar and text widget.
+    toplevel .eval
+    wm title .eval "Tcl Evaluation"
+    wm iconname .eval "Tcl"
+    text .eval.text -width 80 -height 20 -setgrid true -cursor hand2 \
+	    -yscrollcommand {.eval.scroll set}
+    scrollbar .eval.scroll -command {.eval.text yview}
+    pack .eval.scroll -side right -fill y
+    pack .eval.text -side left -fill both -expand true
+
+    # Insert the tcl_prompt and initialize the cmdstart mark
+    .eval.text insert insert $tcl_prompt
+    .eval.text mark set cmdstart insert
+    .eval.text mark gravity cmdstart left
+
+    # Make this window the current one for input.
+    focus .eval.text
+
+    # Keybindings that limit input and evaluate things
+    bind .eval.text <Return> { evaluate_tcl_command .eval.text ; break }
+    bind .eval.text <Any-Key> {
+	if [%W compare insert < cmdstart] {
+	    %W mark set insert end
+	}
+    }
+    bindtags .eval.text {.eval.text Text all}
+}
+
+# This proc is executed just prior to falling into the Tk main event loop.
+proc gdbtk_tcl_preloop {} {
+    global gdb_prompt
+    .cmd.text insert end "$gdb_prompt"
+    .cmd.text see end
+    update
 }
 
 # FIXME need to handle mono here.  In Tk4 that is more complicated.

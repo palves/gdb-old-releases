@@ -138,6 +138,7 @@ print_options (void)
   printf_filtered ("WITH_MODEL               = %s\n", model_name[WITH_MODEL]);
   printf_filtered ("WITH_MODEL_ISSUE         = %d\n", WITH_MODEL_ISSUE);
   printf_filtered ("WITH_RESERVED_BITS       = %d\n", WITH_RESERVED_BITS);
+  printf_filtered ("WITH_STDIO               = %d\n", WITH_STDIO);
   printf_filtered ("DEFAULT_INLINE           = %s\n", options_inline (DEFAULT_INLINE));
   printf_filtered ("SIM_ENDIAN_INLINE        = %s\n", options_inline (SIM_ENDIAN_INLINE));
   printf_filtered ("BITS_INLINE              = %s\n", options_inline (BITS_INLINE));

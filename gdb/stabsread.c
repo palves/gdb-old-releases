@@ -143,6 +143,34 @@ static int
 read_cpp_abbrev PARAMS ((struct field_info *, char **, struct type *,
 			 struct objfile *));
 
+/* new functions added for cfront support */
+
+extern void
+resolve_cfront_continuation PARAMS ((struct objfile *, struct symbol *, 
+			char * p));
+
+static int
+copy_cfront_struct_fields PARAMS ((struct field_info *, struct type *,
+                        struct objfile *));
+
+static char *
+get_cfront_method_physname PARAMS ((char *));
+
+static int
+read_cfront_baseclasses PARAMS ((struct field_info *, char **, 
+			struct type *, struct objfile *));
+
+static int
+read_cfront_static_fields PARAMS ((struct field_info *, char**,
+			struct type *, struct objfile *));
+static int
+read_cfront_member_functions PARAMS ((struct field_info *, char **, 
+			struct type *, struct objfile *));
+
+/* end new functions added for cfront support */
+
+
+
 static const char vptr_name[] = { '_','v','p','t','r',CPLUS_MARKER,'\0' };
 static const char vb_name[] =   { '_','v','b',CPLUS_MARKER,'\0' };
 
@@ -496,6 +524,499 @@ read_type_number (pp, typenums)
 #if !defined (REG_STRUCT_HAS_ADDR)
 #define REG_STRUCT_HAS_ADDR(gcc_p,type) 0
 #endif
+
+#define VISIBILITY_PRIVATE	'0'	/* Stabs character for private field */
+#define VISIBILITY_PROTECTED	'1'	/* Stabs character for protected fld */
+#define VISIBILITY_PUBLIC	'2'	/* Stabs character for public field */
+#define VISIBILITY_IGNORE	'9'	/* Optimized out or zero length */
+
+#define CFRONT_VISIBILITY_PRIVATE	'2'	/* Stabs character for private field */
+#define CFRONT_VISIBILITY_PUBLIC	'1'	/* Stabs character for public field */
+
+/* This code added to support parsing of ARM/Cfront stabs strings */
+
+/* get substring from string up to char c 
+   advance string pointer past suibstring */
+static char * 
+get_substring(p, c)
+  char ** p;
+  char c;
+{
+  char * str;
+  str = *p;
+  *p = strchr(*p,c);
+  if (*p) 
+    {
+      **p = 0;
+      (*p)++;
+    }
+  else 
+    str = 0;
+  return str;
+}
+
+/* Physname gets strcat'd onto sname in order to recreate the mangled name
+   (see funtion gdb_mangle_name in gdbtypes.c).  For cfront, make the physname
+   look like that of g++ - take out the initial mangling 
+   eg: for sname="a" and fname="foo__1aFPFs_i" return "FPFs_i" */
+static char * 
+get_cfront_method_physname(fname)
+  char * fname;
+{
+  int len=0;
+  /* FIXME would like to make this generic for g++ too, but 
+     that is already handled in read_member_funcctions */
+  char * p = fname;
+
+  /* search ahead to find the start of the mangled suffix */
+  if (*p == '_' && *(p+1)=='_') /* compiler generated; probably a ctor/dtor */
+    p+=2;  		
+  while (p && ((p+1) - fname) < strlen(fname) && *(p+1)!='_')
+    p = strchr(p,'_');
+  if (!(p && *p=='_' && *(p+1)=='_')) 
+    error("Invalid mangled function name %s",fname);
+  p+=2; /* advance past '__' */
+
+  /* struct name length and name of type should come next; advance past it */
+  while (isdigit(*p))
+    {
+      len = len*10 + (*p - '0');
+      p++;
+    }
+  p+=len;
+
+  return p;
+}
+
+/* Read base classes within cfront class definition.
+   eg: A:ZcA;1@Bpub v2@Bvirpri;__ct__1AFv func__1AFv *sfunc__1AFv ;as__1A ;;
+             ^^^^^^^^^^^^^^^^^^
+
+       A:ZcA;;foopri__1AFv foopro__1AFv __ct__1AFv __ct__1AFRC1A foopub__1AFv ;;;
+             ^
+   */
+static int
+read_cfront_baseclasses(fip, pp, type, objfile) 
+  struct field_info *fip;
+  struct objfile * objfile;
+  char ** pp;
+  struct type * type;
+{
+  static struct complaint msg_noterm = {"\
+                   Base classes not terminated while reading stabs string %s.\n",
+                                0, 0};
+  static struct complaint msg_unknown = {"\
+	 Unsupported token in stabs string %s.\n",
+		  0, 0};
+  static struct complaint msg_notfound = {"\
+	           Unable to find base type for %s.\n",
+                                0, 0};
+  int bnum=0;
+  char * p;
+  int i;
+  struct nextfield *new;
+
+  if (**pp==';')		/* no base classes; return */
+    {
+      ++(*pp);
+      return;
+    }
+
+  /* first count base classes so we can allocate space before parsing */
+  for (p = *pp; p && *p && *p!=';'; p++)
+    {
+      if (*p==' ') bnum++;
+    }
+  bnum++;	/* add one more for last one */
+
+  /* now parse the base classes until we get to the start of the methods 
+     (code extracted and munged from read_baseclasses) */
+  ALLOCATE_CPLUS_STRUCT_TYPE (type);
+  TYPE_N_BASECLASSES(type) = bnum;
+
+  /* allocate space */
+  {
+    int num_bytes = B_BYTES (TYPE_N_BASECLASSES (type));
+    char *pointer;
+    pointer = (char *) TYPE_ALLOC (type, num_bytes);
+    TYPE_FIELD_VIRTUAL_BITS (type) = (B_TYPE *) pointer;
+  }
+  B_CLRALL (TYPE_FIELD_VIRTUAL_BITS (type), TYPE_N_BASECLASSES (type));
+
+
+  for (i = 0; i < TYPE_N_BASECLASSES (type); i++)
+    {
+      new = (struct nextfield *) xmalloc (sizeof (struct nextfield));
+      make_cleanup (free, new);
+      memset (new, 0, sizeof (struct nextfield));
+      new -> next = fip -> list;
+      fip -> list = new;
+      new -> field.bitsize = 0; /* this should be an unpacked field! */
+
+      STABS_CONTINUE (pp, objfile);
+
+      /* virtual?  eg: v2@Bvir */
+      if (**pp=='v')
+        {
+          SET_TYPE_FIELD_VIRTUAL (type, i);
+          ++(*pp);
+	}
+
+      /* access?  eg: 2@Bvir */
+	/* Note: protected inheritance not supported in cfront */
+      switch (*(*pp)++)
+        {
+          case CFRONT_VISIBILITY_PRIVATE:
+            new -> visibility = VISIBILITY_PRIVATE;
+            break;
+          case CFRONT_VISIBILITY_PUBLIC:
+            new -> visibility = VISIBILITY_PUBLIC;
+            break;
+          default:
+            /* Bad visibility format.  Complain and treat it as
+               public.  */
+            {
+              static struct complaint msg = {
+                "Unknown visibility `%c' for baseclass", 0, 0};
+              complain (&msg, new -> visibility);
+              new -> visibility = VISIBILITY_PUBLIC;
+            }
+        }
+
+      /* "@" comes next - eg: @Bvir */
+      if (**pp!='@')
+        {
+          complain (&msg_unknown, *pp);
+          return;
+	}
+      ++(*pp);
+
+
+        /* Set the bit offset of the portion of the object corresponding 
+	   to this baseclass.  Always zero in the absence of
+           multiple inheritance.  */
+ 	/* Unable to read bit position from stabs;
+	   Assuming no multiple inheritance for now FIXME! */
+	/* We may have read this in the structure definition;
+	   now we should fixup the members to be the actual base classes */
+        new -> field.bitpos = 0;
+
+	/* Get the base class name and type */
+	  {
+  	    char * bname;		/* base class name */
+  	    struct symbol * bsym;	/* base class */
+	    char * p1, * p2;
+	    p1 = strchr(*pp,' ');
+	    p2 = strchr(*pp,';');
+	    if (p1<p2)
+              bname = get_substring(pp,' ');
+	    else
+              bname = get_substring(pp,';');
+            if (!bname || !*bname)
+	      {
+	        complain (&msg_unknown, *pp);
+		return;
+	      }
+	    /* FIXME! attach base info to type */
+	    bsym = lookup_symbol (bname, 0, STRUCT_NAMESPACE, 0, 0); /*demangled_name*/
+	    if (bsym) 
+	      {
+	        new -> field.type = SYMBOL_TYPE(bsym);
+      		new -> field.name = type_name_no_tag (new -> field.type);
+	      }
+	    else
+	      {
+	        complain (&msg_notfound, *pp);
+		return;
+	      }
+	  }
+
+      /* If more base classes to parse, loop again.
+         We ate the last ' ' or ';' in get_substring,
+         so on exit we will have skipped the trailing ';' */
+      /* if invalid, return 0; add code to detect  - FIXME! */
+    }
+  return 1;
+}
+
+/* read cfront member functions.
+   pp points to string starting with list of functions
+   eg: A:ZcA;1@Bpub v2@Bvirpri;__ct__1AFv func__1AFv *sfunc__1AFv ;as__1A ;;
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 
+       A:ZcA;;foopri__1AFv foopro__1AFv __ct__1AFv __ct__1AFRC1A foopub__1AFv ;;;
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 
+*/
+
+read_cfront_member_functions(fip, pp, type, objfile)
+     struct field_info *fip;
+     char **pp;
+     struct type *type;
+     struct objfile *objfile;
+  {
+  /* This code extracted from read_member_functions 
+     so as to do the similar thing for our funcs */
+
+  int nfn_fields = 0;
+  int length = 0;
+  /* Total number of member functions defined in this class.  If the class
+     defines two `f' functions, and one `g' function, then this will have
+     the value 3.  */
+  int total_length = 0;
+  int i;
+  struct next_fnfield
+    {
+      struct next_fnfield *next;
+      struct fn_field fn_field;
+    } *sublist;
+  struct type *look_ahead_type;
+  struct next_fnfieldlist *new_fnlist;
+  struct next_fnfield *new_sublist;
+  char *main_fn_name;
+  char * fname;
+  struct symbol * ref_func=0;
+      
+  /* Process each list until we find something that is not a member function
+     or find the end of the functions. */
+
+  /* eg: p = "__ct__1AFv foo__1AFv ;;;" */
+  STABS_CONTINUE (pp, objfile); 		/* handle \\ */
+  while (**pp!=';' && (fname = get_substring(pp,' '),fname)) 
+    {
+      int is_static=0;
+      int sublist_count=0;
+      char * pname;
+      if (fname[0]=='*')      /* static member */
+        {
+          is_static=1;
+          sublist_count++;
+          fname++;
+        }
+      ref_func = lookup_symbol (fname, 0, VAR_NAMESPACE, 0, 0); /*demangled_name*/
+      if (!ref_func) 
+        {
+          static struct complaint msg = {"\
+      		Unable to find function symbol for %s\n",
+                                0, 0};
+	  complain (&msg, fname);
+	  continue;
+	}
+      sublist = NULL;
+      look_ahead_type = NULL;
+      length = 0;
+          
+      new_fnlist = (struct next_fnfieldlist *)
+      xmalloc (sizeof (struct next_fnfieldlist));
+      make_cleanup (free, new_fnlist);
+      memset (new_fnlist, 0, sizeof (struct next_fnfieldlist));
+          
+      /* The following is code to work around cfront generated stabs.
+         The stabs contains full mangled name for each field.
+         We try to demangle the name and extract the field name out of it.  */
+      {
+        char *dem, *dem_p, *dem_args;
+        int dem_len;
+        dem = cplus_demangle (fname, DMGL_ANSI | DMGL_PARAMS);
+        if (dem != NULL)
+          {
+            dem_p = strrchr (dem, ':');
+            if (dem_p != 0 && *(dem_p-1)==':')
+              dem_p++;
+	    /* get rid of args */
+            dem_args = strchr (dem_p, '(');
+	    if (dem_args == NULL)
+	      dem_len = strlen(dem_p);
+	   else
+	      dem_len = dem_args - dem_p;
+           main_fn_name =
+                   obsavestring (dem_p, dem_len, &objfile -> type_obstack);
+         }
+       else
+         {
+           main_fn_name =
+                   obsavestring (fname, strlen(fname), &objfile -> type_obstack);
+         }
+       } /* end of code for cfront work around */
+
+     new_fnlist -> fn_fieldlist.name = main_fn_name;
+      
+     /*-------------------------------------------------*/
+     /* Set up the sublists
+        Sublists are stuff like args, static, visibility, etc.
+        so in ARM, we have to set that info some other way.
+        Multiple sublists happen if overloading
+        eg: foo::26=##1;:;2A.;
+        In g++, we'd loop here thru all the sublists...  */
+     new_sublist =
+    	(struct next_fnfield *) xmalloc (sizeof (struct next_fnfield));
+     make_cleanup (free, new_sublist);
+     memset (new_sublist, 0, sizeof (struct next_fnfield));
+	  
+     /* eat 1; from :;2A.; */
+     new_sublist -> fn_field.type = SYMBOL_TYPE(ref_func); /* normally takes a read_type */
+     /* make this type look like a method stub for gdb */
+     TYPE_FLAGS (new_sublist -> fn_field.type) |= TYPE_FLAG_STUB;
+     TYPE_CODE (new_sublist -> fn_field.type) = TYPE_CODE_METHOD;
+
+     /* If this is just a stub, then we don't have the real name here. */
+     if (TYPE_FLAGS (new_sublist -> fn_field.type) & TYPE_FLAG_STUB)
+       {
+         if (!TYPE_DOMAIN_TYPE (new_sublist -> fn_field.type))
+         TYPE_DOMAIN_TYPE (new_sublist -> fn_field.type) = type;
+         new_sublist -> fn_field.is_stub = 1;
+       }
+     /* physname used later in mangling; eg PFs_i,5 for foo__1aFPFs_i 
+        physname gets strcat'd in order to recreate the onto mangled name */
+     pname = get_cfront_method_physname(fname);
+        new_sublist -> fn_field.physname = savestring (pname, strlen(pname));
+       
+
+     /* Set this member function's visibility fields. 
+        Unable to distinguish access from stabs definition!
+          Assuming public for now.  FIXME!
+	  (for private, set new_sublist->fn_field.is_private = 1,
+	  for public, set new_sublist->fn_field.is_protected = 1) */
+       
+     /* Unable to distinguish const/volatile from stabs definition!
+        Assuming normal for now.  FIXME!
+     new_sublist -> fn_field.is_const = 0;
+     new_sublist -> fn_field.is_volatile = 0;	/* volatile not implemented in cfront */
+	  
+     /* set virtual/static function info
+        How to get vtable offsets ? 
+        Assuming normal for now FIXME!! 
+          For vtables, figure out from whence this virtual function came.
+	    It may belong to virtual function table of
+	    one of its baseclasses.
+	  set:
+	    new_sublist -> fn_field.voffset = vtable offset,
+	    new_sublist -> fn_field.fcontext = look_ahead_type;
+	    where look_ahead_type is type of baseclass */
+      if (is_static)
+        new_sublist -> fn_field.voffset = VOFFSET_STATIC;
+      else /* normal member function.  */
+        new_sublist -> fn_field.voffset = 0;
+      new_sublist -> fn_field.fcontext = 0;
+ 
+
+      /* prepare new sublist */
+	new_sublist -> next = sublist;
+	sublist = new_sublist;
+	length++;
+        /* In g++, we loop thu sublists - now we set from function */
+
+        new_fnlist -> fn_fieldlist.fn_fields = (struct fn_field *)
+	    obstack_alloc (&objfile -> type_obstack, 
+		       sizeof (struct fn_field) * length);
+        memset (new_fnlist -> fn_fieldlist.fn_fields, 0,
+	      sizeof (struct fn_field) * length);
+        for (i = length; (i--, sublist); sublist = sublist -> next)
+	  {
+	    new_fnlist -> fn_fieldlist.fn_fields[i] = sublist -> fn_field;
+	  }
+      
+        new_fnlist -> fn_fieldlist.length = length;
+        new_fnlist -> next = fip -> fnlist;
+        fip -> fnlist = new_fnlist;
+        nfn_fields++;
+        total_length += length;
+        STABS_CONTINUE (pp, objfile); /* handle \\ */
+      } /* end of loop */
+
+    if (nfn_fields)
+      {
+        /* type should already have space */
+        TYPE_FN_FIELDLISTS (type) = (struct fn_fieldlist *)
+        TYPE_ALLOC (type, sizeof (struct fn_fieldlist) * nfn_fields);
+        memset (TYPE_FN_FIELDLISTS (type), 0,
+     		sizeof (struct fn_fieldlist) * nfn_fields);
+        TYPE_NFN_FIELDS (type) = nfn_fields;
+        TYPE_NFN_FIELDS_TOTAL (type) = total_length;
+      }
+
+      /* end of scope for reading member func */
+
+    /* eg: ";;" */
+    /* skip trailing ';' and bump count of number of fields seen */
+    if (**pp == ';')
+      (*pp)++;
+    else
+      return 0;
+  return 1;
+}
+
+/* This routine fixes up partial cfront types that were created
+   while parsing the stabs.  The main need for this function is
+   to add information such as methods to classes.
+   Examples of "p": "sA;;__ct__1AFv foo__1AFv ;;;" */
+void 
+resolve_cfront_continuation(objfile, sym, p)
+  struct objfile * objfile;
+  struct symbol * sym;
+  char * p;
+{
+  struct symbol * ref_sym=0;
+  char * sname;
+  /* snarfed from read_struct_type */
+  struct field_info fi;
+  struct field_info * fip = &fi;
+  struct type *type;
+  struct cleanup *back_to;
+
+  /* need to make sure that fi isn't gunna conflict with struct 
+     in case struct already had some fnfs */
+  fi.list = NULL;
+  fi.fnlist = NULL;       
+  back_to = make_cleanup (null_cleanup, 0);
+
+  /* we only accept structs, classes and unions at the moment. 
+     Other continuation types include t (typedef), r (long dbl), ... 
+     We may want to add support for them as well; 
+     right now they are handled by duplicating the symbol information 
+     into the type information (see define_symbol) */
+  if (*p != 's'       /* structs */
+    && *p != 'c'      /* class */
+    && *p != 'u')     /* union */
+    return;  /* only handle C++ types */
+  p++;  
+
+  /* get symbol typs name and validate 
+     eg: p = "A;;__ct__1AFv foo__1AFv ;;;" */
+  sname = get_substring(&p,';');
+  if (!sname || strcmp(sname,SYMBOL_NAME(sym)))
+    error("Internal error: base symbol type name does not match\n");
+
+  /* find symbol's internal gdb reference */
+  ref_sym = lookup_symbol (SYMBOL_NAME(sym), 0, STRUCT_NAMESPACE, 0, 0); /*demangled_name*/
+  /* This is the real sym that we want; 
+     sym was a temp hack to make debugger happy */
+  /* ref_sym should already have space */
+  type = SYMBOL_TYPE(ref_sym);
+
+
+  /* Now read the baseclasses, if any, read the regular C struct or C++
+     class member fields, attach the fields to the type, read the C++
+     member functions, attach them to the type, and then read any tilde
+     field (baseclass specifier for the class holding the main vtable). */
+
+  if (!read_cfront_baseclasses (&fi, &p, type, objfile)
+      /* g++ does this next, but cfront already did this: 
+	    || !read_struct_fields (&fi, &p, type, objfile) */
+      || !copy_cfront_struct_fields (&fi, type, objfile)
+      || !read_cfront_member_functions (&fi, &p, type, objfile)
+      || !read_cfront_static_fields(&fi, &p, type, objfile)
+      || !attach_fields_to_type (&fi, type, objfile)
+      || !attach_fn_fields_to_type (&fi, type)
+      /* g++ does this next, but cfront doesn't seem to have this: 
+      		|| !read_tilde_fields (&fi, &p, type, objfile) */
+      )
+    {
+      type = error_type (&p, objfile);
+    }
+
+  do_cleanups (back_to);
+}
+/* End of code added to support parsing of ARM/Cfront stabs strings */
+
 
 /* ARGSUSED */
 struct symbol *
@@ -1215,6 +1736,30 @@ define_symbol (valu, string, desc, type, objfile)
       add_symbol_to_list (sym, &local_symbols);
       break;
 
+    /* New code added to support cfront stabs strings */
+    /* Note: case 'P' already handled above */
+    case 'Z':
+      /* Cfront type continuation coming up!
+	find the original definition and add to it.
+	We'll have to do this for the typedef too,
+	since we clloned the symbol to define a type in read_type.
+	Stabs info examples:
+	__1C :Ztl 
+	foo__1CFv :ZtF (first def foo__1CFv:F(0,3);(0,24))
+	C:ZsC;;__ct__1CFv func1__1CFv func2__1CFv ... ;;;
+	where C is the name of the class. */
+	/* can't lookup symbol yet 'cuz symbols not read yet
+	   so we save it for processing later */
+	process_later(sym,p);
+      SYMBOL_TYPE (sym) = error_type (&p, objfile); /* FIXME! change later */ 
+	SYMBOL_CLASS (sym) = LOC_CONST; 
+	SYMBOL_VALUE (sym) = 0; 
+	SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
+	/* don't add to list - we'll delete it later when 
+           we add the continuation to the real sym */
+	return sym;
+    /* End of new code added to support cfront stabs strings */
+
     default:
       SYMBOL_TYPE (sym) = error_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_CONST;
@@ -1346,52 +1891,9 @@ read_type (pp, objfile)
 	return dbx_alloc_type (typenums, objfile);
 
       /* Type is being defined here.  */
-      /* Skip the '='.  */
-      ++(*pp);
-
-      while (**pp == '@')
-	{
-	  char *p = *pp + 1;
-	  /* It might be a type attribute or a member type.  */
-	  if (isdigit (*p) || *p ==  '(' || *p == '-')
-	    /* Member type.  */
-	    break;
-	  else
-	    {
-	      /* Type attributes.  */
-	      char *attr = p;
-
-	      /* Skip to the semicolon.  */
-	      while (*p != ';' && *p != '\0')
-		++p;
-	      *pp = p;
-	      if (*p == '\0')
-		return error_type (pp, objfile);
-	      else
-		/* Skip the semicolon.  */
-		++*pp;
-
-	      switch (*attr)
-		{
-		case 's':
-		  type_size = atoi (attr + 1);
-		  if (type_size <= 0)
-		    type_size = -1;
-		  break;
-
-		case 'S':
-		  is_string = 1;
-		  break;
-
-		default:
-		  /* Ignore unrecognized type attributes, so future compilers
-		     can invent new ones.  */
-		  break;
-		}
-	    }
-	}
-      /* Skip the type descriptor, we get it below with (*pp)[-1].  */
-      ++(*pp);
+      /* Skip the '='.
+	 Also skip the type descriptor - we get it below with (*pp)[-1].  */
+      (*pp)+=2;
     }
   else
     {
@@ -1401,6 +1903,7 @@ read_type (pp, objfile)
       (*pp)++;
     }
 
+ again:
   type_descriptor = (*pp)[-1];
   switch (type_descriptor)
     {
@@ -1519,58 +2022,35 @@ read_type (pp, objfile)
     case '8':
     case '9':
     case '(':
+      (*pp)--;
 
-      {
-	char *pp_saved;
+      /* We deal with something like t(1,2)=(3,4)=... which
+	 the Lucid compiler and recent gcc versions (post 2.7.3) use. */
 
-	(*pp)--;
-	pp_saved = *pp;
-
-	/* Peek ahead at the number to detect void.  */
-	if (read_type_number (pp, xtypenums) != 0)
-	  return error_type (pp, objfile);
-
-	if (typenums[0] == xtypenums[0] && typenums[1] == xtypenums[1])
-	  /* It's being defined as itself.  That means it is "void".  */
-	  type = init_type (TYPE_CODE_VOID, 1, 0, NULL, objfile);
+      /* Allocate and enter the typedef type first.
+	 This handles recursive types. */
+      type = dbx_alloc_type (typenums, objfile);
+      TYPE_CODE (type) = TYPE_CODE_TYPEDEF;
+      { struct type *xtype = read_type (pp, objfile);
+	if (type == xtype)
+	  {
+	    /* It's being defined as itself.  That means it is "void".  */
+	    TYPE_CODE (type) = TYPE_CODE_VOID;
+	    TYPE_LENGTH (type) = 1;
+	  }
+	else if (type_size >= 0 || is_string)
+	  {
+	    *type = *xtype;
+	    TYPE_NAME (type) = NULL;
+	    TYPE_TAG_NAME (type) = NULL;
+	  }
 	else
 	  {
-	    struct type *xtype;
-
-	    /* Go back to the number and have read_type get it.  This means
-	       that we can deal with something like t(1,2)=(3,4)=... which
-	       the Lucid compiler uses.  */
-	    *pp = pp_saved;
-	    xtype = read_type (pp, objfile);
-
-	    /* The type is being defined to another type.  So we copy the type.
-	       This loses if we copy a C++ class and so we lose track of how
-	       the names are mangled (but g++ doesn't output stabs like this
-	       now anyway).  */
-
-	    type = alloc_type (objfile);
-	    if (SYMBOL_LINE (current_symbol) == 0)
-	      {
-		*type = *xtype;
-		/* The idea behind clearing the names is that the only purpose
-		   for defining a type to another type is so that the name of
-		   one can be different.  So we probably don't need to worry
-		   much about the case where the compiler doesn't give a name
-		   to the new type.  */
-		TYPE_NAME (type) = NULL;
-		TYPE_TAG_NAME (type) = NULL;
-	      }
-	    else
-	      {
-		TYPE_CODE (type) = TYPE_CODE_TYPEDEF;
-		TYPE_FLAGS (type) |= TYPE_FLAG_TARGET_STUB;
-		TYPE_TARGET_TYPE (type) = xtype;
-	      }
+	    TYPE_FLAGS (type) |= TYPE_FLAG_TARGET_STUB;
+	    TYPE_TARGET_TYPE (type) = xtype;
 	  }
-	if (typenums[0] != -1)
-	  *dbx_lookup_type (typenums) = type;
-	break;
       }
+      break;
 
     /* In the following types, we must be sure to overwrite any existing
        type that the typenums refer to, rather than allocating a new one
@@ -1628,21 +2108,54 @@ read_type (pp, objfile)
       /* FIXME! For now, we ignore const and volatile qualifiers.  */
       break;
 
-/* FIXME -- we should be doing smash_to_XXX types here.  */
-    case '@':				/* Member (class & variable) type */
-      {
-	struct type *domain = read_type (pp, objfile);
-	struct type *memtype;
+    case '@':
+      if (isdigit (**pp) || **pp ==  '(' || **pp == '-')
+	{ /* Member (class & variable) type */
+	  /* FIXME -- we should be doing smash_to_XXX types here.  */
 
-	if (**pp != ',')
-	  /* Invalid member type data format.  */
-	  return error_type (pp, objfile);
-	++*pp;
+	  struct type *domain = read_type (pp, objfile);
+	  struct type *memtype;
 
-	memtype = read_type (pp, objfile);
-	type = dbx_alloc_type (typenums, objfile);
-	smash_to_member_type (type, domain, memtype);
-      }
+	  if (**pp != ',')
+	    /* Invalid member type data format.  */
+	    return error_type (pp, objfile);
+	  ++*pp;
+
+	  memtype = read_type (pp, objfile);
+	  type = dbx_alloc_type (typenums, objfile);
+	  smash_to_member_type (type, domain, memtype);
+	}
+      else /* type attribute */
+	{
+	  char *attr = *pp;
+	  /* Skip to the semicolon.  */
+	  while (**pp != ';' && **pp != '\0')
+	    ++(*pp);
+	  if (**pp == '\0')
+	    return error_type (pp, objfile);
+	  else
+	    ++*pp;  /* Skip the semicolon.  */
+
+	  switch (*attr)
+	    {
+	    case 's':
+	      type_size = atoi (attr + 1);
+	      if (type_size <= 0)
+		type_size = -1;
+	      break;
+
+	    case 'S':
+	      is_string = 1;
+	      break;
+
+	    default:
+	      /* Ignore unrecognized type attributes, so future compilers
+		 can invent new ones.  */
+	      break;
+	    }
+	  ++*pp;
+	  goto again;
+	}
       break;
 
     case '#':				/* Method (class & fn) type */
@@ -1927,11 +2440,6 @@ rs6000_builtin_type (typenum)
 }
 
 /* This page contains subroutines of read_type.  */
-
-#define VISIBILITY_PRIVATE	'0'	/* Stabs character for private field */
-#define VISIBILITY_PROTECTED	'1'	/* Stabs character for protected fld */
-#define VISIBILITY_PUBLIC	'2'	/* Stabs character for public field */
-#define VISIBILITY_IGNORE	'9'	/* Optimized out or zero length */
 
 /* Read member function stabs info for C++ classes.  The form of each member
    function data is:
@@ -2819,6 +3327,147 @@ attach_fn_fields_to_type (fip, type)
       --n;                      /* Circumvent Sun3 compiler bug */
       TYPE_FN_FIELDLISTS (type)[n] = fip -> fnlist -> fn_fieldlist;
     }
+  return 1;
+}
+
+/* read cfront class static data.
+   pp points to string starting with the list of static data
+   eg: A:ZcA;1@Bpub v2@Bvirpri;__ct__1AFv func__1AFv *sfunc__1AFv ;as__1A ;;
+             							   ^^^^^^^^
+
+       A:ZcA;;foopri__1AFv foopro__1AFv __ct__1AFv __ct__1AFRC1A foopub__1AFv ;;;
+             							               ^
+   */
+
+static int
+read_cfront_static_fields(fip, pp, type, objfile)
+     struct field_info *fip;
+     char **pp;
+     struct type *type;
+     struct objfile *objfile;
+{
+  int nfields = TYPE_NFIELDS(type);
+  int i;
+  struct nextfield * new;
+  struct type *stype;
+  char * sname;
+  struct symbol * ref_static=0;
+      
+  if (**pp==';')		/* no static data; return */
+    {
+      ++(*pp);
+      return;
+    }
+
+  /* Process each field in the list until we find the terminating ";" */
+
+  /* eg: p = "as__1A ;;;" */
+  STABS_CONTINUE (pp, objfile); 		/* handle \\ */
+  while (**pp!=';' && (sname = get_substring(pp,' '),sname)) 
+    {
+      ref_static = lookup_symbol (sname, 0, VAR_NAMESPACE, 0, 0); /*demangled_name*/
+      if (!ref_static) 
+        {
+          static struct complaint msg = {"\
+      		Unable to find symbol for static data field %s\n",
+                                0, 0};
+	  complain (&msg, sname);
+	  continue;
+	}
+      stype = SYMBOL_TYPE(ref_static);
+
+      /* allocate a new fip */
+      new = (struct nextfield *) xmalloc (sizeof (struct nextfield));
+      make_cleanup (free, new);
+      memset (new, 0, sizeof (struct nextfield));
+      new -> next = fip -> list;
+      fip -> list = new;
+
+      /* set visibility */
+      /* FIXME! no way to tell visibility from stabs??? */
+      new -> visibility = VISIBILITY_PUBLIC;
+
+      /* set field info into fip */
+      fip -> list -> field.type = stype; 
+
+      /* set bitpos & bitsize */
+      fip -> list -> field.bitpos = (long) -1;	/* -1 signifies a static member */
+      /* YUK!  what a hack!  bitsize used for physname when field is static */
+      fip -> list -> field.bitsize = (long) savestring (sname, strlen(sname));
+
+      /* set name field */
+      /* The following is code to work around cfront generated stabs.
+         The stabs contains full mangled name for each field.
+         We try to demangle the name and extract the field name out of it.
+      */
+      if (ARM_DEMANGLING)
+        {
+          char *dem, *dem_p;
+          dem = cplus_demangle (sname, DMGL_ANSI | DMGL_PARAMS);
+          if (dem != NULL)
+            {
+              dem_p = strrchr (dem, ':');
+              if (dem_p != 0 && *(dem_p-1)==':')
+                dem_p++;
+              fip->list->field.name =
+                obsavestring (dem_p, strlen(dem_p), &objfile -> type_obstack);
+            }
+          else
+            {
+              fip->list->field.name =
+                obsavestring (sname, strlen(sname), &objfile -> type_obstack); 
+	    }
+        } /* end of code for cfront work around */ 
+    } /* loop again for next static field */
+  return 1;
+}
+
+/* Copy structure fields to fip so attach_fields_to_type will work.
+   type has already been created with the initial instance data fields.
+   Now we want to be able to add the other members to the class,
+   so we want to add them back to the fip and reattach them again
+   once we have collected all the class members. */
+
+static int
+copy_cfront_struct_fields(fip, type, objfile)
+     struct field_info *fip;
+     struct type *type;
+     struct objfile *objfile;
+{
+  int nfields = TYPE_NFIELDS(type);
+  int i;
+  struct nextfield * new;
+
+  /* Copy the fields into the list of fips and reset the types 
+     to remove the old fields */
+
+  for (i=0; i<nfields; i++)
+    {
+      /* allocate a new fip */
+      new = (struct nextfield *) xmalloc (sizeof (struct nextfield));
+      make_cleanup (free, new);
+      memset (new, 0, sizeof (struct nextfield));
+      new -> next = fip -> list;
+      fip -> list = new;
+
+      /* copy field info into fip */
+      new -> field = TYPE_FIELD (type, i);
+      /* set visibility */
+      if (TYPE_FIELD_PROTECTED (type, i))
+	new -> visibility = VISIBILITY_PROTECTED;
+      else if (TYPE_FIELD_PRIVATE (type, i))
+  	 new -> visibility = VISIBILITY_PRIVATE;
+      else
+	 new -> visibility = VISIBILITY_PUBLIC;
+    }
+  /* Now delete the fields from the type since we will be 
+     allocing new space once we get the rest of the fields 
+     in attach_fields_to_type.
+     The pointer TYPE_FIELDS(type) is left dangling but should 
+     be freed later by objstack_free */
+  TYPE_FIELDS (type)=0;
+  TYPE_NFIELDS (type) = 0;
+
   return 1;
 }
 

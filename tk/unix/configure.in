@@ -6,6 +6,7 @@ AC_INIT(../generic/tk.h)
 # CYGNUS LOCAL tromey - find config.guess/config.sub in our tree
 AC_CONFIG_AUX_DIR(../..)
 AC_CANONICAL_SYSTEM
+AC_PROG_CC
 # END CYGNUS LOCAL
 
 AC_PROG_INSTALL
@@ -143,7 +144,9 @@ fi
 #
         sparc-sun-solaris2*)
             if test "x$GCC" = "xyes" ; then
-	       XLIBSW="-Wl,-Bstatic $XLIBSW -Wl,-Bdynamic"
+	       # Why do we link against libX11 twice?  Because the
+	       # Openwin X11 and Xext libraries are seriously broken.
+	       XLIBSW="-Wl,-Bstatic $XLIBSW -lXext -lX11 -Wl,-Bdynamic"
             else
 	       XLIBSW="$XLIBSW -R$x_libraries"
             fi
@@ -156,7 +159,7 @@ fi
             then
 	       XLIBSW="$x_libraries/libX11.a"
             else
-	       XLI="/usr/lib/libX11.a"
+	       XLIBSW="/usr/lib/libX11.a"
             fi
 	    ;;
 #

@@ -49,13 +49,21 @@ enum sparc_opcode_arch_val {
 /* The highest architecture in the table.  */
 #define SPARC_OPCODE_ARCH_MAX (SPARC_OPCODE_ARCH_BAD - 1)
 
+/* Given an enum sparc_opcode_arch_val, return the bitmask to use in
+   insn encoding/decoding.  */
+#define SPARC_OPCODE_ARCH_MASK(arch) (1 << (arch))
+
+/* Given a valid sparc_opcode_arch_val, return non-zero if it's v9.  */
+#define SPARC_OPCODE_ARCH_V9_P(arch) ((arch) >= SPARC_OPCODE_ARCH_V9)
+
 /* Table of cpu variants.  */
 
 struct sparc_opcode_arch {
   const char *name;
   /* Mask of sparc_opcode_arch_val's supported.
-     EG: For v7 this would be ((1 << v6) | (1 << v7)).  */
-  /* These are short's because sparc_opcode.architecture is.  */
+     EG: For v7 this would be
+     (SPARC_OPCODE_ARCH_MASK (..._V6) | SPARC_OPCODE_ARCH_MASK (..._V7)).
+     These are short's because sparc_opcode.architecture is.  */
   short supported;
 };
 
@@ -92,6 +100,8 @@ struct sparc_opcode {
 #define	F_UNBR		4	/* Unconditional branch */
 #define	F_CONDBR	8	/* Conditional branch */
 #define	F_JSR		16	/* Subroutine call */
+#define F_FLOAT		32	/* Floating point instruction (not a branch) */
+#define F_FBR		64	/* Floating point branch */
 /* FIXME: Add F_ANACHRONISTIC flag for v9.  */
 
 /*
@@ -125,6 +135,8 @@ Kinds of operands:
 	m	alternate space register (asr) in rd
 	M	alternate space register (asr) in rs1
 	h	22 high bits.
+	X	5 bit unsigned immediate
+	Y	6 bit unsigned immediate
 	K	MEMBAR mask (7 bits). (v9)
 	j	10 bit Immediate. (v9)
 	I	11 bit Immediate. (v9)
@@ -168,7 +180,7 @@ Kinds of operands:
 	x	OPF field (v9 impdep).
 
 The following chars are unused: (note: ,[] are used as punctuation)
-[XY3450]
+[3450]
 
 */
 
@@ -190,6 +202,7 @@ The following chars are unused: (note: ,[] are used as punctuation)
 #define RS1(x)		(((x)&0x1f) << 14) /* rs1 field */
 #define ASI_RS2(x)	(SIMM13(x))
 #define MEMBAR(x)	((x)&0x7f)
+#define SLCPOP(x)	(((x)&0x7f) << 6) /* sparclet cpop */
 
 #define ANNUL	(1<<29)
 #define BPRED	(1<<19)	/* v9 */

@@ -99,13 +99,13 @@ BFD_LIBS = \
 	archive.o archures.o bfd.o cache.o coffgen.o corefile.o \
 	format.o init.o libbfd.o opncls.o reloc.o \
 	section.o syms.o targets.o hash.o linker.o \
-	elf.o srec.o binary.o tekhex.o ihex.o stab-syms.o
+	elf.o srec.o binary.o tekhex.o ihex.o stabs.o stab-syms.o
 
 BFD_LIBS_CFILES = \
 	archive.c archures.c bfd.c cache.c coffgen.c corefile.c \
 	format.c init.c libbfd.c opncls.c reloc.c \
 	section.c syms.c targets.c hash.c linker.c \
-	elf.c srec.c binary.c tekhex.c ihex.c stab-syms.c
+	elf.c srec.c binary.c tekhex.c ihex.c stabs.c stab-syms.c
 
 # This list is alphabetized to make it easier to keep in sync
 # with the decls and initializer in archures.c.
@@ -233,6 +233,7 @@ BFD32_BACKENDS = \
 	pei-i386.o \
 	pe-ppc.o \
 	pei-ppc.o \
+	ppcboot.o \
 	reloc16.o \
 	sparclynx.o \
 	sparcnetbsd.o \
@@ -317,6 +318,7 @@ BFD32_BACKENDS_CFILES = \
 	pei-i386.c \
 	pe-ppc.c \
 	pei-ppc.c \
+	ppcboot.c \
 	reloc16.c \
 	sparclynx.c \
 	sparcnetbsd.c \
@@ -333,6 +335,7 @@ BFD64_BACKENDS = \
 	coff-alpha.o \
 	demo64.o \
 	elf64-gen.o \
+	elf64-mips.o \
 	elf64-sparc.o \
 	elf64.o \
 	nlm32-alpha.o \
@@ -343,6 +346,7 @@ BFD64_BACKENDS_CFILES = \
 	coff-alpha.c \
 	demo64.c \
 	elf64-gen.c \
+	elf64-mips.c \
 	elf64-sparc.c \
 	elf64.c \
 	nlm32-alpha.c \
@@ -416,7 +420,7 @@ HFILES = aout-target.h aoutf1.h aoutx.h coffcode.h \
 	 coffswap.h ecoffswap.h elf32-hppa.h elf32-target.h elf64-target.h \
 	 elfcode.h hppa_stubs.h libaout.h libbfd.h \
 	 libcoff.h libecoff.h elf-bfd.h libhppa.h libieee.h libnlm.h \
-	 liboasys.h nlm-target.h nlmcode.h som.h genlink.h netbsd.h
+	 liboasys.h nlm-target.h nlmcode.h som.h genlink.h netbsd.h ns32k.h
 
 all: Makefile $(ALLLIBS) @PICLIST@
 	@$(MAKE) subdir_do DO=all "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS)
@@ -672,7 +676,7 @@ config.h: stamp-h ; @true
 stamp-h: config.in config.status
 	CONFIG_FILES= CONFIG_HEADERS=config.h:config.in $(SHELL) ./config.status
 
-config.status: configure configure.host config.bfd
+config.status: configure configure.host config.bfd VERSION
 	$(SHELL) config.status --recheck
 
 # Have to get rid of .dep1 here so that "$?" later includes all of $(CFILES).
@@ -808,6 +812,7 @@ srec.o: srec.c $(INCDIR)/libiberty.h
 binary.o: binary.c
 tekhex.o: tekhex.c $(INCDIR)/libiberty.h
 ihex.o: ihex.c $(INCDIR)/libiberty.h
+stabs.o: stabs.c $(INCDIR)/aout/stab_gnu.h $(INCDIR)/aout/stab.def
 stab-syms.o: stab-syms.c libaout.h $(INCDIR)/bfdlink.h \
   $(INCDIR)/aout/aout64.h $(INCDIR)/aout/stab.def
 cpu-a29k.o: cpu-a29k.c
@@ -822,7 +827,7 @@ cpu-i960.o: cpu-i960.c
 cpu-m68k.o: cpu-m68k.c
 cpu-m88k.o: cpu-m88k.c
 cpu-mips.o: cpu-mips.c
-cpu-ns32k.o: cpu-ns32k.c
+cpu-ns32k.o: cpu-ns32k.c ns32k.h
 cpu-powerpc.o: cpu-powerpc.c
 cpu-rs6000.o: cpu-rs6000.c
 cpu-sh.o: cpu-sh.c
@@ -834,7 +839,7 @@ cpu-z8k.o: cpu-z8k.c
 aout-adobe.o: aout-adobe.c $(INCDIR)/aout/adobe.h $(INCDIR)/aout/stab_gnu.h \
   $(INCDIR)/aout/stab.def libaout.h $(INCDIR)/bfdlink.h
 aout-ns32k.o: aout-ns32k.c $(INCDIR)/aout/aout64.h \
-  libaout.h $(INCDIR)/bfdlink.h
+  ns32k.h libaout.h $(INCDIR)/bfdlink.h
 aout0.o: aout0.c aoutf1.h $(INCDIR)/aout/sun4.h libaout.h \
   $(INCDIR)/bfdlink.h $(INCDIR)/aout/aout64.h $(INCDIR)/aout/stab_gnu.h \
   $(INCDIR)/aout/stab.def $(INCDIR)/aout/ar.h aout-target.h
@@ -862,8 +867,9 @@ coff-arm.o: coff-arm.c $(INCDIR)/coff/arm.h $(INCDIR)/coff/internal.h \
 coff-aux.o: coff-aux.c $(INCDIR)/coff/aux-coff.h $(INCDIR)/coff/internal.h \
   $(INCDIR)/coff/m68k.h coff-m68k.c libcoff.h $(INCDIR)/bfdlink.h \
   coffcode.h coffswap.h
-coff-h8300.o: coff-h8300.c $(INCDIR)/bfdlink.h $(INCDIR)/coff/h8300.h \
-  $(INCDIR)/coff/internal.h libcoff.h coffcode.h coffswap.h
+coff-h8300.o: coff-h8300.c $(INCDIR)/bfdlink.h genlink.h \
+  $(INCDIR)/coff/h8300.h $(INCDIR)/coff/internal.h libcoff.h \
+  coffcode.h coffswap.h
 coff-h8500.o: coff-h8500.c $(INCDIR)/bfdlink.h $(INCDIR)/coff/h8500.h \
   $(INCDIR)/coff/internal.h libcoff.h coffcode.h coffswap.h
 coff-i386.o: coff-i386.c $(INCDIR)/coff/i386.h $(INCDIR)/coff/internal.h \
@@ -1034,6 +1040,7 @@ pe-ppc.o: pe-ppc.c coff-ppc.c $(INCDIR)/coff/powerpc.h \
 pei-ppc.o: pei-ppc.c coff-ppc.c $(INCDIR)/coff/powerpc.h \
   $(INCDIR)/coff/internal.h $(INCDIR)/coff/pe.h libcoff.h \
   $(INCDIR)/bfdlink.h coffcode.h peicode.h
+ppcboot.o: ppcboot.c
 reloc16.o: reloc16.c $(INCDIR)/bfdlink.h genlink.h \
   $(INCDIR)/coff/internal.h libcoff.h
 sparclynx.o: sparclynx.c $(INCDIR)/aout/sun4.h libaout.h \
@@ -1060,6 +1067,12 @@ demo64.o: demo64.c aoutf1.h $(INCDIR)/aout/sun4.h libaout.h \
   $(INCDIR)/aout/stab.def $(INCDIR)/aout/ar.h aout-target.h
 elf64-gen.o: elf64-gen.c elf-bfd.h $(INCDIR)/elf/common.h \
   $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h $(INCDIR)/bfdlink.h \
+  elf64-target.h
+elf64-mips.o: elf64-mips.c $(INCDIR)/bfdlink.h genlink.h \
+  elf-bfd.h $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h \
+  $(INCDIR)/elf/external.h $(INCDIR)/elf/mips.h $(INCDIR)/coff/sym.h \
+  $(INCDIR)/coff/symconst.h $(INCDIR)/coff/internal.h \
+  $(INCDIR)/coff/ecoff.h $(INCDIR)/coff/alpha.h ecoffswap.h \
   elf64-target.h
 elf64-sparc.o: elf64-sparc.c elf-bfd.h $(INCDIR)/elf/common.h \
   $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h $(INCDIR)/bfdlink.h \

@@ -123,6 +123,12 @@ INLINE_EMUL_GENERIC void emul_write_status
  int status,
  int errno);
 
+INLINE_EMUL_GENERIC void emul_write2_status
+(cpu *processor,
+ int status1,
+ int status2,
+ int errno);
+
 INLINE_EMUL_GENERIC char *emul_read_string
 (char *dest,
  unsigned_word addr,

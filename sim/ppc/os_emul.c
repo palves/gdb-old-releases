@@ -28,6 +28,7 @@
 
 #include "emul_generic.h"
 #include "emul_netbsd.h"
+#include "emul_unix.h"
 #include "emul_chirp.h"
 #include "emul_bugapi.h"
 
@@ -35,6 +36,8 @@ static const os_emul *(os_emulations[]) = {
   &emul_chirp,
   &emul_bugapi,
   &emul_netbsd,
+  &emul_solaris,
+  &emul_linux,
   0
 };
 

@@ -41,12 +41,32 @@ TclPlatformInit(interp)
     struct utsname name;
 #endif
     int unameOK;
+    int freeLib = 0;
 
     libDir = Tcl_GetVar2(interp, "env", "TCL_LIBRARY", TCL_GLOBAL_ONLY);
     if (libDir == NULL) {
-	libDir = TCL_LIBRARY;
+        /* CYGNUS LOCAL: location independence.  */
+#ifdef TCL_LIB_TRAILER
+        extern char *Tcl_findSelfBase _ANSI_ARGS_ ((char *argv0));
+        libDir = Tcl_findSelfBase (tclExecutableName);
+	if (libDir != NULL) {
+	    char *newLib;
+	    newLib = (char *) ckalloc((unsigned) (strlen (libDir)
+						  + strlen (TCL_LIB_TRAILER)
+						  + 1));
+	    strcpy(newLib, libDir);
+	    strcat(newLib, TCL_LIB_TRAILER);
+	    libDir = newLib;
+	    freeLib = 1;
+	} else
+#endif /* TCL_LIB_TRAILER */
+        /* END CYGNUS LOCAL */
+	  libDir = TCL_LIBRARY;
     }
     Tcl_SetVar(interp, "tcl_library", libDir, TCL_GLOBAL_ONLY);
+    if (freeLib) {
+        ckfree (libDir);
+    }
 
     Tcl_SetVar2(interp, "tcl_platform", "platform", "unix", TCL_GLOBAL_ONLY);
     unameOK = 0;

@@ -259,6 +259,7 @@ bfd_fdopenr (filename, target, fd)
 				
   if (! bfd_cache_init (nbfd))
     return NULL;
+  nbfd->opened_once = true;
 
   return nbfd;
 }

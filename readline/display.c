@@ -20,6 +20,7 @@
    have a copy of the license, write to the Free Software Foundation,
    675 Mass Ave, Cambridge, MA 02139, USA. */
 
+#include "sysdep.h"
 #include <stdio.h>
 #include <sys/types.h>
 

@@ -43,12 +43,13 @@ if  { [compile "${objdir}/${subdir}/scope0.o ${objdir}/${subdir}/scope1.o -o ${b
     return -1
 }
 
+# Create and source the file that provides information about the compiler
+# used to compile the test case.
 execute_anywhere "rm -f ${binfile}.ci"
 if  { [compile "-E ${srcdir}/${subdir}/compiler.c > ${binfile}.ci"] != "" } {
-    perror "Couldn't make ${testfile}.ci file"
+    perror "Couldn't make ${binfile}.ci file"
     return -1
 }
-
 source ${binfile}.ci
 
 # Test locating various things when stopped just inside main, after

@@ -273,7 +273,6 @@ const bfd_target netbsd_core_vec =
     0,			                                   /* symbol prefix */
     ' ',						   /* ar_pad_char */
     16,							   /* ar_max_namelen */
-    3,							   /* minimum alignment power */
     NO_GET, NO_SIGNED_GET, NO_PUT,	/* 64 bit data */
     NO_GET, NO_SIGNED_GET, NO_PUT,	/* 32 bit data */
     NO_GET, NO_SIGNED_GET, NO_PUT,	/* 16 bit data */

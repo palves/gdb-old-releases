@@ -287,6 +287,15 @@ extern int current_model_issue;
 			     ? WITH_MODEL_ISSUE	\
 			     : current_model_issue)
 
+/* Whether or not input/output just uses stdio, or uses printf_filtered for
+   output, and polling input for input.  */
+#define DONT_USE_STDIO			0
+#define DO_USE_STDIO			1
+
+#ifndef WITH_STDIO
+#define WITH_STDIO			DONT_USE_STDIO
+#endif
+
 /* INLINE CODE SELECTION:
 
    GCC -O3 attempts to inline any function or procedure in scope.  The

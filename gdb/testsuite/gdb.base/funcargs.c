@@ -481,7 +481,7 @@ call_after_alloca (c, s, i, l)
 
   char *z = alloca (s + 50);
 #endif
-  call_after_alloca_subr (c, s, i, l, 'b', 11, 12, 13);
+  call_after_alloca_subr (c, s, i, l, 'b', 11, 12, 13UL);
 }
 
 

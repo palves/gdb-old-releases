@@ -67,34 +67,28 @@ struct complaint empty_symtab_complaint = {
 
 extern int info_verbose;
 
+extern void report_transfer_performance PARAMS ((unsigned long,
+						 time_t, time_t));
+
 /* Functions this file defines */
 
-static void
-set_initial_language PARAMS ((void));
+static void set_initial_language PARAMS ((void));
 
-static void
-load_command PARAMS ((char *, int));
+static void load_command PARAMS ((char *, int));
 
-static void
-add_symbol_file_command PARAMS ((char *, int));
+static void add_symbol_file_command PARAMS ((char *, int));
 
-static void
-add_shared_symbol_files_command PARAMS ((char *, int));
+static void add_shared_symbol_files_command PARAMS ((char *, int));
 
-static void
-cashier_psymtab PARAMS ((struct partial_symtab *));
+static void cashier_psymtab PARAMS ((struct partial_symtab *));
 
-static int
-compare_psymbols PARAMS ((const void *, const void *));
+static int compare_psymbols PARAMS ((const void *, const void *));
 
-static int
-compare_symbols PARAMS ((const void *, const void *));
+static int compare_symbols PARAMS ((const void *, const void *));
 
-static bfd *
-symfile_bfd_open PARAMS ((char *));
+static bfd *symfile_bfd_open PARAMS ((char *));
 
-static void
-find_sym_fns PARAMS ((struct objfile *));
+static void find_sym_fns PARAMS ((struct objfile *));
 
 /* List of all available sym_fns.  On gdb startup, each object file reader
    calls add_symtab_fns() to register information on each format it is
@@ -663,6 +657,8 @@ symbol_file_add (name, from_tty, addr, mainline, mapped, readnow)
 
   new_symfile_objfile (objfile, mainline, from_tty);
 
+  target_new_objfile (objfile);
+
   return (objfile);
 }
 
@@ -925,7 +921,7 @@ generic_load (filename, from_tty)
   asection *s;
   bfd *loadfile_bfd;
   time_t start_time, end_time;	/* Start and end times of download */
-  unsigned long data_count;	/* Number of bytes transferred to memory */
+  unsigned long data_count = 0;	/* Number of bytes transferred to memory */
 
   loadfile_bfd = bfd_openr (filename, gnutarget);
   if (loadfile_bfd == NULL)
@@ -985,6 +981,8 @@ generic_load (filename, from_tty)
 
   end_time = time (NULL);
 
+  printf_filtered ("Start address 0x%lx\n", loadfile_bfd->start_address);
+
   /* We were doing this in remote-mips.c, I suspect it is right
      for other targets too.  */
   write_pc (loadfile_bfd->start_address);
@@ -995,11 +993,25 @@ generic_load (filename, from_tty)
      loaded in.  remote-nindy.c had no call to symbol_file_add, but remote-vx.c
      does.  */
 
-  if (end_time != start_time)
-   printf_filtered ("Transfer rate: %d bits/sec.\n",
-                    (data_count * 8)/(end_time - start_time));
+  report_transfer_performance (data_count, start_time, end_time);
 
   do_cleanups (old_cleanups);
+}
+
+/* Report how fast the transfer went. */
+
+void
+report_transfer_performance (data_count, start_time, end_time)
+unsigned long data_count;
+time_t start_time, end_time;
+{
+  printf_filtered ("Transfer rate: ");
+  if (end_time != start_time)
+    printf_filtered ("%d bits/sec",
+		     (data_count * 8) / (end_time - start_time));
+  else
+    printf_filtered ("%d bits in <1 sec", (data_count * 8));
+  printf_filtered (".\n");
 }
 
 /* This function allows the addition of incrementally linked object files.
@@ -1416,6 +1428,7 @@ clear_symtab_users ()
   current_source_symtab = 0;
   current_source_line = 0;
   clear_pc_function_cache ();
+  target_new_objfile (NULL);
 }
 
 /* clear_symtab_users_once:

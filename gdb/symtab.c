@@ -1214,7 +1214,8 @@ find_pc_line (pc, notcurrent)
 
       for (i = 0; i < len; i++, item++)
 	{
-	  /* Return the last line that did not start after PC.  */
+	  /* Leave prev pointing to the linetable entry for the last line
+	     that started at or before PC.  */
 	  if (item->pc > pc)
 	    break;
 

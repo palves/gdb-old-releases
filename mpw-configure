@@ -1,5 +1,5 @@
 # Configuration script
-# Copyright (C) 1994, 1995 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995, 1996 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 ### WARNING
-### This script (and mpw-config.in fragments) must NOT use any 8-bit chars!
+### This script must NOT use any 8-bit chars!
 ### WARNING
 
 # This is an MPW Shell script that sets everything up for compilation,
@@ -56,9 +56,10 @@ Loop
 	If "{1}" =~ /--cc/
 		Set host_cc "{2}"
 		Shift 1
-	Else If "{1}" =~ /--enable/
-		Set "{2}" 1
-		Shift 1
+	Else If "{1}" =~ /--disable-?+/
+		Set "`Echo {1} | sed -e 's/--disable-/enable_/'`" no
+	Else If "{1}" =~ /--enable-?+/
+		Set "`Echo {1} | sed -e 's/--enable-/enable_/'`" yes
 	Else If "{1}" =~ /--exec-prefix/
 		Set exec_prefix "{2}"
 		Shift 1
@@ -350,6 +351,8 @@ If "`Exists "{srcdir}"mpw-build.in`" != ""
 		Echo Created mpw-build in "`Directory`"
 	End If
 End If
+
+# Apply ourselves recursively to the list of subdirectories to configure.
 
 For subdir In {configdirs}
 	Set savedir "`Directory`"

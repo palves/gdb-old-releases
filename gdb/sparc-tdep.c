@@ -1,5 +1,5 @@
 /* Target-dependent code for the SPARC for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -619,12 +619,22 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
 			 read_register (SP_REGNUM))
 	  && frame1->pc <= FRAME_FP (frame1))
 	{
-	  /* Dummy frame.  All but the window regs are in there somewhere. */
+	  /* Dummy frame.  All but the window regs are in there somewhere.
+	     The window registers are saved on the stack, just like in a
+	     normal frame.  */
 	  if (regnum >= G1_REGNUM && regnum < G1_REGNUM + 7)
 	    addr = frame1->frame + (regnum - G0_REGNUM) * SPARC_INTREG_SIZE
 	      - (FP_REGISTER_BYTES + 8 * SPARC_INTREG_SIZE);
 	  else if (regnum >= I0_REGNUM && regnum < I0_REGNUM + 8)
-	    addr = frame1->frame + (regnum - I0_REGNUM) * SPARC_INTREG_SIZE
+	    addr = (frame1->prev->bottom
+		    + (regnum - I0_REGNUM) * SPARC_INTREG_SIZE
+		    + FRAME_SAVED_I0);
+	  else if (regnum >= L0_REGNUM && regnum < L0_REGNUM + 8)
+	    addr = (frame1->prev->bottom
+		    + (regnum - L0_REGNUM) * SPARC_INTREG_SIZE
+		    + FRAME_SAVED_L0);
+	  else if (regnum >= O0_REGNUM && regnum < O0_REGNUM + 8)
+	    addr = frame1->frame + (regnum - O0_REGNUM) * SPARC_INTREG_SIZE
 	      - (FP_REGISTER_BYTES + 16 * SPARC_INTREG_SIZE);
 	  else if (regnum >= FP0_REGNUM && regnum < FP0_REGNUM + 32)
 	    addr = frame1->frame + (regnum - FP0_REGNUM) * 4

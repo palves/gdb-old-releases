@@ -49,9 +49,6 @@ struct _cpu {
   vm_instruction_map *instruction_map; /* instructions */
   vm_data_map *data_map; /* data */
 
-  /* current state of interrupt inputs */
-  int external_exception_pending;
-
   /* the system this processor is contained within */
   cpu_mon *monitor;
   os_emul *os_emulation;
@@ -66,6 +63,9 @@ struct _cpu {
   /* a cache to store cracked instructions */
   idecode_cache icache[WITH_IDECODE_CACHE_SIZE];
 #endif
+
+  /* any interrupt state */
+  interrupts ints;
 
   /* address reservation: keep the physical address and the contents
      of memory at that address */
@@ -82,7 +82,6 @@ INLINE_CPU\
 (cpu *)
 cpu_create(psim *system,
 	   core *memory,
-	   event_queue *events,
 	   cpu_mon *monitor,
 	   os_emul *os_emulation,
 	   int cpu_nr)
@@ -100,7 +99,7 @@ cpu_create(psim *system,
 
   /* link back to core system */
   processor->system = system;
-  processor->events = events;
+  processor->events = psim_event_queue(system);
   processor->cpu_nr = cpu_nr;
   processor->monitor = monitor;
   processor->os_emulation = os_emulation;
@@ -138,13 +137,6 @@ cpu_nr(cpu *processor)
 }
 
 INLINE_CPU\
-(event_queue *)
-cpu_event_queue(cpu *processor)
-{
-  return processor->events;
-}
-
-INLINE_CPU\
 (cpu_mon *)
 cpu_monitor(cpu *processor)
 {
@@ -163,71 +155,6 @@ INLINE_CPU\
 cpu_model(cpu *processor)
 {
   return processor->model_ptr;
-}
-
-/* The processors local concept of time */
-
-INLINE_CPU\
-(signed64)
-cpu_get_time_base(cpu *processor)
-{
-  return (event_queue_time(processor->events)
-	  - processor->time_base_local_time);
-}
-
-INLINE_CPU\
-(void)
-cpu_set_time_base(cpu *processor,
-		  signed64 time_base)
-{
-  processor->time_base_local_time = (event_queue_time(processor->events)
-				     - time_base);
-}
-
-INLINE_CPU\
-(signed32)
-cpu_get_decrementer(cpu *processor)
-{
-  return (processor->decrementer_local_time
-	  - event_queue_time(processor->events));
-}
-
-STATIC_INLINE_CPU\
-(void)
-cpu_decrement_event(event_queue *queue,
-		    void *data)
-{
-  cpu *processor = (cpu*)data;
-  if (!decrementer_interrupt(processor)) {
-    processor->decrementer_event = event_queue_schedule(processor->events,
-							1, /* NOW! */
-							cpu_decrement_event,
-							processor);
-  }
-}
-
-INLINE_CPU\
-(void)
-cpu_set_decrementer(cpu *processor,
-		    signed32 decrementer)
-{
-  signed64 old_decrementer = (processor->decrementer_local_time
-			      - event_queue_time(processor->events));
-  event_queue_deschedule(processor->events, processor->decrementer_event);
-  processor->decrementer_local_time = (event_queue_time(processor->events)
-				       + decrementer);
-  if (decrementer < 0 && old_decrementer >= 0)
-    /* dec interrupt occures if the sign of the decrement reg is
-       changed by the load operation */
-    processor->decrementer_event = event_queue_schedule(processor->events,
-							1, /* NOW! */
-							cpu_decrement_event,
-							processor);
-  else if (decrementer >= 0)
-    processor->decrementer_event = event_queue_schedule(processor->events,
-							decrementer,
-							cpu_decrement_event,
-							processor);
 }
 
 
@@ -275,8 +202,67 @@ cpu_halt(cpu *processor,
       model_halt(processor->model_ptr);
 
     processor->program_counter = cia;
-    psim_halt(processor->system, processor->cpu_nr, cia, reason, signal);
+    psim_halt(processor->system, processor->cpu_nr, reason, signal);
   }
+}
+
+
+/* The processors local concept of time */
+
+INLINE_CPU\
+(signed64)
+cpu_get_time_base(cpu *processor)
+{
+  return (event_queue_time(processor->events)
+	  - processor->time_base_local_time);
+}
+
+INLINE_CPU\
+(void)
+cpu_set_time_base(cpu *processor,
+		  signed64 time_base)
+{
+  processor->time_base_local_time = (event_queue_time(processor->events)
+				     - time_base);
+}
+
+INLINE_CPU\
+(signed32)
+cpu_get_decrementer(cpu *processor)
+{
+  return (processor->decrementer_local_time
+	  - event_queue_time(processor->events));
+}
+
+STATIC_INLINE_CPU\
+(void)
+cpu_decrement_event(void *data)
+{
+  cpu *processor = (cpu*)data;
+  processor->decrementer_event = NULL;
+  decrementer_interrupt(processor);
+}
+
+INLINE_CPU\
+(void)
+cpu_set_decrementer(cpu *processor,
+		    signed32 decrementer)
+{
+  signed64 old_decrementer = cpu_get_decrementer(processor);
+  event_queue_deschedule(processor->events, processor->decrementer_event);
+  processor->decrementer_event = NULL;
+  processor->decrementer_local_time = (event_queue_time(processor->events)
+				       + decrementer);
+  if (decrementer < 0 && old_decrementer >= 0)
+    /* A decrementer interrupt occures if the sign of the decrement
+       register is changed from positive to negative by the load
+       instruction */
+    decrementer_interrupt(processor);
+  else if (decrementer >= 0)
+    processor->decrementer_event = event_queue_schedule(processor->events,
+							decrementer,
+							cpu_decrement_event,
+							processor);
 }
 
 
@@ -333,6 +319,17 @@ cpu_page_tlb_invalidate_all(cpu *processor)
 {
   vm_page_tlb_invalidate_all(processor->virtual);
 }
+
+
+/* interrupt access */
+
+INLINE_CPU\
+(interrupts *)
+cpu_interrupts(cpu *processor)
+{
+  return &processor->ints;
+}
+
 
 
 /* reservation access */

@@ -169,11 +169,16 @@ b_out_callback (abfd)
   obj_textsec (abfd)->vma = execp->a_tload;
   obj_datasec (abfd)->vma = execp->a_dload;
 
+  obj_textsec (abfd)->lma = obj_textsec (abfd)->vma;
+  obj_datasec (abfd)->lma = obj_datasec (abfd)->vma;
+
   /* And reload the sizes, since the aout module zaps them */
   obj_textsec (abfd)->_raw_size = execp->a_text;
 
   bss_start = execp->a_dload + execp->a_data; /* BSS = end of data section */
   obj_bsssec (abfd)->vma = align_power (bss_start, execp->a_balign);
+
+  obj_bsssec (abfd)->lma = obj_bsssec (abfd)->vma;
 
   /* The file positions of the sections */
   obj_textsec (abfd)->filepos = N_TXTOFF(*execp);
@@ -1198,9 +1203,9 @@ b_out_bfd_relax_section (abfd, i, link_info, again)
 }
 
 static bfd_byte *
-b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
+b_out_bfd_get_relocated_section_contents (output_bfd, link_info, link_order,
 					  data, relocateable, symbols)
-     bfd *in_abfd;
+     bfd *output_bfd;
      struct bfd_link_info *link_info;
      struct bfd_link_order *link_order;
      bfd_byte *data;
@@ -1210,8 +1215,8 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
   /* Get enough memory to hold the stuff */
   bfd *input_bfd = link_order->u.indirect.section->owner;
   asection *input_section = link_order->u.indirect.section;
-  long reloc_size = bfd_get_reloc_upper_bound(input_bfd,
-					      input_section);
+  long reloc_size = bfd_get_reloc_upper_bound (input_bfd,
+					       input_section);
   arelent **reloc_vector = NULL;
   long reloc_count;
 
@@ -1220,7 +1225,7 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
 
   /* If producing relocateable output, don't bother to relax.  */
   if (relocateable)
-    return bfd_generic_get_relocated_section_contents (in_abfd, link_info,
+    return bfd_generic_get_relocated_section_contents (output_bfd, link_info,
 						       link_order,
 						       data, relocateable,
 						       symbols);
@@ -1232,11 +1237,11 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
   input_section->reloc_done = 1;
 
   /* read in the section */
-  BFD_ASSERT (true == bfd_get_section_contents(input_bfd,
-					       input_section,
-					       data,
-					       0,
-					       input_section->_raw_size));
+  BFD_ASSERT (true == bfd_get_section_contents (input_bfd,
+						input_section,
+						data,
+						0,
+						input_section->_raw_size));
 
   reloc_count = bfd_canonicalize_reloc (input_bfd,
 					input_section,
@@ -1284,23 +1289,24 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
 	      switch (reloc->howto->type)
 		{
 		case ABS32CODE:
-		  calljx_callback (in_abfd, link_info, reloc,
+		  calljx_callback (input_bfd, link_info, reloc,
 				   src_address + data, dst_address + data,
 				   input_section);
 		  src_address+=4;
 		  dst_address+=4;
 		  break;
 		case ABS32:
-		  bfd_put_32(in_abfd,
-			     (bfd_get_32 (in_abfd, data+src_address)
-			      + get_value (reloc, link_info, input_section)),
-			     data+dst_address);
+		  bfd_put_32 (input_bfd,
+			      (bfd_get_32 (input_bfd, data + src_address)
+			       + get_value (reloc, link_info, input_section)),
+			      data + dst_address);
 		  src_address+=4;
 		  dst_address+=4;
 		  break;
 		case CALLJ:
-		  callj_callback (in_abfd, link_info, reloc, data, src_address,
-				  dst_address, input_section, false);
+		  callj_callback (input_bfd, link_info, reloc, data,
+				  src_address, dst_address, input_section,
+				  false);
 		  src_address+=4;
 		  dst_address+=4;
 		  break;
@@ -1314,7 +1320,7 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
 		case ABS32CODE_SHRUNK:
 		  /* This used to be a callx, but we've found out that a
 		     callj will reach, so do the right thing.  */
-		  callj_callback (in_abfd, link_info, reloc, data,
+		  callj_callback (input_bfd, link_info, reloc, data,
 				  src_address + 4, dst_address, input_section,
 				  true);
 		  dst_address+=4;
@@ -1322,7 +1328,8 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
 		  break;
 		case PCREL24:
 		  {
-		    long int word = bfd_get_32(in_abfd, data+src_address);
+		    long int word = bfd_get_32 (input_bfd,
+						data + src_address);
 		    bfd_vma value;
 
 		    value = get_value (reloc, link_info, input_section);
@@ -1333,7 +1340,7 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
 				+ reloc->addend)
 			       & BAL_MASK));
 
-		    bfd_put_32(in_abfd,word,  data+dst_address);
+		    bfd_put_32 (input_bfd, word, data + dst_address);
 		    dst_address+=4;
 		    src_address+=4;
 
@@ -1342,7 +1349,8 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
 
 		case PCREL13:
 		  {
-		    long int word = bfd_get_32(in_abfd, data+src_address);
+		    long int word = bfd_get_32 (input_bfd,
+						data + src_address);
 		    bfd_vma value;
 
 		    value = get_value (reloc, link_info, input_section);
@@ -1353,7 +1361,7 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
 				- output_addr (input_section))
 			       & PCREL13_MASK));
 
-		    bfd_put_32(in_abfd,word,  data+dst_address);
+		    bfd_put_32 (input_bfd, word, data + dst_address);
 		    dst_address+=4;
 		    src_address+=4;
 

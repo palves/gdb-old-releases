@@ -277,6 +277,7 @@ typedef enum {
   reg_invalid,
   reg_gpr, reg_fpr, reg_spr, reg_msr,
   reg_cr, reg_fpscr, reg_pc, reg_sr,
+  reg_insns, reg_stalls, reg_cycles,
   nr_register_types
 } register_types;
 

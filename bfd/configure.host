@@ -56,9 +56,9 @@ SHLIB_CC='$(CC)'
 SHLIB_CFLAGS='-shared'
 if [ "${shared}" = "true" ]; then
   case "${host}" in
-  hppa*-*-*)		picfrag=../config/mh-papic ;;
-  i[3456]86-*-*)	picfrag=../config/mh-x86pic ;;
-  *-*-*)		picfrag=../config/mh-${host_cpu}pic ;;
+  hppa*-*-*)		picfrag=${srcdir}/../config/mh-papic ;;
+  i[3456]86-*-*)	picfrag=${srcdir}/../config/mh-x86pic ;;
+  *-*-*)		picfrag=${srcdir}/../config/mh-${host_cpu}pic ;;
   esac
   if [ -f "${picfrag}" ]; then
     pic=`sed -n -e 's/^PICFLAG[ 	]*=[ 	]*\(.*\)$/\1/p' ${picfrag}`
@@ -71,6 +71,8 @@ if [ "${shared}" = "true" ]; then
   *-dec-osf*)
     # -fpic is not needed on the Alpha.
     PICFLAG=
+    HLDFLAGS='-rpath $(libdir)'
+    SHLIB_CFLAGS='-shared -Wl,-soname,$(SONAME)'
     ;;
   *-*-hpux*)
     # HP/UX uses .sl for shared libraries.
@@ -89,7 +91,7 @@ if [ "${shared}" = "true" ]; then
     ;;
   *-*-linux*)
     SHLIB_CFLAGS='-shared -Wl,-soname,$(SONAME)'
-    case "$(libdir)" in
+    case "${libdir}" in
       /lib | /usr/lib) ;;
       *) HLDFLAGS='-Wl,-rpath,$(libdir)' ;;
     esac

@@ -32,25 +32,25 @@ set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
 
 # build the first test case
-execute_anywhere "echo set prototypes 1 > ${objdir}/${subdir}/callfuncs.tmp"
+execute_anywhere "rm -f ${binfile}.ci"
+execute_anywhere "echo set prototypes 1 > ${binfile}.ci"
 if  { [compile "-g ${srcdir}/${subdir}/${srcfile} -o ${binfile} "] != "" } {
-    execute_anywhere "rm -f ${objdir}/${subdir}/callfuncs.tmp"    
+    execute_anywhere "rm -f ${binfile}.ci"    
     # built the second test case since we can't use prototypes
     warning "Prototypes not supported, rebuilding with -DNO_PROTOTYPES"
-    execute_anywhere "echo set prototypes 0 > ${objdir}/${subdir}/callfuncs.tmp"
+    execute_anywhere "echo set prototypes 0 > ${binfile}.ci"
     if  { [compile "-g -DNO_PROTOTYPES ${srcdir}/${subdir}/${srcfile} -o ${binfile} "] != "" } {
 	perror "Couldn't compile ${testfile}.c"
 	return -1
     }
 }
 
-if  { [compile "-E ${srcdir}/${subdir}/compiler.c >> ${objdir}/${subdir}/callfuncs.tmp"] != "" } {
-    perror "Couldn't make ${testfile}.tmp"
+# Create and source the file that provides information about the compiler
+# used to compile the test case.
+if  { [compile "-E ${srcdir}/${subdir}/compiler.c >> ${binfile}.ci"] != "" } {
+    perror "Couldn't make ${binfile}.ci"
     return -1
 }
-
-execute_anywhere "mv ${objdir}/${subdir}/callfuncs.tmp ${binfile}.ci"
-
 source ${binfile}.ci
 
 # The a29k can't call functions, so don't even bother with this test.
@@ -60,6 +60,12 @@ if [istarget "a29k-*-udi"] then {
     continue
 }
 
+# The h8300 simulator can't call functions, so don't even bother with this test.
+if [istarget "h8300*-*-*"] then {
+    setup_xfail "h8300*-*-*" 
+    fail "h8300*-*-* simulator can not call functions"
+    continue
+}
 # Set the current language to C.  This counts as a test.  If it
 # fails, then we skip the other tests.
 

@@ -215,7 +215,7 @@ static reloc_howto_type * elf_hppa_reloc_type_lookup
 static boolean elf32_hppa_set_section_contents
   PARAMS ((bfd *, sec_ptr, PTR, file_ptr, bfd_size_type));
 
-static void elf_info_to_howto
+static void elf32_hppa_info_to_howto
   PARAMS ((bfd *, arelent *, Elf32_Internal_Rela *));
 
 static boolean elf32_hppa_backend_symbol_table_processing
@@ -1169,7 +1169,7 @@ elf32_hppa_set_section_contents (abfd, section, location, offset, count)
 /* Translate from an elf into field into a howto relocation pointer.  */
 
 static void
-elf_info_to_howto (abfd, cache_ptr, dst)
+elf32_hppa_info_to_howto (abfd, cache_ptr, dst)
      bfd *abfd;
      arelent *cache_ptr;
      Elf32_Internal_Rela *dst;
@@ -2960,6 +2960,7 @@ error_return:
 
 /* Symbol extension stuff.  */
 #define bfd_elf32_set_section_contents		elf32_hppa_set_section_contents
+#define elf_info_to_howto			elf32_hppa_info_to_howto
 #define elf_backend_symbol_table_processing \
   elf32_hppa_backend_symbol_table_processing
 #define elf_backend_begin_write_processing \

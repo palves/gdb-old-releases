@@ -47,6 +47,8 @@ typedef struct _cpu cpu;
 typedef struct _psim psim;
 typedef struct _device device;
 typedef struct _device_instance device_instance;
+typedef struct _event_queue event_queue;
+typedef struct _event_entry_tag *event_entry_tag;
 
 
 /* many things are moving data between the host and target */
@@ -62,6 +64,12 @@ typedef enum {
   was_continuing, was_trap, was_exited, was_signalled
 } stop_reason;
 
+/* disposition of an object when things are next restarted */
+
+typedef enum {
+  permenant_object,
+  tempoary_object,
+} object_disposition;
 
 /* Basic configuration */
 

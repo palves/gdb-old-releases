@@ -63,9 +63,7 @@ enum elf_sparc_reloc_type {
     R_SPARC_WDISP16, R_SPARC_WDISP19,
     R_SPARC_GLOB_JMP,
     R_SPARC_7,
-#ifndef SPARC64_OLD_RELOCS
     R_SPARC_5, R_SPARC_6,
-#endif
 
     R_SPARC_max
 };

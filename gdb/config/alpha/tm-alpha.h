@@ -1,6 +1,6 @@
 /* Definitions to make GDB run on an Alpha box under OSF1.  This is
-   also used by the Alpha/Netware target.
-   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
+   also used by the Alpha/Netware and Alpha/Linux targets.
+   Copyright 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -452,5 +452,35 @@ extern struct frame_info *setup_arbitrary_frame PARAMS ((int, CORE_ADDR *));
    types of calls will work. */
 
 #define COERCE_FLOAT_TO_DOUBLE 1
+
+/* Return TRUE if procedure descriptor PROC is a procedure descriptor
+   that refers to a dynamically generated sigtramp function.
+
+   OSF/1 doesn't use dynamic sigtramp functions, so this is always
+   FALSE.  */
+
+#define PROC_DESC_IS_DYN_SIGTRAMP(proc)	(0)
+#define SET_PROC_DESC_IS_DYN_SIGTRAMP(proc)
+
+/* If PC is inside a dynamically generated sigtramp function, return
+   how many bytes the program counter is beyond the start of that
+   function.  Otherwise, return a negative value.
+
+   OSF/1 doesn't use dynamic sigtramp functions, so this always
+   returns -1.  */
+
+#define DYNAMIC_SIGTRAMP_OFFSET(pc)	(-1)
+
+/* Translate a signal handler frame into the address of the sigcontext
+   structure.  */
+
+#define SIGCONTEXT_ADDR(frame) \
+  (read_memory_integer ((frame)->next ? frame->next->frame : frame->frame, 8))
+
+/* If FRAME refers to a sigtramp frame, return the address of the next
+   frame.  */
+
+#define FRAME_PAST_SIGTRAMP_FRAME(frame, pc) \
+  (alpha_osf_skip_sigtramp_frame (frame, pc))
 
 #endif /* TM_ALPHA_H */

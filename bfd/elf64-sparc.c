@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 static reloc_howto_type *sparc64_elf_reloc_type_lookup
   PARAMS ((bfd *, bfd_reloc_code_real_type));
-static void elf_info_to_howto
+static void sparc64_elf_info_to_howto
   PARAMS ((bfd *, arelent *, Elf_Internal_Rela *));
 
 static boolean sparc64_elf_relocate_section
@@ -93,12 +93,10 @@ static reloc_howto_type sparc64_elf_howto_table[] =
   HOWTO(R_SPARC_PC_LM22,  10,2,22,true, 0,complain_overflow_dont,    bfd_elf_generic_reloc,  "R_SPARC_LM22",    false,0,0x003fffff,true),
   HOWTO(R_SPARC_WDISP16,   2,2,16,true, 0,complain_overflow_signed,  sparc_elf_wdisp16_reloc,"R_SPARC_WDISP16", false,0,0x00000000,true),
   HOWTO(R_SPARC_WDISP19,   2,2,22,true, 0,complain_overflow_signed,  bfd_elf_generic_reloc,  "R_SPARC_WDISP19", false,0,0x0007ffff,true),
-  HOWTO(R_SPARC_GLOB_JMP,  0,0,00,false,0,complain_overflow_dont,    bfd_elf_generic_reloc,  "R_SPARC_GLOB_DAT",false,0,0x00000000,true),
+  HOWTO(R_SPARC_GLOB_JMP,  0,0,00,false,0,complain_overflow_dont,    bfd_elf_generic_reloc,  "R_SPARC_GLOB_JMP",false,0,0x00000000,true),
   HOWTO(R_SPARC_7,         0,2, 7,false,0,complain_overflow_bitfield,bfd_elf_generic_reloc,  "R_SPARC_7",       false,0,0x0000007f,true),
-#if 0 /* not used yet */
   HOWTO(R_SPARC_5,         0,2, 5,false,0,complain_overflow_bitfield,bfd_elf_generic_reloc,  "R_SPARC_5",       false,0,0x0000001f,true),
   HOWTO(R_SPARC_6,         0,2, 6,false,0,complain_overflow_bitfield,bfd_elf_generic_reloc,  "R_SPARC_6",       false,0,0x0000003f,true),
-#endif
 };
 
 struct elf_reloc_map {
@@ -149,10 +147,8 @@ static CONST struct elf_reloc_map sparc_reloc_map[] =
   {BFD_RELOC_SPARC_WDISP19, R_SPARC_WDISP19},
   {BFD_RELOC_SPARC_GLOB_JMP, R_SPARC_GLOB_JMP},
   {BFD_RELOC_SPARC_7, R_SPARC_7},
-#if 0 /* unused */
   {BFD_RELOC_SPARC_5, R_SPARC_5},
   {BFD_RELOC_SPARC_6, R_SPARC_6},
-#endif
 };
 
 static reloc_howto_type *
@@ -170,7 +166,7 @@ sparc64_elf_reloc_type_lookup (abfd, code)
 }
 
 static void
-elf_info_to_howto (abfd, cache_ptr, dst)
+sparc64_elf_info_to_howto (abfd, cache_ptr, dst)
      bfd *abfd;
      arelent *cache_ptr;
      Elf64_Internal_Rela *dst;
@@ -414,6 +410,7 @@ sparc64_elf_object_p (abfd)
 #define ELF_MACHINE_CODE EM_SPARC64
 #define ELF_MAXPAGESIZE 0x100000
 
+#define elf_info_to_howto		sparc64_elf_info_to_howto
 #define bfd_elf64_bfd_reloc_type_lookup	sparc64_elf_reloc_type_lookup
 #define elf_backend_relocate_section	sparc64_elf_relocate_section
 #define elf_backend_object_p		sparc64_elf_object_p

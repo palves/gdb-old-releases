@@ -34,11 +34,14 @@ if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
     return -1
 }
 
+# Create and source the file that provides information about the compiler
+# used to compile the test case.
 execute_anywhere "rm -f ${binfile}.ci"
 if  { [compile "-E ${srcdir}/${subdir}/compiler.c > ${binfile}.ci"] != "" } {
-    perror "Couldn't make ${testfile}.ci file"
+    perror "Couldn't make ${binfile}.ci file"
     return -1
 }
+source ${binfile}.ci
 
 #
 # Locate actual args; integral types.
@@ -342,6 +345,8 @@ proc structs_by_reference {} {
 
     gdb_test "cont" ".* call4b \\(unp=$hex\\) .*" "continue to call4b"
 
+    # sizeof int != sizeof long on h8300
+    setup_xfail "h8300*-*-*"
     gdb_test "print *unp" ".* = \{u1 = 1, u2 = 1\}"
 
     pass "locate actual args, structs/unions passed by reference"
@@ -380,9 +385,13 @@ proc structs_by_value {} {
 
     # Continue; should stop at call5b and print actual arguments.
     # Try dereferencing the arguments.
+    # sizeof int != sizeof long on h8300
+    setup_xfail "h8300*-*-*"
     gdb_test "cont" ".* call5b \\(un=\{u1 = 2, u2 = 2\}\\) .*" \
 	"continue to call5b"
 
+    # sizeof int != sizeof long on h8300
+    setup_xfail "h8300*-*-*"
     gdb_test "print un" ".* = \{u1 = 2, u2 = 2\}"
 }
 
@@ -1265,8 +1274,6 @@ gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load ${binfile}
-
-source ${binfile}.ci
 
 integral_args
 funcargs_reload

@@ -1,11 +1,682 @@
+Sun Jun 16 15:21:51 1996  Jeffrey A. Law  <law@rtl.cygnus.com>
+
+	* somsolib.c (som_solib_create_inferior_hook): Handle tracking
+	of shl_load calls for hpux10.
+
+Thu Jun 13 11:16:10 1996  Tom Tromey  <tromey@thepub.cygnus.com>
+
+	* config.in: Regenerated.
+	* acconfig.h (HAVE_THREAD_DB_LIB): Added entry.
+
+	* configure: Regenerated.
+	* aclocal.m4 (CY_AC_PATH_TCLH, CY_AC_PATH_TKH): Use odd names to
+	avoid name clashes with SunOS headers.
+
+Tue Jun 11 19:52:50 1996  Fred Fish  <fnf@cygnus.com>
+
+	From Michael Snyder <Michael_Snyder@next.com>:
+	* bcache.c (print_bcache_statistics): Avoid divide-by-zero
+	exception if one or more objfile has no symbols, such as when
+	a dynamic library has been stripped.
+
+Tue Jun 11 12:02:55 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* Makefile.in (INTERNAL_LDFLAGS):  Add in flags from configure.
+	* configure configure.in:  Only make sol-thread.o for native.
+	Also, switch to dlopened libthread_db.so.1.
+	* sol-thread.c:  Switch to using dlopen to get the thread_db
+	library.
+
+Mon Jun 10 14:17:19 1996  Fred Fish  <fnf@cygnus.com>
+
+	* config/sparc/{xm-sun4sol2.h,xm-sun4os4.h} (MMAP_BASE_ADDRESS):
+ 	Change from 0xE0000000 to 0xC0000000.
+
+Thu Jun  6 17:10:32 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* config/powerpc/xm-solaris.h: Initial version of support for
+	Solaris on PowerPC.
+
+Wed Jun  5 01:52:57 1996  James G. Smith  <jsmith@cygnus.co.uk>
+
+ 	* configure.in (configdirs): Force 4100 builds to use 4300 GDB
+  	target.
+	* configure: Rebuild.
+
+	* config/mips/vr4300el.mt (SIM_OBS): Include simulator in
+ 	little-endian builds.
+	
+Mon Jun  3 11:48:29 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* inftarg.c (child_thread_alive): Protect declaration with
+	#ifndef CHILD_THREAD_ALIVE.
+
+	* source.c (find_source_lines): Check the time on the symtab's bfd if
+	it exists, else check the time on the exec_bfd.
+
+Thu May 30 09:43:17 1996  Mark Alexander <marka@cygnus.com>
+
+	* dsrec.c (make_srec):  Fix calculation of address size
+	to allow addresses less than 0x100.
+
+Thu May 30 04:24:09 1996  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* ch-exp.c (ch_lex): In case of LOC_TYPEDEF call calculate_array_length.
+
+Tue May 28 16:15:47 1996  Geoffrey Noer  <noer@cygnus.com>
+
+	* remote-mips.c: cannot use EINVAL for breakpoint test since
+	its value varies for different hosts (e.g. go32's is 19, while
+	sunos is 22).  Changed to hardcoded 22 since that is what the
+	mips boards return.
+
+Tue May 28 11:14:58 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* configure: Regenerated.
+	* aclocal.m4 (CY_AC_PATH_TCLH): Don't use AC_TRY_RUN.
+	(CY_AC_PATH_TKH): Don't use AC_TRY_RUN.
+
+Sun May 26 14:14:49 1996  Fred Fish  <fnf@cygnus.com>
+
+	Changes from: David Mosberger-Tang  <davidm@azstarnet.com>
+
+	* NEWS:  Add Alpha Linux as a new native configuration.
+
+	* mdebugread.c (parse_symbol): When we find a malloc() symbol with
+ 	return type VOID, assume no debugging info is available for that
+ 	object file and patch the return value into VOID *.  Otherwise,
+	operations requiring an implicit call to malloc() will fail.
+
+	* infrun.c (wait_for_inferior): The criterion to detect entering a
+ 	sigtramp handler is now: (a) the current pc is inside a sigtramp
+ 	handler, (b) the previous pc is not in a sigtramp handler, and (c)
+ 	the current stack pointer is "inner" than the old one.  Condition
+	(c) is new to avoid mistaking a return from a signal handler into
+ 	sigtramp as a new sigtramp invocation.
+
+	* dcache.c (struct dcache_block): Declare addr as CORE_ADDR.  An
+ 	int may not be big enough to hold an address.
+	(dcache_hit): Ditto.
+	(dcache_peek_byte): Fix indentation.
+
+	* configure.in (alpha-*-linux*): Add target.
+	* configure: Rebuild
+
+	* config/alpha/tm-alpha.h (PROC_DESC_IS_DYN_SIGTRAMP): New macro.
+	(SET_PROC_DESC_IS_DYN_SIGTRAMP): Ditto.
+	(DYNAMIC_SIGTRAMP_OFFSET): Ditto.
+	(SIGCONTEXT_ADDR): Ditto.
+	(FRAME_PAST_SIGTRAMP_FRAME): Ditto.
+
+	* config/alpha/alpha-linux.mh: New file.
+	* config/alpha/alpha-linux.mt: Ditto.
+	* config/alpha/nm-linux.h: Ditto.
+	* config/alpha/tm-alphalinux.h: Ditto.
+	* config/alpha/xm-alphalinux.h: Ditto.
+	* config/alpha/xm-alphaosf.h: Renamed from xm-alpha.h.
+	* config/alpha/alpha-osf1.mh (XM_FILE): Change from xm-alpha.h to
+ 	xm-alphaosf.h.
+	* config/alpha/alpha-osf2.mh: Ditto.
+
+	* blockframe.c (find_pc_partial_function): Pass PC to
+ 	SIGTRAMP_START and SIGTRAMP_END macros for the benefit of systems
+ 	that detect sigtramp code via designated code sequences (as is the
+ 	case for Linux/Alpha, for example).
+	
+	* config/i386/tm-i386bsd.h: Change SIGTRAMP_START and SIGTRAMP_END
+	to ignore new PC argument.
+	* config/m68k/tm-hp300bsd.h: Ditto.
+	* config/vax/tm-vax.h: Ditto.
+
+	* alpha-tdep.c (alpha_linux_sigtramp_offset): New function.
+	(alpha_osf_skip_sigtramp_frame): Ditto.
+	(push_sigtramp_desc): Ditto.
+	(alpha_find_saved_regs): Use SIGCONTEXT_ADDR macro to extract
+ 	sigcontext address from frame.
+	(alpha_saved_pc_after_call): When in sigtramp, use
+ 	alpha_frame_saved_pc() instead of read-register().
+	(after_prologue): When inside a dynamically generated sigtramp
+ 	function, there is no prologue, so return address of first
+ 	instruction.
+	(alpha_in_prologue): Fix typo in comment.
+	(find_proc_desc): Use macro DYNAMIC_SIGTRAMP_OFFSET to determine
+ 	whether we're inside a dynamicaly generated sigtramp function.  If
+ 	so, create and push and appropriate procedure descriptor.
+	(alpha_frame_chain): Use macro FRAME_PAST_SIGTRAMP_FRAME to obtain
+ 	the frame past a sigtramp frame (if the current frame is indeed a
+ 	sigtramp function).
+	(init_extra_frame_info): Don't read next frame register off of
+ 	stack-pointer when inside a dynamiccaly generated sigtramp.
+	(alpha_pop_frame): Also unlink and destroy procedure descriptors
+ 	created for dynamically generated sigtramp functions.
+
+	* alpha-nat.c: When compiling under Linux, include <asm/reg.h> and
+ 	<alpha/ptrace.h> instead of <machine/reg.h>
+
+Thu May 23 15:13:56 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* h8300-tdep.c (IS_PUSH): Refine.
+	(IS_MOVE_FP, IS_MOV_SP_FP): Accept H8/300H varaints.
+	(IS_SUB4_SP, IS_SUBL_SP): New macros.
+	(h8300_skip_prologue): Handle H8/300H prologue code sequences.
+	(examine_prologue): Handle addresses from 0x010000 to 0xffffff
+	when in H8/300H mode.  Get the return pointer's address correctly
+	for the H8/300H.  Handle H8/300H prolouge code sequences.
+
+	* symfile.c (generic_load): Print the starting address
+	of the file just loaded.
+
+Thu May 23 12:09:52 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* mpw-make.sed: Edit @THREAD_DB_OBS@ out of makefile.
+
+Tue May 21 11:53:56 1996  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* breakpoint.c (bpstat_do_actions):  Avoid endless recursion
+	if a `source' command is contained in bs->commands.
+
+	* infrun.c (wait_for_inferior):  Update step_frame_address when
+	stepping into a new line.
+
+	From schwab@issan.informatik.uni-dortmund.de (Andreas Schwab):
+	* breakpoint.c (breakpoint_1):  Add shlib_disabled case to
+	bpenables array.
+
+Mon May 20 22:52:00 1996  Mark Alexander  <marka@cygnus.com>
+
+	* dsrec.c (load_srec): Add WAITACK parameter, for machines
+	like EST visionICE that send back an ACK after each S-record.
+	* monitor.c (monitor_wait_srec_ack): New function.
+	(monitor_load): Pass monitor_wait_srec_ack to load_srec
+	if the monitor's MO_SREC_ACK flag is set.
+	* monitor.h: Define MO_SREC_ACK flag.
+	* remote-est.c (est_cmds): Add MO_SREC_ACK flag.
+	* sh3-rom.c (sh3_load): Accomodate change in load_srec prototype.
+	* srec.h: Add WAITACK parameter to load_srec prototype.
+
+Sun May 19 21:22:00 1996  Rob Savoye  <rob@chinadoll>
+
+	* config/sparc/sparclite.mt: Add the sparc simulator.
+
+Sun May 19 16:49:37 1996  Fred Fish  <fnf@cygnus.com>
+
+	* defs.h (read_command_lines, query_hook): Update prototypes.
+	(readline_begin_hook, readline_hook, readline_end_hook): Declare.
+	* breakpoint.c (commands_command): Build message in temporary buffer
+	and pass that, as well as tty control flag, to read_command_lines.
+	* top.c (readline_begin_hook, readline_hook, readline_end_hook):
+	Define here.
+	(command_loop): Check for non-NULL instream before looping.
+	(command_line_input): Use readline_hook when appropriate, to get
+	user input from a GUI window.
+	(read_next_line): Also build prompt if getting user input from a GUI.
+	(recurse_read_control_structure): Fix typo in comment.
+	(read_command_lines): Use passed in prompt and tty flag to decide how
+	to build message.  Use readline_begin_hook when appropriate, to set
+	up a GUI interaction window.  Just return head, whether NULL or not,
+	after using readline_end_hook to complete GUI interaction.
+	(define_command, document_command): Build message in a temporary
+	buffer and pass it to read_command_lines, along with tty flag.
+
+	* gdbtk.c (gdbtk_readline_begin, gdbtk_readline, gdbtk_readline_end):
+	New functions.
+	(tk_command_loop): Set instream to NULL to enable Tk user interaction.
+	(gdbtk_init): Set readline_begin_hook, readline_hook,
+	and readline_end_hook.
+	* gdbtk.tcl (gdbtk_tcl_readline_begin, gdbtk_tcl_readline,
+	gdbtk_tcl_readline_end): New functions.
+	(tclsh): Pack scroll bar on right side of window, not left.
+
+Sat May 18 02:43:58 1996  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* blockframe.c (frameless_look_for_prologue):
+	Add FUNCTION_START_OFFSET only if func_start is non-zero.
+	* minsyms.c (lookup_minimal_symbol_by_pc):  Return NULL if
+	pc is not in a known section.
+	* stack.c (print_frame_info):  Remove check for fi->pc in known
+	section, now handled by lookup_minimal_symbol_by_pc.
+
+Fri May 17 13:54:34 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdbtk.tcl (create_command_window): Change a misspelled "get"
+	to the intended "cget".
+	(delete_line): Fix so it deletes the current line at the
+	insertion cursor.
+
+Fri May 17 13:31:04 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* sh-stub.c: New file, was config/sh/stub.c.
+
+Thu May 16 19:20:29 1996  Fred Fish  <fnf@fishfood.ninemoons.com>
+
+	* gdbtk.tcl (gdb_prompt): Set this early on.
+	(create_command_window): Use gdb_prompt rather than "(gdb) ".
+	(gdbtk_tcl_preloop): Proc executed just prior to Tk main loop.
+	(tclsh): If an evaluation window already exists, just bring it
+	to the front instead of trying to create another.
+	* gdbtk.c (tk_command_loop): New function.
+	(gdbtk_init): Call tk_command_loop rather than Tk_MainLoop.
+
+Thu May 16 16:16:35 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdbtk.tcl (evaluate_tcl_command, tclsh):  New functions that
+	implement a tcl evaluation window for gdbtk maintainers to use.
+
+Thu May 16 11:42:58 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* gdbtk.tcl (files_command): Correctly insert list of files into
+	listbox widget.
+
+	* gdbtk.tcl (files_command): listbox command no longer accepts
+	-geometry.
+
+Wed May 15 16:04:09 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdbtk.tcl (create_command_window): If command window's buffer
+	is disabled, don't execute any of the key bindings.
+
+Wed May 15 08:25:12 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* top.c (read_next_line): Fix thinkos.  From Donn Seeley.
+
+	* coffread.c (coff_symtab_read): Handle C_LABEL symbols like
+	C_STAT symbols.
+	* h8300-tdep.c (h8300_pop_frame): Reset $sp and $pc correctly.
+	Flush cached frames just before exiting.
+	* remote-sim.c (gdbsim_resume): Complain if the program isn't
+	being run.
+	* config/h8300/tm-h8300.h (BELIEVE_PCC_PROMOTION): Define.
+
+Tue May 14 18:05:16 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* procfs.c (procfs_thread_alive procfs_stop):  Make static.
+	(procfs_pid_to_str):  New routine to print out thread id's in an
+	intelligible manner.
+	* sol-thread.c (sol_thread_fetch_registers):  Re-order manner in
+	which supply_register is called to fix bug with writing
+	individual regs.
+	* config/sparc/tm-sun4sol2.h:  Define default for
+	target_pid_to_str in case host lacks libthread_db.
+
+Mon May 13 23:53:30 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* Makefile.in config.in configure configure.in
+	config/sparc/nm-sun4sol2.h config/sparc/sun4sol2.mh
+	config/sparc/tm-sun4sol2.h:  Use autoconf to config Solaris thread
+	and pthread support, since pre-2.5 systems don't come with
+	libthread_db.so.1.
+
+	* procfs.c (info_proc):  Use int instead of id_t.  Old versions of
+	Irix don't seem to define this.
+
+Mon May 13 13:43:25 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdbtk.c (tk_command): Catch case where no argument is given
+	since this will cause the tcl interpreter to dump core.
+
+Mon May 13 17:40:58 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* top.c (execute_control_command, case while_control): Allow
+	a while command to be interrupted.
+
+Mon May 13 16:17:36 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* sol-thread.c:  More cleanup, add comments.
+	(sol_thread_resume):  Prevent people from trying to step
+	inactive threads.
+	(sol_thread_wait sol_thread_fetch_registers
+	sol_thread_store_registers):  Remove unnecessary check for
+	sol_thread_active.  These routines won't get called unless threads
+	are active.
+
+Mon May 13 11:29:37 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	SH3-E support from Allan Tajii <atajii@hmsi.com>:
+	* sh-tdep.c (sh_reg_names, sh3_reg_names): Add empty names for
+	float registers.
+	(sh3e_reg_names): New register name array.
+	(sh_processor_type_table): Add sh3e processor type.
+	* config/sh/tm-sh.h (REGISTER_VIRTUAL_TYPE): Fix test.
+	(REGISTER_NAMES, NUM_REGS, NUM_REALREGS, etc): Adjust for
+	full set of registers.
+	* remote-e7000.c (want_sh3, want_sh3_nopc): New globals.
+	(e7000_fetch_registers, e7000_wait): Use them.
+	* sh3-rom.c (sh3_regnames): Add float registers.
+	(sh3e_cmds, sh3e_ops): New globals.
+	(sh3e_open): New function.
+	(_initialize_sh3_rom): Rename from _initialize_sh3, set up
+	sh3e target vector.
+
+Fri May 10 15:53:38 1996  Stu Grossman  (grossman@lisa.cygnus.com)
+
+	* sol-thread.c:  Cleanup.  gcc -Wall fixes.  Add prototypes.
+	Print out messages instead of codes for thread_db errors.  Make
+	access macros for thread and lwp manipulation.  Make cleanups to
+	fixup inferior_pid in case of errors.
+
+Thu May  9 19:06:02 1996  Fred Fish  <fnf@cygnus.com>
+
+	* aclocal.m4: Remove unused definition of AC_C_CROSS.
+	* configure.in: Add powerpcle-*-solaris* host and target config
+	so April 30th change does not get lost next time configure is
+	rebuilt.
+
+Thu May  9 14:13:08 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* Makefile.in, breakpoint.c, corelow.c, fork-child.c, inflow.c,
+	infrun.c, mac-nat.c, procfs.c, remote.c, sol-thread.c, thread.c,
+	win32-nat.c, config/nm-lynx.h:  Rename thread.h to gdbthread.h to
+	avoid conflict with Solaris /usr/include/thread.h.
+
+Thu May  9 12:33:32 1996  Rob Savoye  <rob@chinadoll.cygnus.com>
+
+	* abug-rom.c: Config file for the older style ABug monitor that
+	runs on the mvme13x boards.
+	* config/m68k/monitor.mt: Add abug support for m68k cross
+	debugging.
+
+Wed May  8 20:33:24 1996  Fred Fish  <fnf@cygnus.com>
+
+	* infcmd.c (do_registers_info):  Always print the raw floating
+	point value's bytes in big endian order, so the the leftmost bit
+	is the most significant.
+	* breakpoint.c (clear_momentary_breakpoints): Remove dead code
+	that is referenced nowhere else.
+	(set_breakpoint): Ditto.
+	(do_enable_breakpoint): Created from enable_once_breakpoint
+	with a couple of changes.
+	(enable_breakpoint): Call do_enable_breakpoint with an appropriate
+	bpdisp enum value to set disposition of breakpoint.
+	(enable_once_breakpoint): Ditto.
+	(enable_delete_breakpoint): Ditto.
+	* breakpoint.h (clear_momentary_breakpoints): Remove prototype.
+	* symtab.c (find_pc_line): Improve comments.
+	* gdbtk.c: Fix a couple of misspellings.
+	* xcoffread.c: Ditto.
+
+Tue May  7 18:37:06 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* target.c (debug_to_xfer_memory): Insert line breaks when
+	dumping the memory block.
+
+Mon May  6 13:52:52 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* fork-child.c (fork_inferior), inferior.h:  init_trace_fun now
+	returns a possibly modified pid.
+	* inftarg.c (ptrace_him):  Now returns pid;
+	* m3-nat.c (m3_trace_him):  Now returns pid;
+	* infcmd.c (run_command):  Minor cleanup.
+	* infrun.c (wait_for_inferior):  Add another check for one_stepped
+	near where we read the pc to avoid erroneously setting
+	random_signal for multi-threaded support.
+	* procfs.c:  Add support for Solaris LWPs.  Remove def of
+	LOSING_POLL.  Many cleanups...  Several workarounds for Solaris
+	lossage.  System call entry and exit are now handled by
+	dynamically registered handlers.
+	* (syscallname):  Don't barf when handed an unknown syscall
+	number.
+	* (info_proc_syscalls):  Ditto.
+	* sol-thread.c:  New file.  Implements Solaris thread support.
+	* symfile.c (symbol_file_add):  Add call to target_new_objfile to
+	notify target-dependent code about new symbol tables.
+	* (clear_symtab_users):  Call target_new_objfile to notify it of
+	the removal of all symbol tables.
+	* target.c (push_target):  Make sure that to_close is non-zero
+	before calling it.
+	* target.h (target_new_objfile):  Provide default.	
+	* config/alpha/nm-osf2.h:  Define LOSING_POLL because this version
+	of OSF can't hack using poll with /proc.
+	* config/sparc/nm-sun4sol2.h (target_new_objfile):  Define to be
+	sol-thread-new-objfile.
+	* config/sparc/sun4sol2.mh:  Add sol-thread.o to NATDEFFILES, and
+	add libthread_db.so.1 to NAT_CLIBS.
+	* config/sparc/tm-sun4sol2.h:  Define PIDGET, TIDGET, and
+	target_pid_to_str.
+
+Sat May  4 02:13:34 1996  N Srin Kumar  <nsrin@wipinfo.soft.net>
+
+	* procfs.c (remove_fd):  Fix copy of fds to fill hole left after
+	removal of the requested fd.
+
+Mon May  6 07:52:48 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* rs6000-tdep.c (_initialize_rs6000_tdep): Don't do XCOFF specific
+	hooks under ELF.
+
+	* config/powerpc/tm-ppc-eabi.h: Define ELF_OBJECT_FORMAT.
+
+Thu May  2 19:17:49 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdbtk.tcl (debug_interface): New global, use to aid debugging.
+	(insert_breakpoint_tag, delete_breakpoint_tag): Fix range.
+	(file_popup_menu): Delete, never used.
+	(listing_window_popup): Rename from listing_window_button_1,
+	remove breakpoint toggling code.
+	(toggle_breakpoint): New procedure.
+	(create_file_win): Bind popup menu to button 2, toggle breakpoints
+ 	with button 1 in breakpoint area, add display of tagged areas if
+ 	debugging on.
+
+Thu May  2 12:46:14 1996  Jeffrey A Law  (law@cygnus.com)
+
+	From Peter Schauer:
+	* breakpoint.h (enum bpdisp):  Add del_at_next_stop.
+	* breakpoint.c (insert_breakpoints, watchpoint_check,
+	bpstat_stop_status):  Avoid bad references to memory freed via
+	delete_breakpoint on watchpoints going out of scope.
+	Do not delete these watchpoints, disable them and change their
+	disposition to del_at_next_stop instead.
+	(breakpoint_auto_delete):  Delete all breakpoints whose disposition
+	is del_at_next_stop.
+	(breakpoint_init_inferior):  Use switch to avoid reference to
+	already deleted breakpoint.
+
+Wed May  1 17:29:18 1996  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (rs6000-nat.o): Depend on xcoffsolib.h.
+	* config/rs6000/rs6000.mh (NATDEPFILES): Move xcoffread.o ...
+	* config/rs6000/rs6000.mt (TDEPFILES): ... to here.
+	* xcoffsolib.c (xcoff_relocate_symtab_hook): Define and initialize.
+	(solib_info): Call xcoff_relocate_symtab via the hook.
+	(sharedlibrary_command): Ditto.
+	* xcoffread.c: Remove all FAKING_RS6000 comments and defines.
+	(xcoff_add_toc_to_loadinfo_hook): Define and initialize here.
+	(xcoff_init_loadinfo_hook): Define and initialize here.
+	(scan_xcoff_symtab): Call xcoff_add_toc_to_loadinfo via the hook.
+	(xcoff_initial_scan): Call xcoff_init_loadinfo via the hook.
+	* xcoffsolib.h (xcoff_relocate_symtab_hook): Declare extern func.
+	* rs6000-tdep.c (_initialize_rs6000_tdep): Add initializations
+	of xcoff_add_toc_to_loadinfo_hook and xcoff_init_loadinfo_hook.
+	* rs6000-nat.c (_initialize_core_rs6000): Add initialization
+	of xcoff_relocate_symtab_hook.
+
+Tue Apr 30 13:22:02 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* configure (powerpcle-*-solaris*): Add Solaris support.
+
+	* config/powerpc/{solaris.m[ht],tm-solaris.h}: New files for
+	Solaris support.
+
+Mon Apr 29 16:17:31 1996  Dawn Perchik <dawn@cygnus.com>
+
+	* c-valprint.c (c_val_print): Fix printing for arrays defined 
+	with 0 length.
+
+Sun Apr 28 15:08:05 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	Support for bi-endian remote breakpoints.
+	* remote.c (big_break_insn, little_break_insn): New globals.
+	(break_insn): Remove.
+	(remote_insert_breakpoint, remote_remove_breakpoint): Use own
+	code if REMOTE_BREAKPOINT defined, otherwise call memory
+	breakpoint functions.
+	* config/sh/tm-sh.h (REMOTE_BREAKPOINT): Remove.
+	(BIG_REMOTE_BREAKPOINT, LITTLE_REMOTE_BREAKPOINT): Define.
+
+	* mon960-rom.c (mon960_cmds): Remove forward decl.
+	(mon960_load): Use current_monitor instead of mon960_cmds.
+	(mon960_regnames): Remove backslashes from line ends.
+	(_initialize_mon960): Fix documentation string.
+
+Sun Apr 28 12:10:35 1996  Fred Fish  <fnf@cygnus.com>
+
+	* symfile.h (psymbol_allocation_list):  Expand comments which
+	describe the psymbol allocation list and how each field is
+	used.
+
+Sun Apr 28 03:44:30 1996  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* breakpoint.c (delete_breakpoint):  Fix bpt->val, bpt->exp
+	storage leaks.
+	(breakpoint_re_set_one):  Fix b->exp, b->val, b->cond storage leaks.
+
+	* infcmd.c (run_command), solib.c (locate_base):  Check for
+	target_has_execution in addition to inferior_pid, a core file
+	from a threaded program is yielding a non-zero inferior_pid.
+
+	* sparc-tdep.c (get_saved_register):  Handle window registers
+	in a dummy frame correctly.
+
+Sat Apr 27 20:38:32 1996  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (CLIBS): Move $(MMALLOC) past all other libs,
+	so that anything that wants an allocation function not yet pulled
+	in, will get it from mmalloc rather than a system library.
+	* Makefile.in (INSTALLED_LIBS): Reorder to match order of CLIBS,
+	to avoid surprising results when used.
+
+Sat Apr 27 00:12:05 1996  Dawn Perchik  (dawn@cygnus.com)
+
+	* stabsread.c: Changes and bug fixes for cfront support.
+	Fix bug for class data members.
+	Fix parsing bug when no base classes exist.
+	Fix memory bug - allocate space for cplusplus specific info.
+	Add support for static data.
+	Add prototypes for static functions.
+	Enhance comments to show what each function expects to parse.
+	Cleanup code.
+	* stabsread.c(resolve_cont),dbxread.c(resolve_cont): Rename 
+	function to resolve_cfront_continuation.
+
+Fri Apr 26 23:58:26 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* infrun.c (wait_for_inferior): Call registers_changed when
+	restarting the inferior to get over a nullified instruction.
+	
+Tue Apr 24 12:12:55 1996  Dawn Perchik (dawn@cygnus.com)
+
+	* dbxread.c,stabsread.c,gdbtypes.c,partial-stab.h,valops.c: 
+	Add new support for parsing cfront stabs.
+
+Wed Apr 24 00:32:55 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* infrun.c (wait_for_inferior): Move "have_waited" label
+	outside of #ifdef conditionals.  Don't trash the wait status
+	if we get a signal and the current instruction is nullified.
+
 Mon Apr 22 20:17:01 1996  Fred Fish  <fnf@cygnus.com>
 
-	* Makefile.in (VERSION): Bump version number to 4.16
+	* Makefile.in (VERSION): Bump version number to 4.16.1.
 	* NEWS: Update for 4.16 release.
 
-Fri Apr 12 21:39:42 1996  Fred Fish  <fnf@cygnus.com>
+Mon Apr 22 16:32:29 1996  Stan Shebs  <shebs@andros.cygnus.com>
 
-	* Makefile.in (VERSION): Bump version to 4.15.86
+	* monitor.h: Clean up comment formatting.
+	(current_monitor): Remove decl.
+	(LOADTYPES, LOADPROTOS, INIT_CMD, etc): Remove definitions.
+	(push_monitor, SREC_SIZE): Remove.
+	* monitor.c: Expand old macro into current_monitor derefs
+	everywhere.
+	* remote-os9k.c (current_monitor): Remove definition.
+
+Mon Apr 22 14:54:45 1996  Mark Alexander  <marka@superball.cygnus.com>
+
+	* corefile.c (specify_exec_file_hook): Allow arbitrary number of
+ 	hooks.
+	(call_extra_exec_file_hooks): New function.
+	* h8300-tdep.c: Lint; add .h files to provide missing declarations,
+	remove unused variables.
+	(set_machine_hook): New function.
+	(_initialize_h8300m): Initialize it.
+
+Fri Apr 19 15:03:49 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* remote-mips.c (encoding): Don't specify size, to avoid bug in
+	SunOS native compiler.
+
+Thu Apr 18 18:46:57 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* monitor.c: Use int rather than LONGEST for values, since
+	the formatting strings are not prepared to accept long longs.
+
+Wed Apr 17 20:17:27 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* arm-tdep.c (initialize_arm_tdep): Make apcs32 a `zinteger'.
+
+Tue Apr 16 17:38:23 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* corelow.c (add_to_thread_list):  Make sure reg_sect is non-null
+	before de-referencing it.  Prevents deref of NULL pointer if core
+	file lacks .reg section.
+	* defs.h:  Rename floatformat_{to from}_long_double to
+	floatformat_{to from}_doublest.  Get rid of FLOATFORMAT_{TO
+	FROM}... macros.
+	* findvar.c (extract_floating store_floating):  Change all refs to
+	FLOATFORMAT_{FROM TO}... to floatformat_{from to}_doublest.
+	* utils.c:  Change floatformat_{to from}_long_double to
+	floatformat_{to from}_doublest cuz the new routines will use
+	whatever size (double or long double) is appropriate.
+	* config/i960/tm-i960.h (REGISTER_CONVERT_TO_VIRTUAL
+	REGISTER_CONVERT_TO_RAW):  Change FLOATFORMAT... macros to
+	floatformat... routine calls.
+
+Mon Apr 15 16:34:11 1996  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* stabsread.c (read_type):  Move handling of '@' from type
+	number handling to handling of types proper (as emitted by gcc!).
+	For typedefs, allocate the typedef type before reading its
+	definition, to properly handling recursive types.
+
+Mon Apr 15 11:19:26 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* ch-exp.c (calculate_array_length): Fix prototype.
+
+Sat Apr 13 14:21:16 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* remote-nindy.c (nindy_open):  Acquire more target state so that
+	user can attach to a previously running program.
+	* (nindy_fetch_registers nindy_store_registers):  Get rid of fp
+	conversion code.  That's all handled in {extract store}_floating
+	now.
+	* utils.c (floatformat_to_double):  Don't bias exponent when
+	handling zero's, denorms or NaNs.
+	* config/i960/tm-i960.h (REGISTER_CONVERT_TO_VIRTUAL
+	REGISTER_CONVERT_TO_RAW):  Change to using DOUBLST and
+	FLOATFORMAT_TO/FROM_DOUBLEST macros.
+	* config/i960/tm-nindy960.h:  Undefine
+	REGISTER_CONVERT_TO_VIRTUAL, REGISTER_CONVERT_TO_RAW, and
+	REGISTER_CONVERTIBLE.  These are no longer necessary now that all
+	the magic happens in extract/store_floating.
+
+Sat Apr 13 02:58:02 1996  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* eval.c (evaluate_subexp_standard):  Report error when attempting to
+	evaluate subscripts for types which cannot be subscripted.
+
+	* valarith.c (value_x_binop, value_x_unop):  Add noside parameter.
+	Return a zero value with the return type of the member function
+	if noside is EVAL_AVOID_SIDE_EFFECTS instead of calling the member
+	function.
+	* values.h (value_x_binop, value_x_unop):  Update prototypes
+	accordingly.
+	* eval.c (evaluate_subexp_standard):  Update all callers of
+	value_x_binop, value_x_unop accordingly.
+
+	* valarith.c (value_neg, value_complement):  Perform ANSI C/C++
+	integral promotion on operands.
+
+Fri Apr 12 13:19:27 1996  Fred Fish  <fnf@cygnus.com>
+
 	* README: Update for 4.16 release.
 	* configure.in (AC_CHECK_FUNCS): Also check for sbrk.
 	* configure: Regenerate with autoconf.
@@ -13,7 +684,18 @@ Fri Apr 12 21:39:42 1996  Fred Fish  <fnf@cygnus.com>
 	* main.c (main): Only use sbrk() when HAVE_SBRK is defined.
 	* top.c (command_loop): Ditto.
 
-Thu Apr 11 17:51:58 1996  Fred Fish  <fnf@cygnus.com>
+Fri Apr 12 09:45:29 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* defs.h:  Define TARGET_{FLOAT DOUBLE LONG_DOUBLE}_FORMAT
+	defaults for bi-endian targets.  Replace function pointers for
+	floatformat routines with macros.  No need for these to be runtime
+	selectable.
+	* findvar.c:  Get rid of floatformat function pointers.  Use
+	macros in extract_floating and store_floating.
+	* remote-nindy.c (nindy_fetch_registers nindy_store_registers):
+	Use floatformat macros.
+
+Thu Apr 11 21:28:02 1996  Fred Fish  <fnf@cygnus.com>
 
 	From: Miles Bader  <miles@gnu.ai.mit.edu>
 	* configure.in (AC_CHECK_HEADERS): check for endian.h.
@@ -27,6 +709,61 @@ Thu Apr 11 17:51:58 1996  Fred Fish  <fnf@cygnus.com>
 	* config/nm-m3.h (ATTACH_NO_WAIT): Define.
 	* infcmd.c (attach_command): Use "#ifndef ATTACH_NO_WAIT"
  	rather than "#ifndef MACH".
+
+Thu Apr 11 18:49:42 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* remote.c (remotewritesize): New GDB variable, controls size
+	of memory packets sent to the target.
+
+Thu Apr 11 13:47:52 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* dcache.c:  Add prototypes.  Make many functions static.
+	* (dcache_peek dcache_fetch dcache_poke):  Make dcache_fetch and
+	dcache_poke call dcache_xfer_memory directly in order to fix
+	problems with turning off dcache.  dcache_peek is now unnecessary,
+	so it goes away.
+
+	* defs.h:  Define new macros HOST_{FLOAT DOUBLE	LONG_DOUBLE}_FORMAT 
+	and TARGET_{FLOAT DOUBLE LONG_DOUBLE}_FORMAT to specify a pointer
+	to a struct floatformat.  This allows for better handling of
+	targets whose floating point formats differ from the host by more
+	than just byte order.
+	* (floatformat_to_long_double floatformat_from_long_double):
+	Prototypes for new functions in utils.c.
+	* (floatformat_to_doublest floatformat_from_doublest):  Prototypes
+	for pointers to floating point conversion functions.  The actual
+	function uses either double or long double if the host supports it.
+	* findvar.c (floatformat_to_doublest floatformat_from_doublest):
+	Initialize to point at correct function depending on HAVE_LONG_DOUBLE.
+	* (extract_floating store_floating):  Rewrite.  Now, if host fp
+	format is the same as the target, we just do a copy.  Otherwise,
+	we call floatformat_{to from}_doublest.
+	* remote-nindy.c (nindy_xfer_inferior_memory):  Change param
+	`write' to `should_write'.
+	* utils.c (floatformat_to_long_double
+	floatformat_from_long_double):  New routines that implement long
+	double versions of functions in libiberty/floatformat.c.
+	* config/i960/tm-i960.h (TARGET_LONG_DOUBLE_FORMAT):  Define this for
+	i960 extended real (80 bit) numbers.
+	* nindy-share/nindy.c (ninMemGet ninMemPut):  Return number of bytes
+	actually read or written.
+
+Wed Apr 10 02:56:06 1996  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* ch-valprint.c (chill_val_print): Remove call to calculate_array_length.
+	(calculate_array_length): Move function from here ...
+
+	* ch-exp.c (calculate_array_length): ... to here.
+	(parse_primval): If we have a symbol with an array type
+	and the length is 0, call calculate_array_length.
+
+Tue Apr  9 01:23:05 1996  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* eval.c (evaluate_subexp_standard): In case of TYPE_CODE_SET:
+	Add some checks for powerset compatibility.
+
+	* valops.c (value_slice): Use lowbound instead of lowerbound for
+	call to slice_range_type to get correct bounds.
 
 Mon Apr  8 12:53:56 1996  Fred Fish  <fnf@cygnus.com>
 
@@ -45,6 +782,16 @@ Mon Apr  8 12:53:56 1996  Fred Fish  <fnf@cygnus.com>
 	* hppa-tdep.c (compare_unwind_entries): Change argument types to
 	"const void *" to be type compatible with qsort, and then
 	assign to local args prior to use.
+
+Mon Apr  8 15:35:52 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* infptrace.c (kill_inferior): Remove call to "kill"; update
+	comments.
+
+Mon Apr  8 14:05:07 1996  Geoffrey Noer  <noer@cygnus.com>
+
+	* remote-e7000.c: don't append :23 to target port if __WIN32__
+	is defined (it's WinGDB).
 
 Sun Apr  7 22:34:29 1996  Fred Fish  <fnf@cygnus.com>
 
@@ -96,7 +843,20 @@ Sat Apr  6 00:46:26 1996  Fred Fish  <fnf@cygnus.com>
 	(hpread_build_psymtabs): Ditto.
 	(demangle.h): Include
 
-Thu Apr  4 17:59:58 1996  Fred Fish  <fnf@cygnus.com>
+Fri Apr  5 13:44:40 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdbtk.c (running_now): New global variable.
+	(gdb_cmd): Test it before executing any command.
+	(gdbtk_call_command): Set it when inferior is running.
+	* gdbtk.tcl (gdbtk_tcl_busy, gdbtk_tcl_idle): Enable and
+	disable interaction with command window's text appropriately.
+
+Fri Apr  5 13:25:42 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* gdbtk.c (SIOCSPGRP, linux): If on Linux, undef SIOCSPGRP, since
+	some versions of the kernel don't support it.
+
+Thu Apr  4 20:16:55 1996  Fred Fish  <fnf@cygnus.com>
 
 	* configure.in: Check for setpgid function.
 	* config.in: Regenerate with autoheader.
@@ -105,11 +865,8 @@ Thu Apr  4 17:59:58 1996  Fred Fish  <fnf@cygnus.com>
 	if it is actually defined.
 	(gdb_setpgid): Use HAVE_SETPGID.
 	* ch-exp.c: Change include of <string.h> to "gdb_string.h".
-	* c-exp.y: Ditto.
-	* f-exp.y: Ditto.
-	* m2-exp.y: Ditto.
-	* c-exp.y: Include <ctype.h>.
-	* serial.c: Ditto.
+	* c-exp.y, f-exp.y, m2-exp.y: Ditto.
+	* c-exp.y, serial.c: Include <ctype.h>.
 	* config/m68k/nm-news.h: Add typedef for pid_t which is
 	apparently missing from <sys/types.h>.  Enclose entire
 	file in NM_NEWS_H ifndef and define when included.
@@ -117,10 +874,38 @@ Thu Apr  4 17:59:58 1996  Fred Fish  <fnf@cygnus.com>
 	* config/m68k/tm-m68k.h (REGISTER_CONVERT_TO_VIRTUAL,
 	REGISTER_CONVERT_TO_RAW): Change name of temporary variable.
 
+Thu Apr  4 19:04:18 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* arm-xdep.c: Move native-specific code to here from arm-tdep.c.
+	* arm-tdep.c (arm_apcs_32): New global.
+	(arm_addr_bits_remove, arm_saved_pc_after_call,
+ 	arm_push_dummy_frame, arm_pop_frame): New functions.
+	(arm_skip_prologue): Updated version from Richard Earnshaw.
+	(_initialize_arm_tdep): Add set/show "apcs32".
+	* config/arm/tm-arm.h (ADDR_BITS_REMOVE): Call
+	arm_addr_bits_remove.
+	(SAVED_PC_AFTER_CALL): Call arm_saved_pc_after_call.
+	(frame_find_saved_regs): Declare properly.
+	(PUSH_DUMMY_FRAME): Call arm_push_dummy_frame.
+	(POP_FRAME): Call arm_pop_frame, use ADDR_BITS_REMOVE instead of
+	explicit mask.
+	* config/arm/nm-arm.h: New file.
+	* config/arm/xm-arm.h (KERNEL_U_ADDR, FETCH_INFERIOR_REGISTERS):
+	Move definitions to nm-arm.h.
+	* config/arm/arm.mh (NAT_FILE): Define.
+
+	* symfile.c (generic_load): Initialize data_count properly.
+
 Thu Apr  4 17:17:53 1996  Fred Fish  <fnf@cygnus.com>
 
 	* symmisc.c (print_objfile_statistics): Print memory used by
 	psymbol cache obstack.
+
+Thu Apr  4 15:43:07 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* symfile.c (report_transfer_performance): New function.
+	(generic_load): Call it to report transfer rate.
+	* remote-e7000.c (e7000_load): Ditto.
 
 Mon Apr  1 16:31:00 1996  Stan Shebs  <shebs@andros.cygnus.com>
 
@@ -138,6 +923,14 @@ Sun Mar 31 16:15:43 1996  Fred Fish  <fnf@cygnus.com>
 	fetch_register, child_xfer_memory): Use call_ptrace function supplied
 	by infptrace.c rather than calling ptrace directly.
 
+Sun Mar 31 15:39:00 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* mon960-rom.c: Cleanups and elimination of unused code,
+	clarify documentation string.
+	(mon960_serial, mon960_ttyname): Remove.
+	* config/i960/tm-mon960.h (ADDITIONAL_OPTIONS,
+	ADDITIONAL_OPTION_CASES, ADDITIONAL_OPTION_HELP): Remove.
+
 Sat Mar 30 11:00:22 1996  Fred Fish  <fnf@cygnus.com>
 
 	* configure.in: Check whether printf family supports printing
@@ -150,7 +943,7 @@ Sat Mar 30 11:00:22 1996  Fred Fish  <fnf@cygnus.com>
 	variable names so that they match the pattern required to
 	cache them.
 
-Fri Mar 29 21:53:14 1996  Fred Fish  <fnf@cygnus.com>
+Fri Mar 29 21:39:56 1996  Fred Fish  <fnf@cygnus.com>
 
 	* core-aout.c (fetch_core_registers): Cast core_reg_size to int
 	before testing against reg_ptr.
@@ -161,7 +954,7 @@ Fri Mar 29 21:53:14 1996  Fred Fish  <fnf@cygnus.com>
 	* values.c (unpack_field_as_long, modify_field): Ditto.
 	* valops.c (value_assign, call_function_by_hand): Ditto.
 	* infcmd.c (do_registers_info): Ditto.
-	* ser-tcp.c (tcp_open): Ditto
+	* ser-tcp.c (tcp_open): Ditto.
 	* remote.c (putpkt): Ditto.
 	* dcache.c (dcache_peek): Ditto.
 	* dcache.c (dcache_poke): Ditto.
@@ -171,7 +964,7 @@ Fri Mar 29 21:53:14 1996  Fred Fish  <fnf@cygnus.com>
 	out unused macro definition and variables.
 	* inftarg.c (proc_wait): Move from main.c to here, and make static.
 	* valprint.c (val_print_string): Change bufsize from int to unsigned.
-	* main.c (wait.h): Include
+	* main.c (wait.h): Include.
 	* top.c (command_line_input): Remove unused variable "c".
 	* f-typeprint.c (f_type_print_varspec_prefix): Add missing enum
 	value TYPE_CODE_TYPEDEF to switch statement.
@@ -235,31 +1028,35 @@ Fri Mar 29 21:53:14 1996  Fred Fish  <fnf@cygnus.com>
 	* config/i386/nm-linux.h: Add prototypes for i386_insert_watchpoint,
 	i386_remove_watchpoint and i386_stopped_by_watchpoint.
 	
+Thu Mar 28 12:53:19 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* configure.in (sparc64-*-solaris2*): Delete.
+	Stick with sparc-*-solaris2*.
+	* configure: Regenerated.
+
 Thu Mar 28 06:51:26 1996  Fred Fish  <fnf@cygnus.com>
 
 	* valops.c (value_assign): Make copy of internal variable value
 	before returning it as a new value, since it is owned by the 
 	internal variable and will be freed along with it.
 
-Wed Mar 27 12:54:55 1996  Fred Fish  <fnf@cygnus.com>
+Wed Mar 27 08:36:17 1996  Jeffrey A Law  (law@cygnus.com)
 
-	From Peter Schauer <Peter.Schauer@Regent.E-Technik.TU-Muenchen.DE>
-	* breakpoint.c (breakpoint_re_set_one):	 Keep temporary
+	* From Peter Schauer.
+	* breakpoint.c (breakpoint_re_set_one):  Keep temporary
 	breakpoints bp_until, bp_finish, bp_watchpoint_cope, bp_call_dummy
 	and bp_step_resume in case breakpoint_re_set_one is called due
 	to a step over a dlopen call.
-	* infrun.c (wait_for_inferior):	 Always remove breakpoints from
+	* infrun.c (wait_for_inferior):  Always remove breakpoints from
 	inferior in BPSTAT_WHAT_CHECK_SHLIBS case.
-	
-Tue Mar 26 13:15:32 1996  Fred Fish  <fnf@cygnus.com>
 
-	* Makefile.in (VERSION): Bump version to 4.15.85
+Tue Mar 26 13:15:32 1996  Fred Fish  <fnf@cygnus.com>
 
 	* config/mips/tm-mips.h (COERCE_FLOAT_TO_DOUBLE): Only prefer
 	non-prototyped case over prototyped case for C.
 	* config/pa/tm-hppa.h (COERCE_FLOAT_TO_DOUBLE):  Ditto.
 
-Sat Mar 23 15:50:47 1996  Fred Fish  <fnf@cygnus.com>
+Sat Mar 23 17:24:28 1996  Fred Fish  <fnf@cygnus.com>
 
 	* os9kread.c (os9k_process_one_symbol): Note nonportable
 	assumption that an int can hold a char *.

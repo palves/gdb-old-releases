@@ -445,7 +445,8 @@ push_target (t)
     while (t->to_stratum == cur->target_ops->to_stratum)
       {
 	/* There's already something on this stratum.  Close it off.  */
-	(cur->target_ops->to_close) (0);
+	if (cur->target_ops->to_close)
+	  (cur->target_ops->to_close) (0);
 	if (prev)
 	  prev->next = cur->next; /* Unchain old target_ops */
 	else
@@ -1608,7 +1609,8 @@ debug_to_xfer_memory (memaddr, myaddr, len, write, target)
 
   retval = debug_target.to_xfer_memory (memaddr, myaddr, len, write, target);
 
-  fprintf_unfiltered (stderr, "target_xfer_memory (0x%x, xxx, %d, %s, xxx) = %d",
+  fprintf_unfiltered (stderr,
+		      "target_xfer_memory (0x%x, xxx, %d, %s, xxx) = %d",
 		      memaddr, len, write ? "write" : "read", retval);
 
   if (retval > 0)
@@ -1617,7 +1619,11 @@ debug_to_xfer_memory (memaddr, myaddr, len, write, target)
 
       fputs_unfiltered (", bytes =", gdb_stderr);
       for (i = 0; i < retval; i++)
-	fprintf_unfiltered (stderr, " %02x", myaddr[i] & 0xff);
+	{
+	  if ((((long) &(myaddr[i])) & 0xf) == 0)
+	    fprintf_unfiltered (stderr, "\n");
+	  fprintf_unfiltered (stderr, " %02x", myaddr[i] & 0xff);
+	}
     }
 
   fputc_unfiltered ('\n', gdb_stderr);

@@ -31,7 +31,8 @@ AC_ARG_ENABLE(shared,
 [case "${enableval}" in
   yes) shared=true ;;
   no)  shared=false ;;
-  *)   AC_MSG_ERROR([bad value ${enableval} for opcodes shared option]) ;;
+  *opcodes*) shared=true ;;
+  *) shared=false ;;
 esac])dnl
 AC_ARG_ENABLE(commonbfdlib,
 [  --enable-commonbfdlib   build shared BFD/opcodes/libiberty library],
@@ -100,12 +101,15 @@ if test "${commonbfdlib}" = "true"; then
   COMMON_SHLIB=yes
   # Rebuild the shared library if libiberty or libbfd changes.
   SHLIB_DEP="../libiberty/libiberty.a ../bfd/libbfd.a"
+  BFD_PICLIST=../bfd/piclist
 else
   COMMON_SHLIB=
   SHLIB_DEP=
+  BFD_PICLIST=
 fi
 AC_SUBST(COMMON_SHLIB)
 AC_SUBST(SHLIB_DEP)
+AC_SUBST(BFD_PICLIST)
 AC_SUBST(SHLINK)
 
 AC_CHECK_HEADERS(string.h strings.h)

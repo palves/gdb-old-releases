@@ -28,3 +28,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* Solaris PSRVADDR support does not seem to include a place for nPC.  */
 
 #define PRSVADDR_BROKEN
+
+#ifdef HAVE_THREAD_DB_LIB
+
+#ifdef __STDC__
+struct objfile;
+#endif
+
+#define target_new_objfile(OBJFILE) sol_thread_new_objfile (OBJFILE)
+
+void sol_thread_new_objfile PARAMS ((struct objfile *objfile));
+
+#endif

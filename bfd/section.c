@@ -240,7 +240,7 @@ CODE_FRAGMENT
 .           sections. *}
 .#define SEC_COFF_SHARED_LIBRARY 0x800
 .
-.        {* The section is a common section (symbols may be defined
+.        {* The section contains common symbols (symbols may be defined
 .           multiple times, the value of a symbol is the amount of
 .           space it requires, and the largest symbol value is the one
 .           used).  Most targets have exactly one of these (which we
@@ -269,7 +269,48 @@ CODE_FRAGMENT
 .	   table.  *}
 .#define SEC_SORT_ENTRIES 0x80000
 .
+.	{* When linking, duplicate sections of the same name should be
+.	   discarded, rather than being combined into a single section as
+.	   is usually done.  This is similar to how common symbols are
+.	   handled.  See SEC_LINK_DUPLICATES below.  *}
+.#define SEC_LINK_ONCE 0x100000
+.
+.	{* If SEC_LINK_ONCE is set, this bitfield describes how the linker
+.	   should handle duplicate sections.  *}
+.#define SEC_LINK_DUPLICATES 0x600000
+.
+.	{* This value for SEC_LINK_DUPLICATES means that duplicate
+.	   sections with the same name should simply be discarded. *}
+.#define SEC_LINK_DUPLICATES_DISCARD 0x0
+.
+.	{* This value for SEC_LINK_DUPLICATES means that the linker
+.	   should warn if there are any duplicate sections, although
+.	   it should still only link one copy.  *}
+.#define SEC_LINK_DUPLICATES_ONE_ONLY 0x200000
+.
+.	{* This value for SEC_LINK_DUPLICATES means that the linker
+.	   should warn if any duplicate sections are a different size.  *}
+.#define SEC_LINK_DUPLICATES_SAME_SIZE 0x400000
+.
+.	{* This value for SEC_LINK_DUPLICATES means that the linker
+.	   should warn if any duplicate sections contain different
+.	   contents.  *}
+.#define SEC_LINK_DUPLICATES_SAME_CONTENTS 0x600000
+.
 .	{*  End of section flags.  *}
+.
+.	{* Some internal packed boolean fields.  *}
+.
+.	{* See the vma field.  *}
+.	unsigned int user_set_vma : 1;
+.
+.	{* Whether relocations have been processed.  *}
+.	unsigned int reloc_done : 1;
+.
+.	{* A mark flag used by some of the linker backends.  *}
+.	unsigned int linker_mark : 1;
+.
+.	{* End of internal packed boolean fields.  *}
 .
 .       {*  The virtual memory address of the section - where it will be
 .           at run time.  The symbols are relocated against this.  The
@@ -279,7 +320,6 @@ CODE_FRAGMENT
 .	    target and various flags).  *}
 .
 .   bfd_vma vma;
-.   boolean user_set_vma;
 .
 .       {*  The load address of the section - where it would be in a
 .           rom image; really only used for writing section header
@@ -380,7 +420,6 @@ CODE_FRAGMENT
 .
 .   bfd *owner;
 .
-.   boolean reloc_done;
 .	 {* A symbol which points at this section only *}
 .   struct symbol_cache_entry *symbol;
 .   struct symbol_cache_entry **symbol_ptr_ptr;
@@ -439,9 +478,9 @@ static const asymbol global_syms[] =
 #define STD_SECTION(SEC, FLAGS, SYM, NAME, IDX)	\
   const asymbol * const SYM = (asymbol *) &global_syms[IDX]; \
   const asection SEC = \
-    { NAME, 0, 0, FLAGS, 0, false, 0, 0, 0, 0, (asection *) &SEC, \
-      0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, (boolean) 0, \
-      (asymbol *) &global_syms[IDX], (asymbol **) &SYM, }
+    { NAME, 0, 0, FLAGS, 0, 0, 0, 0, 0, 0, 0, 0, (asection *) &SEC, \
+      0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, \
+      (asymbol *) &global_syms[IDX], (asymbol **) &SYM, 0, 0 }
 
 STD_SECTION (bfd_com_section, SEC_IS_COMMON, bfd_com_symbol,
 	     BFD_COM_SECTION_NAME, 0);

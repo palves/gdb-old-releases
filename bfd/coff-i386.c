@@ -455,7 +455,13 @@ const bfd_target
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
 
+#ifndef COFF_WITH_PE
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+#else
+  (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC /* section flags */
+   | SEC_LINK_ONCE | SEC_LINK_DUPLICATES),
+#endif
+
 #ifdef TARGET_UNDERSCORE
   TARGET_UNDERSCORE,		/* leading underscore */
 #else

@@ -1,5 +1,5 @@
 /* Target-vector operations for controlling Unix child processes, for GDB.
-   Copyright 1990, 1991, 1992, 1993, 1994, 1995
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
@@ -51,7 +51,7 @@ child_attach PARAMS ((char *, int));
 static void
 ptrace_me PARAMS ((void));
 
-static void
+static int
 ptrace_him PARAMS ((int));
 
 static void child_create_inferior PARAMS ((char *, char *, char **));
@@ -62,7 +62,9 @@ child_mourn_inferior PARAMS ((void));
 static int
 child_can_run PARAMS ((void));
 
+#ifndef CHILD_THREAD_ALIVE
 static int child_thread_alive PARAMS ((int));
+#endif
 
 extern char **environ;
 
@@ -264,7 +266,7 @@ ptrace_me ()
 /* Stub function which causes the GDB that runs it, to start ptrace-ing
    the child process.  */
 
-static void
+static int
 ptrace_him (pid)
      int pid;
 {
@@ -276,6 +278,8 @@ ptrace_him (pid)
   /* One trap to exec the shell, one to exec the program being debugged.  */
   startup_inferior (2);
 #endif
+
+  return pid;
 }
 
 /* Start an inferior Unix child process and sets inferior_pid to its pid.

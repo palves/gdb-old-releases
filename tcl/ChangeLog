@@ -1,3 +1,20 @@
+Thu Jun  6 15:04:44 1996  Gordon Irlam  <gordoni@snuffle.cygnus.com>
+
+	* doc/usenix.ps, doc/usenix.text: Removed because copyright status
+	unclear.
+
+Mon May 20 16:11:55 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* tcltk-man-html.tcl: Moved to devo/inet.
+
+Mon May  6 15:21:14 1996  Tom Tromey  <tromey@lisa.cygnus.com>
+
+	* tcltk-man-html.tcl: Search Tk section 3 man pages if possible.
+
+Wed May  1 15:17:14 1996  Tom Tromey  <tromey@lisa.cygnus.com>
+
+	* tcltk-man-html.tcl: New file.
+
 Thu Mar  7 10:01:05 1996  Tom Tromey  <tromey@creche.cygnus.com>
 
 	* Makefile.in (config.status): Don't depend on configure.

@@ -37,18 +37,19 @@ if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
     return -1
 }
 
+# Create and source the file that provides information about the compiler
+# used to compile the test case.
 execute_anywhere "rm -f ${binfile}.ci"
 if  { [compile "-E ${srcdir}/${subdir}/compiler.c > ${binfile}.ci"] != "" } {
-    perror "Couldn't make ${testfile}.ci file"
+    perror "Couldn't make ${binfile}.ci file"
     return -1
 }
+source ${binfile}.ci
 
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load ${binfile}
-
-source ${binfile}.ci
 
 #
 # set it up at a breakpoint so we can play with the variable values
@@ -984,6 +985,7 @@ expect {
 	send "print v_unsigned_short == 0\n"
 	expect {
 	    -re "print.*.\[0-9\]* = 0.*$prompt $" {
+		setup_xfail "h8300*-*-*"
 		send "print v_unsigned_short == ~0\n"
 		expect {
 		    -re "print.*.\[0-9\]* = 0.*$prompt $" {

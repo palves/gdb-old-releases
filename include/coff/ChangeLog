@@ -1,3 +1,49 @@
+Mon Jun 10 11:53:28 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* internal.h (R_BCC_INV, R_JMP_DEL): New relocations for
+	relaxing in the H8/300 series.
+
+Thu May 16 15:49:22 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* sh.h (R_SH_CODE, R_SH_DATA, R_SH_LABEL): Define.
+
+Tue May  7 00:36:39 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* internal.h (R_JMPL2): Renamed from R_JMPL_B8 to be
+	consistent with other similar relocs.
+
+	* internal.h (H8/300 specific relocs): Add comments better
+	explaining what each reloc is used for.
+	(R_MOV16B1, R_MOV16B2): Renamed from R_MOVB1 and R_MOVB2.
+	(R_MOV24B1, R_MOV24B2): Renamed from R_MOVLB1 and R_MOVLB2.
+	(R_MOVL1, R_MOVL2): New relocs.
+	
+Fri May  3 13:01:12 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* internal.h (R_PCRWORD_B): Define for the h8300 relaxing
+	linker.
+
+Wed May  1 19:21:03 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* internal.h (SCNNMLEN): Define.
+	(struct internal_scnhdr): Use SCNNMLEN for s_name field.
+
+Fri Mar 29 13:41:25 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* pe.h: Define IMAGE_COMDAT codes.
+
+Wed Mar 27 17:29:42 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* arm.h (union external_auxent): Add x_checksum, x_associated, and
+	x_comdat fields to x_scn struct.
+	* i386.h (union external_auxent): Likewise.
+	* powerpc.h (union external_auxent): Likewise.
+	* internal.h (union internal_auxent): Likewise.
+
+Thu Mar 21 16:25:57 1996  David Mosberger-Tang  <davidm@azstarnet.com>
+
+	* ecoff.h (struct ecoff_find_line): Add caching fields.
+
 Thu Mar 14 15:22:44 1996  Jeffrey A Law  (law@cygnus.com)
 
 	* internal.h (R_MEM_INDIRECT): New reloc for the h8300.

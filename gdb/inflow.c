@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "serial.h"
 #include "terminal.h"
 #include "target.h"
-#include "thread.h"
+#include "gdbthread.h"
 
 #include "gdb_string.h"
 #include <signal.h>

@@ -54,6 +54,17 @@ One option that may be especially useful is "-v", which shows you what
 tools and options are being used; unlike MPW C, GCC directs assembly
 and linking in addition to compilation.
 
+To find standard include files you can set the variable GCCIncludes:
+
+	set GCCIncludes MyDisk:MyIncludes:
+	export GCCIncludes
+
+GCCIncludes is similar to MPW's CIncludes or CW's MWCIncludes.  In
+order to use MPW's usual include files, just say:
+
+	set GCCIncludes "{CIncludes}"
+	export GCCIncludes
+
 The assembler ("as") and linker ("ld") are faithful ports of their
 Unix counterparts.  Similarly, the binutils "ar", "cplusfilt", "nm",
 "objcopy", "objdump", "ranlib", "size", "strings", and "strip" are all

@@ -32,9 +32,24 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    to the single saved instance. */
 
 struct psymbol_allocation_list {
-  struct partial_symbol **list;	/* Pointer to first partial symbol pointer*/
-  struct partial_symbol **next;	/* Pointer to next avail storage for pointer */
-  int size;			/* Number of symbols */
+
+  /* Pointer to beginning of dynamically allocated array of pointers to
+   partial symbols.  The array is dynamically expanded as necessary to
+   accommodate more pointers. */
+
+  struct partial_symbol **list;
+
+  /* Pointer to next available slot in which to store a pointer to a partial
+     symbol. */
+
+  struct partial_symbol **next;
+
+  /* Number of allocated pointer slots in current dynamic array (not the
+     number of bytes of storage).  The "next" pointer will always point
+     somewhere between list[0] and list[size], and when at list[size] the
+     array will be expanded on the next attempt to store a pointer. */
+
+  int size;
 };
 
 /* Structure to keep track of symbol reading functions for various

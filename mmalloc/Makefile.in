@@ -106,6 +106,7 @@ mmalloc.dvi: mmalloc.texi
 	rm -f mmalloc.?? mmalloc.??s mmalloc.log mmalloc.aux mmalloc.toc
 
 install-info: info
+	if test ! -f mmalloc.info ; then cd $(srcdir); fi; \
 	$(INSTALL_DATA) mmalloc.info $(infodir)/mmalloc.info
 
 check: test1.c

@@ -964,6 +964,35 @@ elf_link_add_object_symbols (abfd, info)
 	}
     }
 
+  /* If this is a non-traditional, non-relocateable link, try to
+     optimize the handling of the .stab/.stabstr sections.  */
+  if (! dynamic
+      && ! info->relocateable
+      && ! info->traditional_format
+      && info->hash->creator->flavour == bfd_target_elf_flavour
+      && (info->strip != strip_all && info->strip != strip_debugger))
+    {
+      asection *stab, *stabstr;
+
+      stab = bfd_get_section_by_name (abfd, ".stab");
+      if (stab != NULL)
+	{
+	  stabstr = bfd_get_section_by_name (abfd, ".stabstr");
+
+	  if (stabstr != NULL)
+	    {
+	      struct bfd_elf_section_data *secdata;
+
+	      secdata = elf_section_data (stab);
+	      if (! _bfd_link_section_stabs (abfd,
+					     &elf_hash_table (info)->stab_info,
+					     stab, stabstr,
+					     &secdata->stab_info))
+		goto error_return;
+	    }
+	}
+    }
+
   return true;
 
  error_return:
@@ -1554,6 +1583,18 @@ elf_adjust_dynamic_symbol (h, data)
 	}
     }
 
+  /* If this is a final link, and the symbol was defined as a common
+     symbol in a regular object file, and there was no definition in
+     any dynamic object, then the linker will have allocated space for
+     the symbol in a common section but the ELF_LINK_HASH_DEF_REGULAR
+     flag will not have been set.  */
+  if (h->root.type == bfd_link_hash_defined
+      && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_REGULAR) == 0
+      && (h->elf_link_hash_flags & ELF_LINK_HASH_REF_REGULAR) != 0
+      && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_DYNAMIC) == 0
+      && (h->root.u.def.section->owner->flags & DYNAMIC) == 0)
+    h->elf_link_hash_flags |= ELF_LINK_HASH_DEF_REGULAR;
+
   /* If -Bsymbolic was used (which means to bind references to global
      symbols to the definition within the shared object), and this
      symbol was defined in a regular object, then it actually doesn't
@@ -1797,6 +1838,12 @@ elf_bfd_final_link (abfd, info)
 	      asection *sec;
 
 	      sec = p->u.indirect.section;
+
+	      /* Mark all sections which are to be included in the
+		 link.  This will normally be every section.  We need
+		 to do this so that we can identify any sections which
+		 the linker has decided to not include.  */
+	      sec->linker_mark = true;
 
 	      if (info->relocateable)
 		o->reloc_count += sec->reloc_count;
@@ -2311,6 +2358,13 @@ elf_bfd_final_link (abfd, info)
 	}
     }
 
+  /* If we have optimized stabs strings, output them.  */
+  if (elf_hash_table (info)->stab_info != NULL)
+    {
+      if (! _bfd_write_stab_strings (abfd, &elf_hash_table (info)->stab_info))
+	goto error_return;
+    }
+
   if (finfo.symstrtab != NULL)
     _bfd_stringtab_free (finfo.symstrtab);
   if (finfo.contents != NULL)
@@ -2805,7 +2859,14 @@ elf_link_input_bfd (finfo, input_bfd)
   /* Relocate the contents of each section.  */
   for (o = input_bfd->sections; o != NULL; o = o->next)
     {
-      if ((o->flags & SEC_HAS_CONTENTS) == 0)
+      if (! o->linker_mark)
+	{
+	  /* This section was omitted from the link.  */
+	  continue;
+	}
+
+      if ((o->flags & SEC_HAS_CONTENTS) == 0
+	  || (o->_raw_size == 0 && (o->flags & SEC_RELOC) == 0))
 	continue;
 
       if ((o->flags & SEC_IN_MEMORY) != 0
@@ -3026,12 +3087,22 @@ elf_link_input_bfd (finfo, input_bfd)
 	}
 
       /* Write out the modified section contents.  */
-      if (! bfd_set_section_contents (output_bfd, o->output_section,
-				      finfo->contents, o->output_offset,
-				      (o->_cooked_size != 0
-				       ? o->_cooked_size
-				       : o->_raw_size)))
-	return false;
+      if (elf_section_data (o)->stab_info == NULL)
+	{
+	  if (! bfd_set_section_contents (output_bfd, o->output_section,
+					  finfo->contents, o->output_offset,
+					  (o->_cooked_size != 0
+					   ? o->_cooked_size
+					   : o->_raw_size)))
+	    return false;
+	}
+      else
+	{
+	  if (! _bfd_write_section_stabs (output_bfd, o,
+					  &elf_section_data (o)->stab_info,
+					  finfo->contents))
+	    return false;
+	}
     }
 
   return true;

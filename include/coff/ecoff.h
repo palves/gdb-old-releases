@@ -352,6 +352,18 @@ struct ecoff_find_line
   /* FDR table, sorted by address: */
   long fdrtab_len;
   struct ecoff_fdrtab_entry *fdrtab;
+
+  /* Cache entry for most recently found line information.  The sect
+     field is NULL if this cache does not contain valid information.  */
+  struct
+    {
+      asection *sect;
+      bfd_vma start;
+      bfd_vma stop;
+      const char *filename;
+      const char *functionname;
+      unsigned int line_num;
+    } cache;
 };
 
 /********************** SWAPPING **********************/

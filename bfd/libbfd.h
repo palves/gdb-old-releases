@@ -384,6 +384,8 @@ extern boolean _bfd_generic_link_add_archive_symbols
   PARAMS ((bfd *, struct bfd_link_info *,
 	   boolean (*checkfn) (bfd *, struct bfd_link_info *, boolean *)));
 
+
+
 /* Forward declaration to avoid prototype errors.  */
 typedef struct bfd_link_hash_entry _bfd_link_hash_entry;
 
@@ -422,6 +424,20 @@ extern bfd_reloc_status_type _bfd_final_link_relocate
 /* Relocate a particular location by a howto and a value.  */
 extern bfd_reloc_status_type _bfd_relocate_contents
   PARAMS ((reloc_howto_type *, bfd *, bfd_vma, bfd_byte *));
+
+/* Link stabs in sections in the first pass.  */
+
+extern boolean _bfd_link_section_stabs
+  PARAMS ((bfd *, PTR *, asection *, asection *, PTR *));
+
+/* Write out the .stab section when linking stabs in sections.  */
+
+extern boolean _bfd_write_section_stabs
+  PARAMS ((bfd *, asection *, PTR *, bfd_byte *));
+
+/* Write out the .stabstr string table when linking stabs in sections.  */
+
+extern boolean _bfd_write_stab_strings PARAMS ((bfd *, PTR *));
 
 /* Create a string table.  */
 extern struct bfd_strtab_hash *_bfd_stringtab_init PARAMS ((void));

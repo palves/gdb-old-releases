@@ -6,13 +6,9 @@ AC_INIT(../generic/tcl.h)
 AC_PROG_RANLIB
 AC_PREFIX_PROGRAM(tclsh)
 
-# CYGNUS LOCAL tromey - find config.guess/config.sub in our tree
-AC_CONFIG_AUX_DIR(../..)
-dnl We need AC_CANONICAL_SYSTEM before CY_AC_C_CROSS.
-AC_CANONICAL_SYSTEM
+# CYGNUS LOCAL
+CY_AC_C_WORKS
 # END CYGNUS LOCAL
-
-CY_AC_C_CROSS
 AC_PROG_CC
 
 # CYGNUS LOCAL dje/win32
@@ -50,6 +46,12 @@ if test x"$tcl_cv_sys_dospaths" = xyes ; then
 else
    AC_MSG_RESULT(no)
 fi
+
+# Some functions for location independence.
+AC_CHECK_FUNCS(realpath)
+# Always define this, since we create a replacement function for it.
+AC_DEFINE(HAVE_GETCWD)
+
 # END CYGNUS LOCAL
 
 #--------------------------------------------------------------------
@@ -88,7 +90,7 @@ AC_CHECK_LIB(ieee, main, [MATH_LIBS="-lieee $MATH_LIBS"])
 AC_CHECK_HEADERS(unistd.h)
 
 AC_MSG_CHECKING(dirent.h)
-AC_CACHE_VAL(ac_cv_header_dirent_h,[
+AC_CACHE_VAL(tcl_cv_header_dirent_h,[
 AC_TRY_LINK([#include <sys/types.h>
 #include <dirent.h>], [
 #ifndef _POSIX_SOURCE
@@ -108,9 +110,9 @@ d = opendir("foobar");
 entryPtr = readdir(d);
 p = entryPtr->d_name;
 closedir(d);
-], ac_cv_header_dirent_h=yes, ac_cv_header_dirent_h=no)
-AC_EGREP_HEADER([Sprite version.* NOT POSIX], dirent.h, ac_cv_header_dirent_h=no)])
-if test "$ac_cv_header_dirent_h" = no; then
+], tcl_cv_header_dirent_h=yes, tcl_cv_header_dirent_h=no)
+AC_EGREP_HEADER([Sprite version.* NOT POSIX], dirent.h, tcl_cv_header_dirent_h=no)])
+if test "$tcl_cv_header_dirent_h" = no; then
     AC_DEFINE(NO_DIRENT_H)
     AC_MSG_RESULT(no)
 else
@@ -126,23 +128,25 @@ AC_CHECK_HEADER(limits.h, , AC_DEFINE(NO_LIMITS_H))
 dnl ac_cv_header_stdlib_h is the default name for the cache variable
 dnl set from AC_CHECK_HEADER for this test
 AC_CHECK_HEADER(stdlib.h)
-if test x"$ac_cv_header_stdlib_h" = x"yes" ; then
-  AC_EGREP_HEADER(strtol,  stdlib.h, , ac_cv_header_stdlib_h=no)
-  AC_EGREP_HEADER(strtoul, stdlib.h, , ac_cv_header_stdlib_h=no)
-  AC_EGREP_HEADER(strtod,  stdlib.h, , ac_cv_header_stdlib_h=no)
+tcl_cv_header_stdlib_h=$ac_cv_header_stdlib_h
+if test x"$tcl_cv_header_stdlib_h" = x"yes" ; then
+  AC_EGREP_HEADER(strtol,  stdlib.h, , tcl_cv_header_stdlib_h=no)
+  AC_EGREP_HEADER(strtoul, stdlib.h, , tcl_cv_header_stdlib_h=no)
+  AC_EGREP_HEADER(strtod,  stdlib.h, , tcl_cv_header_stdlib_h=no)
 fi
-if test x"$ac_cv_header_stdlib_h" = x"no"; then
+if test x"$tcl_cv_header_stdlib_h" = x"no"; then
    AC_DEFINE(NO_STDLIB_H)
 fi
 
 dnl ac_cv_header_string_h is the default name for the cache variable
 dnl set from AC_CHECK_HEADER for this test
 AC_CHECK_HEADER(string.h)
-if test x"$ac_cv_header_string_h" = x"yes" ; then
-  AC_EGREP_HEADER(strstr,   string.h, , ac_cv_header_string_h=no)
-  AC_EGREP_HEADER(strerror, string.h, , ac_cv_header_string_h=no)
+tcl_cv_header_string_h=$ac_cv_header_string_h
+if test x"$tcl_cv_header_string_h" = x"yes" ; then
+  AC_EGREP_HEADER(strstr,   string.h, , tcl_cv_header_string_h=no)
+  AC_EGREP_HEADER(strerror, string.h, , tcl_cv_header_string_h=no)
 fi
-if test x"$ac_cv_c_string_h" = x"no" ; then
+if test x"$tcl_cv_c_string_h" = x"no" ; then
    AC_DEFINE(NO_STRING_H)
 fi
 
@@ -154,18 +158,15 @@ AC_CHECK_HEADER(sys/wait.h, , AC_DEFINE(NO_SYS_WAIT_H))
 #	even if the original string is empty.
 #--------------------------------------------------------------------
 
-dnl ac_cv_func_strstr is default name for the cache variable
-dnl AC_CHECK_FUNC(strstr), which we don't use. If this doesn't
-dnl compile, we know we don't have it, so why check twice.
 AC_MSG_CHECKING([for a working strstr])
-AC_CACHE_VAL(ac_cv_func_strstr,[
+AC_CACHE_VAL(tcl_cv_func_strstr,[
 AC_TRY_RUN([
 extern int strstr();
 int main()
 {
   exit(strstr("\0test", "test") ? 1 : 0);
-}], ac_cv_func_strstr=yes , ac_cv_func_strstr=no, ac_cv_func_strstr=no)])
-if test x"$ac_cv_func_strstr" = x"no" ; then
+}], tcl_cv_func_strstr=yes , tcl_cv_func_strstr=no, tcl_cv_func_strstr=no)])
+if test x"$tcl_cv_func_strstr" = x"no" ; then
   LIBOBJS="$LIBOBJS strstr.o"
   AC_MSG_RESULT(no)
 else
@@ -178,11 +179,8 @@ fi
 #	pointer for the string "0".
 #--------------------------------------------------------------------
 
-dnl ac_cv_func_strtoul is default name for the cache variable
-dnl AC_CHECK_FUNC(strtoul), which we don't use. If this doesn't
-dnl compile, we know we don't have it, so why check twice.
 AC_MSG_CHECKING([for a working strtoul])
-AC_CACHE_VAL(ac_cv_func_strtoul,[
+AC_CACHE_VAL(tcl_cv_func_strtoul,[
 AC_TRY_RUN([
 extern int strtoul();
 int main()
@@ -195,8 +193,8 @@ int main()
         exit(1);
     }
     exit(0);
-}], ac_cv_func_strtoul=yes, ac_cv_func_strtoul=no, ac_cv_func_strtoul=no)])
-if test x"$ac_cv_func_strtoul" = x"no" ; then
+}], tcl_cv_func_strtoul=yes, tcl_cv_func_strtoul=no, tcl_cv_func_strtoul=no)])
+if test x"$tcl_cv_func_strtoul" = x"no" ; then
   LIBOBJS="$LIBOBJS strtoul.o"
   AC_MSG_RESULT(no)
 else
@@ -208,11 +206,8 @@ fi
 #	versions of Linux strtod mis-parses strings starting with "+".
 #--------------------------------------------------------------------
 
-dnl ac_cv_func_strtoul is default name for the cache variable
-dnl AC_CHECK_FUNC(strtod), which we don't use. If this doesn't
-dnl compile, we know we don't have it, so why check twice.
 AC_MSG_CHECKING([for a working strtod])
-AC_CACHE_VAL(ac_cv_func_strtod,[
+AC_CACHE_VAL(tcl_cv_func_strtod,[
 AC_TRY_RUN([
 extern double strtod();
 int main()
@@ -225,7 +220,7 @@ int main()
 	exit(1);
     }
     exit(0);
-}], ac_cv_func_strtod=yes, ac_cv_func_strtod=no, ac_cv_func_strtod=no)])
+}], tcl_cv_func_strtod=yes, tcl_cv_func_strtod=no, tcl_cv_func_strtod=no)])
 
 #--------------------------------------------------------------------
 #	Under Solaris 2.4, strtod returns the wrong value for the
@@ -234,7 +229,7 @@ int main()
 #	"fixstrtod" that corrects the error.
 #--------------------------------------------------------------------
 
-if test x"$ac_cv_func_strtod" = x"yes" ; then
+if test x"$tcl_cv_func_strtod" = x"yes" ; then
     tcl_ok=0
     AC_TRY_RUN([
 	extern double strtod();
@@ -247,14 +242,14 @@ if test x"$ac_cv_func_strtod" = x"yes" ; then
 		exit(1);
 	    }
 	    exit(0);
-	}], , ac_cv_func_strtod=buggy, ac_cv_func_strtod=buggy)
+	}], , tcl_cv_func_strtod=buggy, tcl_cv_func_strtod=buggy)
 fi
 
-if test x"$ac_cv_func_strtod" = xno ; then
+if test x"$tcl_cv_func_strtod" = xno ; then
    LIBOBJS="$LIBOBJS strtod.o"
    AC_MSG_RESULT(no)
 else
-   if test x"$ac_cv_func_strtod" = xbuggy ; then
+   if test x"$tcl_cv_func_strtod" = xbuggy ; then
       AC_MSG_RESULT(buggy)
       LIBOBJS="$LIBOBJS fixstrtod.o"
       AC_DEFINE(strtod, fixstrtod)
@@ -291,14 +286,14 @@ AC_CHECK_FUNC(opendir, , AC_DEFINE(USE_DIRENT2_H))
 #--------------------------------------------------------------------
 
 AC_MSG_CHECKING([union wait])
-AC_CACHE_VAL(ac_cv_c_union_wait,[
+AC_CACHE_VAL(tcl_cv_c_union_wait,[
 AC_TRY_LINK([#include <sys/types.h> 
 #include <sys/wait.h>], [
 union wait x;
 WIFEXITED(x);		/* Generates compiler error if WIFEXITED
 			 * uses an int. */
-], ac_cv_c_union_wait=yes, ac_cv_c_union_wait=no)])
-if test x"$ac_cv_c_union_wait" = xno; then
+], tcl_cv_c_union_wait=yes, tcl_cv_c_union_wait=no)])
+if test x"$tcl_cv_c_union_wait" = xno; then
     AC_MSG_RESULT(no)
     AC_DEFINE(NO_UNION_WAIT)
 else
@@ -311,13 +306,13 @@ fi
 #--------------------------------------------------------------------
 
 AC_MSG_CHECKING([matherr support])
-AC_CACHE_VAL(ac_cv_c_matherr,[
+AC_CACHE_VAL(tcl_cv_c_matherr,[
 AC_TRY_COMPILE([#include <math.h>], [
 struct exception x;
 x.type = DOMAIN;
 x.type = SING;
-], ac_cv_c_matherr=yes, ac_cv_c_matherr=no)])
-if test x"$ac_cv_c_matherr" = xyes; then
+], tcl_cv_c_matherr=yes, tcl_cv_c_matherr=no)])
+if test x"$tcl_cv_c_matherr" = xyes; then
     AC_DEFINE(NEED_MATHERR)
     AC_MSG_RESULT(no)
 else

@@ -72,6 +72,8 @@ _bfd_elf_create_got_section (abfd, info)
       && ! _bfd_elf_link_record_dynamic_symbol (info, h))
     return false;
 
+  elf_hash_table (info)->hgot = h;
+
   /* The first three global offset table entries are reserved.  */
   s->_raw_size += 3 * 4;
 
@@ -301,7 +303,10 @@ _bfd_elf_create_linker_section (abfd, info, which, defaults)
 						     (struct bfd_link_hash_entry **) &h)))
 	    return (elf_linker_section_t *)0;
 
-	  h->elf_link_hash_flags |= ELF_LINK_HASH_DEF_DYNAMIC;
+	  if ((defaults->which != LINKER_SECTION_SDATA)
+	      && (defaults->which != LINKER_SECTION_SDATA2))
+	    h->elf_link_hash_flags |= ELF_LINK_HASH_DEF_DYNAMIC;
+
 	  h->type = STT_OBJECT;
 	  lsect->sym_hash = h;
 

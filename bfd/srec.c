@@ -767,6 +767,22 @@ srec_get_section_contents (abfd, section, location, offset, count)
   return true;
 }
 
+/* Set the architecture.  We accept an unknown architecture here.  */
+
+static boolean
+srec_set_arch_mach (abfd, arch, mach)
+     bfd *abfd;
+     enum bfd_architecture arch;
+     unsigned long mach;
+{
+  if (arch == bfd_arch_unknown)
+    {
+      abfd->arch_info = &bfd_default_arch_struct;
+      return true;
+    }
+  return bfd_default_set_arch_mach (abfd, arch, mach);
+}
+
 /* we have to save up all the Srecords for a splurge before output */
 
 static boolean
@@ -1204,8 +1220,6 @@ srec_print_symbol (ignore_abfd, afile, symbol, how)
 
 #define srec_get_section_contents_in_window \
   _bfd_generic_get_section_contents_in_window
-
-#define srec_set_arch_mach bfd_default_set_arch_mach
 
 #define srec_bfd_get_relocated_section_contents \
   bfd_generic_get_relocated_section_contents

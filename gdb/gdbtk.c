@@ -49,22 +49,37 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <sys/stropts.h>
 #endif
 
+/* Some versions (1.3.79, 1.3.81) of Linux don't support SIOCSPGRP the way
+   gdbtk wants to use it... */
+#ifdef __linux__
+#undef SIOCSPGRP
+#endif
+
 /* Handle for TCL interpreter */
+
 static Tcl_Interp *interp = NULL;
 
 /* Handle for TK main window */
+
 static Tk_Window mainWindow = NULL;
 
 static int x_fd;		/* X network socket */
 
-/* This variable determines where memory used for disassembly is read from.
+/* This variable is true when the inferior is running.  Although it's
+   possible to disable most input from widgets and thus prevent
+   attempts to do anything while the inferior is running, any commands
+   that get through - even a simple memory read - are Very Bad, and
+   may cause GDB to crash or behave strangely.  So, this variable
+   provides an extra layer of defense.  */
 
-   If > 0, then disassembly comes from the exec file rather than the target
-   (which might be at the other end of a slow serial link).  If == 0 then
-   disassembly comes from target.  If < 0 disassembly is automatically switched
-   to the target if it's an inferior process, otherwise the exec file is
-   used.
- */
+static int running_now;
+
+/* This variable determines where memory used for disassembly is read from.
+   If > 0, then disassembly comes from the exec file rather than the
+   target (which might be at the other end of a slow serial link).  If
+   == 0 then disassembly comes from target.  If < 0 disassembly is
+   automatically switched to the target if it's an inferior process,
+   otherwise the exec file is used.  */
 
 static int disassemble_from_exec = -1;
 
@@ -132,6 +147,7 @@ gdbtk_fputs (ptr, stream)
      const char *ptr;
      FILE *stream;
 {
+
   if (result_ptr)
     Tcl_DStringAppend (result_ptr, (char *)ptr, -1);
   else
@@ -167,6 +183,64 @@ gdbtk_query (query, args)
   val = atol (interp->result);
   return val;
 }
+
+/* VARARGS */
+static void
+#ifdef ANSI_PROTOTYPES
+gdbtk_readline_begin (char *format, ...)
+#else
+gdbtk_readline_begin (va_alist)
+     va_dcl
+#endif
+{
+  va_list args;
+  char buf[200], *merge[2];
+  char *command;
+
+#ifdef ANSI_PROTOTYPES
+  va_start (args, format);
+#else
+  char *format;
+  va_start (args);
+  format = va_arg (args, char *);
+#endif
+
+  vsprintf (buf, format, args);
+  merge[0] = "gdbtk_tcl_readline_begin";
+  merge[1] = buf;
+  command = Tcl_Merge (2, merge);
+  Tcl_Eval (interp, command);
+  free (command);
+}
+
+static char *
+gdbtk_readline (prompt)
+     char *prompt;
+{
+  char *merge[2];
+  char *command;
+
+  merge[0] = "gdbtk_tcl_readline";
+  merge[1] = prompt;
+  command = Tcl_Merge (2, merge);
+  if (Tcl_Eval (interp, command) == TCL_OK)
+    {
+      return (strdup (interp -> result));
+    }
+  else
+    {
+      gdbtk_fputs (interp -> result, gdb_stdout);
+      gdbtk_fputs ("\n", gdb_stdout);
+      return (NULL);
+    }
+}
+
+static void
+gdbtk_readline_end ()
+{
+  Tcl_Eval (interp, "gdbtk_tcl_readline_end");
+}
+
 
 static void
 #ifdef ANSI_PROTOTYPES
@@ -604,7 +678,7 @@ register_changed_p (regnum, argp)
 	      REGISTER_RAW_SIZE (regnum)) == 0)
     return;
 
-  /* Found a changed register.  Save new value and return it's number. */
+  /* Found a changed register.  Save new value and return its number. */
 
   memcpy (&old_regs[REGISTER_BYTE (regnum)], raw_buffer,
 	  REGISTER_RAW_SIZE (regnum));
@@ -625,7 +699,7 @@ gdb_changed_register_list (clientData, interp, argc, argv)
   return map_arg_registers (argc, argv, register_changed_p, NULL);
 }
 
-/* This implements the TCL command `gdb_cmd', which sends it's argument into
+/* This implements the TCL command `gdb_cmd', which sends its argument into
    the GDB command scanner.  */
 
 static int
@@ -637,6 +711,9 @@ gdb_cmd (clientData, interp, argc, argv)
 {
   if (argc != 2)
     error ("wrong # args");
+
+  if (running_now)
+    return TCL_OK;
 
   execute_command (argv[1], 1);
 
@@ -684,8 +761,9 @@ call_wrapper (clientData, interp, argc, argv)
 
       gdb_flush (gdb_stdout);	/* Sometimes error output comes here as well */
 
-/* In case of an error, we may need to force the GUI into idle mode because
-   gdbtk_call_command may have bombed out while in the command routine.  */
+      /* In case of an error, we may need to force the GUI into idle
+	 mode because gdbtk_call_command may have bombed out while in
+	 the command routine.  */
 
       Tcl_Eval (interp, "gdbtk_tcl_idle");
     }
@@ -837,7 +915,7 @@ gdb_disassemble (clientData, interp, argc, argv)
      correctly.
 
      Else, we're debugging a remote process, and should disassemble from the
-     exec file for speed.  However, this is no good if the target modifies it's
+     exec file for speed.  However, this is no good if the target modifies its
      code (for relocation, or whatever).
    */
 
@@ -989,6 +1067,10 @@ tk_command (cmd, from_tty)
   char *result;
   struct cleanup *old_chain;
 
+  /* Catch case of no argument, since this will make the tcl interpreter dump core. */
+  if (cmd == NULL)
+    error_no_arg ("tcl command to interpret");
+
   retval = Tcl_Eval (interp, cmd);
 
   result = strdup (interp->result);
@@ -1074,14 +1156,31 @@ gdbtk_call_command (cmdblk, arg, from_tty)
      char *arg;
      int from_tty;
 {
+  running_now = 0;
   if (cmdblk->class == class_run)
     {
+      running_now = 1;
       Tcl_Eval (interp, "gdbtk_tcl_busy");
       (*cmdblk->function.cfunc)(arg, from_tty);
       Tcl_Eval (interp, "gdbtk_tcl_idle");
+      running_now = 0;
     }
   else
     (*cmdblk->function.cfunc)(arg, from_tty);
+}
+
+/* This function is called instead of gdb's internal command loop.  This is the
+   last chance to do anything before entering the main Tk event loop. */
+
+static void
+tk_command_loop ()
+{
+  extern GDB_FILE *instream;
+
+  /* We no longer want to use stdin as the command input stream */
+  instream = NULL;
+  Tcl_Eval (interp, "gdbtk_tcl_preloop");
+  Tk_MainLoop ();
 }
 
 static void
@@ -1133,7 +1232,7 @@ gdbtk_init ()
   Tcl_CreateCommand (interp, "gdb_get_breakpoint_info", call_wrapper,
 		     gdb_get_breakpoint_info, NULL);
 
-  command_loop_hook = Tk_MainLoop;
+  command_loop_hook = tk_command_loop;
   print_frame_info_listing_hook = null_routine;
   query_hook = gdbtk_query;
   flush_hook = gdbtk_flush;
@@ -1143,6 +1242,9 @@ gdbtk_init ()
   interactive_hook = gdbtk_interactive;
   target_wait_hook = gdbtk_wait;
   call_command_hook = gdbtk_call_command;
+  readline_begin_hook = gdbtk_readline_begin;
+  readline_hook = gdbtk_readline;
+  readline_end_hook = gdbtk_readline_end;
 
   /* Get the file descriptor for the X server */
 
@@ -1212,7 +1314,7 @@ gdbtk_init ()
   discard_cleanups (old_chain);
 }
 
-/* Come here during initialze_all_files () */
+/* Come here during initialize_all_files () */
 
 void
 _initialize_gdbtk ()

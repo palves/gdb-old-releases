@@ -125,7 +125,9 @@ typedef long int file_ptr;
 #else
 #ifdef __GNUC__
 #define BFD_HOST_64_BIT long long
-#endif /* defined (__GNUC__) */
+#else /* ! defined (__GNUC__) */
+ #error No 64 bit integer type available
+#endif /* ! defined (__GNUC__) */
 #endif /* ! BFD_HOST_64BIT_LONG */
 #endif /* ! defined (BFD_HOST_64_BIT) */
 
@@ -664,5 +666,17 @@ extern boolean bfd_xcoff_size_dynamic_sections
   PARAMS ((bfd *, struct bfd_link_info *, const char *, const char *,
 	   unsigned long, unsigned long, unsigned long, boolean,
 	   int, boolean, boolean, struct sec **));
+
+/* Externally visible COFF routines.  */
+
+#if defined(__STDC__) || defined(ALMOST_STDC)
+struct internal_syment;
+union internal_auxent;
+#endif
+
+extern boolean bfd_coff_get_syment
+  PARAMS ((bfd *, struct symbol_cache_entry *, struct internal_syment *));
+extern boolean bfd_coff_get_auxent
+  PARAMS ((bfd *, struct symbol_cache_entry *, int, union internal_auxent *));
 
 /* And more from the source.  */

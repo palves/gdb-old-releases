@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "value.h"
 #include "command.h"
 #include "inferior.h"
-#include "thread.h"
+#include "gdbthread.h"
 #include "target.h"
 #include "language.h"
 #include "gdb_string.h"
@@ -330,10 +330,9 @@ commands_command (arg, from_tty)
   ALL_BREAKPOINTS (b)
     if (b->number == bnum)
       {
-	if (from_tty && input_from_terminal_p ())
-	  printf_filtered ("Type commands for when breakpoint %d is hit, one per line.\n\
-End with a line saying just \"end\".\n", bnum);
-	l = read_command_lines ();
+	char tmpbuf[128];
+	sprintf (tmpbuf, "Type commands for when breakpoint %d is hit, one per line.", bnum);
+	l = read_command_lines (tmpbuf, from_tty);
 	free_command_lines (&b->commands);
 	b->commands = l;
 	breakpoints_changed ();
@@ -574,8 +573,12 @@ insert_breakpoints ()
 Hardware watchpoint %d deleted because the program has left the block in\n\
 which its expression is valid.\n", b->number);
 	    if (b->related_breakpoint)
-	      delete_breakpoint (b->related_breakpoint);
-	    delete_breakpoint (b);
+	      {
+		b->related_breakpoint->enable = disable;
+		b->related_breakpoint->disposition = del_at_next_stop;
+	      }
+	    b->enable = disable;
+	    b->disposition = del_at_next_stop;
 	  }
 
 	/* Restore the frame and level.  */
@@ -691,21 +694,32 @@ breakpoint_init_inferior ()
     {
       b->inserted = 0;
 
-      /* If the call dummy breakpoint is at the entry point it will
-	 cause problems when the inferior is rerun, so we better
-	 get rid of it.  */
-      if (b->type == bp_call_dummy)
-	delete_breakpoint (b);
+      switch (b->type)
+	{
+	case bp_call_dummy:
+	case bp_watchpoint_scope:
 
-      /* Likewise for scope breakpoints.  */
-      if (b->type == bp_watchpoint_scope)
-	delete_breakpoint (b);
+	  /* If the call dummy breakpoint is at the entry point it will
+	     cause problems when the inferior is rerun, so we better
+	     get rid of it. 
 
-      /* Likewise for watchpoints on local expressions.  */
-      if ((b->type == bp_watchpoint || b->type == bp_hardware_watchpoint ||
-           b->type == bp_read_watchpoint || b->type == bp_access_watchpoint)
-	  && b->exp_valid_block != NULL)
-	delete_breakpoint (b);
+	     Also get rid of scope breakpoints.  */
+	  delete_breakpoint (b);
+	  break;
+
+	case bp_watchpoint:
+	case bp_hardware_watchpoint:
+	case bp_read_watchpoint:
+	case bp_access_watchpoint:
+
+	  /* Likewise for watchpoints on local expressions.  */
+	  if (b->exp_valid_block != NULL)
+	    delete_breakpoint (b);
+	  break;
+
+	default:
+	  break;
+	}
     }
 }
 
@@ -917,6 +931,11 @@ bpstat_do_actions (bsp)
   bpstat bs;
   struct cleanup *old_chain;
   struct command_line *cmd;
+
+  /* Avoid endless recursion if a `source' command is contained
+     in bs->commands.  */
+  if (executing_breakpoint_commands)
+    return;
 
   executing_breakpoint_commands = 1;
   old_chain = make_cleanup (cleanup_executing_breakpoints, 0);
@@ -1151,8 +1170,12 @@ watchpoint_check (p)
 Watchpoint %d deleted because the program has left the block in\n\
 which its expression is valid.\n", bs->breakpoint_at->number);
       if (b->related_breakpoint)
-	delete_breakpoint (b->related_breakpoint);
-      delete_breakpoint (b);
+	{
+	  b->related_breakpoint->enable = disable;
+	  b->related_breakpoint->disposition = del_at_next_stop;
+	}
+      b->enable = disable;
+      b->disposition = del_at_next_stop;
 
       return WP_DELETED;
     }
@@ -1280,8 +1303,12 @@ bpstat_stop_status (pc, not_a_breakpoint)
 	      /* Error from catch_errors.  */
 	      printf_filtered ("Watchpoint %d deleted.\n", b->number);
 	      if (b->related_breakpoint)
-		delete_breakpoint (b->related_breakpoint);
-	      delete_breakpoint (b);
+		{
+		  b->related_breakpoint->enable = disable;
+		  b->related_breakpoint->disposition = del_at_next_stop;
+		}
+	      b->enable = disable;
+	      b->disposition = del_at_next_stop;
 	      /* We've already printed what needs to be printed.  */
 	      bs->print_it = print_it_done;
 
@@ -1326,9 +1353,13 @@ bpstat_stop_status (pc, not_a_breakpoint)
                 case 0:
                   /* Error from catch_errors.  */
                   printf_filtered ("Watchpoint %d deleted.\n", b->number);
-                  if (b->related_breakpoint)
-                    delete_breakpoint (b->related_breakpoint);
-                  delete_breakpoint (b);
+		  if (b->related_breakpoint)
+		    {
+		      b->related_breakpoint->enable = disable;
+		      b->related_breakpoint->disposition = del_at_next_stop;
+		    }
+		  b->enable = disable;
+		  b->disposition = del_at_next_stop;
                   /* We've already printed what needs to be printed.  */
                   bs->print_it = print_it_done;
                   break;
@@ -1638,8 +1669,8 @@ breakpoint_1 (bnum, allflag)
 			      "sigtramp",
 			      "watchpoint scope", "call dummy",
 			      "shlib events" };
-  static char *bpdisps[] = {"del", "dis", "keep"};
-  static char bpenables[] = "ny";
+  static char *bpdisps[] = {"del", "dstp", "dis", "keep"};
+  static char bpenables[] = "nyn";
   char wrap_indent[80];
 
   ALL_BREAKPOINTS (b)
@@ -2182,19 +2213,6 @@ set_momentary_breakpoint (sal, frame, type)
   return b;
 }
 
-#if 0
-void
-clear_momentary_breakpoints ()
-{
-  register struct breakpoint *b, *temp;
-  ALL_BREAKPOINTS_SAFE (b, temp)
-    if (b->disposition == delete)
-      {
-	delete_breakpoint (b);
-	break;
-      }
-}
-#endif
 
 /* Tell the user we have just set a breakpoint B.  */
 
@@ -2263,43 +2281,6 @@ mention (b)
   printf_filtered ("\n");
 }
 
-#if 0
-/* Nobody calls this currently. */
-/* Set a breakpoint from a symtab and line.
-   If TEMPFLAG is nonzero, it is a temporary breakpoint.
-   ADDR_STRING is a malloc'd string holding the name of where we are
-   setting the breakpoint.  This is used later to re-set it after the
-   program is relinked and symbols are reloaded.
-   Print the same confirmation messages that the breakpoint command prints.  */
-
-void
-set_breakpoint (s, line, tempflag, addr_string)
-     struct symtab *s;
-     int line;
-     int tempflag;
-     char *addr_string;
-{
-  register struct breakpoint *b;
-  struct symtab_and_line sal;
-  
-  sal.symtab = s;
-  sal.line = line;
-  sal.pc = 0;
-  resolve_sal_pc (&sal);			/* Might error out */
-  describe_other_breakpoints (sal.pc);
-
-  b = set_raw_breakpoint (sal);
-  set_breakpoint_count (breakpoint_count + 1);
-  b->number = breakpoint_count;
-  b->type = bp_breakpoint;
-  b->cond = 0;
-  b->addr_string = addr_string;
-  b->enable = enabled;
-  b->disposition = tempflag ? delete : donttouch;
-
-  mention (b);
-}
-#endif /* 0 */
 
 /* Set a breakpoint according to ARG (function, linenum or *address)
    flag: first bit  : 0 non-temporary, 1 temporary.
@@ -3231,17 +3212,26 @@ clear_command (arg, from_tty)
   free ((PTR)sals.sals);
 }
 
-/* Delete breakpoint in BS if they are `delete' breakpoints.
+/* Delete breakpoint in BS if they are `delete' breakpoints and
+   all breakpoints that are marked for deletion, whether hit or not.
    This is called after any breakpoint is hit, or after errors.  */
 
 void
 breakpoint_auto_delete (bs)
      bpstat bs;
 {
+  struct breakpoint *b, *temp;
+
   for (; bs; bs = bs->next)
     if (bs->breakpoint_at && bs->breakpoint_at->disposition == del 
 	&& bs->stop)
       delete_breakpoint (bs->breakpoint_at);
+
+  ALL_BREAKPOINTS_SAFE (b, temp)
+    {
+      if (b->disposition == del_at_next_stop)
+	delete_breakpoint (b);
+    }
 }
 
 /* Delete a breakpoint and clean up all traces of it in the data structures. */
@@ -3303,8 +3293,12 @@ delete_breakpoint (bpt)
     free (bpt->cond_string);
   if (bpt->addr_string != NULL)
     free (bpt->addr_string);
+  if (bpt->exp != NULL)
+    free (bpt->exp);
   if (bpt->exp_string != NULL)
     free (bpt->exp_string);
+  if (bpt->val != NULL)
+    value_free (bpt->val);
   if (bpt->source_file != NULL)
     free (bpt->source_file);
 
@@ -3437,9 +3431,13 @@ breakpoint_re_set_one (bint)
 	 particular level, but that's going to be less stable than filenames
 	 or functionnames.  */
       /* So for now, just use a global context.  */
+      if (b->exp)
+	free ((PTR)b->exp);
       b->exp = parse_expression (b->exp_string);
       b->exp_valid_block = innermost_block;
       mark = value_mark ();
+      if (b->val)
+	value_free (b->val);
       b->val = evaluate_expression (b->exp);
       release_value (b->val);
       if (VALUE_LAZY (b->val))
@@ -3448,6 +3446,8 @@ breakpoint_re_set_one (bint)
       if (b->cond_string != NULL)
 	{
 	  s = b->cond_string;
+	  if (b->cond)
+	    free ((PTR)b->cond);
 	  b->cond = parse_exp_1 (&s, (struct block *)0, 0);
 	}
       if (b->enable == enabled)
@@ -3628,27 +3628,74 @@ map_breakpoint_numbers (args, function)
 }
 
 void
-enable_breakpoint (bpt)
+disable_breakpoint (bpt)
      struct breakpoint *bpt;
+{
+  /* Never disable a watchpoint scope breakpoint; we want to
+     hit them when we leave scope so we can delete both the
+     watchpoint and its scope breakpoint at that time.  */
+  if (bpt->type == bp_watchpoint_scope)
+    return;
+
+  bpt->enable = disabled;
+
+  check_duplicates (bpt->address);
+
+  if (modify_breakpoint_hook)
+    modify_breakpoint_hook (bpt);
+}
+
+/* ARGSUSED */
+static void
+disable_command (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  register struct breakpoint *bpt;
+  if (args == 0)
+    ALL_BREAKPOINTS (bpt)
+      switch (bpt->type)
+	{
+	case bp_breakpoint:
+        case bp_hardware_breakpoint:
+        case bp_watchpoint:
+        case bp_hardware_watchpoint:
+        case bp_read_watchpoint:
+        case bp_access_watchpoint:
+	  disable_breakpoint (bpt);
+	default:
+	  continue;
+	}
+  else
+    map_breakpoint_numbers (args, disable_breakpoint);
+}
+
+static void
+do_enable_breakpoint (bpt, disposition)
+     struct breakpoint *bpt;
+     enum bpdisp disposition;
 {
   struct frame_info *save_selected_frame = NULL;
   int save_selected_frame_level = -1;
   int target_resources_ok, other_type_used;
   struct value *mark;
-  
+
   if (bpt->type == bp_hardware_breakpoint)
     {
       int i;
       i = hw_breakpoint_used_count();
-      target_resources_ok = TARGET_CAN_USE_HARDWARE_WATCHPOINT( 
+      target_resources_ok = TARGET_CAN_USE_HARDWARE_WATCHPOINT(
 		bp_hardware_breakpoint, i+1, 0);
       if (target_resources_ok == 0)
         error ("No hardware breakpoint support in the target.");
       else if (target_resources_ok < 0)
         error ("Hardware breakpoints used exceeds limit.");
     }
+
   bpt->enable = enabled;
+  bpt->disposition = disposition;
   check_duplicates (bpt->address);
+  breakpoints_changed ();
 
   if (bpt->type == bp_watchpoint || bpt->type == bp_hardware_watchpoint ||
       bpt->type == bp_read_watchpoint || bpt->type == bp_access_watchpoint)
@@ -3694,9 +3741,9 @@ is valid is not currently in scope.\n", bpt->number);
              printf_filtered("\
 Cannot enable watchpoint %d because target watch resources\n\
 have been allocated for other watchpoints.\n", bpt->number);
-	    bpt->enable = disabled;
-	    value_free_to_mark (mark);
-  	    return;
+	     bpt->enable = disabled;
+	     value_free_to_mark (mark);
+	     return;
           }
       }
 
@@ -3704,10 +3751,20 @@ have been allocated for other watchpoints.\n", bpt->number);
 	select_frame (save_selected_frame, save_selected_frame_level);
       value_free_to_mark (mark);
     }
-
   if (modify_breakpoint_hook)
     modify_breakpoint_hook (bpt);
 }
+
+void
+enable_breakpoint (bpt)
+     struct breakpoint *bpt;
+{
+  do_enable_breakpoint (bpt, donttouch);
+}
+
+/* The enable command enables the specified breakpoints (or all defined
+   breakpoints) so they once again become (or continue to be) effective
+   in stopping the inferior. */
 
 /* ARGSUSED */
 static void
@@ -3715,7 +3772,7 @@ enable_command (args, from_tty)
      char *args;
      int from_tty;
 {
-  struct breakpoint *bpt;
+  register struct breakpoint *bpt;
   if (args == 0)
     ALL_BREAKPOINTS (bpt)
       switch (bpt->type)
@@ -3734,127 +3791,11 @@ enable_command (args, from_tty)
     map_breakpoint_numbers (args, enable_breakpoint);
 }
 
-void
-disable_breakpoint (bpt)
-     struct breakpoint *bpt;
-{
-  /* Never disable a watchpoint scope breakpoint; we want to
-     hit them when we leave scope so we can delete both the
-     watchpoint and its scope breakpoint at that time.  */
-  if (bpt->type == bp_watchpoint_scope)
-    return;
-
-  bpt->enable = disabled;
-
-  check_duplicates (bpt->address);
-
-  if (modify_breakpoint_hook)
-    modify_breakpoint_hook (bpt);
-}
-
-/* ARGSUSED */
-static void
-disable_command (args, from_tty)
-     char *args;
-     int from_tty;
-{
-  register struct breakpoint *bpt;
-  if (args == 0)
-    ALL_BREAKPOINTS (bpt)
-      switch (bpt->type)
-	{
-	case bp_breakpoint:
-        case bp_hardware_breakpoint:
-        case bp_watchpoint:
-        case bp_hardware_watchpoint:
-        case bp_read_watchpoint:
-        case bp_access_watchpoint:
-	  disable_breakpoint (bpt);
-	default:
-	  continue;
-	}
-  else
-    map_breakpoint_numbers (args, disable_breakpoint);
-}
-
 static void
 enable_once_breakpoint (bpt)
      struct breakpoint *bpt;
 {
-  struct frame_info *save_selected_frame = NULL;
-  int save_selected_frame_level = -1;
-  int target_resources_ok, other_type_used;
-  struct value *mark;
-
-  if (bpt->type == bp_hardware_breakpoint) 
-    {   
-      int i;
-      i = hw_breakpoint_used_count();
-      target_resources_ok = TARGET_CAN_USE_HARDWARE_WATCHPOINT(
-		bp_hardware_breakpoint, i+1, 0);
-      if (target_resources_ok == 0)
-        error ("No hardware breakpoint support in the target.");
-      else if (target_resources_ok < 0)
-        error ("Hardware breakpoints used exceeds limit.");
-    }
-
-  bpt->enable = enabled;
-  bpt->disposition = disable;
-  check_duplicates (bpt->address);
-  breakpoints_changed ();
-
-  if (bpt->type == bp_watchpoint || bpt->type == bp_hardware_watchpoint ||
-      bpt->type == bp_read_watchpoint || bpt->type == bp_access_watchpoint)
-    {
-      if (bpt->exp_valid_block != NULL)
-	{
-	  struct frame_info *fr =
-	    find_frame_addr_in_frame_chain (bpt->watchpoint_frame);
-	  if (fr == NULL)
-	    {
-	      printf_filtered ("\
-Cannot enable watchpoint %d because the block in which its expression\n\
-is valid is not currently in scope.\n", bpt->number);
-	      bpt->enable = disabled;
-	      return;
-	    }
-
-	  save_selected_frame = selected_frame;
-	  save_selected_frame_level = selected_frame_level;
-	  select_frame (fr, -1);
-	}
-
-      value_free (bpt->val);
-      mark = value_mark ();
-      bpt->val = evaluate_expression (bpt->exp);
-      release_value (bpt->val);
-      if (VALUE_LAZY (bpt->val))
-	value_fetch_lazy (bpt->val);
-
-      if (bpt->type == bp_hardware_watchpoint ||
-           bpt->type == bp_read_watchpoint ||
-           bpt->type == bp_access_watchpoint)
-      {
-        int i = hw_watchpoint_used_count (bpt->type, &other_type_used);
-        int mem_cnt = can_use_hardware_watchpoint(bpt->val);
-        target_resources_ok = TARGET_CAN_USE_HARDWARE_WATCHPOINT(
-                bpt->type, i+mem_cnt, other_type_used);
-        /* we can consider of type is bp_hardware_watchpoint, convert to 
-	   bp_watchpoint in the following condition */
-        if (target_resources_ok < 0)
-	  {
-             printf_filtered("\
-Cannot enable watchpoint %d because target watch resources\n\
-have been allocated for other watchpoints.\n", bpt->number);
-	    bpt->enable = disabled;
-	    value_free_to_mark (mark);
-          }
-      }
-
-      if (save_selected_frame_level >= 0)
-	select_frame (save_selected_frame, save_selected_frame_level);
-      value_free_to_mark (mark);
-    }
+  do_enable_breakpoint (bpt, disable);
 }
 
 /* ARGSUSED */
@@ -3870,11 +3811,7 @@ static void
 enable_delete_breakpoint (bpt)
      struct breakpoint *bpt;
 {
-  bpt->enable = enabled;
-  bpt->disposition = del;
-
-  check_duplicates (bpt->address);
-  breakpoints_changed ();
+  do_enable_breakpoint (bpt, del);
 }
 
 /* ARGSUSED */

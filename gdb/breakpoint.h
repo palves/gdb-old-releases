@@ -98,6 +98,7 @@ enum enable { disabled, enabled, shlib_disabled};
 
 enum bpdisp {
   del,				/* Delete it */
+  del_at_next_stop,		/* Delete at next stop, whether hit or not */
   disable,			/* Disable it */
   donttouch			/* Leave it alone */
 };
@@ -365,8 +366,6 @@ extern int breakpoint_thread_match PARAMS ((CORE_ADDR, int));
 extern void until_break_command PARAMS ((char *, int));
 
 extern void breakpoint_re_set PARAMS ((void));
-
-extern void clear_momentary_breakpoints PARAMS ((void));
 
 extern struct breakpoint *set_momentary_breakpoint
   PARAMS ((struct symtab_and_line, struct frame_info *, enum bptype));

@@ -263,7 +263,7 @@ static const template i386_optab[] = {
 {"call", 1, 0xff, 2, Modrm|Data32, { Reg|Mem|JumpAbsolute, 0, 0} },
 {"callw", 1, 0xff, 2, Modrm|Data16, { Reg|Mem|JumpAbsolute, 0, 0} },
 #define CALL_FAR_IMMEDIATE 0x9a
-{"lcall", 2, 0x9a, _, JumpInterSegment, { Imm16, Abs32|Imm32, 0} },
+{"lcall", 2, 0x9a, _, JumpInterSegment, { Imm16, Imm32, 0} },
 {"lcall", 1, 0xff, 3, Modrm|Data32, { Mem, 0, 0} },
 {"lcallw", 1, 0xff, 3, Modrm|Data16, { Mem, 0, 0} },
 

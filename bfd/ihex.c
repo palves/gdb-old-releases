@@ -104,6 +104,18 @@ Another document reports these additional types:
    10..13	Upper 16 bits of start address
    14..15	Checksum in hex notation
    16..17	Carriage return, line feed
+
+The MRI compiler uses this, which is a repeat of type 5:
+
+  EXTENDED START RECORD
+   Byte 1	Header = colon (:)
+   2..3		The byte count, must be "04"
+   4..7		Load address, must be "0000"
+   8..9		Record type, must be "05"
+   10..13	Upper 16 bits of start address
+   14..17	Lower 16 bits of start address
+   18..19	Checksum in hex notation
+   20..21	Carriage return, line feed
 */
 
 #include "bfd.h"
@@ -454,7 +466,7 @@ ihex_scan (abfd)
 
 	    case 5:
 	      /* An extended linear start address record.  */
-	      if (len != 2)
+	      if (len != 2 && len != 4)
 		{
 		  (*_bfd_error_handler)
 		    ("%s:%d: bad extended linear start address length in Intel Hex file",
@@ -463,7 +475,10 @@ ihex_scan (abfd)
 		  goto error_return;
 		}
 
-	      abfd->start_address += HEX4 (buf) << 16;
+	      if (len == 2)
+		abfd->start_address += HEX4 (buf) << 16;
+	      else
+		abfd->start_address = (HEX4 (buf) << 16) + HEX4 (buf + 4);
 
 	      sec = NULL;
 
@@ -852,21 +867,24 @@ ihex_write_object_contents (abfd)
 
       start = abfd->start_address;
 
-      if (start > 0xfffff)
+      if (start <= 0xfffff)
+	{
+	  startbuf[0] = ((start & 0xf0000) >> 12) & 0xff;
+	  startbuf[1] = 0;
+	  startbuf[2] = (start >> 8) & 0xff;
+	  startbuf[3] = start & 0xff;
+	  if (! ihex_write_record (abfd, 4, 0, 3, startbuf))
+	    return false;
+	}
+      else
 	{
 	  startbuf[0] = (start >> 24) & 0xff;
 	  startbuf[1] = (start >> 16) & 0xff;
-	  if (! ihex_write_record (abfd, 2, 0, 5, startbuf))
+	  startbuf[2] = (start >> 8) & 0xff;
+	  startbuf[3] = start & 0xff;
+	  if (! ihex_write_record (abfd, 4, 0, 5, startbuf))
 	    return false;
-	  start &= 0xffff;
 	}
-
-      startbuf[0] = ((start & 0xf0000) >> 12) & 0xff;
-      startbuf[1] = 0;
-      startbuf[2] = (start >> 8) & 0xff;
-      startbuf[3] = start & 0xff;
-      if (! ihex_write_record (abfd, 4, 0, 3, startbuf))
-	return false;
     }
 
   if (! ihex_write_record (abfd, 0, 0, 1, NULL))

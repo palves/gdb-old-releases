@@ -38,6 +38,12 @@ INSTALL_ROOT =
 # run-time to override the compiled-in location):
 TK_LIBRARY =		$(prefix)/lib/tk$(VERSION)
 
+# CYGNUS LOCAL location independence
+# What is appended to the prefix to get the library name.  Note that
+# this MUST begin with a "/".
+TK_LIB_TRAILER = /lib/tk$(VERSION)
+# END CYGNUS LOCAL
+
 # Path name to use when installing library scripts:
 SCRIPT_INSTALL_DIR =	$(INSTALL_ROOT)$(TK_LIBRARY)
 
@@ -95,7 +101,7 @@ LIBS = libtk.a $(TCL_BIN_DIR)/libtcl.a $(X11_LIB_SWITCHES) $(DL_LIBS) @LIBS@ @MA
 
 # To change the compiler switches, for example to change from -O
 # to -g, change the following line:
-CFLAGS = -O
+CFLAGS = @CFLAGS@
 
 # To turn off the security checks that disallow incoming sends when
 # the X server appears to be insecure, reverse the comments on the
@@ -195,7 +201,8 @@ CC_SWITCHES =	${CFLAGS} -I${UNIX_DIR} -I${GENERIC_DIR} \
 -I${BMAP_DIR} \
 -I${TCL_DIR} ${X11_INCLUDES} \
 ${AC_FLAGS} ${PROTO_FLAGS} ${SECURITY_FLAGS} ${MEM_DEBUG_FLAGS} \
-${KEYSYM_FLAGS} -DTK_LIBRARY=\"${TK_LIBRARY}\"
+${KEYSYM_FLAGS} -DTK_LIBRARY=\"${TK_LIBRARY}\" \
+-DTK_LIB_TRAILER=\"${TK_LIB_TRAILER}\"
 
 WISH_OBJS = tkAppInit.o
 
@@ -321,7 +328,7 @@ install-binaries: libtk.a wish
 	@$(INSTALL_DATA) libtk.a $(LIB_INSTALL_DIR)/libtk$(VERSION).a
 	@$(RANLIB) $(LIB_INSTALL_DIR)/libtk$(VERSION).a
 	@echo "Installing wish"
-	@$(INSTALL_PROGRAM) wish $(BIN_INSTALL_DIR)/wish$(VERSION)
+	@$(INSTALL_PROGRAM) wish $(BIN_INSTALL_DIR)/wish
 
 install-libraries:
 	@for i in $(INSTALL_ROOT)$(prefix)/lib $(INCLUDE_INSTALL_DIR) \
@@ -375,7 +382,7 @@ install-demos:
 	    done;
 
 install-man:
-	@for i in $(MAN_INSTALL_DIR) $(MAN1_INSTALL_DIR) $(MAN3_INSTALL_DIR) $(MANN_INSTALL_DIR) ; \
+	@for i in $(MAN_INSTALL_DIR) $(MAN1_INSTALL_DIR) $(MAN3_INSTALL_DIR) ; \
 	    do \
 	    if [ ! -d $$i ] ; then \
 		echo "Making directory $$i"; \
@@ -401,16 +408,16 @@ install-man:
 		    $$i > $(MAN3_INSTALL_DIR)/$$i; \
 	    chmod 444 $(MAN3_INSTALL_DIR)/$$i; \
 	    done;
-	$(UNIX_DIR)/mkLinks $(MAN3_INSTALL_DIR)
 	@cd $(SRC_DIR)/doc; for i in *.n; \
 	    do \
 	    echo "Installing doc/$$i"; \
-	    rm -f $(MANN_INSTALL_DIR)/$$i; \
+	    name=`echo $$i | sed -e 's/n$$/3/'`; \
+	    rm -f $(MAN3_INSTALL_DIR)/$$name; \
 	    sed -e '/man\.macros/r man.macros' -e '/man\.macros/d' \
-		    $$i > $(MANN_INSTALL_DIR)/$$i; \
-	    chmod 444 $(MANN_INSTALL_DIR)/$$i; \
+		    $$i > $(MAN3_INSTALL_DIR)/$$name; \
+	    chmod 444 $(MAN3_INSTALL_DIR)/$$name; \
 	    done;
-	$(UNIX_DIR)/mkLinks $(MANN_INSTALL_DIR)
+	$(UNIX_DIR)/mkLinks $(MAN3_INSTALL_DIR)
 
 Makefile: $(UNIX_DIR)/Makefile.in
 	$(SHELL) config.status

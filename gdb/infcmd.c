@@ -187,7 +187,7 @@ run_command (args, from_tty)
 
   dont_repeat ();
 
-  if (inferior_pid)
+  if (inferior_pid != 0 && target_has_execution)
     {
       if (
 	  !query ("The program being debugged has been started already.\n\
@@ -1019,7 +1019,11 @@ do_registers_info (regnum, fpregs)
 
 	  printf_filtered ("\t(raw 0x");
 	  for (j = 0; j < REGISTER_RAW_SIZE (i); j++)
-	    printf_filtered ("%02x", (unsigned char)raw_buffer[j]);
+	    {
+	      register int idx = TARGET_BYTE_ORDER == BIG_ENDIAN ? j
+		: REGISTER_RAW_SIZE (i) - 1 - j;
+	      printf_filtered ("%02x", (unsigned char)raw_buffer[idx]);
+	    }
 	  printf_filtered (")");
 	}
 

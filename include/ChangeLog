@@ -1,3 +1,20 @@
+Tue Jun  4 18:58:16 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* bfdlink.h (struct bfd_link_info): Add notice_all field.
+
+Fri Apr 26 10:33:12 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* demangle.h (#ifdef IN_GCC): #include "gansidecl.h".
+	(PROTO,PTR,const): Delete.
+
+Mon Apr 22 17:27:42 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* bfdlink.h (struct bfd_link_info): Add traditional_format field.
+
+Mon Apr 15 15:16:56 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* libiberty.h (choose_temp_base): Add prototype.
+
 Tue Mar 12 17:29:46 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* bfdlink.h (bfd_wrapped_link_hash_lookup): Declare.

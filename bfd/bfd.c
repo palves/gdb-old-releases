@@ -428,6 +428,8 @@ _bfd_default_error_handler (const char *s, ...)
 
   if (_bfd_error_program_name != NULL)
     fprintf (stderr, "%s: ", _bfd_error_program_name);
+  else
+    fprintf (stderr, "BFD: ");
 
   va_start (p, s);
 
@@ -451,6 +453,8 @@ _bfd_default_error_handler (va_alist)
 
   if (_bfd_error_program_name != NULL)
     fprintf (stderr, "%s: ", _bfd_error_program_name);
+  else
+    fprintf (stderr, "BFD: ");
 
   va_start (p);
 

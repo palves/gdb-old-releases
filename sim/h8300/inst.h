@@ -1,9 +1,20 @@
 #define DEBUG
 
-#define H8300_MSIZE (1<<16)
+/* These define the size of main memory for the simulator.
 
-/* This value coincides with the default linker script.
-   Don't change either without considering the effect on the other.  */
+   Note the size of main memory for the H8/300H is only 256k.  Keeping it
+   small makes the simulator run much faster and consume less memory.
+
+   The linker knows about the limited size of the simulator's main memory
+   on the H8/300H (via the h8300h.sc linker script).  So if you change
+   H8300H_MSIZE, be sure to fix the linker script too.
+
+   Also note that there's a separate "eightbit" area aside from main
+   memory.  For simplicity, the simulator assumes any data memory reference
+   outside of main memory refers to the eightbit area (in theory, this
+   can only happen when simulating H8/300H programs).  We make no attempt
+   to catch overlapping addresses, wrapped addresses, etc etc.  */
+#define H8300_MSIZE (1<<16)
 #define H8300H_MSIZE (1<<18)
 
 #define CSIZE 1000
@@ -57,6 +68,7 @@ typedef struct
   
 
   unsigned char *memory;
+  unsigned char *eightbit;
   unsigned short *cache_idx;
   int cache_top;
   int maximum;

@@ -1,3 +1,16 @@
+Mon May  6 09:45:20 1996  Tom Tromey  <tromey@lisa.cygnus.com>
+
+	* generic/tkMain.c (Tk_Main): Exit after printing version number.
+
+Tue Apr 30 13:40:04 1996  Tom Tromey  <tromey@snuffle.cygnus.com>
+
+	* generic/tkMain.c (Tk_Main): Removed "-inet-1.0".
+
+Mon Apr 29 17:43:15 1996  Tom Tromey  <tromey@snuffle.cygnus.com>
+
+	* generic/tkMain.c (argTable): Added -version.
+	(Tk_Main): Handle -version.
+
 Thu Mar  7 10:08:57 1996  Tom Tromey  <tromey@creche.cygnus.com>
 
 	* Makefile.in (config.status): Depend on nothing.

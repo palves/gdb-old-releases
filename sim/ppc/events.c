@@ -99,12 +99,34 @@ event_queue_init(event_queue *queue)
   }
   queue->queue = NULL;
     
-  /* wind time back to zero */
+  /* wind time back to one */
   queue->time_of_event = 0;
-  queue->time_from_event = 0;
+  queue->time_from_event = -1;
 }
 
+INLINE_EVENTS\
+(signed64)
+event_queue_time(event_queue *queue)
+{
+  return queue->time_of_event - queue->time_from_event;
+}
 
+STATIC_INLINE_EVENTS\
+(void)
+update_time_from_event(event_queue *events)
+{
+  signed64 current_time = event_queue_time(events);
+  if (events->queue != NULL) {
+    events->time_from_event = (events->queue->time_of_event - current_time);
+    events->time_of_event = events->queue->time_of_event;
+  }
+  else {
+    events->time_of_event = current_time - 1;
+    events->time_from_event = -1;
+  }
+  ASSERT(current_time == event_queue_time(events));
+  ASSERT((events->time_from_event >= 0) == (events->queue != NULL));
+}
 
 STATIC_INLINE_EVENTS\
 (void)
@@ -116,13 +138,11 @@ insert_event_entry(event_queue *events,
   event_entry **last;
   signed64 time_of_event;
 
-  if (delta <= 0)
-    error("can not schedule event for current time\n");
+  if (delta < 0)
+    error("what is past is past!\n");
 
   /* compute when the event should occure */
-  time_of_event = (events->time_of_event
-		   - events->time_from_event
-		   + delta);
+  time_of_event = event_queue_time(events) + delta;
 
   /* find the queue insertion point - things are time ordered */
   last = &events->queue;
@@ -138,10 +158,7 @@ insert_event_entry(event_queue *events,
   new_event->time_of_event = time_of_event;
 
   /* adjust the time until the first event */
-  events->time_from_event = (events->queue->time_of_event
-			     - (events->time_of_event
-				- events->time_from_event));
-  events->time_of_event = events->queue->time_of_event;
+  update_time_from_event(events);
 }
 
 INLINE_EVENTS\
@@ -155,7 +172,7 @@ event_queue_schedule(event_queue *events,
   new_event->data = data;
   new_event->handler = handler;
   insert_event_entry(events, new_event, delta_time);
-  return new_event;
+  return (event_entry_tag)new_event;
 }
 
 
@@ -183,7 +200,7 @@ event_queue_schedule_after_signal(event_queue *events,
   events->held_end = &new_event->next;
   /*-UNLOCK-*/
 
-  return new_event;
+  return (event_entry_tag)new_event;
 }
 
 
@@ -192,18 +209,21 @@ INLINE_EVENTS\
 event_queue_deschedule(event_queue *events,
 		       event_entry_tag event_to_remove)
 {
+  event_entry *to_remove = (event_entry*)event_to_remove;
+  ASSERT((events->time_from_event >= 0) == (events->queue != NULL));
   if (event_to_remove != NULL) {
     event_entry *current;
     event_entry **ptr_to_current;
     for (ptr_to_current = &events->queue, current = *ptr_to_current;
-	 current != NULL && current != event_to_remove;
+	 current != NULL && current != to_remove;
 	 ptr_to_current = &current->next, current = *ptr_to_current);
-    if (current == event_to_remove) {
+    if (current == to_remove) {
       *ptr_to_current = current->next;
       zfree(current);
-      /* Just forget to recompute the delay to the next event */
+      update_time_from_event(events);
     }
   }
+  ASSERT((events->time_from_event >= 0) == (events->queue != NULL));
 }
 
 
@@ -213,6 +233,8 @@ INLINE_EVENTS\
 (int)
 event_queue_tick(event_queue *events)
 {
+  signed64 time_from_event;
+
   /* remove things from the asynchronous event queue onto the real one */
   if (events->held != NULL) {
     event_entry *held_events;
@@ -233,41 +255,29 @@ event_queue_tick(event_queue *events)
 
   /* advance time, checking to see if we've reached time zero which
      would indicate the time for the next event has arrived */
-  events->time_from_event -= 1;
-  return events->time_from_event == 0;
+  time_from_event = events->time_from_event;
+  events->time_from_event = time_from_event - 1;
+  return time_from_event == 0;
 }
 
 INLINE_EVENTS\
 (void)
 event_queue_process(event_queue *events)
 {
-  if (events->time_from_event == 0) {
-    /* consume all events for this or earlier times */
-    do {
-      event_entry *to_do = events->queue;
-      events->queue = to_do->next;
-      to_do->handler(events,
-		     to_do->data);
-      zfree(to_do);
-    } while (events->queue != NULL
-	     && events->queue->time_of_event <= events->time_of_event);
-    /* re-caculate time for new events */
-    if (events->queue != NULL) {
-      events->time_from_event = (events->queue->time_of_event
-				 - events->time_of_event);
-      events->time_of_event = events->queue->time_of_event;
-    }
-    else {
-      /* nothing to do, time_from_event will go negative */
-    }
-  }
-}
-
-INLINE_EVENTS\
-(signed64)
-event_queue_time(event_queue *queue)
-{
-  return queue->time_of_event - queue->time_from_event;
+  ASSERT(events->time_from_event == -1); /* was just zero */
+  ASSERT(events->queue != NULL); /* something to do */
+  /* consume all events for this or earlier times.  Be careful to
+     allow a new event to appear under our feet */
+  do {
+    event_entry *to_do = events->queue;
+    events->queue = to_do->next;
+    to_do->handler(to_do->data);
+    zfree(to_do);
+  } while (events->queue != NULL
+	   && events->queue->time_of_event <= events->time_of_event);
+  /* re-caculate time for new events */
+  update_time_from_event(events);
+  ASSERT(events->time_from_event != 0);
 }
 
 

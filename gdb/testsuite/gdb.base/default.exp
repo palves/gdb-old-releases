@@ -71,6 +71,7 @@ expect {
 
 
 #test catch
+setup_xfail "h8300*-*-*"
 send "catch\n"
 expect {
 	-re "No selected frame..*$prompt $"\
@@ -420,6 +421,7 @@ expect {
 
 #test frame "f" abbreviation
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "f\n"
 expect {
 	-re "No stack..*$prompt $"\
@@ -431,6 +433,7 @@ expect {
 
 #test frame
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "frame\n"
 expect {
 	-re "No stack..*$prompt $"\
@@ -476,6 +479,7 @@ expect {
 
 #test finish
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "finish\n"
 expect {
 	-re "The program is not running..*$prompt $"\
@@ -603,6 +607,7 @@ expect {
 
 #test info all-registers
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "info all-registers\n"
 expect {
 	-re "The program has no registers now..*$prompt $"\
@@ -614,6 +619,7 @@ expect {
 
 #test info args
 send "info args\n"
+setup_xfail "h8300*-*-*"
 expect {
 	-re "No frame selected..*$prompt $"\
 			{ pass "info args" }
@@ -643,6 +649,7 @@ expect {
 
 
 #test info catch
+setup_xfail "h8300*-*-*"
 send "info catch\n"
 expect {
 	-re "No frame selected..*$prompt $"\
@@ -676,6 +683,7 @@ expect {
 
 
 #test info frame "f" abbreviation
+setup_xfail "h8300*-*-*"
 send "info f\n"
 expect {
 	-re "No stack..*$prompt $"\
@@ -688,6 +696,7 @@ expect {
 
 
 #test info frame
+setup_xfail "h8300*-*-*"
 send "info frame\n"
 expect {
 	-re "No stack..*$prompt $"\
@@ -730,6 +739,7 @@ expect {
 gdb_test "info line" "No line number information.*" "info line"
 
 #test info locals
+setup_xfail "h8300*-*-*"
 send "info locals\n"
 expect {
 	-re "No frame selected..*$prompt $"\
@@ -740,6 +750,7 @@ expect {
 
 
 #test info program
+setup_xfail "h8300*-*-*"
 setup_xfail "a29k-*-udi"
 send "info program\n"
 expect {
@@ -751,6 +762,7 @@ expect {
 
 
 #test info registers
+setup_xfail "h8300*-*-*"
 setup_xfail "a29k-*-udi"
 send "info registers\n"
 expect {
@@ -762,6 +774,7 @@ expect {
 
 
 #test info stack "s" abbreviation
+setup_xfail "h8300*-*-*"
 setup_xfail "a29k-*-udi"
 send "info s\n"
 expect {
@@ -774,6 +787,7 @@ expect {
 
 #test info stack
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "info stack\n"
 expect {
 	-re "No stack..*$prompt $"\
@@ -905,6 +919,7 @@ expect {
 
 #test jump
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "jump\n"
 expect {
 	-re "The program is not being run..*$prompt $"\
@@ -964,6 +979,7 @@ expect {
 
 
 #test next "n" abbreviation
+setup_xfail "h8300*-*-*"
 setup_xfail "a29k-*-udi"
 send "n\n"
 expect {
@@ -975,6 +991,7 @@ expect {
 
 
 #test next
+setup_xfail "h8300*-*-*"
 setup_xfail "a29k-*-udi"
 send "next\n"
 expect {
@@ -1099,6 +1116,9 @@ Use the \"file\" or \"exec-file\" command.*$prompt $"\
 	    -re "Starting program:  .*
 No image loaded into target.*$prompt $"\
 			{ pass "run \"r\" abbreviation" }
+	    -re "Starting program:  .*
+No program loaded.*$prompt $"\
+			{ pass "run \"r\" abbreviation" }
 	    -re "Don't know how to run.  Try \"help target\"..*$prompt $"\
 			{ pass "run \"r\" abbreviation" }
 	    -re ".*$prompt $"	{ fail "run \"r\" abbreviation" }
@@ -1125,6 +1145,9 @@ Use the \"file\" or \"exec-file\" command.*$prompt $"\
 	    -re "Starting program:  .*
 No image loaded into target.*$prompt $"\
 			{ pass "run" }
+	    -re "Starting program:  .*
+No program loaded.*$prompt $"\
+			{ pass "run \"r\" abbreviation" }
 	    -re "Don't know how to run.  Try \"help target\"..*$prompt $"\
 			{ pass "run" }
 	    -re ".*$prompt $"	{ fail "run" }
@@ -1145,6 +1168,7 @@ expect {
 # The middle case accommodates the a29k, where doing the "ni" above causes
 # an initial stack to be created.
 send "return\n"
+setup_xfail "h8300*-*-*"
 expect {
 	-re "No selected frame..*$prompt $"\
 			{ pass "return" }
@@ -1171,6 +1195,7 @@ expect {
 
 #test step "s" abbreviation
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "s\n"
 expect {
 	-re "The program is not being run..*$prompt $"\
@@ -1182,6 +1207,7 @@ expect {
 
 #test step
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "step\n"
 expect {
 	-re "The program is not being run..*$prompt $"\
@@ -2123,6 +2149,7 @@ expect {
 
 #test signal
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "signal\n"
 expect {
 	-re "The program is not being run..*$prompt $"\
@@ -2144,6 +2171,7 @@ expect {
 
 #test step "s" abbreviation
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "s\n"
 expect {
 	-re "The program is not being run..*$prompt $"\
@@ -2155,6 +2183,7 @@ expect {
 
 #test step
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "step\n"
 expect {
 	-re "The program is not being run..*$prompt $"\
@@ -2289,6 +2318,7 @@ expect {
 
 #test until "u" abbreviation
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "u\n"
 expect {
 	-re "The program is not running..*$prompt $"\
@@ -2300,6 +2330,7 @@ expect {
 
 #test until
 setup_xfail "a29k-*-udi"
+setup_xfail "h8300*-*-*"
 send "until\n"
 expect {
 	-re "The program is not running..*$prompt $"\
@@ -2356,9 +2387,11 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 
 
 #test up
+setup_xfail "h8300*-*-*"
 gdb_test "up" "No stack\\." "up in default.exp"
 
 #test up-silently
+setup_xfail "h8300*-*-*"
 send "up-silently\n"
 expect {
 	-re "No stack..*$prompt $"\
@@ -2389,6 +2422,7 @@ expect {
 
 
 #test where
+setup_xfail "h8300*-*-*"
 setup_xfail "a29k-*-udi"
 send "where\n"
 expect {
@@ -2401,6 +2435,7 @@ expect {
 
 #test x
 #The case in which it prints a number is for vxgdb.
+setup_xfail "h8300*-*-*"
 send "x\n"
 expect {
 	-re "0x0:.*Cannot access memory at address 0x0..*$prompt $"\

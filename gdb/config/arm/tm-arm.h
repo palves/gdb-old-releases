@@ -23,7 +23,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define IEEE_FLOAT
 
-#define ADDR_BITS_REMOVE(val) ((val) &  0x03fffffc)
+CORE_ADDR arm_addr_bits_remove PARAMS ((CORE_ADDR));
+
+#define ADDR_BITS_REMOVE(val) (arm_addr_bits_remove (val))
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -33,14 +35,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* Advance PC across any function entry prologue instructions
    to reach some "real" code.  */
 
-#define SKIP_PROLOGUE(pc) pc = skip_prologue(pc)
+extern CORE_ADDR arm_skip_prologue PARAMS ((CORE_ADDR pc));
+
+#define SKIP_PROLOGUE(pc) { pc = arm_skip_prologue (pc); }
 
 /* Immediately after a function call, return the saved pc.
    Can't always go through the frames for this because on some machines
    the new frame is not set up until the new function executes
    some instructions.  */
 
-#define SAVED_PC_AFTER_CALL(frame) (ADDR_BITS_REMOVE (read_register (LR_REGNUM)))
+#define SAVED_PC_AFTER_CALL(frame) arm_saved_pc_after_call (frame)
+struct frame_info;
+extern CORE_ADDR arm_saved_pc_after_call PARAMS ((struct frame_info *));
 
 /* I don't know the real values for these.  */
 #define TARGET_UPAGES UPAGES
@@ -326,6 +332,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    ways in the stack frame.  sp is even more special:
    the address we return for it IS the sp for the next frame.  */
 
+struct frame_saved_regs;
+struct frame_info;
+void frame_find_saved_regs PARAMS((struct frame_info *fi,
+				   struct frame_saved_regs *fsr));
 
 #define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs) \
  arm_frame_find_saved_regs (frame_info, &(frame_saved_regs));
@@ -335,43 +345,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Push an empty stack frame, to record the current PC, etc.  */
 
-#define PUSH_DUMMY_FRAME \
-{								\
-    register CORE_ADDR sp = read_register (SP_REGNUM);		\
-    register int regnum;					\
-    /* opcode for ldmdb fp,{v1-v6,fp,ip,lr,pc}^ */		\
-    sp = push_word(sp, 0xe92dbf0); /* dummy return_data_save ins */ \
-    /* push a pointer to the dummy instruction minus 12 */	\
-    sp = push_word(sp, read_register (SP_REGNUM) - 16);		\
-    sp = push_word(sp, read_register (PS_REGNUM));		\
-    sp = push_word(sp, read_register (SP_REGNUM));		\
-    sp = push_word(sp, read_register (FP_REGNUM));		\
-    for (regnum = 9; regnum >= 4; regnum --)			\
-	sp = push_word(sp, read_register (regnum));		\
-    write_register (FP_REGNUM, read_register (SP_REGNUM) - 8);	\
-    write_register (SP_REGNUM, sp); }
+void arm_push_dummy_frame PARAMS ((void));
+
+#define PUSH_DUMMY_FRAME arm_push_dummy_frame ()
 
 /* Discard from the stack the innermost frame, restoring all registers.  */
 
-#define POP_FRAME \
-{									\
-    register CORE_ADDR fp = read_register (FP_REGNUM);			\
-    register unsigned long return_data_save =				\
-	read_memory_integer ( (read_memory_integer (fp, 4) &		\
-			       0x03fffffc)  - 12, 4);			\
-    register int regnum;						\
-    write_register (PS_REGNUM, read_memory_integer (fp - 4, 4));	\
-    write_register (PC_REGNUM, read_register (PS_REGNUM) & 0x03fffffc);	\
-    write_register (SP_REGNUM, read_memory_integer (fp - 8, 4));	\
-    write_register (FP_REGNUM, read_memory_integer (fp - 12, 4));	\
-    fp -= 12;								\
-    for (regnum = 9; regnum >= 4; regnum--)				\
-	if (return_data_save & (1<<regnum)) {				\
-	    fp -= 4;							\
-	    write_register (regnum, read_memory_integer(fp, 4));	\
-	}								\
-    flush_cached_frames ();						\
-}
+void arm_pop_frame PARAMS ((void));
+
+#define POP_FRAME arm_pop_frame ()
 
 /* This sequence of words is the instructions
 

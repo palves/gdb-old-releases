@@ -2290,7 +2290,7 @@ common_breakpoint (cmd, addr, mask, flags)
 
   if (rerrflg != 0)
     {
-      if (rresponse != EINVAL)
+      if (rresponse != 22) /* invalid argument */
 	fprintf_unfiltered (stderr, "common_breakpoint (0x%x):  Got error: 0x%x\n",
 			    addr, rresponse);
       return 1;
@@ -2514,7 +2514,7 @@ mips_make_srec (buf, type, memaddr, myaddr, len)
    The encoding of numbers is done in 6bit fields.  The 6bit value is
    used to index into this string to get the specific character
    encoding for the value: */
-static char encoding[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.";
+static char encoding[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,.";
 
 /* Convert the number of bits required into an encoded number, 6bits
    at a time (range 0..63).  Keep a checksum if required (passed

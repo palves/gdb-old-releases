@@ -110,7 +110,7 @@ proc return_tests { } {
     # is not xfailed.
 
     setup_xfail "i*86-*-*" "sparc-*-solaris2.3*" "sparc-*-solaris2.4*"
-    gdb_test "p tmp3" ".* = 5" "correct value returned double test (known problem with i*86 and sparc solaris"
+    gdb_test "p tmp3" ".* = 5.*" "correct value returned double test (known problem with i*86 and sparc solaris"
 }
 
 

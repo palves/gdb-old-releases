@@ -93,7 +93,12 @@ GZIPPROG = gzip
 DEFAULT_YACC = yacc
 DEFAULT_LEX = lex
 
-BISON = bison -y
+# BISON: This line sed'ed to BISON = bison -y for FSF releases, don't remove.
+BISON = `if [ -f $$r/byacc/byacc ] ; \
+	    then echo $$r/byacc/byacc ; \
+	    else echo ${DEFAULT_YACC} ; \
+	fi`
+
 LEX = `if [ -f $$r/flex/flex ] ; \
 	then echo $$r/flex/flex ; \
 	else echo ${DEFAULT_LEX} ; fi`
@@ -289,6 +294,7 @@ BASE_FLAGS_TO_PASS = \
 	"LIBCXXFLAGS=$(LIBCXXFLAGS)" \
 	"LIBCXXFLAGS_FOR_TARGET=$(LIBCXXFLAGS_FOR_TARGET)" \
 	"M4=$(M4)" \
+	"MAKE=$(MAKE)" \
 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
 	"PICFLAG=$(PICFLAG)" \
@@ -382,6 +388,7 @@ GCC_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS)
 # This is a list of the targets for all of the modules which are compiled
 # using $(FLAGS_TO_PASS).
 ALL_MODULES = \
+	all-apache \
 	all-autoconf \
 	all-bfd \
 	all-binutils \
@@ -402,6 +409,7 @@ ALL_MODULES = \
 	all-gzip \
 	all-hello \
 	all-indent \
+	all-inet \
 	all-ispell \
 	all-ld \
 	all-libiberty \
@@ -410,6 +418,7 @@ ALL_MODULES = \
 	all-mmalloc \
 	all-opcodes \
 	all-patch \
+	all-perl \
 	all-prms \
 	all-rcs \
 	all-readline \
@@ -441,6 +450,7 @@ NATIVE_CHECK_MODULES = \
 	check-flex
 
 CROSS_CHECK_MODULES = \
+	check-apache \
 	check-autoconf \
 	check-bfd \
 	check-binutils \
@@ -457,6 +467,7 @@ CROSS_CHECK_MODULES = \
 	check-gzip \
 	check-hello \
 	check-indent \
+	check-inet \
 	check-ispell \
 	check-ld \
 	check-libiberty \
@@ -465,6 +476,7 @@ CROSS_CHECK_MODULES = \
 	check-mmcheckoc \
 	check-opcodes \
 	check-patch \
+	check-perl \
 	check-prms \
 	check-rcs \
 	check-readline \
@@ -487,6 +499,7 @@ CHECK_MODULES=$(NATIVE_CHECK_MODULES) $(CROSS_CHECK_MODULES)
 # This is a list of the install targets for all of the modules which are
 # compiled using $(FLAGS_TO_PASS).
 INSTALL_MODULES = \
+	install-apache \
 	install-autoconf \
 	install-bfd \
 	install-binutils \
@@ -507,6 +520,7 @@ INSTALL_MODULES = \
 	install-gzip \
 	install-hello \
 	install-indent \
+	install-inet \
 	install-ispell \
 	install-ld \
 	install-libiberty \
@@ -515,6 +529,7 @@ INSTALL_MODULES = \
 	install-mmalloc \
 	install-opcodes \
 	install-patch \
+	install-perl \
 	install-prms \
 	install-rcs \
 	install-readline \
@@ -525,6 +540,7 @@ INSTALL_MODULES = \
 	install-sim \
 	install-tar \
 	install-tcl \
+	install-texinfo \
 	install-textutils \
 	install-tgas \
 	install-time \
@@ -539,6 +555,7 @@ ALL_X11_MODULES = \
 	all-gdb \
 	all-expect \
 	all-gash \
+	all-guile \
 	all-tclX \
 	all-tk
 
@@ -547,6 +564,7 @@ ALL_X11_MODULES = \
 CHECK_X11_MODULES = \
 	check-emacs \
 	check-gdb \
+	check-guile \
 	check-expect \
 	check-gash \
 	check-tclX \
@@ -558,6 +576,7 @@ INSTALL_X11_MODULES = \
 	install-emacs \
 	install-emacs19 \
 	install-gdb \
+	install-guile \
 	install-expect \
 	install-gash \
 	install-tclX \
@@ -609,6 +628,80 @@ INSTALL_TARGET_MODULES = \
 	install-target-winsup \
 	install-target-libgloss \
 	install-target-libiberty
+
+# This is a list of the targets for which we can do a clean-{target}.
+CLEAN_MODULES = \
+	clean-apache \
+	clean-autoconf \
+	clean-bfd \
+	clean-binutils \
+	clean-byacc \
+	clean-cvs \
+	clean-dejagnu \
+	clean-diff \
+	clean-dosutils \
+	clean-etc \
+	clean-fileutils \
+	clean-find \
+	clean-flex \
+	clean-gas \
+	clean-gawk \
+	clean-gprof \
+	clean-grep \
+	clean-grez \
+	clean-gzip \
+	clean-hello \
+	clean-indent \
+	clean-inet \
+	clean-ispell \
+	clean-ld \
+	clean-libiberty \
+	clean-m4 \
+	clean-make \
+	clean-mmalloc \
+	clean-opcodes \
+	clean-patch \
+	clean-perl \
+	clean-prms \
+	clean-rcs \
+	clean-readline \
+	clean-release \
+	clean-recode \
+	clean-sed \
+	clean-send-pr \
+	clean-shellutils \
+	clean-sim \
+	clean-tar \
+	clean-tcl \
+	clean-texinfo \
+	clean-textutils \
+	clean-tgas \
+	clean-time \
+	clean-uudecode \
+	clean-wdiff
+
+# All of the target modules that can be cleaned
+CLEAN_TARGET_MODULES = \
+	clean-target-libio \
+	clean-target-libstdc++ \
+	clean-target-librx \
+	clean-target-libg++ \
+	clean-target-newlib \
+	clean-target-winsup \
+	clean-target-libgloss \
+	clean-target-libiberty \
+	clean-target-examples
+
+# All of the x11 modules that can be cleaned
+CLEAN_X11_MODULES = \
+	clean-emacs \
+	clean-emacs19 \
+	clean-gdb \
+	clean-expect \
+	clean-gash \
+	clean-guile \
+	clean-tclX \
+	clean-tk
 
 # The first rule in the file had better be this one.  Don't put any above it.
 all: all.normal
@@ -724,6 +817,33 @@ maintainer-clean: local-maintainer-clean do-maintainer-clean local-clean
 maintainer-clean: local-distclean
 realclean: maintainer-clean
 
+# This rule is used to clean specific modules.
+.PHONY: $(CLEAN_MODULES) $(CLEAN_X11_MODULES) clean-gcc
+$(CLEAN_MODULES) $(CLEAN_X11_MODULES) clean-gcc:
+	@dir=`echo $@ | sed -e 's/clean-//'`; \
+	if [ -f ./$${dir}/Makefile ] ; then \
+	  r=`pwd`; export r; \
+	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
+	  (cd $${dir}; $(MAKE) $(FLAGS_TO_PASS) clean); \
+	else \
+	  true; \
+	fi
+
+.PHONY: $(CLEAN_TARGET_MODULES)
+$(CLEAN_TARGET_MODULES):
+	@dir=`echo $@ | sed -e 's/clean-target-//'`; \
+	if [ -f $(TARGET_SUBDIR)/$${dir}/Makefile ] ; then \
+	  r=`pwd`; export r; \
+	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
+	  (cd $(TARGET_SUBDIR)/$${dir}; $(MAKE) $(TARGET_FLAGS_TO_PASS) clean); \
+	else \
+	  true; \
+	fi
+
+clean-target: $(CLEAN_TARGET_MODULES)
+
 # Check target.
 
 .PHONY: check
@@ -765,6 +885,11 @@ install.all: install-no-fixedincludes
 	else \
 		true ; \
 	fi
+
+# inet-install is used because the I*Net wants DejaGNU installed but
+# not built.
+inet-install:
+	$(MAKE) INSTALL_MODULES="`echo $(INSTALL_MODULES) | sed -e 's/install-dejagnu//'`" install
 
 # install-no-fixedincludes is used because Cygnus can not distribute
 # the fixed header files.
@@ -1086,6 +1211,7 @@ install-dosrel-fake:
 
 
 # This is a list of inter-dependencies among modules.
+all-apache:
 all-autoconf: all-m4
 all-bfd:
 all-binutils: all-libiberty all-opcodes all-bfd all-flex all-byacc
@@ -1114,9 +1240,11 @@ all-gprof: all-libiberty all-bfd all-opcodes
 all-grep: all-libiberty
 all-grez: all-libiberty all-bfd all-opcodes
 all-gui: all-gdb all-libproc all-target-librx
+all-guile:
 all-gzip: all-libiberty
 all-hello: all-libiberty
 all-indent:
+all-inet: all-tcl all-send-pr all-perl
 all-ispell: all-emacs19
 all-ld: all-libiberty all-bfd all-opcodes all-byacc all-flex
 configure-target-libg++: $(ALL_GCC) configure-target-librx
@@ -1137,6 +1265,7 @@ configure-target-newlib: $(ALL_GCC)
 all-target-newlib: configure-target-newlib all-binutils all-gas all-gcc
 all-opcodes: all-bfd all-libiberty
 all-patch: all-libiberty
+all-perl:
 all-prms: all-libiberty
 all-rcs:
 all-readline:
@@ -1159,14 +1288,14 @@ configure-target-winsup: configure-target-newlib
 all-uudecode: all-libiberty
 configure-target-libiberty: $(ALL_GCC)
 all-target-libiberty: configure-target-libiberty all-gcc all-ld all-target-newlib
+all-target: $(ALL_TARGET_MODULES)
+install-target: $(INSTALL_TARGET_MODULES)
 
 ### other supporting targets
 
 MAKEDIRS= \
 	$(prefix) \
-	$(exec_prefix) \
-	$(tooldir)
-
+	$(exec_prefix)
 .PHONY: install-dirs
 install-dirs:
 	@for i in $(MAKEDIRS) ; do \

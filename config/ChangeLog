@@ -1,3 +1,7 @@
+Tue Mar 26 14:10:41 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* mh-go32 (CFLAGS): Define.
+
 Thu Mar 14 19:20:54 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* mh-necv4: New file.

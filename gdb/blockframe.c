@@ -1,6 +1,6 @@
 /* Get info from stack frames;
    convert between frames, blocks, functions and pc values.
-   Copyright 1986, 1987, 1988, 1989, 1991, 1994, 1995
+   Copyright 1986, 1987, 1988, 1989, 1991, 1994, 1995, 1996
              Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -244,9 +244,10 @@ frameless_look_for_prologue (frame)
      struct frame_info *frame;
 {
   CORE_ADDR func_start, after_prologue;
-  func_start = (get_pc_function_start (frame->pc) + FUNCTION_START_OFFSET);
+  func_start = get_pc_function_start (frame->pc);
   if (func_start)
     {
+      func_start += FUNCTION_START_OFFSET;
       after_prologue = func_start;
 #ifdef SKIP_PROLOGUE_FRAMELESS_P
       /* This is faster, since only care whether there *is* a prologue,
@@ -660,8 +661,8 @@ find_pc_partial_function (pc, name, address, endaddr)
 #if defined SIGTRAMP_START
   if (IN_SIGTRAMP (pc, (char *)NULL))
     {
-      cache_pc_function_low = SIGTRAMP_START;
-      cache_pc_function_high = SIGTRAMP_END;
+      cache_pc_function_low = SIGTRAMP_START (pc);
+      cache_pc_function_high = SIGTRAMP_END (pc);
       cache_pc_function_name = "<sigtramp>";
 
       goto return_cached_value;

@@ -29,7 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "gdbcore.h"
 #include "gdbcmd.h"
 #include "target.h"
-#include "thread.h"
+#include "gdbthread.h"
 #include "annotate.h"
 
 #include <signal.h>
@@ -503,9 +503,12 @@ wait_for_inferior ()
       else
 	pid = target_wait (-1, &w);
 
-#ifdef HAVE_NONSTEPPABLE_WATCHPOINT
+    /* Gross.
+
+       We goto this label from elsewhere in wait_for_inferior when we want
+       to continue the main loop without calling "wait" and trashing the
+       waitstatus contained in W.  */
     have_waited:
-#endif
 
       flush_cached_frames ();
 
@@ -611,31 +614,38 @@ wait_for_inferior ()
 	 another thread.  If so, then step that thread past the breakpoint,
 	 and continue it.  */
 
-      if (stop_signal == TARGET_SIGNAL_TRAP
-	  && breakpoints_inserted
-	  && breakpoint_here_p (stop_pc - DECR_PC_AFTER_BREAK))
+      if (stop_signal == TARGET_SIGNAL_TRAP)
 	{
-	  random_signal = 0;
-	  if (!breakpoint_thread_match (stop_pc - DECR_PC_AFTER_BREAK, pid))
-	    {
-	      /* Saw a breakpoint, but it was hit by the wrong thread.  Just continue. */
-	      write_pc_pid (stop_pc - DECR_PC_AFTER_BREAK, pid);
+#ifdef NO_SINGLE_STEP
+	  if (one_stepped)
+	    random_signal = 0;
+	  else
+#endif
+	    if (breakpoints_inserted
+		&& breakpoint_here_p (stop_pc - DECR_PC_AFTER_BREAK))
+	      {
+		random_signal = 0;
+		if (!breakpoint_thread_match (stop_pc - DECR_PC_AFTER_BREAK, pid))
+		  {
+		    /* Saw a breakpoint, but it was hit by the wrong thread.  Just continue. */
+		    write_pc_pid (stop_pc - DECR_PC_AFTER_BREAK, pid);
 
-	      remove_breakpoints ();
-	      target_resume (pid, 1, TARGET_SIGNAL_0); /* Single step */
-	      /* FIXME: What if a signal arrives instead of the single-step
-		 happening?  */
+		    remove_breakpoints ();
+		    target_resume (pid, 1, TARGET_SIGNAL_0); /* Single step */
+		    /* FIXME: What if a signal arrives instead of the single-step
+		       happening?  */
 
-	      if (target_wait_hook)
-		target_wait_hook (pid, &w);
-	      else
-		target_wait (pid, &w);
-	      insert_breakpoints ();
+		    if (target_wait_hook)
+		      target_wait_hook (pid, &w);
+		    else
+		      target_wait (pid, &w);
+		    insert_breakpoints ();
 
-	      /* We need to restart all the threads now.  */
-	      target_resume (-1, 0, TARGET_SIGNAL_0);
-	      continue;
-	    }
+		    /* We need to restart all the threads now.  */
+		    target_resume (-1, 0, TARGET_SIGNAL_0);
+		    continue;
+		  }
+	      }
 	}
       else
 	random_signal = 1;
@@ -717,8 +727,22 @@ wait_for_inferior ()
 
       if (INSTRUCTION_NULLIFIED)
 	{
-	  resume (1, 0);
-	  continue;
+	  struct target_waitstatus tmpstatus;
+
+	  registers_changed ();
+	  target_resume (pid, 1, TARGET_SIGNAL_0);
+
+	  /* We may have received a signal that we want to pass to
+	     the inferior; therefore, we must not clobber the waitstatus
+	     in W.  So we call wait ourselves, then continue the loop
+	     at the "have_waited" label.  */
+	  if (target_wait_hook)
+	    target_wait_hook (pid, &tmpstatus);
+	  else
+	    target_wait (pid, &tmpstatus);
+
+
+	  goto have_waited;
 	}
 
 #ifdef HAVE_STEPPABLE_WATCHPOINT
@@ -1163,7 +1187,8 @@ wait_for_inferior ()
 
       /* Did we just take a signal?  */
       if (IN_SIGTRAMP (stop_pc, stop_func_name)
-	  && !IN_SIGTRAMP (prev_pc, prev_func_name))
+	  && !IN_SIGTRAMP (prev_pc, prev_func_name)
+	  && read_sp () INNER_THAN step_sp)
 	{
 	  /* We've just taken a signal; go until we are back to
 	     the point where we took it and one more.  */
@@ -1227,16 +1252,17 @@ wait_for_inferior ()
 	    SKIP_PROLOGUE (prologue_pc);
 	}
 
-      if ((/* Might be a non-recursive call.  If the symbols are missing
-	      enough that stop_func_start == prev_func_start even though
-	      they are really two functions, we will treat some calls as
-	      jumps.  */
-	   stop_func_start != prev_func_start
+      if (!(step_sp INNER_THAN read_sp ())	/* don't mistake (sig)return as a call */
+	  && (/* Might be a non-recursive call.  If the symbols are missing
+		 enough that stop_func_start == prev_func_start even though
+		 they are really two functions, we will treat some calls as
+		 jumps.  */
+	      stop_func_start != prev_func_start
 
-	   /* Might be a recursive call if either we have a prologue
-	      or the call instruction itself saves the PC on the stack.  */
-	   || prologue_pc != stop_func_start
-	   || read_sp () != step_sp)
+	      /* Might be a recursive call if either we have a prologue
+		 or the call instruction itself saves the PC on the stack.  */
+	      || prologue_pc != stop_func_start
+	      || read_sp () != step_sp)
 	  && (/* PC is completely out of bounds of any known objfiles.  Treat
 		 like a subroutine call. */
 	      ! stop_func_start
@@ -1495,12 +1521,14 @@ step_into_function:
 	}
       step_range_start = sal.pc;
       step_range_end = sal.end;
+      step_frame_address = FRAME_FP (get_current_frame ());
       goto keep_going;
 
     check_sigtramp2:
       if (trap_expected
 	  && IN_SIGTRAMP (stop_pc, stop_func_name)
-	  && !IN_SIGTRAMP (prev_pc, prev_func_name))
+	  && !IN_SIGTRAMP (prev_pc, prev_func_name)
+	  && read_sp () INNER_THAN step_sp)
 	{
 	  /* What has happened here is that we have just stepped the inferior
 	     with a signal (because it is a signal which shouldn't make

@@ -29,6 +29,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "dis-asm.h"
 #include "gdbcmd.h"
 #include "gdbtypes.h"
+#include "gdbcore.h"
+#include "gdb_string.h"
+#include "value.h"
+
 
 #undef NUM_REGS
 #define NUM_REGS 11
@@ -44,15 +48,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
  */
 
-#define IS_PUSH(x) ((x & 0xff00)==0x6d00)
+#define IS_PUSH(x) ((x & 0xfff0)==0x6df0)
 #define IS_PUSH_FP(x) (x == 0x6df6)
-#define IS_MOVE_FP(x) (x == 0x0d76)
-#define IS_MOV_SP_FP(x) (x == 0x0d76)
+#define IS_MOVE_FP(x) (x == 0x0d76 || x == 0x0ff6)
+#define IS_MOV_SP_FP(x) (x == 0x0d76 || x == 0x0ff6)
 #define IS_SUB2_SP(x) (x==0x1b87)
+#define IS_SUB4_SP(x) (x==0x1b97)
+#define IS_SUBL_SP(x) (x==0x7a37)
 #define IS_MOVK_R5(x) (x==0x7905)
 #define IS_SUB_R5SP(x) (x==0x1957)
 
+/* Local function declarations.  */
+
 static CORE_ADDR examine_prologue ();
+static void set_machine_hook PARAMS ((char *filename));
 
 void frame_find_saved_regs ();
 CORE_ADDR 
@@ -60,12 +69,19 @@ h8300_skip_prologue (start_pc)
      CORE_ADDR start_pc;
 {
   short int w;
+  int adjust = 0;
 
   w = read_memory_unsigned_integer (start_pc, 2);
+  if (w == 0x0100)
+    {
+      w = read_memory_unsigned_integer (start_pc + 2, 2);
+      adjust = 2;
+    }
+
   /* Skip past all push insns */
   while (IS_PUSH_FP (w))
     {
-      start_pc += 2;
+      start_pc += 2 + adjust;
       w = read_memory_unsigned_integer (start_pc, 2);
     }
 
@@ -88,11 +104,14 @@ h8300_skip_prologue (start_pc)
       start_pc += 2;
       w = read_memory_unsigned_integer (start_pc, 2);
     }
-  while (IS_SUB2_SP (w))
+  while (IS_SUB2_SP (w) || IS_SUB4_SP (w))
     {
       start_pc += 2;
       w = read_memory_unsigned_integer (start_pc, 2);
     }
+
+  if (IS_SUBL_SP (w))
+    start_pc += 6;
 
   return start_pc;
 }
@@ -137,9 +156,6 @@ frame_find_saved_regs (fi, fsr)
      struct frame_info *fi;
      struct frame_saved_regs *fsr;
 {
-  register CORE_ADDR next_addr;
-  register CORE_ADDR *saved_regs;
-  register int regnum;
   register struct frame_saved_regs *cache_fsr;
   extern struct obstack frame_cache_obstack;
   CORE_ADDR ip;
@@ -212,12 +228,8 @@ examine_prologue (ip, limit, after_prolog_fp, fsr, fi)
 {
   register CORE_ADDR next_ip;
   int r;
-  int i;
   int have_fp = 0;
-  register int src;
-  register struct pic_prologue_code *pcode;
   INSN_WORD insn_word;
-  int size, offset;
   /* Number of things pushed onto stack, starts at 2/4, 'cause the
      PC is already there */
   unsigned int reg_save_depth = h8300hmode ? 4 : 2;
@@ -225,6 +237,8 @@ examine_prologue (ip, limit, after_prolog_fp, fsr, fi)
   unsigned int auto_depth = 0;	/* Number of bytes of autos */
 
   char in_frame[11];		/* One for each reg */
+
+  int adjust = 0;
 
   memset (in_frame, 1, 11);
   for (r = 0; r < 8; r++)
@@ -235,20 +249,26 @@ examine_prologue (ip, limit, after_prolog_fp, fsr, fi)
     {
       after_prolog_fp = read_register (SP_REGNUM);
     }
-  if (ip == 0 || ip & (h8300hmode ? ~0xffff : ~0xffff))
+  if (ip == 0 || ip & (h8300hmode ? ~0xffffff : ~0xffff))
     return 0;
 
   next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn_word);
+
+  if (insn_word == 0x0100)
+    {
+      insn_word = read_memory_unsigned_integer (ip + 2, 2);
+      adjust = 2;
+    }
 
   /* Skip over any fp push instructions */
   fsr->regs[6] = after_prolog_fp;
   while (next_ip && IS_PUSH_FP (insn_word))
     {
-      ip = next_ip;
+      ip = next_ip + adjust;
 
       in_frame[insn_word & 0x7] = reg_save_depth;
       next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn_word);
-      reg_save_depth += 2;
+      reg_save_depth += 2 + adjust;
     }
 
   /* Is this a move into the fp */
@@ -262,11 +282,11 @@ examine_prologue (ip, limit, after_prolog_fp, fsr, fi)
   /* Skip over any stack adjustment, happens either with a number of
      sub#2,sp or a mov #x,r5 sub r5,sp */
 
-  if (next_ip && IS_SUB2_SP (insn_word))
+  if (next_ip && (IS_SUB2_SP (insn_word) || IS_SUB4_SP (insn_word)))
     {
-      while (next_ip && IS_SUB2_SP (insn_word))
+      while (next_ip && (IS_SUB2_SP (insn_word) || IS_SUB4_SP (insn_word)))
 	{
-	  auto_depth += 2;
+	  auto_depth += IS_SUB2_SP (insn_word) ? 2 : 4;
 	  ip = next_ip;
 	  next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn_word);
 	}
@@ -282,7 +302,16 @@ examine_prologue (ip, limit, after_prolog_fp, fsr, fi)
 	  next_ip = NEXT_PROLOGUE_INSN (next_ip, limit, &insn_word);
 	  auto_depth += insn_word;
 	}
+      if (next_ip && IS_SUBL_SP (insn_word))
+	{
+	  ip = next_ip;
+	  auto_depth += read_memory_unsigned_integer (ip, 4);
+	  ip += 4;
+
+	  next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn_word);
+	}
     }
+
   /* Work out which regs are stored where */
   while (next_ip && IS_PUSH (insn_word))
     {
@@ -297,7 +326,7 @@ examine_prologue (ip, limit, after_prolog_fp, fsr, fi)
   /* Locals are always reffed based from the fp */
   fi->locals_pointer = after_prolog_fp;
   /* The PC is at a known place */
-  fi->from_pc = read_memory_unsigned_integer (after_prolog_fp + 2, BINWORD);
+  fi->from_pc = read_memory_unsigned_integer (after_prolog_fp + BINWORD, BINWORD);
 
   /* Rememeber any others too */
   in_frame[PC_REGNUM] = 0;
@@ -377,11 +406,17 @@ h8300_pop_frame ()
 
   for (regnum = 0; regnum < 8; regnum++)
     {
-      if (fsr.regs[regnum])
-	write_register (regnum, read_memory_integer(fsr.regs[regnum]), BINWORD);
-
-      flush_cached_frames ();
+      /* Don't forget SP_REGNUM is a frame_saved_regs struct is the
+	 actual value we want, not the address of the value we want.  */
+      if (fsr.regs[regnum] && regnum != SP_REGNUM)
+	write_register (regnum, read_memory_integer(fsr.regs[regnum], BINWORD));
+      else if (fsr.regs[regnum] && regnum == SP_REGNUM)
+	write_register (regnum, fsr.regs[regnum]);
     }
+
+  /* Don't forget the update the PC too!  */
+  write_pc (frame->from_pc);
+  flush_cached_frames ();
 }
 
 
@@ -410,6 +445,19 @@ set_machine (args, from_tty)
   help_list (setmemorylist, "set memory ", -1, gdb_stdout);
 }
 
+/* set_machine_hook is called as the exec file is being opened, but
+   before the symbol file is opened.  This allows us to set the
+   h8300hmode flag based on the machine type specified in the exec
+   file.  This in turn will cause subsequently defined pointer types
+   to be 16 or 32 bits as appropriate for the machine.  */
+
+static void
+set_machine_hook (filename)
+     char *filename;
+{
+  h8300hmode = (bfd_get_mach (exec_bfd) == bfd_mach_h8300h);
+}
+
 void
 _initialize_h8300m ()
 {
@@ -422,6 +470,10 @@ _initialize_h8300m ()
 
   add_cmd ("h8300h", class_support, h8300h_command,
 	   "Set machine to be H8/300H.", &setmemorylist);
+
+  /* Add a hook to set the machine type when we're loading a file. */
+
+  specify_exec_file_hook(set_machine_hook);
 }
 
 

@@ -32,15 +32,18 @@ static int make_srec PARAMS ((char *srec, CORE_ADDR targ_addr, bfd *abfd,
     MAXRECSIZE is the length in chars of the largest S-record the host can
     accomodate.  This is measured from the starting `S' to the last char of the
     checksum.  FLAGS is various random flags, and HASHMARK is non-zero to cause
-    a `#' to be printed out for each record loaded.  */
+    a `#' to be printed out for each record loaded.  WAITACK, if non-NULL, is
+    a function that waits for an acknowledgement after each S-record, and
+    returns non-zero if the ack is read correctly.  */
 
 void
-load_srec (desc, file, maxrecsize, flags, hashmark)
+load_srec (desc, file, maxrecsize, flags, hashmark, waitack)
      serial_t desc;
      const char *file;
      int maxrecsize;
      int flags;
      int hashmark;
+     int (*waitack)(void);
 {
   bfd *abfd;
   asection *s;
@@ -80,7 +83,14 @@ load_srec (desc, file, maxrecsize, flags, hashmark)
 
 	    if (remote_debug)
 	      fprintf_unfiltered (gdb_stderr, "%.*s\\r\n", reclen-1, srec);
-	    SERIAL_WRITE (desc, srec, reclen);
+
+	    /* Repeatedly send the S-record until a good acknowledgement
+	       is sent back.  */
+	    do
+	      {
+	        SERIAL_WRITE (desc, srec, reclen);
+	      }
+	    while (waitack != NULL && !waitack());
 
 	    if (hashmark)
 	      {
@@ -190,12 +200,12 @@ make_srec (srec, targ_addr, abfd, sect, sectoff, maxrecsize, flags)
       code_table = term_code_table;
     }
 
-  if (tmp & SREC_4_BYTE_ADDR && targ_addr > 0xffffff)
-    addr_size = 4;
-  else if (tmp & SREC_3_BYTE_ADDR && targ_addr > 0xffff)
-    addr_size = 3;
-  else if (tmp & SREC_2_BYTE_ADDR && targ_addr > 0xff)
+  if ((tmp & SREC_2_BYTE_ADDR) && (targ_addr <= 0xffff))
     addr_size = 2;
+  else if ((tmp & SREC_3_BYTE_ADDR) && (targ_addr <= 0xffffff))
+    addr_size = 3;
+  else if (tmp & SREC_4_BYTE_ADDR)
+    addr_size = 4;
   else
     fatal ("make_srec:  Bad address (0x%x), or bad flags (0x%x).", targ_addr,
 	   flags);

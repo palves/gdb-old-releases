@@ -1,3 +1,44 @@
+Mon Jun 10 16:22:12 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (install-binaries): Don't add version info to
+	installed wish.
+
+Tue Jun  4 17:57:46 1996  Gordon Irlam  <gordoni@snuffle.cygnus.com>
+
+	* install-sh: Add MIT copyright.
+
+Thu May  9 10:01:48 1996  Tom Tromey  <tromey@snuffle.cygnus.com>
+
+	* Makefile.in (CFLAGS): Set to @CFLAGS@.
+
+Wed May  8 08:57:06 1996  Tom Tromey  <tromey@snuffle.cygnus.com>
+
+	* configure: Regenerated.
+	* configure.in: In Solaris case, must link against libX11 twice.
+
+Tue May  7 11:22:10 1996  Tom Tromey  <tromey@snuffle.cygnus.com>
+
+	* configure: Regenerated.
+	* configure.in: Run AC_PROG_CC.
+
+	* mkLinks: Find man pages in section 3, not section n.
+
+	* Makefile.in (install-man): Install man pages in section 3, not
+	section n.
+
+	* mkLinks: Use cp, not ln.
+
+Tue Apr 23 13:13:59 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (CC_SWITCHES): Define TK_LIB_TRAILER.
+	(TK_LIB_TRAILER): New macro.
+
+	* tkUnixInit.c (TkPlatformInit): Handle location independence.
+
+Fri Mar 29 08:23:15 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* mkLinks: Exit with status 0.
+
 Fri Mar  1 11:49:57 1996  Tom Tromey  <tromey@creche.cygnus.com>
 
 	* configure: Regenerated.

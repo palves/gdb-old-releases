@@ -27,11 +27,39 @@
 #include "basics.h"
 #include "device.h"
 
+#ifdef HAVE_STRING_H
+#include <string.h>
+#else
+#ifdef HAVE_STRINGS_H
+#include <strings.h>
+#endif
+#endif
+
+
+/* The creator, returns a pointer to any data that should be allocated
+   once during (multiple) simulation runs */
+
+typedef void *(device_creator)
+     (const char *name,
+      const device_unit *unit_address,
+      const char *args,
+      device *parent);
+
+
+/* two stages of initialization */
+
 typedef void (device_init_callback)
-     (device *me,
-      psim *system);
+     (device *me);
      
-typedef void (device_config_address_callback)
+typedef struct _device_init_callbacks {
+  device_init_callback *address; /* NULL - ignore */
+  device_init_callback *data; /* NULL - ignore */
+} device_init_callbacks;
+
+
+/* attaching/detaching a devices address space to its parent */
+
+typedef void (device_address_callback)
      (device *me,
       const char *name,
       attach_type attach,
@@ -40,6 +68,14 @@ typedef void (device_config_address_callback)
       unsigned nr_bytes,
       access_type access,
       device *who); /*callback/default*/
+
+typedef struct _device_address_callbacks {
+  device_address_callback *attach;
+  device_address_callback *detach;
+} device_address_callbacks;
+
+
+/* I/O operations - from parent */
 
 typedef unsigned (device_io_read_buffer_callback)
      (device *me,
@@ -59,6 +95,14 @@ typedef unsigned (device_io_write_buffer_callback)
       cpu *processor,
       unsigned_word cia);
 
+typedef struct _device_io_callbacks { /* NULL - error */
+  device_io_read_buffer_callback *read_buffer;
+  device_io_write_buffer_callback *write_buffer;
+} device_io_callbacks;
+
+
+/* DMA transfers by a device via its parent */
+
 typedef unsigned (device_dma_read_buffer_callback)
      (device *me,
       void *dest,
@@ -73,6 +117,11 @@ typedef unsigned (device_dma_write_buffer_callback)
       unsigned_word addr,
       unsigned nr_bytes,
       int violate_read_only_section);
+
+typedef struct _device_dma_callbacks { /* NULL - error */
+  device_dma_read_buffer_callback *read_buffer;
+  device_dma_write_buffer_callback *write_buffer;
+} device_dma_callbacks;
 
 
 /* Interrupts */
@@ -95,8 +144,20 @@ typedef void (device_child_interrupt_event_callback)
       cpu *processor,
       unsigned_word cia);
       
+typedef struct _device_interrupt_port_descriptor {
+  const char *name;
+  int number; 
+  int bound;
+} device_interrupt_port_descriptor;
 
-/* bus address decoding */
+typedef struct _device_interrupt_callbacks {
+  device_interrupt_event_callback *event;
+  device_child_interrupt_event_callback *child_event;
+  const device_interrupt_port_descriptor *ports;
+} device_interrupt_callbacks;
+
+
+/* symbolic value decoding */
 
 typedef int (device_unit_decode_callback)
      (device *me,
@@ -109,12 +170,13 @@ typedef int (device_unit_encode_callback)
       char *buf,
       int sizeof_buf);
 
+typedef struct _device_convert_callbacks {
+  device_unit_decode_callback *decode_unit;
+  device_unit_encode_callback *encode_unit;
+} device_convert_callbacks;
+
 
 /* instances */
-
-typedef void *(device_instance_create_callback)
-     (device *me,
-      const char *args);
 
 typedef void (device_instance_delete_callback)
      (device_instance *instance);
@@ -134,12 +196,40 @@ typedef int (device_instance_seek_callback)
       unsigned_word pos_hi,
       unsigned_word pos_lo);
 
+typedef unsigned_word (device_instance_claim_callback)
+     (device_instance *instance,
+      unsigned_word address,
+      unsigned_word length,
+      unsigned_word alignment);
+
+typedef void (device_instance_release_callback)
+     (device_instance *instance,
+      unsigned_word address,
+      unsigned_word length);
+
+struct _device_instance_callbacks { /* NULL - error */
+  device_instance_delete_callback *delete;
+  device_instance_read_callback *read;
+  device_instance_write_callback *write;
+  device_instance_seek_callback *seek;
+  device_instance_claim_callback *claim;
+  device_instance_release_callback *release;
+};
+
+typedef device_instance *(device_create_instance_callback)
+     (device *me,
+      const char *path,
+      const char *args);
+
+typedef device_instance *(package_create_instance_callback)
+     (device_instance *parent,
+      const char *args);
+
 
 /* all else fails */
 
-typedef void (device_ioctl_callback)
+typedef int (device_ioctl_callback)
      (device *me,
-      psim *system,
       cpu *processor,
       unsigned_word cia,
       va_list ap);
@@ -153,35 +243,25 @@ typedef void (device_usage_callback)
 struct _device_callbacks {
 
   /* initialization */
-  device_init_callback *init_address;
-  device_init_callback *init_data;
+  device_init_callbacks init;
 
   /* address/data config - from child */
-  device_config_address_callback *attach_address;
-  device_config_address_callback *detach_address;
+  device_address_callbacks address;
 
-  /* address/data transfer - to child */
-  device_io_read_buffer_callback *io_read_buffer;
-  device_io_write_buffer_callback *io_write_buffer;
+  /* address/data transfer - from parent */
+  device_io_callbacks io;
 
   /* address/data transfer - from child */
-  device_dma_read_buffer_callback *dma_read_buffer;
-  device_dma_write_buffer_callback *dma_write_buffer;
+  device_dma_callbacks dma;
 
   /* interrupt signalling */
-  device_interrupt_event_callback *interrupt_event;
-  device_child_interrupt_event_callback *child_interrupt_event;
+  device_interrupt_callbacks interrupt;
 
   /* bus address decoding */
-  device_unit_decode_callback *decode_unit;
-  device_unit_encode_callback *encode_unit;
+  device_convert_callbacks convert;
 
   /* instances */
-  device_instance_create_callback *instance_create;
-  device_instance_delete_callback *instance_delete;
-  device_instance_read_callback *instance_read;
-  device_instance_write_callback *instance_write;
-  device_instance_seek_callback *instance_seek;
+  device_create_instance_callback *instance_create;
 
   /* back door to anything we've forgot */
   device_ioctl_callback *ioctl;
@@ -192,12 +272,6 @@ struct _device_callbacks {
 /* Table of all the devices and a function to lookup/create a device
    from its name */
 
-typedef void *(device_creator)
-     (const char *name,
-      const device_unit *unit_address,
-      const char *args,
-      device *parent);
-
 typedef struct _device_descriptor device_descriptor;
 struct _device_descriptor {
   const char *name;
@@ -205,40 +279,19 @@ struct _device_descriptor {
   const device_callbacks *callbacks;
 };
 
-extern device_descriptor device_table[];
-
-
-/* Unimplemented call back functions.  These abort the simulation */
-
-extern device_init_callback unimp_device_init;
-extern device_config_address_callback unimp_device_attach_address;
-extern device_config_address_callback unimp_device_detach_address;
-extern device_io_read_buffer_callback unimp_device_io_read_buffer;
-extern device_io_write_buffer_callback unimp_device_io_write_buffer;
-extern device_dma_read_buffer_callback unimp_device_dma_read_buffer;
-extern device_dma_write_buffer_callback unimp_device_dma_write_buffer;
-extern device_interrupt_event_callback unimp_device_interrupt_event;
-extern device_child_interrupt_event_callback unimp_device_child_interrupt_event;
-extern device_unit_decode_callback unimp_device_unit_decode;
-extern device_unit_encode_callback unimp_device_unit_encode;
-extern device_instance_create_callback unimp_device_instance_create;
-extern device_instance_delete_callback unimp_device_instance_delete;
-extern device_instance_read_callback unimp_device_instance_read;
-extern device_instance_write_callback unimp_device_instance_write;
-extern device_instance_seek_callback unimp_device_instance_seek;
-extern device_ioctl_callback unimp_device_ioctl;
+extern const device_descriptor *const device_table[];
+#include "hw.h"
 
 
 /* Pass through, ignore and generic callback functions.  A call going
    towards the root device are passed on up, local calls are ignored
    and call downs abort */
 
-extern device_config_address_callback passthrough_device_attach_address;
-extern device_config_address_callback passthrough_device_detach_address;
+extern device_address_callback passthrough_device_address_attach;
+extern device_address_callback passthrough_device_address_detach;
 extern device_dma_read_buffer_callback passthrough_device_dma_read_buffer;
 extern device_dma_write_buffer_callback passthrough_device_dma_write_buffer;
 
-extern device_init_callback ignore_device_init;
 extern device_unit_decode_callback ignore_device_unit_decode;
 
 extern device_init_callback generic_device_init_address;
@@ -247,6 +300,5 @@ extern device_unit_encode_callback generic_device_unit_encode;
 
 
 extern const device_callbacks passthrough_device_callbacks;
-
 
 #endif /* _DEVICE_TABLE_H_ */

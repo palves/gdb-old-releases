@@ -156,6 +156,7 @@ typedef union
 
     int ticks;
     int stalls;
+    int memstalls;
     int cycles;
     int insts;
 
@@ -319,6 +320,8 @@ rwat_big (memory, x, maskw)
 #define RUWAT(x)  (RWAT(x) & 0xffff)
 #define RSWAT(x)  ((short)(RWAT(x)))
 #define RSBAT(x)  (SEXT(RBAT(x)))
+
+#define MA() ((pc & 3) != 0 ? ++memstalls : 0)
 
 #define SEXT(x)     	(((x&0xff) ^ (~0x7f))+0x80)
 #define SEXTW(y)    	((int)((short)y))
@@ -898,6 +901,7 @@ sim_resume (step, siggnal)
   register unsigned int pc;
   register int cycles = 0;
   register int stalls = 0;
+  register int memstalls = 0;
   register int insts = 0;
   register int prevlock;
   register int thislock;
@@ -1026,6 +1030,7 @@ sim_resume (step, siggnal)
   saved_state.asregs.ticks += get_now () - tick_start;
   saved_state.asregs.cycles += cycles;
   saved_state.asregs.stalls += stalls;
+  saved_state.asregs.memstalls += memstalls;
   saved_state.asregs.insts += insts;
   saved_state.asregs.pc = pc;
   saved_state.asregs.sr.bits.t = T;
@@ -1137,6 +1142,7 @@ sim_info (verbose)
 			      saved_state.asregs.insts);
   callback->  printf_filtered (callback, "# cycles                 %10d\n", saved_state.asregs.cycles);
   callback->  printf_filtered (callback, "# pipeline stalls        %10d\n", saved_state.asregs.stalls);
+  callback->  printf_filtered (callback, "# misaligned load/store  %10d\n", saved_state.asregs.memstalls);
   callback->  printf_filtered (callback, "# real time taken        %10.4f\n", timetaken);
   callback->  printf_filtered (callback, "# virtual time taken     %10.4f\n", virttime);
   callback->  printf_filtered (callback, "# profiling size         %10d\n", sim_profile_size);

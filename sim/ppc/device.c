@@ -41,6 +41,8 @@
 
 #include <ctype.h>
 
+STATIC_INLINE_DEVICE (void) clean_device_properties(device *);
+STATIC_INLINE_DEVICE (void) init_device_properties(device *, void*);
 
 /* property entries */
 
@@ -48,6 +50,8 @@ typedef struct _device_property_entry device_property_entry;
 struct _device_property_entry {
   device_property_entry *next;
   device_property *value;
+  const void *init_array;
+  unsigned sizeof_init_array;
 };
 
 
@@ -59,7 +63,7 @@ struct _device_interrupt_edge {
   device *dest;
   int dest_port;
   device_interrupt_edge *next;
-  int permenant;
+  object_disposition disposition;
 };
 
 STATIC_INLINE_DEVICE\
@@ -68,20 +72,21 @@ attach_device_interrupt_edge(device_interrupt_edge **list,
 			     int my_port,
 			     device *dest,
 			     int dest_port,
-			     int permenant)
+			     object_disposition disposition)
 {
   device_interrupt_edge *new_edge = ZALLOC(device_interrupt_edge);
   new_edge->my_port = my_port;
   new_edge->dest = dest;
   new_edge->dest_port = dest_port;
   new_edge->next = *list;
-  new_edge->permenant = permenant;
+  new_edge->disposition = disposition;
   *list = new_edge;
 }
 
 STATIC_INLINE_DEVICE\
 (void)
-detach_device_interrupt_edge(device_interrupt_edge **list,
+detach_device_interrupt_edge(device *me,
+			     device_interrupt_edge **list,
 			     int my_port,
 			     device *dest,
 			     int dest_port)
@@ -91,14 +96,14 @@ detach_device_interrupt_edge(device_interrupt_edge **list,
     if (old_edge->dest == dest
 	&& old_edge->dest_port == dest_port
 	&& old_edge->my_port == my_port) {
-      if (old_edge->permenant)
-	error("attempt to delete permenant interrupt\n");
+      if (old_edge->disposition == permenant_object)
+	device_error(me, "attempt to delete permenant interrupt\n");
       *list = old_edge->next;
       zfree(old_edge);
       return;
     }
   }
-  error("detach_device_interrupt_edge: interrupt not attached\n");
+  device_error(me, "attempt to delete unattached interrupt\n");
 }
 
 STATIC_INLINE_DEVICE\
@@ -107,12 +112,14 @@ clean_device_interrupt_edges(device_interrupt_edge **list)
 {
   while (*list != NULL) {
     device_interrupt_edge *old_edge = *list;
-    if (old_edge->permenant) {
+    switch (old_edge->disposition) {
+    case permenant_object:
       list = &old_edge->next;
-    }
-    else {
+      break;
+    case tempoary_object:
       *list = old_edge->next;
       zfree(old_edge);
+      break;
     }
   }
 }
@@ -141,26 +148,29 @@ struct _device {
 
   /* interrupts */
   device_interrupt_edge *interrupt_destinations;
-  device_interrupt_edge *child_interrupt_destinations;
 
   /* any open instances of this device */
   device_instance *instances;
 
-  /* the internal/external mappings */
+  /* the internal/external mappings and other global requirements */
   cap *ihandles;
   cap *phandles;
+  psim *system;
 };
 
 
 /* an instance of a device */
 struct _device_instance {
-  device *owner;
   void *data;
   char *args;
-  char *name;
   char *path;
-  int permenant;
+  const device_instance_callbacks *callback;
+  /* the root instance */
+  device *owner;
   device_instance *next;
+  /* interposed instance */
+  device_instance *parent;
+  device_instance *child;
 };
 
 
@@ -210,6 +220,13 @@ device_data(device *me)
 }
 
 INLINE_DEVICE\
+(psim *)
+device_system(device *me)
+{
+  return me->system;
+}
+
+INLINE_DEVICE\
 (const device_unit *)
 device_unit_address(device *me)
 {
@@ -239,23 +256,23 @@ device_full_name(device *leaf,
   /* construct a name */
   if (leaf->parent == NULL) {
     if (sizeof_buf < 1)
-      error("device_full_name() buffer overflow\n");
+      error("device_full_name: buffer overflow\n");
     *buf = '\0';
   }
   else {
     char unit[1024];
     device_full_name(leaf->parent, buf, sizeof_buf);
     if (leaf->parent != NULL
-	&& leaf->parent->callback->encode_unit(leaf->parent,
-					       &leaf->unit_address,
-					       unit+1,
-					       sizeof(unit)-1) > 0)
+	&& leaf->parent->callback->convert.encode_unit(leaf->parent,
+						       &leaf->unit_address,
+						       unit+1,
+						       sizeof(unit)-1) > 0)
       unit[0] = '@';
     else
       unit[0] = '\0';
     if (strlen(buf) + strlen("/") + strlen(leaf->name) + strlen(unit)
 	>= sizeof_buf)
-      error("device_full_name() buffer overflow\n");
+      error("device_full_name: buffer overflow\n");
     strcat(buf, "/");
     strcat(buf, leaf->name);
     strcat (buf, unit);
@@ -286,7 +303,8 @@ typedef struct _name_specifier {
   char buf[1024];
 } name_specifier;
 
-/* perform basic processing of a full name to give a specifier */
+/* Given a device specifier, break it up into its main components:
+   path (and if present) property name and property value. */
 STATIC_INLINE_DEVICE\
 (int)
 split_device_specifier(const char *device_specifier,
@@ -294,7 +312,7 @@ split_device_specifier(const char *device_specifier,
 {
   char *chp;
   if (strlen(device_specifier) >= sizeof(spec->buf))
-    error("device-specifier %s too long\n", device_specifier);
+    error("split_device_specifier: buffer overflow\n");
 
   /* expand aliases (later) */
   strcpy(spec->buf, device_specifier);
@@ -353,22 +371,26 @@ split_device_specifier(const char *device_specifier,
   return 1;
 }
 
-/* parse the last device name on the path assuming that it is a
-   property name */
+/* given a device specifier break it up into its main components -
+   path and property name - assuming that the last `device' is a
+   property name. */
 STATIC_INLINE_DEVICE\
 (int)
 split_property_specifier(const char *property_specifier,
 			 name_specifier *spec)
 {
   if (split_device_specifier(property_specifier, spec)) {
-    char *chp = strrchr(spec->path, '/');
-    if (chp == NULL) {
-      spec->property = spec->path;
-      spec->path = strrchr(spec->property, '\0');;
-    }
-    else {
-      *chp = '\0';
-      spec->property = chp+1;
+    if (spec->property == NULL) {
+      /* force the last name to be a property name */
+      char *chp = strrchr(spec->path, '/');
+      if (chp == NULL) {
+	spec->property = spec->path;
+	spec->path = strrchr(spec->property, '\0');;
+      }
+      else {
+	*chp = '\0';
+	spec->property = chp+1;
+      }
     }
     return 1;
   }
@@ -424,6 +446,38 @@ split_device_name(name_specifier *spec)
   return 1;
 }
 
+/* parse the value, returning the next non-space token */
+
+STATIC_INLINE_DEVICE\
+(char *)
+split_value(name_specifier *spec)
+{
+  char *token;
+  if (spec->value == NULL)
+    return NULL;
+  /* skip leading white space */
+  while (isspace(spec->value[0]))
+    spec->value++;
+  if (spec->value[0] == '\0') {
+    spec->value = NULL;
+    return NULL;
+  }
+  token = spec->value;
+  /* find trailing space */
+  while (spec->value[0] != '\0' && !isspace(spec->value[0]))
+    spec->value++;
+  /* chop this value out */
+  if (spec->value[0] != '\0') {
+    spec->value[0] = '\0';
+    spec->value++;
+  }
+  return token;
+}
+
+
+
+/* traverse the path specified by spec starting at current */
+
 STATIC_INLINE_DEVICE\
 (device *)
 split_find_device(device *current,
@@ -467,7 +521,7 @@ split_find_device(device *current,
   while (split_device_name(spec)) {
     device_unit phys;
     device *child;
-    current->callback->decode_unit(current, spec->unit, &phys);
+    current->callback->convert.decode_unit(current, spec->unit, &phys);
     for (child = current->children; child != NULL; child = child->sibling) {
       if (strcmp(spec->name, child->name) == 0) {
 	if (phys.nr_cells == 0
@@ -491,30 +545,32 @@ device_template_create_device(device *parent,
 			      const char *unit_address,
 			      const char *args)
 {
-  device_descriptor *descr;
+  const device_descriptor *const *table;
   int name_len;
   char *chp;
   chp = strchr(name, '@');
   name_len = (chp == NULL ? strlen(name) : chp - name);
-  for (descr = device_table; descr->name != NULL; descr++) {
-    if (strncmp(name, descr->name, name_len) == 0
-	&& (descr->name[name_len] == '\0'
-	    || descr->name[name_len] == '@')) {
-      device_unit address = { 0 };
-      void *data = NULL;
-      if (parent->callback->decode_unit != NULL)
-	parent->callback->decode_unit(parent, 
-				      unit_address,
-				      &address);
-      if (descr->creator != NULL)
-	data = descr->creator(name, &address, args, parent);
-      return device_create_from(name, &address, data,
-				descr->callbacks, parent);
+  for (table = device_table; *table != NULL; table++) {
+    const device_descriptor *descr;
+    for (descr = *table; descr->name != NULL; descr++) {
+      if (strncmp(name, descr->name, name_len) == 0
+	  && (descr->name[name_len] == '\0'
+	      || descr->name[name_len] == '@')) {
+	device_unit address = { 0 };
+	void *data = NULL;
+	if (parent->callback->convert.decode_unit != NULL)
+	  parent->callback->convert.decode_unit(parent, 
+						unit_address,
+						&address);
+	if (descr->creator != NULL)
+	  data = descr->creator(name, &address, args, parent);
+	return device_create_from(name, &address, data,
+				  descr->callbacks, parent);
+      }
     }
   }
-  error("device_template_create_device() unknown device %s\n", name);
+  device_error(parent, "attempt to attach unknown device %s\n", name);
   return NULL;
-  error("not implenented\n");
 }
 
 INLINE_DEVICE\
@@ -564,12 +620,47 @@ device_create_from(const char *name,
 
 INLINE_DEVICE\
 (device_instance *)
-device_instance_create(device *me,
-		       const char *device_specifier,
-		       int permenant)
+device_create_instance_from(device *me,
+			    device_instance *parent,
+			    void *data,
+			    const char *path,
+			    const char *args,
+			    const device_instance_callbacks *callbacks)
 {
-  void *data = NULL;
-  device_instance *instance;
+  device_instance *instance = ZALLOC(device_instance);
+  if ((me == NULL) == (parent == NULL))
+    device_error(me, "can't have both parent instance and parent device\n");
+  instance->owner = me;
+  instance->parent = parent;
+  instance->data = data;
+  instance->args = (args == NULL ? NULL : strdup(args));
+  instance->path = (path == NULL ? NULL : strdup(path));
+  instance->callback = callbacks;
+  /*instance->unit*/
+  if (me != NULL) {
+    instance->next = me->instances;
+    me->instances = instance;
+  }
+  if (parent != NULL) {
+    device_instance **previous;
+    parent->child = instance;
+    instance->owner = parent->owner;
+    instance->next = parent->next;
+    /* replace parent with this new node */
+    previous = &instance->owner->instances;
+    while (*previous != parent)
+      previous = &(*previous)->next;
+    *previous = instance;
+  }
+  return instance;
+}
+
+
+INLINE_DEVICE\
+(device_instance *)
+device_create_instance(device *me,
+		       const char *device_specifier)
+{
   /* find the device node */
   name_specifier spec;
   if (!split_device_specifier(device_specifier, &spec))
@@ -578,21 +669,10 @@ device_instance_create(device *me,
   if (spec.name != NULL)
     return NULL;
   /* create the instance */
-  data = me->callback->instance_create(me, spec.last_args);
-  if (data == NULL)
-    return NULL;
-  instance = ZALLOC(device_instance);
-  instance->owner = me;
-  instance->data = data;
-  instance->args = (spec.last_args == NULL ? NULL : strdup(spec.last_args));
-  instance->path = strdup(device_specifier);
-  instance->name = strdup(spec.last_name);
-  instance->permenant = permenant;
-  /*instance->unit*/
-  /*instance->parent*/
-  instance->next = me->instances;
-  me->instances = instance;
-  return instance;
+  if (me->callback->instance_create == NULL)
+    device_error(me, "no instance_create method\n");
+  return me->callback->instance_create(me,
+				       device_specifier, spec.last_args);
 }
 
 STATIC_INLINE_DEVICE\
@@ -602,13 +682,8 @@ clean_device_instances(device *me)
   device_instance **instance = &me->instances;
   while (*instance != NULL) {
     device_instance *old_instance = *instance;
-    if (old_instance->permenant) {
-      instance = &old_instance->next;
-    }
-    else {
-      device_instance_delete(old_instance);
-      instance = &me->instances;
-    }
+    device_instance_delete(old_instance);
+    instance = &me->instances;
   }
 }
 
@@ -618,15 +693,13 @@ device_instance_delete(device_instance *instance)
 {
   device *me = instance->owner;
   device_instance **curr;
-  if (instance->permenant)
-    error("device_instance_delete: attempt to delete a permenant instance\n");
-  me->callback->instance_delete(instance);
+  if (instance->callback->delete == NULL)
+    device_error(me, "no delete method\n");
+  instance->callback->delete(instance);
   if (instance->args != NULL)
     zfree(instance->args);
   if (instance->path != NULL)
     zfree(instance->path);
-  if (instance->name != NULL)
-    zfree(instance->name);
   curr = &me->instances;
   while (*curr != NULL && *curr != instance)
     curr = &(*curr)->next;
@@ -641,9 +714,10 @@ device_instance_read(device_instance *instance,
 		     void *addr,
 		     unsigned_word len)
 {
-  return instance->owner->callback->instance_read(instance,
-						  addr,
-						  len);
+  device *me = instance->owner;
+  if (instance->callback->read == NULL)
+    device_error(me, "no read method\n");
+  return instance->callback->read(instance, addr, len);
 }
 
 INLINE_DEVICE\
@@ -652,9 +726,10 @@ device_instance_write(device_instance *instance,
 		      const void *addr,
 		      unsigned_word len)
 {
-  return instance->owner->callback->instance_write(instance,
-						   addr,
-						   len);
+  device *me = instance->owner;
+  if (instance->callback->write == NULL)
+    device_error(me, "no write method\n");
+  return instance->callback->write(instance, addr, len);
 }
 
 INLINE_DEVICE\
@@ -663,9 +738,35 @@ device_instance_seek(device_instance *instance,
 		     unsigned_word pos_hi,
 		     unsigned_word pos_lo)
 {
-  return instance->owner->callback->instance_seek(instance,
-						  pos_hi,
-						  pos_lo);
+  device *me = instance->owner;
+  if (instance->callback->seek == NULL)
+    device_error(me, "no seek method\n");
+  return instance->callback->seek(instance, pos_hi, pos_lo);
+}
+
+INLINE_DEVICE\
+(unsigned_word)
+device_instance_claim(device_instance *instance,
+		      unsigned_word address,
+		      unsigned_word length,
+		      unsigned_word alignment)
+{
+  device *me = instance->owner;
+  if (instance->callback->claim == NULL)
+    device_error(me, "no claim method\n");
+  return instance->callback->claim(instance, address, length, alignment);
+}
+
+INLINE_DEVICE\
+(void)
+device_instance_release(device_instance *instance,
+			unsigned_word address,
+			unsigned_word length)
+{
+  device *me = instance->owner;
+  if (instance->callback->release == NULL)
+    device_error(me, "no release method\n");
+  instance->callback->release(instance, address, length);
 }
 
 INLINE_DEVICE\
@@ -673,13 +774,6 @@ INLINE_DEVICE\
 device_instance_device(device_instance *instance)
 {
   return instance->owner;
-}
-
-INLINE_DEVICE\
-(const char *)
-device_instance_name(device_instance *instance)
-{
-  return instance->name;
 }
 
 INLINE_DEVICE\
@@ -700,26 +794,6 @@ device_instance_data(device_instance *instance)
 
 /* Device initialization: */
 
-INLINE_DEVICE\
-(void)
-device_init_address(device *me,
-		    psim *system)
-{
-  TRACE(trace_device_init, ("device_init_address() initializing device=0x%lx (%s)\n",
-			    (long)me, me->path));
-  me->callback->init_address(me, system);
-}
-
-INLINE_DEVICE\
-(void)
-device_init_data(device *me,
-		 psim *system)
-{
-  TRACE(trace_device_init, ("device_init_data() initializing device=0x%lx (%s)\n",
-			    (long)me, me->path));
-  me->callback->init_data(me, system);
-}
-
 STATIC_INLINE_DEVICE\
 (void)
 clean_device(device *root,
@@ -728,26 +802,30 @@ clean_device(device *root,
   psim *system;
   system = (psim*)data;
   clean_device_interrupt_edges(&root->interrupt_destinations);
-  clean_device_interrupt_edges(&root->child_interrupt_destinations);
   clean_device_instances(root);
+  clean_device_properties(root);
 }
 
 STATIC_INLINE_DEVICE\
 (void)
-init_device_address(device *root,
+init_device_address(device *me,
 		    void *data)
 {
   psim *system = (psim*)data;
-  device_init_address(root, system);
+  TRACE(trace_device_init, ("init_device_address() initializing %s\n", me->path));
+  me->system = system; /* misc things not known until now */
+  if (me->callback->init.address != NULL)
+    me->callback->init.address(me);
 }
 
 STATIC_INLINE_DEVICE\
 (void)
-init_device_data(device *root,
+init_device_data(device *me,
 		 void *data)
 {
-  psim *system = (psim*)data;
-  device_init_data(root, system);
+  TRACE(trace_device_init, ("device_init_data() initializing %s\n", me->path));
+  if (me->callback->init.data != NULL)
+    me->callback->init.data(me);
 }
 
 INLINE_DEVICE\
@@ -760,7 +838,9 @@ device_tree_init(device *root,
 			    (long)system));
   /* remove the old, rebuild the new */
   device_tree_traverse(root, clean_device, NULL, system);
+  TRACE(trace_tbd, ("Need to dump the device tree here\n"));
   device_tree_traverse(root, init_device_address, NULL, system);
+  device_tree_traverse(root, init_device_properties, NULL, system);
   device_tree_traverse(root, init_device_data, NULL, system);
   TRACE(trace_device_tree, ("device_tree_init() = void\n"));
 }
@@ -768,6 +848,172 @@ device_tree_init(device *root,
 
 
 /* Device Properties: */
+
+/* local - not available externally */
+STATIC_INLINE_DEVICE\
+(void)
+device_add_property(device *me,
+		    const char *property,
+		    device_property_type type,
+		    const void *init_array,
+		    unsigned sizeof_init_array,
+		    const void *array,
+		    unsigned sizeof_array,
+		    const device_property *original,
+		    object_disposition disposition)
+{
+  device_property_entry *new_entry = NULL;
+  device_property *new_value = NULL;
+  void *new_array = NULL;
+  void *new_init_array = NULL;
+
+  /* find the list end */
+  device_property_entry **insertion_point = &me->properties;
+  while (*insertion_point != NULL) {
+    if (strcmp((*insertion_point)->value->name, property) == 0)
+      return;
+    insertion_point = &(*insertion_point)->next;
+  }
+
+  /* create a new value */
+  new_value = ZALLOC(device_property);
+  new_value->name = strdup(property);
+  new_value->type = type;
+  new_value->sizeof_array = sizeof_array;
+  new_array = (sizeof_array > 0 ? zalloc(sizeof_array) : NULL);
+  new_value->array = new_array;
+  new_value->owner = me;
+  new_value->original = original;
+  new_value->disposition = disposition;
+  if (sizeof_array > 0)
+    memcpy(new_array, array, sizeof_array);
+
+  /* insert the value into the list */
+  new_entry = ZALLOC(device_property_entry);
+  *insertion_point = new_entry;
+  new_entry->sizeof_init_array = sizeof_init_array;
+  new_init_array = (sizeof_init_array > 0 ? zalloc(sizeof_init_array) : NULL);
+  new_entry->init_array = new_init_array;
+  new_entry->value = new_value;
+  if (sizeof_init_array > 0)
+    memcpy(new_init_array, init_array, sizeof_init_array);
+
+}
+
+
+/* local - not available externally */
+STATIC_INLINE_DEVICE\
+(void)
+device_set_property(device *me,
+		    const char *property,
+		    device_property_type type,
+		    const void *array,
+		    int sizeof_array,
+		    const device_property *original)
+{
+  /* find the property */
+  device_property_entry *entry = me->properties;
+  while (entry != NULL) {
+    if (strcmp(entry->value->name, property) == 0) {
+      void *new_array = 0;
+      device_property *value = entry->value;
+      /* check the type matches */
+      if (value->type != type)
+	device_error(me, "conflict between type of new and old value for property %s\n", property);
+      /* replace its value */
+      if (value->array != NULL)
+	zfree((void*)value->array);
+      new_array = (sizeof_array > 0
+		   ? zalloc(sizeof_array)
+		   : (void*)0);
+      value->array = new_array;
+      value->sizeof_array = sizeof_array;
+      if (sizeof_array > 0)
+	memcpy(new_array, array, sizeof_array);
+      return;
+    }
+    entry = entry->next;
+  }
+  device_add_property(me, property, type,
+		      NULL, 0, array, sizeof_array,
+		      original, tempoary_object);
+}
+
+
+STATIC_INLINE_DEVICE\
+(void)
+clean_device_properties(device *me)
+{
+  device_property_entry **delete_point = &me->properties;
+  while (*delete_point != NULL) {
+    device_property_entry *current = *delete_point;
+    device_property *property = current->value;
+    switch (current->value->disposition) {
+    case permenant_object:
+      {
+	/* delete the property, and replace it with the original */
+	ASSERT(((property->array == NULL) == (current->init_array == NULL))
+	       || property->type == ihandle_property);
+	if (current->init_array != NULL) {
+	  zfree((void*)current->value->array);
+	  current->value->array = NULL;
+	  if (property->type != ihandle_property) {
+	    device_set_property(me, property->name,
+				property->type,
+				current->init_array, current->sizeof_init_array,
+				NULL);
+	  }
+	}
+	delete_point = &(*delete_point)->next;
+      }
+      break;
+    case tempoary_object:
+      {
+	/* zap the actual property, was created during simulation run */
+	*delete_point = current->next;
+	if (current->value->array != NULL)
+	  zfree((void*)current->value->array);
+	zfree(current->value);
+	zfree(current);
+      }
+      break;
+    }
+  }
+}
+
+
+STATIC_INLINE_DEVICE\
+(void)
+init_device_properties(device *me,
+		       void *data)
+{
+  device_property_entry *property = me->properties;
+  while (property != NULL) {
+    /* now do the phandles */
+    if (property->value->type == ihandle_property) {
+      if (property->value->original != NULL) {
+	const device_property *original = property->value->original;
+	if (original->array == NULL) {
+	  init_device_properties(original->owner, data);
+	}
+	ASSERT(original->array != NULL);
+	device_set_property(me, property->value->name,
+			    ihandle_property,
+			    original->array, original->sizeof_array, NULL);
+      }
+      else {
+	device_instance *instance =
+	  device_create_instance(me, (char*)property->init_array);
+	unsigned32 ihandle = H2BE_4(device_instance_to_external(instance));
+	device_set_property(me, property->value->name,
+			    ihandle_property,
+			    &ihandle, sizeof(ihandle), NULL);
+      }
+    }
+    property = property->next;
+  }
+}
+
 
 INLINE_DEVICE\
 (const device_property *)
@@ -815,7 +1061,34 @@ device_find_property(device *me,
   return NULL;
 }
 
-/* return NULL if fail */
+STATIC_INLINE_DEVICE\
+(void)
+device_add_array_property(device *me,
+			  const char *property,
+			  const void *array,
+			  int sizeof_array)
+{
+  TRACE(trace_devices,
+	("device_add_array_property(me=0x%lx, property=%s, ...)\n",
+	 (long)me, property));
+  device_add_property(me, property, array_property,
+		      array, sizeof_array, array, sizeof_array,
+		      NULL, permenant_object);
+}
+
+INLINE_DEVICE\
+(void)
+device_set_array_property(device *me,
+			  const char *property,
+			  const void *array,
+			  int sizeof_array)
+{
+  TRACE(trace_devices,
+	("device_set_array_property(me=0x%lx, property=%s, ...)\n",
+	 (long)me, property));
+  device_set_property(me, property, array_property, array, sizeof_array, NULL);
+}
+
 INLINE_DEVICE\
 (const device_property *)
 device_find_array_property(device *me,
@@ -828,11 +1101,26 @@ device_find_array_property(device *me,
   node = device_find_property(me, property);
   if (node == (device_property*)0
       || node->type != array_property)
-    error("%s property %s not found or of wrong type\n",
-	  me->name, property);
+    device_error(me, "property %s not found or of wrong type\n", property);
   return node;
 }
 
+
+STATIC_INLINE_DEVICE\
+(void)
+device_add_boolean_property(device *me,
+			    const char *property,
+			    int boolean)
+{
+  signed32 new_boolean = (boolean ? -1 : 0);
+  TRACE(trace_devices,
+	("device_add_boolean(me=0x%lx, property=%s, boolean=%d)\n",
+	 (long)me, property, boolean));
+  device_add_property(me, property, boolean_property,
+		      &new_boolean, sizeof(new_boolean),
+		      &new_boolean, sizeof(new_boolean),
+		      NULL, permenant_object);
+}
 
 INLINE_DEVICE\
 (int)
@@ -847,11 +1135,25 @@ device_find_boolean_property(device *me,
   node = device_find_property(me, property);
   if (node == (device_property*)0
       || node->type != boolean_property)
-    error("%s property %s not found or of wrong type\n",
-	  me->name, property);
+    device_error(me, "property %s not found or of wrong type\n", property);
   ASSERT(sizeof(boolean) == node->sizeof_array);
   memcpy(&boolean, node->array, sizeof(boolean));
   return boolean;
+}
+
+STATIC_INLINE_DEVICE\
+(void)
+device_add_ihandle_property(device *me,
+			    const char *property,
+			    const char *path)
+{
+  TRACE(trace_devices,
+	("device_add_ihandle_property(me=0x%lx, property=%s, path=%s)\n",
+	 (long)me, property, path));
+  device_add_property(me, property, ihandle_property,
+		      path, strlen(path) + 1,
+		      NULL, 0,
+		      NULL, permenant_object);
 }
 
 INLINE_DEVICE\
@@ -866,16 +1168,32 @@ device_find_ihandle_property(device *me,
 	("device_find_ihandle_property(me=0x%lx, property=%s)\n",
 	 (long)me, property));
   node = device_find_property(me, property);
-  if (node == (device_property*)0
-      || node->type != ihandle_property)
-    error("%s property %s not found or of wrong type\n",
-	  me->name, property);
+  if (node == NULL || node->type != ihandle_property)
+    device_error(me, "property %s not found or of wrong type\n", property);
+  if (node->array == NULL)
+    device_error(me, "property %s not yet initialized\n", property);
   ASSERT(sizeof(ihandle) == node->sizeof_array);
   memcpy(&ihandle, node->array, sizeof(ihandle));
   BE2H(ihandle);
   instance = external_to_device_instance(me, ihandle);
   ASSERT(instance != NULL);
   return instance;
+}
+
+STATIC_INLINE_DEVICE\
+(void)
+device_add_integer_property(device *me,
+			    const char *property,
+			    signed32 integer)
+{
+  TRACE(trace_devices,
+	("device_add_integer_property(me=0x%lx, property=%s, integer=%ld)\n",
+	 (long)me, property, (long)integer));
+  H2BE(integer);
+  device_add_property(me, property, integer_property,
+		      &integer, sizeof(integer),
+		      &integer, sizeof(integer),
+		      NULL, permenant_object);
 }
 
 INLINE_DEVICE\
@@ -891,21 +1209,27 @@ device_find_integer_property(device *me,
   node = device_find_property(me, property);
   if (node == (device_property*)0
       || node->type != integer_property)
-    error("%s property %s not found or of wrong type\n",
-	  me->name, property);
+    device_error(me, "property %s not found or of wrong type\n", property);
   ASSERT(sizeof(integer) == node->sizeof_array);
   memcpy(&integer, node->array, sizeof(integer));
   BE2H(integer);
   return integer;
 }
 
-INLINE_DEVICE\
-(device *)
-device_find_phandle_property(device *me,
-			     const char *property)
+STATIC_INLINE_DEVICE\
+(void)
+device_add_string_property(device *me,
+			   const char *property,
+			   const char *string)
 {
-  error("device_find_ihandle_property unimplemented\n");
-  return 0;
+
+  TRACE(trace_devices,
+	("device_add_property(me=0x%lx, property=%s, string=%s)\n",
+	 (long)me, property, string));
+  device_add_property(me, property, string_property,
+		      string, strlen(string) + 1,
+		      string, strlen(string) + 1,
+		      NULL, permenant_object);
 }
 
 INLINE_DEVICE\
@@ -921,54 +1245,13 @@ device_find_string_property(device *me,
   node = device_find_property(me, property);
   if (node == (device_property*)0
       || node->type != string_property)
-    error("%s property %s not found or of wrong type\n",
-	  me->name, property);
+    device_error(me, "property %s not found or of wrong type\n", property);
   string = node->array;
   ASSERT(strlen(string) + 1 == node->sizeof_array);
   return string;
 }
 
-/* local - not available externally */
 STATIC_INLINE_DEVICE\
-(device_property *)
-device_add_property(device *me,
-		    const char *property,
-		    device_property_type type,
-		    const void *array,
-		    int sizeof_array,
-		    const device_property *original)
-{
-  device_property_entry *new_entry = 0;
-  device_property *new_value = 0;
-  void *new_array = 0;
-  /* find the list end */
-  device_property_entry **insertion_point = &me->properties;
-  while (*insertion_point != NULL) {
-    if (strcmp((*insertion_point)->value->name, property) == 0)
-      return (*insertion_point)->value;
-    insertion_point = &(*insertion_point)->next;
-  }
-  /* alloc data for the new property */
-  new_entry = ZALLOC(device_property_entry);
-  new_value = ZALLOC(device_property);
-  new_array = (sizeof_array > 0
-	       ? zalloc(sizeof_array)
-	       : (void*)0);
-  /* insert the new property into the list */
-  *insertion_point = new_entry;
-  new_entry->value = new_value;
-  new_value->name = strdup(property);
-  new_value->type = type;
-  new_value->sizeof_array = sizeof_array;
-  new_value->array = new_array;
-  new_value->owner = me;
-  new_value->original = original;
-  if (sizeof_array > 0)
-    memcpy(new_array, array, sizeof_array);
-  return new_value;
-}
-
-INLINE_DEVICE\
 (void)
 device_add_duplicate_property(device *me,
 			      const char *property,
@@ -977,90 +1260,13 @@ device_add_duplicate_property(device *me,
   TRACE(trace_devices,
 	("device_add_duplicate_property(me=0x%lx, property=%s, ...)\n",
 	 (long)me, property));
+  if (original->disposition != permenant_object)
+    device_error(me, "Can only duplicate permenant objects\n");
   device_add_property(me, property,
 		      original->type,
-		      original->array,
-		      original->sizeof_array,
-		      original);
-}
-
-INLINE_DEVICE\
-(void)
-device_add_array_property(device *me,
-			  const char *property,
-			  const void *array,
-			  int sizeof_array)
-{
-  TRACE(trace_devices,
-	("device_add_array_property(me=0x%lx, property=%s, ...)\n",
-	 (long)me, property));
-  device_add_property(me, property,
-		      array_property, array, sizeof_array, NULL);
-}
-
-INLINE_DEVICE\
-(void)
-device_add_boolean_property(device *me,
-			    const char *property,
-			    int boolean)
-{
-  signed32 new_boolean = (boolean ? -1 : 0);
-  TRACE(trace_devices,
-	("device_add_boolean(me=0x%lx, property=%s, boolean=%d)\n",
-	 (long)me, property, boolean));
-  device_add_property(me, property, boolean_property,
-		      &new_boolean, sizeof(new_boolean), NULL);
-}
-
-INLINE_DEVICE\
-(void)
-device_add_ihandle_property(device *me,
-			    const char *property,
-			    device_instance *instance)
-{
-  unsigned32 ihandle = H2BE_4(device_instance_to_external(instance));
-  TRACE(trace_devices,
-	("device_add_ihandle_property(me=0x%lx, property=%s, instance=0x%lx)\n",
-	 (long)me, property, (unsigned long)instance));
-  device_add_property(me, property, ihandle_property,
-		      &ihandle, sizeof(ihandle), NULL);
-}
-
-INLINE_DEVICE\
-(void)
-device_add_integer_property(device *me,
-			    const char *property,
-			    signed32 integer)
-{
-  TRACE(trace_devices,
-	("device_add_integer_property(me=0x%lx, property=%s, integer=%ld)\n",
-	 (long)me, property, (long)integer));
-  H2BE(integer);
-  device_add_property(me, property, integer_property,
-		      &integer, sizeof(integer), NULL);
-}
-
-INLINE_DEVICE\
-(void)
-device_add_phandle_property(device *me,
-			    const char *property,
-			    device *phandle)
-{
-  error("device_add_phandle_property unimplemented\n");
-}
-
-INLINE_DEVICE\
-(void)
-device_add_string_property(device *me,
-			   const char *property,
-			   const char *string)
-{
-
-  TRACE(trace_devices,
-	("device_add_property(me=0x%lx, property=%s, string=%s)\n",
-	 (long)me, property, string));
-  device_add_property(me, property, string_property,
-		      string, strlen(string) + 1, NULL);
+		      original->array, original->sizeof_array,
+		      original->array, original->sizeof_array,
+		      original, permenant_object);
 }
 
 
@@ -1077,9 +1283,11 @@ device_io_read_buffer(device *me,
 		      cpu *processor,
 		      unsigned_word cia)
 {
-  return me->callback->io_read_buffer(me, dest, space,
-				       addr, nr_bytes,
-				       processor, cia);
+  if (me->callback->io.read_buffer == NULL)
+    device_error(me, "no io_read_buffer method\n");
+  return me->callback->io.read_buffer(me, dest, space,
+				      addr, nr_bytes,
+				      processor, cia);
 }
 
 INLINE_DEVICE\
@@ -1092,7 +1300,9 @@ device_io_write_buffer(device *me,
 		       cpu *processor,
 		       unsigned_word cia)
 {
-  return me->callback->io_write_buffer(me, source, space,
+  if (me->callback->io.write_buffer == NULL)
+    device_error(me, "no io_write_buffer method\n");
+  return me->callback->io.write_buffer(me, source, space,
 				       addr, nr_bytes,
 				       processor, cia);
 }
@@ -1105,7 +1315,9 @@ device_dma_read_buffer(device *me,
 		       unsigned_word addr,
 		       unsigned nr_bytes)
 {
-  return me->callback->dma_read_buffer(me, dest, space,
+  if (me->callback->dma.read_buffer == NULL)
+    device_error(me, "no dma_read_buffer method\n");
+  return me->callback->dma.read_buffer(me, dest, space,
 				       addr, nr_bytes);
 }
 
@@ -1118,7 +1330,9 @@ device_dma_write_buffer(device *me,
 			unsigned nr_bytes,
 			int violate_read_only_section)
 {
-  return me->callback->dma_write_buffer(me, source, space,
+  if (me->callback->dma.write_buffer == NULL)
+    device_error(me, "no dma_write_buffer method\n");
+  return me->callback->dma.write_buffer(me, source, space,
 					addr, nr_bytes,
 					violate_read_only_section);
 }
@@ -1134,8 +1348,10 @@ device_attach_address(device *me,
 		      access_type access,
 		      device *who) /*callback/default*/
 {
-  me->callback->attach_address(me, name, attach, space,
-				addr, nr_bytes, access, who);
+  if (me->callback->address.attach == NULL)
+    device_error(me, "no address_attach method\n");
+  me->callback->address.attach(me, name, attach, space,
+			       addr, nr_bytes, access, who);
 }
 
 INLINE_DEVICE\
@@ -1149,8 +1365,10 @@ device_detach_address(device *me,
 		      access_type access,
 		      device *who) /*callback/default*/
 {
-  me->callback->detach_address(me, name, attach, space,
-				addr, nr_bytes, access, who);
+  if (me->callback->address.detach == NULL)
+    device_error(me, "no address_detach method\n");
+  me->callback->address.detach(me, name, attach, space,
+			       addr, nr_bytes, access, who);
 }
 
 
@@ -1164,45 +1382,26 @@ device_interrupt_event(device *me,
 		       cpu *processor,
 		       unsigned_word cia)
 {
-  int found_a_handler = 0;
+  int found_an_edge = 0;
   device_interrupt_edge *edge;
   /* device's interrupt lines directly connected */
   for (edge = me->interrupt_destinations;
        edge != NULL;
        edge = edge->next) {
     if (edge->my_port == my_port) {
-      if (edge->dest->callback->interrupt_event == NULL)
-	error("device_interrupt_event: interrupt callback null\n");
-      edge->dest->callback->interrupt_event(edge->dest,
+      if (edge->dest->callback->interrupt.event == NULL)
+	device_error(me, "no interrupt method\n");
+      edge->dest->callback->interrupt.event(edge->dest,
 					    edge->dest_port,
 					    me,
 					    my_port,
 					    level,
 					    processor, cia);
-      found_a_handler = 1;
+      found_an_edge = 1;
     }
   }
-  if (!found_a_handler) {
-    /* device's interrupt lines hopefully on a parents bus */
-    device *parent;
-    for (parent = me->parent;
-	 parent != NULL;
-	 parent = parent->parent) {
-      for (edge = parent->child_interrupt_destinations;
-	   edge != NULL;
-	   edge = edge->next) {
-	if (edge->dest->callback->child_interrupt_event == NULL)
-	  error("device_interrupt_event: child_interrupt callback null\n");
-	edge->dest->callback->child_interrupt_event(edge->dest,
-						    parent,
-						    me,
-						    my_port,
-						    level,
-						    processor, cia);
-	return;
-      }
-    }
-    error("device_interrupt_event: fell out of tree\n");
+  if (!found_an_edge) {
+    device_error(me, "No interrupt edge for port %d\n", my_port);
   }
 }
 
@@ -1212,13 +1411,13 @@ device_interrupt_attach(device *me,
 			int my_port,
 			device *dest,
 			int dest_port,
-			int permenant)
+			object_disposition disposition)
 {
   attach_device_interrupt_edge(&me->interrupt_destinations,
 			       my_port,
 			       dest,
 			       dest_port,
-			       permenant);
+			       disposition);
 }
 
 INLINE_DEVICE\
@@ -1228,34 +1427,88 @@ device_interrupt_detach(device *me,
 			device *dest,
 			int dest_port)
 {
-  detach_device_interrupt_edge(&me->interrupt_destinations,
+  detach_device_interrupt_edge(me,
+			       &me->interrupt_destinations,
 			       my_port,
 			       dest,
 			       dest_port);
 }
 
 INLINE_DEVICE\
-(void)
-device_child_interrupt_attach(device *me,
-			      device *dest,
-			      int permenant)
+(int)
+device_interrupt_decode(device *me,
+			const char *port_name)
 {
-  attach_device_interrupt_edge(&me->interrupt_destinations,
-			       0, /*my_port*/
-			       dest,
-			       0, /*dest_port*/
-			       permenant);
+  if (port_name == NULL || port_name[0] == '\0')
+    return 0;
+  if (isdigit(port_name[0])) {
+    return strtoul(port_name, NULL, 0);
+  }
+  else {
+    const device_interrupt_port_descriptor *ports =
+      me->callback->interrupt.ports;
+    if (ports != NULL) {
+      while (ports->name != NULL) {
+	if (ports->bound > ports->number) {
+	  int len = strlen(ports->name);
+	  if (strncmp(port_name, ports->name, len) == 0) {
+	    if (port_name[len] == '\0')
+	      return ports->number;
+	    else if(isdigit(port_name[len])) {
+	      int port = ports->number + strtoul(&port_name[len], NULL, 0);
+	      if (port >= ports->bound)
+		device_error(me, "Interrupt port %s out of range\n",
+			     port_name);
+	      return port;
+	    }
+	  }
+	}
+	else if (strcmp(port_name, ports->name) == 0)
+	  return ports->number;
+	ports++;
+      }
+    }
+  }
+  device_error(me, "Unreconized interrupt port %s\n", port_name);
+  return 0;
 }
 
 INLINE_DEVICE\
-(void)
-device_child_interrupt_detach(device *me,
-			      device *dest)
+(int)
+device_interrupt_encode(device *me,
+			int port_number,
+			char *buf,
+			int sizeof_buf)
 {
-  detach_device_interrupt_edge(&me->interrupt_destinations,
-			       0, /*my_port*/
-			       dest,
-			       0); /*dest_port*/
+  const device_interrupt_port_descriptor *ports = NULL;
+  ports = me->callback->interrupt.ports;
+  if (ports != NULL) {
+    while (ports->name != NULL) {
+      if (ports->bound > ports->number) {
+	if (port_number >= ports->number
+	    && port_number < ports->bound) {
+	  strcpy(buf, ports->name);
+	  sprintf(buf + strlen(buf), "%d", port_number - ports->number);
+	  if (strlen(buf) >= sizeof_buf)
+	    error("device_interrupt_encode:buffer overflow\n");
+	  return strlen(buf);
+	}
+      }
+      else {
+	if (ports->number == port_number) {
+	  if (strlen(ports->name) >= sizeof_buf)
+	    error("device_interrupt_encode: buffer overflow\n");
+	  strcpy(buf, ports->name);
+	  return strlen(buf);
+	}
+      }
+      ports++;
+    }
+  }
+  sprintf(buf, "%d", port_number);
+  if (strlen(buf) >= sizeof_buf)
+    error("device_interrupt_encode: buffer overflow\n");
+  return strlen(buf);
 }
 
 
@@ -1263,19 +1516,47 @@ device_child_interrupt_detach(device *me,
 /* IOCTL: */
 
 EXTERN_DEVICE\
-(void)
+(int)
 device_ioctl(device *me,
-	     psim *system,
 	     cpu *processor,
 	     unsigned_word cia,
 	     ...)
 {
+  int status;
   va_list ap;
   va_start(ap, cia);
-  me->callback->ioctl(me, system, processor, cia, ap);
+  if (me->callback->ioctl == NULL)
+    device_error(me, "no ioctl method\n");
+  status = me->callback->ioctl(me, processor, cia, ap);
   va_end(ap);
+  return status;
 }
       
+
+
+/* I/O */
+
+EXTERN_DEVICE\
+(void volatile)
+device_error(device *me,
+	     const char *fmt,
+	     ...)
+{
+  char message[1024];
+  va_list ap;
+  /* format the message */
+  va_start(ap, fmt);
+  vsprintf(message, fmt, ap);
+  va_end(ap);
+  /* sanity check */
+  if (strlen(message) >= sizeof(message))
+    error("device_error: buffer overflow\n");
+  if (me == NULL)
+    error("device: %s\n", message);
+  else
+    error("%s: %s\n", me->path, message);
+  while(1);
+}
 
 
 /* Tree utilities: */
@@ -1296,12 +1577,12 @@ device_tree_add_parsed(device *current,
     vsprintf(device_specifier, fmt, ap);
     va_end(ap);
     if (strlen(device_specifier) >= sizeof(device_specifier))
-      error("error in device_tree_add_parsed - buffer overflow\n");
+      error("device_tree_add_parsed: buffer overflow\n");
   }
 
   /* break it up */
   if (!split_device_specifier(device_specifier, &spec))
-    error("error parsing device %s\n", device_path);
+    device_error(current, "error parsing %s\n", device_specifier);
 
   /* fill our tree with its contents */
   current = split_find_device(current, &spec);
@@ -1317,28 +1598,24 @@ device_tree_add_parsed(device *current,
   /* is there an interrupt spec */
   if (spec.property == NULL
       && spec.value != NULL) {
-    switch (spec.value[0]) {
+    char *op = split_value(&spec);
+    switch (op[0]) {
     case '>':
       {
-	int my_port = strtoul(spec.value+1, &spec.value, 0);
-	int dest_port  = strtoul(spec.value+1, &spec.value, 0);
-	device *dest = device_tree_find_device(current, spec.value);
+	char *my_port_name = split_value(&spec);
+	char *dest_port_name = split_value(&spec);
+	device *dest = device_tree_find_device(current, split_value(&spec));
+	int my_port = device_interrupt_decode(current, my_port_name);
+	int dest_port  = device_interrupt_decode(dest, dest_port_name);
 	device_interrupt_attach(current,
 				my_port,
 				dest,
 				dest_port,
-				1);/*permenant*/
+				permenant_object);
       }
       break;
-    case '<':
-      spec.value++;
-      device_child_interrupt_attach(current,
-				    device_tree_find_device(current,
-							    spec.value),
-				    1);/*permenant*/
-      break;
     default:
-      error("unreconised interrupt spec %s\n", spec.value);
+      device_error(current, "unreconised interrupt spec %s\n", spec.value);
       break;
     }
   }
@@ -1353,17 +1630,18 @@ device_tree_add_parsed(device *current,
       const device_property *property;
       switch (spec.value[0]) {
       case '*':
-	spec.value++;
-	device_add_ihandle_property(current, spec.property,
-				    device_instance_create(current,
-							   spec.value,
-							   1/*permenant*/));
+	{
+	  spec.value++;
+	  device_add_ihandle_property(current, spec.property, spec.value);
+	}
 	break;
       case '-': case '+':
       case '0': case '1': case '2': case '3': case '4':
       case '5': case '6': case '7': case '8': case '9':
-	device_add_integer_property(current, spec.property,
-				    strtoul(spec.value, &spec.value, 0));
+	{
+	  unsigned long ul = strtoul(spec.value, &spec.value, 0);
+	  device_add_integer_property(current, spec.property, ul);
+	}
 	break;
       case '[':
 	{
@@ -1399,12 +1677,6 @@ device_tree_add_parsed(device *current,
 				    words, sizeof(words[0]) * nr_words);
 	}
 	break;
-      case '&':
-	spec.value++;
-	device_add_phandle_property(current, spec.property,
-				    device_tree_find_device(current,
-							    spec.value));
-	break;
       case '"':
 	spec.value++;
       default:
@@ -1414,8 +1686,7 @@ device_tree_add_parsed(device *current,
 	spec.value++;
 	property = device_find_property(current, spec.value);
 	if (property == NULL)
-	  error("Can not duplicate property, original %s not found\n",
-		spec.value);
+	  device_error(current, "property %s not found\n", spec.value);
 	device_add_duplicate_property(current,
 				      spec.property,
 				      property);
@@ -1493,20 +1764,28 @@ device_tree_print_device(device *me,
 	break;
       case ihandle_property:
 	{
-	  device_instance *i = device_find_ihandle_property(me, property-> name);
-	  printf_filtered(" *%s\n", i->path);
+	  if (property->array != NULL) {
+	    device_instance *i = device_find_ihandle_property(me, property->name);
+	    printf_filtered(" *%s\n", i->path);
+	  }
+	  else {
+	    /* drats, the instance hasn't yet been created.  Grub
+               around and find the path that will be used to create
+               the ihandle */
+	    device_property_entry *entry = me->properties;
+	    while (entry->value != property) {
+	      entry = entry->next;
+	      ASSERT(entry != NULL);
+	    }
+	    ASSERT(entry->init_array != NULL);
+	    printf_filtered(" *%s\n", (char*)entry->init_array);
+	  }
 	}
 	break;
       case integer_property:
 	{
 	  unsigned_word w = device_find_integer_property(me, property->name);
 	  printf_filtered(" 0x%lx\n", (unsigned long)w);
-	}
-	break;
-      case phandle_property:
-	{
-	  device *d = device_find_phandle_property(me, property->name);
-	  printf_filtered(" *%s\n", d->path);
 	}
 	break;
       case string_property:
@@ -1522,17 +1801,15 @@ device_tree_print_device(device *me,
   for (interrupt_edge = me->interrupt_destinations;
        interrupt_edge != NULL;
        interrupt_edge = interrupt_edge->next) {
-    printf_filtered("%s >%d %d %s\n",
+    char src[32];
+    char dst[32];
+    device_interrupt_encode(me, interrupt_edge->my_port, src, sizeof(src));
+    device_interrupt_encode(interrupt_edge->dest,
+			    interrupt_edge->dest_port, dst, sizeof(dst));
+    printf_filtered("%s > %s %s %s\n",
 		    me->path,
-		    interrupt_edge->my_port,
-		    interrupt_edge->dest_port,
+		    src, dst,
 		    interrupt_edge->dest->path);
-  }
-  /* child interrupts */
-  for (interrupt_edge = me->child_interrupt_destinations;
-       interrupt_edge != NULL;
-       interrupt_edge = interrupt_edge->next) {
-    printf_filtered("%s <%s\n", me->path, interrupt_edge->dest->path);
   }
 }
 
@@ -1564,7 +1841,7 @@ INLINE_DEVICE\
 device_usage(int verbose)
 {
   if (verbose == 1) {
-    device_descriptor *descr;
+    const device_descriptor *const *table;
     int pos;
     printf_filtered("\n");
     printf_filtered("A device/property specifier has the form:\n");
@@ -1574,8 +1851,10 @@ device_usage(int verbose)
     printf_filtered("and a possible device is\n");
     printf_filtered("\n");
     pos = 0;
-    for (descr = device_table; descr->name != NULL; descr++) {
-      pos += strlen(descr->name) + 2;
+    for (table = device_table; *table != NULL; table++) {
+      const device_descriptor *descr;
+      for (descr = *table; descr->name != NULL; descr++) {
+	pos += strlen(descr->name) + 2;
 	if (pos > 75) {
 	  pos = strlen(descr->name) + 2;
 	  printf_filtered("\n");
@@ -1584,8 +1863,9 @@ device_usage(int verbose)
       }
       printf_filtered("\n");
     }
+  }
   if (verbose > 1) {
-    device_descriptor *descr;
+    const device_descriptor *const *table;
     printf_filtered("\n");
     printf_filtered("A device/property specifier (<spec>) has the format:\n");
     printf_filtered("\n");
@@ -1605,7 +1885,6 @@ device_usage(int verbose)
     printf_filtered("              | \"{\" { <number> } # array property (cell)\n");
     printf_filtered("              | [ \"true\" | \"false\" ] # boolean property\n");
     printf_filtered("              | \"*\" <path> # ihandle property\n");
-    printf_filtered("              | \"*\" <path> # ihandle property\n");
     printf_filtered("              | \"!\" <path> # copy property\n");
     printf_filtered("              | \">\" [ <number> ] <path> # attach interrupt\n");
     printf_filtered("              | \"<\" <path> # attach child interrupt\n");
@@ -1615,11 +1894,25 @@ device_usage(int verbose)
     printf_filtered("\n");
     printf_filtered("And the following are valid device names:\n");
     printf_filtered("\n");
-    for (descr = device_table; descr->name != NULL; descr++) {
-      if (descr->callbacks->usage != NULL)
-	descr->callbacks->usage(verbose);
-      else
-	printf_filtered("  %s\n", descr->name);
+    for (table = device_table; *table != NULL; table++) {
+      const device_descriptor *descr;
+      for (descr = *table; descr->name != NULL; descr++) {
+	printf_filtered("  %s:\n", descr->name);
+	/* interrupt ports */
+	if (descr->callbacks->interrupt.ports != NULL) {
+	  const device_interrupt_port_descriptor *ports =
+	    descr->callbacks->interrupt.ports;
+	  printf_filtered("    interrupt ports:");
+	  while (ports->name != NULL) {
+	    printf_filtered(" %s", ports->name);
+	    ports++;
+	  }
+	  printf_filtered("\n");
+	}
+	/* general info */
+	if (descr->callbacks->usage != NULL)
+	  descr->callbacks->usage(verbose);
+      }
     }
   }
 }

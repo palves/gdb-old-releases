@@ -1939,7 +1939,9 @@ OP_OFF (bytemode)
      int bytemode;
 {
   int off;
-  
+
+  append_prefix ();
+
   if (aflag)
     off = get32 ();
   else

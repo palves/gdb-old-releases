@@ -185,6 +185,11 @@ struct bfd_link_info
   boolean symbolic;
   /* true if shared objects should be linked directly, not shared.  */
   boolean static_link;
+  /* true if the output file should be in a traditional format.  This
+     is equivalent to the setting of the BFD_TRADITIONAL_FORMAT flag
+     on the output file, but may be checked when reading the input
+     files.  */
+  boolean traditional_format;
   /* Which symbols to strip.  */
   enum bfd_link_strip strip;
   /* Which local symbols to discard.  */
@@ -209,13 +214,16 @@ struct bfd_link_info
   /* Hash table of symbols to keep.  This is NULL unless strip is
      strip_some.  */
   struct bfd_hash_table *keep_hash;
-  /* Hash table of symbols to report back via notice_callback.  If
-     this is NULL no symbols are reported back.  */
+  /* true if every symbol should be reported back via the notice
+     callback.  */
+  boolean notice_all;
+  /* Hash table of symbols to report back via the notice callback.  If
+     this is NULL, and notice_all is false, then no symbols are
+     reported back.  */
   struct bfd_hash_table *notice_hash;
   /* Hash table of symbols which are being wrapped (the --wrap linker
      option).  If this is NULL, no symbols are being wrapped.  */
   struct bfd_hash_table *wrap_hash;
-
   /* If a base output file is wanted, then this points to it */
   PTR base_file;
 };

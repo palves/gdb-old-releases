@@ -1,3 +1,41 @@
+Thu May 23 16:56:48 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* h8300.h (add.l): Undo Apr 5th change.  The manual I had
+	was incorrect.
+
+Mon May  6 23:38:22 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* h8300.h (START): Remove.
+	(MEMRELAX): Define.  Mark absolute memory operands in mov.b, mov.w
+	and mov.l insns that can be relaxed.
+
+Tue Apr 30 18:30:58 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* i386.h: Remove Abs32 from lcall.
+
+Mon Apr 22 17:09:23 1996  Doug Evans  <dje@blues.cygnus.com>
+
+	* sparc.h (SPARC_OPCODE_ARCH_V9_P): New macro.
+	(SLCPOP): New macro.
+	Mark X,Y opcode letters as in use.
+
+Thu Apr 11 17:28:18 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* sparc.h (F_FLOAT, F_FBR): Define.
+
+Fri Apr  5 16:55:34 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* h8300.h (ABS8MEM): Renamed from ABSMOV.  Remove ABSMOV
+	from all insns.
+	(ABS8SRC,ABS8DST): Add ABS8MEM.
+	(add.l): Fix reg+reg variant.
+	(eepmov.w): Renamed from eepmovw.
+	(ldc,stc): Fix many cases.
+
+Sun Mar 31 13:30:03 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc.h (SPARC_OPCODE_ARCH_MASK): New macro.
+
 Thu Mar  7 15:08:23 1996  Doug Evans  <dje@charmed.cygnus.com>
 
 	* sparc.h (O): Mark operand letter as in use.

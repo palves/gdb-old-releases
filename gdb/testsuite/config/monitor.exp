@@ -34,10 +34,17 @@ proc gdb_target_monitor { } {
     global targetname
     global serialport
     global baud
+    global target_info
 
     set timeout 60
     if {$baud != ""} then {
 	send "set remotebaud $baud\n"
+    }
+    if [info exists target_info(target,target)] {
+	set targetname "$target_info(target,target)"
+    }
+    if [info exists target_info(target,netport)] {
+	set serialport "$target_info(target,netport)"
     }
     for {set i 1} {$i <= 3} {incr i} {
 	send "target $targetname $serialport\n"
@@ -77,22 +84,23 @@ proc gdb_load { arg } {
 
     gdb_target_monitor
 
-    send "load\n"
+    verbose "Loading $arg"
+    send "load $arg\n"
     set timeout 600
     expect {
 	-re ".*$prompt $" {
-	    if $verbose>1 then {
+	    if { $verbose > 1 } {
 		send_user "Loaded $arg into $GDB\n"
 	    }
 	    return 1
 	}
 	-re "$prompt $"     {
-	    if $verbose>1 then {
-	 perror "GDB couldn't load."
+	    if { $verbose > 1 } {
+		perror "GDB couldn't load."
 	    }
 	}
 	timeout {
-	    if $verbose>1 then {
+	    if { $verbose > 1 } {
 	 perror "Timed out trying to load $arg."
 	    }
 	}

@@ -2552,8 +2552,11 @@ idecode_switch_end(insn_table *table,
 
   if (table->opcode_rule->use_switch == 1
       && !table->opcode->is_boolean) {
-    lf_printf(file, "default:\n");
-    lf_print_idecode_switch_illegal(file);
+      lf_printf(file, "default:\n");
+      lf_print_idecode_switch_illegal(file);
+  }
+  else {
+    lf_printf(file, "  error(\"igen internal error - bad switch generated\n\");\n");
   }
   lf_printf(file, "}\n");
 }

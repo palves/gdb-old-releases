@@ -2255,7 +2255,7 @@ static const struct ecoff_backend_data alpha_ecoff_backend_data =
     (unsigned (*) PARAMS ((bfd *,PTR,PTR))) bfd_void, /* reloc_out */
     alpha_ecoff_swap_filehdr_out, alpha_ecoff_swap_aouthdr_out,
     alpha_ecoff_swap_scnhdr_out,
-    FILHSZ, AOUTSZ, SCNHSZ, 0, 0, 0, 0, true,
+    FILHSZ, AOUTSZ, SCNHSZ, 0, 0, 0, 0, true, false,
     alpha_ecoff_swap_filehdr_in, alpha_ecoff_swap_aouthdr_in,
     alpha_ecoff_swap_scnhdr_in, NULL,
     alpha_ecoff_bad_format_hook, _bfd_ecoff_set_arch_mach_hook,

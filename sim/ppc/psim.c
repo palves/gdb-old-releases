@@ -155,6 +155,8 @@ psim_usage(int verbose)
   printf_filtered("\t              Can be any of the following:\n");
   printf_filtered("\t              bug - OEA + MOTO BUG ROM calls\n");
   printf_filtered("\t              netbsd - UEA + NetBSD system calls\n");
+  printf_filtered("\t              solaris - UEA + Solaris system calls\n");
+  printf_filtered("\t              linux - UEA + Linux system calls\n");
   printf_filtered("\t              chirp - OEA + a few OpenBoot calls\n");
   printf_filtered("\n"); }
   printf_filtered("\t-i            Print instruction counting statistics\n");
@@ -243,7 +245,8 @@ psim_options(device *root,
     argp += 1;
   }
   /* force the trace node to (re)process its options */
-  device_init_data(device_tree_find_device(root, "/openprom/trace"), NULL);
+  device_ioctl(device_tree_find_device(root, "/openprom/trace"), NULL, 0);
+
   /* return where the options end */
   return argv + argp;
 }
@@ -353,7 +356,6 @@ psim_create(const char *file_name,
   for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; cpu_nr++) {
     system->processors[cpu_nr] = cpu_create(system,
 					    system->memory,
-					    system->events,
 					    mon_cpu(system->monitor,
 						    cpu_nr),
 					    system->os_emulation,
@@ -404,15 +406,16 @@ INLINE_PSIM\
 (void)
 psim_halt(psim *system,
 	  int current_cpu,
-	  unsigned_word cia,
 	  stop_reason reason,
 	  int signal)
 {
+  ASSERT(current_cpu >= 0 && current_cpu < system->nr_cpus);
   system->last_cpu = current_cpu;
   system->halt_status.cpu_nr = current_cpu;
   system->halt_status.reason = reason;
   system->halt_status.signal = signal;
-  system->halt_status.program_counter = cia;
+  system->halt_status.program_counter =
+    cpu_get_program_counter(system->processors[current_cpu]);
   longjmp(*(jmp_buf*)(system->path_to_halt), current_cpu + 1);
 }
 
@@ -444,6 +447,13 @@ psim_device(psim *system,
   return device_tree_find_device(system->devices, path);
 }
 
+INLINE_PSIM\
+(event_queue *)
+psim_event_queue(psim *system)
+{
+  return system->events;
+}
+
 
 
 INLINE_PSIM\
@@ -454,7 +464,8 @@ psim_init(psim *system)
 
   /* scrub the monitor */
   mon_init(system->monitor, system->nr_cpus);
-  os_emul_init(system->os_emulation, system->nr_cpus);
+
+  /* trash any pending events */
   event_queue_init(system->events);
 
   /* scrub all the cpus */
@@ -463,6 +474,9 @@ psim_init(psim *system)
 
   /* init all the devices (which updates the cpus) */
   device_tree_init(system->devices, system);
+
+  /* and the emulation (which needs an initialized device tree) */
+  os_emul_init(system->os_emulation, system->nr_cpus);
 
   /* now sync each cpu against the initialized state of its registers */
   for (cpu_nr = 0; cpu_nr < system->nr_cpus; cpu_nr++) {
@@ -488,7 +502,6 @@ psim_stack(psim *system,
     unsigned_word stack_pointer;
     psim_read_register(system, 0, &stack_pointer, "sp", cooked_transfer);
     device_ioctl(stack_device,
-		 system,
 		 NULL, /*cpu*/
 		 0, /*cia*/
 		 stack_pointer,
@@ -751,7 +764,7 @@ psim_read_register(psim *system,
 		   transfer_mode mode)
 {
   register_descriptions description;
-  char cooked_buf[sizeof(natural_word)];
+  char cooked_buf[sizeof(unsigned_8)];
   cpu *processor;
 
   /* find our processor */
@@ -797,6 +810,13 @@ psim_read_register(psim *system,
     *(msreg*)cooked_buf = cpu_registers(processor)->msr;
     break;
 
+  case reg_insns:
+    *(unsigned_word*)cooked_buf = mon_get_number_of_insns(system->monitor,
+							  which_cpu);
+    break;
+
+  case reg_stalls:
+  case reg_cycles:
   default:
     printf_filtered("psim_read_register(processor=0x%lx,buf=0x%lx,reg=%s) %s\n",
 		    (unsigned long)processor, (unsigned long)buf, reg,
@@ -842,7 +862,7 @@ psim_write_register(psim *system,
 {
   cpu *processor;
   register_descriptions description;
-  char cooked_buf[sizeof(natural_word)];
+  char cooked_buf[sizeof(unsigned_8)];
 
   /* find our processor */
   if (which_cpu == MAX_NR_PROCESSORS)

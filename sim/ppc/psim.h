@@ -42,7 +42,7 @@ typedef struct _psim_status {
 
 
 /* create an initial device tree and then populate it using
-   information obtained from the command line */
+   information obtained from either the command line or a file */
 
 extern device *psim_tree
 (void);
@@ -51,11 +51,15 @@ extern char **psim_options
 (device *root,
  char **argv);
 
+extern void psim_merge_device_file
+(device *root,
+ const char *file_name);
+
 extern void psim_usage
 (int verbose);
 
 
-/* create a new simulator */
+/* create a new simulator from the device tree */
 
 extern psim *psim_create
 (const char *file_name,
@@ -92,7 +96,6 @@ extern void psim_restart
 extern void psim_halt
 (psim *system,
  int cpu_nr,
- unsigned_word cia,
  stop_reason reason,
  int signal);
 
@@ -100,8 +103,8 @@ extern psim_status psim_get_status
 (psim *system);
 
 
-/* reveal the internals of the simulation, giving access to cpu's and
-   devices */
+/* reveal the internals of the simulation.  Grant access to the
+   processor (cpu) device tree (device) and events (event_queue). */
 
 extern cpu *psim_cpu
 (psim *system,
@@ -110,6 +113,10 @@ extern cpu *psim_cpu
 extern device *psim_device
 (psim *system,
  const char *path);
+
+extern event_queue *psim_event_queue
+(psim *system);
+ 
 
 
 /* manipulate the state (registers or memory) of a processor within
@@ -151,10 +158,5 @@ extern unsigned psim_write_memory
 extern void psim_print_info
 (psim *system,
  int verbose);
-
-/* FIXME: I do not want this here */
-extern void psim_merge_device_file
-(device *root,
- const char *file_name);
 
 #endif /* _PSIM_H_ */
