@@ -48,7 +48,7 @@ SHELL = /bin/sh
 
 
 
-INSTALL = $${srcroot}/install.sh -c
+INSTALL = $(srcroot)/install.sh -c
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL)
 INSTALL_XFORM = $(INSTALL) -t='$(program_transform_name)'
@@ -65,7 +65,7 @@ MAKEINFO = makeinfo
 RANLIB = ranlib
 
 INCDIR = $(srcdir)/../../include 
-CSEARCH = -I. -I$(srcdir)  -I../../include  -I../../bfd -I$(INCDIR) -I$(srcdir)/../../bfd  
+CSEARCH = -I. -I$(srcdir)  -I../../include  -I../../bfd -I$(INCDIR) -I$(srcdir)/../../bfd -I$(srcdir)/../../gdb
 DEP = mkdep
 
 #### host, target, and site specific Makefile frags come in here.
@@ -170,7 +170,8 @@ install:
 	   || $(INSTALL_PROGRAM) run $(tooldir)/bin/run; \
 	else true; fi
 
-
+install-man: run.1
+	$(INSTALL_XFORM1) $(srcdir)/run.1 $(man1dir)/run.1
 
 
 Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)

@@ -27,10 +27,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define TARGET_BYTE_ORDER BIG_ENDIAN
 
-#undef TARGET_INT_BIT
 #define TARGET_INT_BIT 16
-
-#undef TARGET_PTR_BIT
+#define TARGET_LONG_BIT 32
 #define TARGET_PTR_BIT (minimum_mode ? 16 : 32)
 
 
@@ -77,18 +75,20 @@ extern CORE_ADDR h8500_skip_prologue ();
 
 #define INVALID_FLOAT(p, len) 0   /* Just a first guess; not checked */
 
-/* Say how long registers are.  */
+/* Say how long (ordinary) registers are.  This is a piece of bogosity
+   used in push_word and a few other places; REGISTER_RAW_SIZE is the
+   real way to know how big a register is.  */
 
-#define REGISTER_TYPE  unsigned long
+#define REGISTER_SIZE 4
 
 /* Say how much memory is needed to store a copy of the register set */
 
-#define REGISTER_BYTES    (24) 
+#define REGISTER_BYTES    (NUM_REGS * 4) 
 
 /* Index within `registers' of the first byte of the space for
    register N.  */
 
-#define REGISTER_BYTE(N)  (regoff[N])
+#define REGISTER_BYTE(N)  ((N)*4)
 
 /* Number of bytes of storage in the actual machine representation
    for register N.  */
@@ -106,23 +106,6 @@ int h8500_register_size PARAMS ((int regno));
 
 #define MAX_REGISTER_VIRTUAL_SIZE 4
 
-/* Nonzero if register N requires conversion
-   from raw format to virtual format.  */
-
-#define REGISTER_CONVERTIBLE(N) (0)
-
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
-
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)  \
-{ memcpy ((TO), (FROM), 4); }
-
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
-
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)   \
-{ memcpy ((TO), (FROM), 4); }
-
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
 
@@ -133,9 +116,9 @@ struct type *h8500_register_virtual_type PARAMS ((int regno));
    Entries beyond the first NUM_REGS are ignored.  */
 
 #define REGISTER_NAMES \
-  {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", \
-   "ccr","pc", \
-    "cp","dp","ep","tp" }
+  {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",   \
+  "pr0", "pr1", "pr2","pr3","pr4","pr5","pr6","pr7","cp","dp","ep","tp","ccr","pc"}
+
 
 /* Register numbers of various important registers.
    Note that some of these values are "real" register numbers,
@@ -154,18 +137,31 @@ struct type *h8500_register_virtual_type PARAMS ((int regno));
 #define R6_REGNUM	6
 #define R7_REGNUM	7
 
-#define SP_REGNUM       R7_REGNUM /* Contains address of top of stack */
-#define FP_REGNUM       R6_REGNUM /* Contains address of executing stack frame */
 
-#define CCR_REGNUM      8	/* Contains processor status */
-#define PC_REGNUM       9	/* Contains program counter */
+#define PR0_REGNUM	8
+#define PR1_REGNUM	9
+#define PR2_REGNUM	10
+#define PR3_REGNUM	11
+#define PR4_REGNUM	12
+#define PR5_REGNUM	13
+#define PR6_REGNUM	14
+#define PR7_REGNUM	15
 
-#define SEG_C_REGNUM	10	/* Segment registers */
-#define SEG_D_REGNUM	11
-#define SEG_E_REGNUM	12
-#define SEG_T_REGNUM	13
+#define SEG_C_REGNUM	16	/* Segment registers */
+#define SEG_D_REGNUM	17
+#define SEG_E_REGNUM	18
+#define SEG_T_REGNUM	19
 
-#define NUM_REGS 	14
+
+#define CCR_REGNUM      20	/* Contains processor status */
+#define PC_REGNUM       21	/* Contains program counter */
+
+
+#define NUM_REGS 	22
+
+
+#define SP_REGNUM       PR7_REGNUM /* Contains address of top of stack */
+#define FP_REGNUM       PR6_REGNUM /* Contains address of executing stack frame */
 
 #define PTR_SIZE (minimum_mode ? 2: 4)
 #define PTR_MASK (minimum_mode ? 0x0000ffff : 0x00ffffff)
@@ -222,8 +218,8 @@ struct type *h8500_register_virtual_type PARAMS ((int regno));
 
 CORE_ADDR h8500_frame_chain (/* FRAME thisframe */);
 
-#define INIT_EXTRA_FRAME_INFO(fromleaf, fci)  \
-       (fci)->frame |= read_register(SEG_T_REGNUM) << 16;
+#define INIT_EXTRA_FRAME_INFO(fromleaf, fci)  ;
+/*       (fci)->frame |= read_register(SEG_T_REGNUM) << 16;*/
 
 #define FRAME_CHAIN(FRAME) h8500_frame_chain(FRAME)
 

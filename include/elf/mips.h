@@ -38,6 +38,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Four bit MIPS architecture field.  */
 #define EF_MIPS_ARCH		0xf0000000
+
+/* -mips1 code.  */
+#define E_MIPS_ARCH_1		0x00000000
+
+/* -mips2 code.  */
+#define E_MIPS_ARCH_2		0x10000000
+
+/* -mips3 code.  */
+#define E_MIPS_ARCH_3		0x20000000
 
 /* Processor specific section indices.  These sections do not actually
    exist.  Symbols with a st_shndx field corresponding to one of these
@@ -76,6 +85,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Section contains register usage information.  */
 #define SHT_MIPS_REGINFO	0x70000006
+
+/* Section contains miscellaneous options (used on Irix).  */
+#define SHT_MIPS_OPTIONS	0x7000000d
 
 /* A section of type SHT_MIPS_LIBLIST contains an array of the
    following structure.  The sh_link field is the section index of the
@@ -164,3 +176,55 @@ extern void bfd_mips_elf32_swap_reginfo_out
 
 /* This section must be in the global data area.  */
 #define SHF_MIPS_GPREL		0x10000000
+
+/* Processor specific program header types.  */
+
+/* Register usage information.  Identifies one .reginfo section.  */
+#define PT_MIPS_REGINFO		0x70000000
+
+/* Processor specific dynamic array tags.  */
+
+/* 32 bit version number for runtime linker interface.  */
+#define DT_MIPS_RLD_VERSION	0x70000001
+
+/* Time stamp.  */
+#define DT_MIPS_TIME_STAMP	0x70000002
+
+/* Checksum of external strings and common sizes.  */
+#define DT_MIPS_ICHECKSUM	0x70000003
+
+/* Index of version string in string table.  */
+#define DT_MIPS_IVERSION	0x70000004
+
+/* 32 bits of flags.  */
+#define DT_MIPS_FLAGS		0x70000005
+
+/* Base address of the segment.  */
+#define DT_MIPS_BASE_ADDRESS	0x70000006
+
+/* Address of .conflict section.  */
+#define DT_MIPS_CONFLICT	0x70000008
+
+/* Address of .liblist section.  */
+#define DT_MIPS_LIBLIST		0x70000009
+
+/* Number of local global offset table entries.  */
+#define DT_MIPS_LOCAL_GOTNO	0x7000000a
+
+/* Number of entries in the .conflict section.  */
+#define DT_MIPS_CONFLICTNO	0x7000000b
+
+/* Number of entries in the .liblist section.  */
+#define DT_MIPS_LIBLISTNO	0x70000010
+
+/* Number of entries in the .dynsym section.  */
+#define DT_MIPS_SYMTABNO	0x70000011
+
+/* Index of first external dynamic symbol not referenced locally.  */
+#define DT_MIPS_UNREFEXTNO	0x70000012
+
+/* Index of first dynamic symbol in global offset table.  */
+#define DT_MIPS_GOTSYM		0x70000013
+
+/* Number of page table entries in global offset table.  */
+#define DT_MIPS_HIPAGENO	0x70000014

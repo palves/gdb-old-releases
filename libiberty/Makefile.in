@@ -115,7 +115,7 @@ CFILES = alloca.c argv.c basename.c bcmp.c bcopy.c bzero.c concat.c \
 	 strcasecmp.c strncasecmp.c \
          strchr.c strdup.c strerror.c strrchr.c strsignal.c \
          strstr.c strtod.c strtol.c strtoul.c tmpnam.c \
-	 vfork.c vfprintf.c vprintf.c vsprintf.c xmalloc.c
+	 vfork.c vfprintf.c vprintf.c vsprintf.c waitpid.c xmalloc.c
 # These are always included in the library.
 REQUIRED_OFILES = argv.o basename.o concat.o cplus-dem.o fdmatch.o \
   getopt.o getopt1.o ieee-float.o obstack.o spaces.o strerror.o strsignal.o \
@@ -148,8 +148,15 @@ needed-list: $(NEEDED_LIST)
 	cp $(NEEDED_LIST) needed-list
 
 lneeded-list: $(EXTRA_OFILES) needed.awk errors
-	awk -f needed.awk <errors >lneeded-list
-	echo $(EXTRA_OFILES) >>lneeded-list
+	rm -f lneeded-list
+	f=""; \
+	for i in `awk -f needed.awk <errors` $(EXTRA_OFILES) ; do \
+	  case " $$f " in \
+	    *" $$i "*) ;; \
+	    *) f="$$f $$i" ;; \
+	  esac ; \
+	done ; \
+	echo $$f >>lneeded-list
 
 # Generate an awk script that looks for functions in functions.def
 
@@ -184,7 +191,7 @@ dummy.o: $(srcdir)/dummy.c $(srcdir)/functions.def
 	$(CC) -c $(CFLAGS) -I. -I$(srcdir)/../include $(HDEFINES) $(XTRAFLAGS) $(srcdir)/dummy.c 2>/dev/null
 
 errors: dummy.o $(EXTRA_OFILES)
-	-($(CC) -o dummy $(LDFLAGS) dummy.o $(EXTRA_OFILES) $(LOADLIBES)) >errors 2>&1 || true
+	-($(CC) -o dummy $(CFLAGS) $(LDFLAGS) dummy.o $(EXTRA_OFILES) $(LOADLIBES)) >errors 2>&1 || true
 
 $(HOST_OFILES) $(REQUIRED_OFILES) : config.h
 
@@ -194,7 +201,7 @@ $(RULE1): $(REQUIRED_OFILES) $(DO_ALSO) .always.
 	     HOST_OFILES="$(HOST_OFILES)" \
 	    "CC=$(CC)" "CFLAGS=$(CFLAGS)" \
 	    "AR=$(AR)" "AR_FLAGS=$(AR_FLAGS)" "RANLIB=$(RANLIB)" \
-	    "XTRAFLAGS=$(XTRAFLAGS)"
+	    "XTRAFLAGS=$(XTRAFLAGS)" "SHELL=$(SHELL)"
 
 # Rule invoked by recursive make in $(RULE1).
 RULE2 = not-used

@@ -194,15 +194,15 @@ extern void
 delete_cmd PARAMS ((char *, struct cmd_list_element **));
 
 extern void
-help_cmd PARAMS ((char *, FILE *));
+help_cmd PARAMS ((char *, GDB_FILE *));
 
 extern void
 help_list PARAMS ((struct cmd_list_element *, char *, enum command_class,
-		   FILE *));
+		   GDB_FILE *));
 
 extern void
 help_cmd_list PARAMS ((struct cmd_list_element *, enum command_class, char *,
-		       int, FILE *));
+		       int, GDB_FILE *));
 
 extern struct cmd_list_element *
 add_set_cmd PARAMS ((char *, enum command_class, var_types, char *, char *,

@@ -12,6 +12,7 @@ case "${xhost-${host}}" in
   *-*-dgux*)		frag=mh-sysv ;;
   hppa*-hp-bsd*)	frag=mh-hpbsd ;;
   *-*-hpux*)		frag=mh-hpux ;;
+  *-*-hiux*)		frag=mh-hpux ;;
   *-*-irix4*)		frag=mh-irix4 ;;
   *-*-irix*)		frag=mh-sysv ;;
   *-*-m88kbcs*)		frag=mh-sysv ;;

@@ -377,7 +377,7 @@ print_insn_hppa (memaddr, info)
 	  
 	  (*info->fprintf_func) (info->stream, "%s", opcode->name);
 
-	  if (!strchr ("cCY<?!@-+&U>~nZFIMad|", opcode->args[0]))
+	  if (!strchr ("cfCY<?!@-+&U>~nNZFIMadu|", opcode->args[0]))
 	    (*info->fprintf_func) (info->stream, " ");
 	  for (s = opcode->args; *s != '\0'; ++s)
 	    {
@@ -528,6 +528,14 @@ print_insn_hppa (memaddr, info)
 		  else
 		    (*info->fprintf_func) (info->stream, " ");
 		  break;
+		case 'N':
+		  if ((insn & 0x20) && s[1])
+		    (*info->fprintf_func) (info->stream, ",n ");
+		  else if (insn & 0x20)
+		    (*info->fprintf_func) (info->stream, ",n");
+		  else if (s[1])
+		    (*info->fprintf_func) (info->stream, " ");
+		  break;
 		case 'w':
 		  (*info->print_address_func) (memaddr + 8 + extract_12 (insn),
 					       info);
@@ -591,7 +599,7 @@ print_insn_hppa (memaddr, info)
 			       GET_FIELD (insn, 27, 31)), info);
 		  break;
 		case 'u':
-		  (*info->fprintf_func) (info->stream, "%d", GET_FIELD (insn, 23, 25));
+		  (*info->fprintf_func) (info->stream, ",%d", GET_FIELD (insn, 23, 25));
 		  break;
 		case 'F':
 		  /* if no destination completer, need a space here */

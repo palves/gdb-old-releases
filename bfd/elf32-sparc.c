@@ -147,6 +147,7 @@ DEFUN (elf_info_to_howto, (abfd, cache_ptr, dst),
 #define TARGET_BIG_SYM	bfd_elf32_sparc_vec
 #define TARGET_BIG_NAME	"elf32-sparc"
 #define ELF_ARCH	bfd_arch_sparc
+#define ELF_MACHINE_CODE EM_SPARC
 #define ELF_MAXPAGESIZE 0x10000
 
 #include "elf32-target.h"

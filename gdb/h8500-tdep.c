@@ -78,10 +78,6 @@ CORE_ADDR examine_prologue ();
 
 void frame_find_saved_regs ();
 
-int regoff[NUM_REGS] =
-{0, 2, 4, 6, 8, 10, 12, 14,	/* r0->r7 */
- 16, 18,			/* ccr, pc */
- 20, 21, 22, 23};		/* cp, dp, ep, tp */
 
 CORE_ADDR
 h8500_skip_prologue (start_pc)
@@ -90,7 +86,7 @@ h8500_skip_prologue (start_pc)
 {
   short int w;
 
-  w = read_memory_integer (start_pc, 1);
+ w = read_memory_integer (start_pc, 1);
   if (w == LINK_8)
     {
       start_pc += 2;
@@ -109,7 +105,7 @@ h8500_skip_prologue (start_pc)
 int
 print_insn (memaddr, stream)
      CORE_ADDR memaddr;
-     FILE *stream;
+     GDB_FILE *stream;
 {
   disassemble_info info;
   GDB_INIT_DISASSEMBLE_INFO (info, stream);
@@ -127,64 +123,12 @@ FRAME_ADDR
 h8500_frame_chain (thisframe)
      FRAME thisframe;
 {
-
   if (!inside_entry_file (thisframe->pc))
-    return (read_memory_integer (thisframe->frame, 2) & 0xffff)
-      | (read_register (SEG_T_REGNUM) << 16);
+    return (read_memory_integer (FRAME_FP (thisframe), PTR_SIZE));
   else
     return 0;
 }
 
-/* Put here the code to store, into a struct frame_saved_regs,
-   the addresses of the saved registers of frame described by FRAME_INFO.
-   This includes special registers such as pc and fp saved in special
-   ways in the stack frame.  sp is even more special:
-   the address we return for it IS the sp for the next frame.
-
-   We cache the result of doing this in the frame_cache_obstack, since
-   it is fairly expensive.  */
-#if 0
-
-void
-frame_find_saved_regs (fi, fsr)
-     struct frame_info *fi;
-     struct frame_saved_regs *fsr;
-{
-  register CORE_ADDR next_addr;
-  register CORE_ADDR *saved_regs;
-  register int regnum;
-  register struct frame_saved_regs *cache_fsr;
-  extern struct obstack frame_cache_obstack;
-  CORE_ADDR ip;
-  struct symtab_and_line sal;
-  CORE_ADDR limit;
-
-  if (!fi->fsr)
-    {
-      cache_fsr = (struct frame_saved_regs *)
-	obstack_alloc (&frame_cache_obstack,
-		       sizeof (struct frame_saved_regs));
-      memset (cache_fsr, '\0', sizeof (struct frame_saved_regs));
-
-      fi->fsr = cache_fsr;
-
-      /* Find the start and end of the function prologue.  If the PC
-	 is in the function prologue, we only consider the part that
-	 has executed already.  */
-
-      ip = get_pc_function_start (fi->pc);
-      sal = find_pc_line (ip, 0);
-      limit = (sal.end && sal.end < fi->pc) ? sal.end : fi->pc;
-
-      /* This will fill in fields in *fi as well as in cache_fsr.  */
-      examine_prologue (ip, limit, fi->frame, cache_fsr, fi);
-    }
-
-  if (fsr)
-    *fsr = *fi->fsr;
-}
-
-#endif
 
 /* Fetch the instruction at ADDR, returning 0 if ADDR is beyond LIM or
    is not the address of a valid instruction, the address of the next
@@ -215,121 +159,6 @@ NEXT_PROLOGUE_INSN (addr, lim, pword1)
    `fi' is a struct frame_info pointer; we fill in various fields in it
    to reflect the offsets of the arg pointer and the locals pointer.  */
 
-#if 0
-static CORE_ADDR
-examine_prologue (ip, limit, after_prolog_fp, fsr, fi)
-     register CORE_ADDR ip;
-     register CORE_ADDR limit;
-     FRAME_ADDR after_prolog_fp;
-     struct frame_saved_regs *fsr;
-     struct frame_info *fi;
-{
-  register CORE_ADDR next_ip;
-  int r;
-  int i;
-  int have_fp = 0;
-
-  register int src;
-  register struct pic_prologue_code *pcode;
-  char insn[2];
-  int size, offset;
-  unsigned int reg_save_depth = 2;	/* Number of things pushed onto
-				      stack, starts at 2, 'cause the
-				      PC is already there */
-
-  unsigned int auto_depth = 0;	/* Number of bytes of autos */
-
-  char in_frame[8];		/* One for each reg */
-
-  memset (in_frame, 1, 8);
-  for (r = 0; r < 8; r++)
-    {
-      fsr->regs[r] = 0;
-    }
-  if (after_prolog_fp == 0)
-    {
-      after_prolog_fp = read_register (SP_REGNUM);
-    }
-  if (ip == 0 || ip & ~0xffffff)
-    return 0;
-
-  ok = NEXT_PROLOGUE_INSN (ip, limit, &insn[0]);
-
-  /* Skip over any fp push instructions */
-  fsr->regs[6] = after_prolog_fp;
-
-  if (ok && IS_LINK_8 (insn[0]))
-    {
-      ip++;
-
-      in_frame[6] = reg_save_depth;
-      reg_save_depth += 2;
-    }
-
-  next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn_word);
-
-  /* Is this a move into the fp */
-  if (next_ip && IS_MOV_SP_FP (insn_word))
-    {
-      ip = next_ip;
-      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn_word);
-      have_fp = 1;
-    }
-
-  /* Skip over any stack adjustment, happens either with a number of
-     sub#2,sp or a mov #x,r5 sub r5,sp */
-
-  if (next_ip && IS_SUB2_SP (insn_word))
-    {
-      while (next_ip && IS_SUB2_SP (insn_word))
-	{
-	  auto_depth += 2;
-	  ip = next_ip;
-	  next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn_word);
-	}
-    }
-  else
-    {
-      if (next_ip && IS_MOVK_R5 (insn_word))
-	{
-	  ip = next_ip;
-	  next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn_word);
-	  auto_depth += insn_word;
-
-	  next_ip = NEXT_PROLOGUE_INSN (next_ip, limit, &insn_word);
-	  auto_depth += insn_word;
-
-	}
-    }
-  /* Work out which regs are stored where */
-  while (next_ip && IS_PUSH (insn_word))
-    {
-      ip = next_ip;
-      next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn_word);
-      fsr->regs[r] = after_prolog_fp + auto_depth;
-      auto_depth += 2;
-    }
-
-  /* The args are always reffed based from the stack pointer */
-  fi->args_pointer = after_prolog_fp;
-  /* Locals are always reffed based from the fp */
-  fi->locals_pointer = after_prolog_fp;
-  /* The PC is at a known place */
-  fi->from_pc = read_memory_short (after_prolog_fp + 2);
-
-  /* Rememeber any others too */
-  in_frame[PC_REGNUM] = 0;
-
-  if (have_fp)
-    /* We keep the old FP in the SP spot */
-    fsr->regs[SP_REGNUM] = (read_memory_short (fsr->regs[6]));
-  else
-    fsr->regs[SP_REGNUM] = after_prolog_fp + auto_depth;
-
-  return (ip);
-}
-
-#endif
 
 /* Return the saved PC from this frame. */
 
@@ -397,36 +226,36 @@ print_register_hook (regno)
 
       read_relative_register_raw_bytes (regno, b);
       l = b[1];
-      printf ("\t");
-      printf ("I-%d - ", (l & 0x80) != 0);
+      printf_unfiltered ("\t");
+      printf_unfiltered ("I-%d - ", (l & 0x80) != 0);
       N = (l & 0x8) != 0;
       Z = (l & 0x4) != 0;
       V = (l & 0x2) != 0;
       C = (l & 0x1) != 0;
-      printf ("N-%d ", N);
-      printf ("Z-%d ", Z);
-      printf ("V-%d ", V);
-      printf ("C-%d ", C);
+      printf_unfiltered ("N-%d ", N);
+      printf_unfiltered ("Z-%d ", Z);
+      printf_unfiltered ("V-%d ", V);
+      printf_unfiltered ("C-%d ", C);
       if ((C | Z) == 0)
-	printf ("u> ");
+	printf_unfiltered ("u> ");
       if ((C | Z) == 1)
-	printf ("u<= ");
+	printf_unfiltered ("u<= ");
       if ((C == 0))
-	printf ("u>= ");
+	printf_unfiltered ("u>= ");
       if (C == 1)
-	printf ("u< ");
+	printf_unfiltered ("u< ");
       if (Z == 0)
-	printf ("!= ");
+	printf_unfiltered ("!= ");
       if (Z == 1)
-	printf ("== ");
+	printf_unfiltered ("== ");
       if ((N ^ V) == 0)
-	printf (">= ");
+	printf_unfiltered (">= ");
       if ((N ^ V) == 1)
-	printf ("< ");
+	printf_unfiltered ("< ");
       if ((Z | (N ^ V)) == 0)
-	printf ("> ");
+	printf_unfiltered ("> ");
       if ((Z | (N ^ V)) == 1)
-	printf ("<= ");
+	printf_unfiltered ("<= ");
     }
 }
 
@@ -434,10 +263,34 @@ int
 h8500_register_size (regno)
      int regno;
 {
-  if (regno <= PC_REGNUM)
-    return 2;
-  else
+  switch (regno) {
+  case SEG_C_REGNUM:
+  case SEG_D_REGNUM:
+  case SEG_E_REGNUM:
+  case SEG_T_REGNUM:
     return 1;
+  case R0_REGNUM:
+  case R1_REGNUM:
+  case R2_REGNUM:
+  case R3_REGNUM:
+  case R4_REGNUM:
+  case R5_REGNUM:
+  case R6_REGNUM:
+  case R7_REGNUM:
+  case CCR_REGNUM:
+    return 2;
+
+  case PR0_REGNUM:
+  case PR1_REGNUM:
+  case PR2_REGNUM:
+  case PR3_REGNUM:
+  case PR4_REGNUM:
+  case PR5_REGNUM:
+  case PR6_REGNUM:
+  case PR7_REGNUM:
+  case PC_REGNUM:
+    return 4;
+  }
 }
 
 struct type *
@@ -459,9 +312,18 @@ h8500_register_virtual_type (regno)
     case R5_REGNUM:
     case R6_REGNUM:
     case R7_REGNUM:
-    case PC_REGNUM:
     case CCR_REGNUM:
       return builtin_type_unsigned_short;
+    case PR0_REGNUM:
+    case PR1_REGNUM:
+    case PR2_REGNUM:
+    case PR3_REGNUM:
+    case PR4_REGNUM:
+    case PR5_REGNUM:
+    case PR6_REGNUM:
+    case PR7_REGNUM:
+    case PC_REGNUM:
+      return builtin_type_unsigned_long;
     default:
       abort ();
     }
@@ -600,7 +462,7 @@ h8500_set_pointer_size (newsize)
 
   if (oldsize != newsize)
     {
-      printf ("pointer size set to %d bits\n", newsize);
+      printf_unfiltered ("pointer size set to %d bits\n", newsize);
       oldsize = newsize;
       if (newsize == 32)
 	{
@@ -639,8 +501,8 @@ set_memory (args, from_tty)
      char *args;
      int from_tty;
 {
-  printf ("\"set memory\" must be followed by the name of a memory subcommand.\n");
-  help_list (setmemorylist, "set memory ", -1, stdout);
+  printf_unfiltered ("\"set memory\" must be followed by the name of a memory subcommand.\n");
+  help_list (setmemorylist, "set memory ", -1, gdb_stdout);
 }
 
 /* See if variable name is ppc or pr[0-7] */
@@ -764,6 +626,7 @@ h8500_set_trapped_internalvar (var, newval, bitpos, bitsize, offset)
   parse_and_eval (expression);
 }
 
+void
 _initialize_h8500_tdep ()
 {
   add_prefix_cmd ("memory", no_class, set_memory,
@@ -779,53 +642,39 @@ _initialize_h8500_tdep ()
 CORE_ADDR
 target_read_sp ()
 {
-  return (read_register (SEG_T_REGNUM) << 16) | (read_register (SP_REGNUM));
+  return read_register (PR7_REGNUM);
 }
 
 void
 target_write_sp (v)
      CORE_ADDR v;
 {
-  write_register (SEG_T_REGNUM, v >> 16);
-  write_register (SP_REGNUM, v & 0xffff);
+  write_register (PR7_REGNUM, v);
 }
 
 CORE_ADDR
 target_read_pc ()
 {
-  return (read_register (SEG_C_REGNUM) << 16) | (read_register (PC_REGNUM));
+  return read_register (PC_REGNUM);
 }
 
 void
 target_write_pc (v)
      CORE_ADDR v;
 {
-  write_register (SEG_C_REGNUM, v >> 16);
-  write_register (PC_REGNUM, v & 0xffff);
+  write_register (PC_REGNUM, v);
 }
 
 CORE_ADDR
 target_read_fp ()
 {
-  return (read_register (SEG_T_REGNUM) << 16) | (read_register (FP_REGNUM));
+  return read_register (PR6_REGNUM);
 }
 
 void
 target_write_fp (v)
      CORE_ADDR v;
 {
-  write_register (SEG_T_REGNUM, v >> 16);
-  write_register (FP_REGNUM, v & 0xffff);
+  write_register (PR6_REGNUM, v);
 }
 
-/* This doesn't quite fit either in the simulator or in gdb proper.
-   Perhaps the simulator could return 1 to mean it loaded it and 0 to
-   mean "you deal with it, caller".  */
-
-int 
-sim_load (abfd, prog)
-bfd *abfd;
-char *prog;
-{
-  return sim_load_standard (abfd); 
-}

@@ -33,39 +33,30 @@ int objectprint;		/* Controls looking up an object's derived type
 struct obstack dont_print_obstack;
 
 static void
-cplus_print_value PARAMS ((struct type *, char *, FILE *, int, int,
+cplus_print_value PARAMS ((struct type *, char *, GDB_FILE *, int, int,
 			   enum val_prettyprint, struct type **));
 
 /* BEGIN-FIXME:  Hooks into typeprint.c, find a better home for prototypes. */
 
 extern void
-c_type_print_base PARAMS ((struct type *, FILE *, int, int));
+c_type_print_base PARAMS ((struct type *, GDB_FILE *, int, int));
 
 extern void
-c_type_print_varspec_prefix PARAMS ((struct type *, FILE *, int, int));
+c_type_print_varspec_prefix PARAMS ((struct type *, GDB_FILE *, int, int));
 
 extern void
 cp_type_print_method_args PARAMS ((struct type **, char *, char *, int,
-				   FILE *));
+				   GDB_FILE *));
 
 extern struct obstack dont_print_obstack;
 
 /* END-FIXME */
 
-
-/* BEGIN-FIXME:  Hooks into c-valprint.c */
-
-extern int
-c_val_print PARAMS ((struct type *, char *, CORE_ADDR, FILE *, int, int, int,
-		     enum val_prettyprint));
-/* END-FIXME */
-
-
 void
 cp_print_class_method (valaddr, type, stream)
      char *valaddr;
      struct type *type;
-     FILE *stream;
+     GDB_FILE *stream;
 {
   struct type *domain;
   struct fn_field *f = NULL;
@@ -136,7 +127,7 @@ cp_print_class_method (valaddr, type, stream)
     {
       fprintf_filtered (stream, "&");
       c_type_print_varspec_prefix (TYPE_FN_FIELD_TYPE (f, j), stream, 0, 0);
-      fprintf (stream, kind);
+      fprintf_unfiltered (stream, kind);
       if (TYPE_FN_FIELD_PHYSNAME (f, j)[0] == '_'
 	  && TYPE_FN_FIELD_PHYSNAME (f, j)[1] == CPLUS_MARKER)
 	{
@@ -212,7 +203,7 @@ cp_print_value_fields (type, valaddr, stream, format, recurse, pretty,
 		       dont_print)
      struct type *type;
      char *valaddr;
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      int recurse;
      enum val_prettyprint pretty;
@@ -296,17 +287,31 @@ cp_print_value_fields (type, valaddr, stream, format, recurse, pretty,
 
 	      /* Bitfields require special handling, especially due to byte
 		 order problems.  */
-	      v = value_from_longest (TYPE_FIELD_TYPE (type, i),
+	      if (TYPE_FIELD_IGNORE (type, i))
+		{
+		   fputs_filtered ("<optimized out or zero length>", stream);
+		}
+	      else
+		{
+	           v = value_from_longest (TYPE_FIELD_TYPE (type, i),
 				   unpack_field_as_long (type, valaddr, i));
 
-	      c_val_print (TYPE_FIELD_TYPE (type, i), VALUE_CONTENTS (v), 0,
-			   stream, format, 0, recurse + 1, pretty);
+                   val_print (TYPE_FIELD_TYPE(type, i), VALUE_CONTENTS (v), 0,
+			      stream, format, 0, recurse + 1, pretty);
+		}
 	    }
 	  else
 	    {
-	      c_val_print (TYPE_FIELD_TYPE (type, i), 
-			   valaddr + TYPE_FIELD_BITPOS (type, i) / 8,
-			   0, stream, format, 0, recurse + 1, pretty);
+	      if (TYPE_FIELD_IGNORE (type, i))
+		{
+		   fputs_filtered ("<optimized out or zero length>", stream);
+		}
+	      else
+		{
+	           val_print (TYPE_FIELD_TYPE (type, i), 
+			      valaddr + TYPE_FIELD_BITPOS (type, i) / 8,
+			      0, stream, format, 0, recurse + 1, pretty);
+		}
 	    }
 	}
       if (pretty)
@@ -325,7 +330,7 @@ static void
 cplus_print_value (type, valaddr, stream, format, recurse, pretty, dont_print)
      struct type *type;
      char *valaddr;
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      int recurse;
      enum val_prettyprint pretty;
@@ -350,7 +355,10 @@ cplus_print_value (type, valaddr, stream, format, recurse, pretty, dont_print)
     {
       char *baddr;
       int err;
-      char *basename = TYPE_NAME (TYPE_BASECLASS (type, i));
+      char *basename;
+
+      check_stub_type (TYPE_BASECLASS (type, i));
+      basename = TYPE_NAME (TYPE_BASECLASS (type, i));
 
       if (BASETYPE_VIA_VIRTUAL (type, i))
 	{
@@ -411,7 +419,7 @@ void
 cp_print_class_member (valaddr, domain, stream, prefix)
      char *valaddr;
      struct type *domain;
-     FILE *stream;
+     GDB_FILE *stream;
      char *prefix;
 {
   

@@ -205,7 +205,7 @@ DEFUN(aix386_core_file_p,(abfd),
   core_reg2sec (abfd)->vma = -1;
 
   /* We'll access the regs afresh in the core file, like any section: */
-  core_regsec (abfd)->filepos = (file_ptr)offsetof(struct corehdr,cd_regs);
+  core_regsec (abfd)->filepos = (file_ptr)offsetof(struct corehdr,cd_regs[0]);
   core_reg2sec (abfd)->filepos = (file_ptr)offsetof(struct corehdr,
 						    cd_fpregs);
 
@@ -254,7 +254,7 @@ DEFUN(aix386_core_file_matches_executable_p, (core_bfd, exec_bfd),
 #define	aix386_close_and_cleanup		bfd_generic_close_and_cleanup
 #define	aix386_set_section_contents		(PROTO(boolean, (*),	\
          (bfd *abfd, asection *section, PTR data, file_ptr offset,	\
-         bfd_size_type count))) bfd_false
+	 bfd_size_type count))) bfd_generic_set_section_contents
 #define	aix386_get_section_contents		bfd_generic_get_section_contents
 #define	aix386_new_section_hook		(PROTO (boolean, (*),	\
 	(bfd *, sec_ptr))) bfd_true
@@ -290,12 +290,16 @@ DEFUN(aix386_core_file_matches_executable_p, (core_bfd, exec_bfd),
 	(bfd *, struct sec *))) bfd_void
 #define aix386_bfd_get_relocated_section_contents bfd_generic_get_relocated_section_contents
 #define aix386_bfd_relax_section bfd_generic_relax_section
-#define aix386_bfd_seclet_link \
-  ((boolean (*) PARAMS ((bfd *, PTR, boolean))) bfd_false)
 #define aix386_bfd_reloc_type_lookup \
   ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
 #define aix386_bfd_make_debug_symbol \
   ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
+#define aix386_bfd_link_hash_table_create \
+  ((struct bfd_link_hash_table *(*) PARAMS ((bfd *))) bfd_nullvoidptr)
+#define aix386_bfd_link_add_symbols \
+  ((boolean (*) PARAMS ((bfd *, struct bfd_link_info *))) bfd_false)
+#define aix386_bfd_final_link \
+  ((boolean (*) PARAMS ((bfd *, struct bfd_link_info *))) bfd_false)
 
 /* If somebody calls any byte-swapping routines, shoot them.  */
 void
@@ -303,9 +307,9 @@ swap_abort()
 {
   abort(); /* This way doesn't require any declaration for ANSI to fuck up */
 }
-#define	NO_GET	((PROTO(bfd_vma, (*), (         bfd_byte *))) swap_abort )
-#define NO_GETS ((PROTO(bfd_signed_vma, (*), (  bfd_byte *))) swap_abort )
-#define	NO_PUT	((PROTO(void,    (*), (bfd_vma, bfd_byte *))) swap_abort )
+#define	NO_GET	((PROTO(bfd_vma, (*), (       const bfd_byte *))) swap_abort )
+#define NO_GETS ((PROTO(bfd_signed_vma, (*), (const bfd_byte *))) swap_abort )
+#define	NO_PUT	((PROTO(void,        (*), (bfd_vma, bfd_byte *))) swap_abort )
 
 bfd_target aix386_core_vec =
   {
@@ -315,7 +319,7 @@ bfd_target aix386_core_vec =
     true,			/* target headers byte order */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT),
+   HAS_SYMS | HAS_LOCALS | WP_TEXT),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
     0,						/* leading underscore */

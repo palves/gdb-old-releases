@@ -44,6 +44,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "value.h"
 #include "parser-defs.h"
 #include "m2-lang.h"
+#include "bfd.h" /* Required by objfiles.h.  */
+#include "symfile.h" /* Required by objfiles.h.  */
+#include "objfiles.h" /* For have_full_symbols and have_partial_symbols */
 
 /* Remap normal yacc parser interface names (yyparse, yylex, yyerror, etc),
    as well as gratuitiously global symbol names, so we can have multiple
@@ -620,23 +623,13 @@ variable:	NAME
 			      struct minimal_symbol *msymbol;
 			      register char *arg = copy_name ($1);
 
-			      msymbol = lookup_minimal_symbol (arg,
-					  (struct objfile *) NULL);
+			      msymbol = lookup_minimal_symbol (arg, NULL);
 			      if (msymbol != NULL)
 				{
-				  write_exp_elt_opcode (OP_LONG);
-				  write_exp_elt_type (builtin_type_long);
-				  write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
-				  write_exp_elt_opcode (OP_LONG);
-				  write_exp_elt_opcode (UNOP_MEMVAL);
-				  if (msymbol -> type == mst_data ||
-				      msymbol -> type == mst_bss)
-				    write_exp_elt_type (builtin_type_int);
-				  else if (msymbol -> type == mst_text)
-				    write_exp_elt_type (lookup_function_type (builtin_type_int));
-				  else
-				    write_exp_elt_type (builtin_type_char);
-				  write_exp_elt_opcode (UNOP_MEMVAL);
+				  write_exp_msymbol
+				    (msymbol,
+				     lookup_function_type (builtin_type_int),
+				     builtin_type_int);
 				}
 			      else if (!have_full_symbols () && !have_partial_symbols ())
 				error ("No symbol table is loaded.  Use the \"symbol-file\" command.");
@@ -1160,7 +1153,7 @@ void
 yyerror(msg)
      char *msg;	/* unused */
 {
-   printf("Parsing:  %s\n",lexptr);
+   printf_unfiltered("Parsing:  %s\n",lexptr);
    if (yychar < 256)
      error("Invalid syntax in expression near character '%c'.",yychar);
    else

@@ -208,7 +208,7 @@ rs6000coff_get_elt_at_filepos (archive, filepos)
   n_nfd->arelt_data = (PTR) new_areldata;
   n_nfd->filename = new_areldata->filename;
 
-  if (add_bfd_to_cache (archive, filepos, n_nfd))
+  if (_bfd_add_bfd_to_archive_cache (archive, filepos, n_nfd))
     return n_nfd;
 
   /* huh? */
@@ -339,7 +339,7 @@ bfd_target rs6000coff_vec =
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT),
+   HAS_SYMS | HAS_LOCALS | WP_TEXT),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
   0,				/* leading char */

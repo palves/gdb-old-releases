@@ -6517,7 +6517,7 @@ rl_getc (stream)
 
 #ifdef __GO32__
   if (isatty(0))
-    return getkey();
+    return (getkey() & 0x7f);
 #endif /* __GO32__ */
 
   while (1)

@@ -208,7 +208,7 @@ const struct mips_opcode mips_opcodes[] = {
 {"c.le.s",  "S,T",	0x4600003e, 0xffe007ff,	RD_S|RD_T|WR_CC	},
 {"c.ngt.d", "S,T",	0x4620003f, 0xffe007ff,	RD_S|RD_T|WR_CC	},
 {"c.ngt.s", "S,T",	0x4600003f, 0xffe007ff,	RD_S|RD_T|WR_CC	},
-{"cache",   "t,o(b)",	0xbc000000, 0xfc000000, RD_b|I3		},
+{"cache",   "k,o(b)",	0xbc000000, 0xfc000000, RD_b|I3		},
 {"ceil.l.d", "D,S",	0x4620000a, 0xffff003f, WR_D|RD_S|I3	},
 {"ceil.l.s", "D,S",	0x4600000a, 0xffff003f, WR_D|RD_S|I3	},
 {"ceil.w.d", "D,S",	0x4620000e, 0xffff003f, WR_D|RD_S|I2	},
@@ -282,17 +282,20 @@ const struct mips_opcode mips_opcodes[] = {
 {"dremu",   "d,v,t",	3,    (int) M_DREMU_3,	INSN_MACRO	},
 {"dremu",   "d,v,I",	3,    (int) M_DREMU_3I,	INSN_MACRO	},
 {"dsllv",   "d,t,s",	0x00000014, 0xfc0007ff,	WR_d|RD_t|RD_s|I3},
-{"dsll",    "d,w,s",	0x00000014, 0xfc0007ff,	WR_d|RD_t|RD_s|I3}, /* dsllv */
-{"dsll",    "d,w,<",	0x00000038, 0xffe0003f,	WR_d|RD_t|I3	},
 {"dsll32",  "d,w,<",	0x0000003c, 0xffe0003f, WR_d|RD_t|I3	},
+{"dsll",    "d,w,s",	0x00000014, 0xfc0007ff,	WR_d|RD_t|RD_s|I3}, /* dsllv */
+{"dsll",    "d,w,>",	0x0000003c, 0xffe0003f, WR_d|RD_t|I3	}, /* dsll32 */
+{"dsll",    "d,w,<",	0x00000038, 0xffe0003f,	WR_d|RD_t|I3	},
 {"dsrav",   "d,t,s",	0x00000017, 0xfc0007ff,	WR_d|RD_t|RD_s|I3},
-{"dsra",    "d,w,s",	0x00000017, 0xfc0007ff,	WR_d|RD_t|RD_s|I3}, /* dsrav */
-{"dsra",    "d,w,<",	0x0000003b, 0xffe0003f,	WR_d|RD_t|I3	},
 {"dsra32",  "d,w,<",	0x0000003f, 0xffe0003f, WR_d|RD_t|I3	},
+{"dsra",    "d,w,s",	0x00000017, 0xfc0007ff,	WR_d|RD_t|RD_s|I3}, /* dsrav */
+{"dsra",    "d,w,>",	0x0000003f, 0xffe0003f, WR_d|RD_t|I3	}, /* dsra32 */
+{"dsra",    "d,w,<",	0x0000003b, 0xffe0003f,	WR_d|RD_t|I3	},
 {"dsrlv",   "d,t,s",	0x00000016, 0xfc0007ff,	WR_d|RD_t|RD_s|I3},
-{"dsrl",    "d,w,s",	0x00000016, 0xfc0007ff,	WR_d|RD_t|RD_s|I3}, /* dsrlv */
-{"dsrl",    "d,w,<",	0x0000003a, 0xffe0003f,	WR_d|RD_t|I3	},
 {"dsrl32",  "d,w,<",	0x0000003e, 0xffe0003f, WR_d|RD_t|I3	},
+{"dsrl",    "d,w,s",	0x00000016, 0xfc0007ff,	WR_d|RD_t|RD_s|I3}, /* dsrlv */
+{"dsrl",    "d,w,>",	0x0000003e, 0xffe0003f, WR_d|RD_t|I3	}, /* dsrl32 */
+{"dsrl",    "d,w,<",	0x0000003a, 0xffe0003f,	WR_d|RD_t|I3	},
 {"dsub",    "d,v,t",	0x0000002e, 0xfc0007ff,	WR_d|RD_s|RD_t|I3},
 {"dsub",    "d,v,I",	3,    (int) M_DSUB_I,	INSN_MACRO	},
 {"dsubu",   "d,v,t",	0x0000002f, 0xfc0007ff,	WR_d|RD_s|RD_t|I3},
@@ -303,14 +306,25 @@ const struct mips_opcode mips_opcodes[] = {
 {"floor.w.d", "D,S",	0x4620000f, 0xffff003f, WR_D|RD_S|I2	},
 {"floor.w.s", "D,S",	0x4600000f, 0xffff003f, WR_D|RD_S|I2	},
 {"jr",      "s",	0x00000008, 0xfc1fffff,	UBD|RD_s	},
-{"j",       "s",	0x00000008, 0xfc1fffff,	UBD|RD_s	},
+{"j",       "s",	0x00000008, 0xfc1fffff,	UBD|RD_s	}, /* jr */
+/* SVR4 PIC code requires special handling for j, so it must be a
+   macro.  */
+{"j",	    "a",	0,     (int) M_J_A,	INSN_MACRO	},
+/* This form of j is used by the disassembler and internally by the
+   assembler, but will never match user input (because the line above
+   will match first).  */
 {"j",       "a",	0x08000000, 0xfc000000,	UBD		},
 {"jalr",    "s",	0x0000f809, 0xfc1fffff,	UBD|RD_s|WR_d	},
 {"jalr",    "d,s",	0x00000009, 0xfc1f07ff,	UBD|RD_s|WR_d	},
-{"jal",     "d,s",	0x00000009, 0xfc1f07ff,	UBD|RD_s|WR_d	},/* jalr */
-{"jal",     "s",	0x0000f809, 0xfc1fffff,	UBD|RD_s|WR_d	},/* jalr $ra*/
+/* SVR4 PIC code requires special handling for jal, so it must be a
+   macro.  */
+{"jal",     "d,s",	0,     (int) M_JAL_2,	INSN_MACRO	},
+{"jal",     "s",	0,     (int) M_JAL_1,	INSN_MACRO	},
+{"jal",     "a",	0,     (int) M_JAL_A,	INSN_MACRO	},
+/* This form of jal is used by the disassembler and internally by the
+   assembler, but will never match user input (because the line above
+   will match first).  */
 {"jal",     "a",	0x0c000000, 0xfc000000,	UBD|WR_31	},
-{"la",      "t,A",	0,    (int) M_LA,	INSN_MACRO	},
 {"la",      "t,A(b)",	0,    (int) M_LA_AB,	INSN_MACRO	},
 {"lb",      "t,o(b)",	0x80000000, 0xfc000000,	LDD|RD_b|WR_t	},
 {"lb",      "t,A(b)",	0,    (int) M_LB_AB,	INSN_MACRO	},

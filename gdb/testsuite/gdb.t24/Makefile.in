@@ -1,7 +1,7 @@
 #### host, target, and site specific Makefile frags come in here.
 
 srcdir = .
-CXXFLAGS = -g
+CXXFLAGS = -g -O
 
 .PHONY: all clean mostlyclean distclean realclean
 

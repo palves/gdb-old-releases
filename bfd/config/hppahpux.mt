@@ -1,2 +1,2 @@
-DEFAULT_VECTOR=hppa_vec
+DEFAULT_VECTOR=som_vec
 SELECT_ARCHITECTURES=bfd_hppa_arch

@@ -115,7 +115,7 @@ lynx_core_file_p (abfd)
 
   /* Allocate space for the thread contexts */
 
-  threadp = (core_st_t *)bfd_zalloc (abfd, tcontext_size);
+  threadp = (core_st_t *)bfd_alloc (abfd, tcontext_size);
   if (!threadp)
     {
       bfd_error = no_memory;

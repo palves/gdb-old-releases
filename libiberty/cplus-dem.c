@@ -303,6 +303,129 @@ consume_count (type)
     return (count);
 }
 
+int
+cplus_demangle_opname (opname, result, options)
+     char *opname;
+     char *result;
+     int options;
+{
+  int len, i, len1, ret;
+  string type;
+  struct work_stuff work[1];
+  CONST char *tem;
+
+  len = strlen(opname);
+  result[0] = '\0';
+  ret = 0;
+  work->options = options;
+  
+  if (opname[0] == '_' && opname[1] == '_'
+	  && opname[2] == 'o' && opname[3] == 'p')
+    {
+      /* ANSI.  */
+      /* type conversion operator.  */
+      tem = opname + 4;
+      if (do_type (work, &tem, &type))
+	{
+	  strcat (result, "operator ");
+	  strncat (result, type.b, type.p - type.b);
+	  string_delete (&type);
+	  ret = 1;
+	}
+    }
+  else if (opname[0] == '_' && opname[1] == '_'
+	   && opname[2] >= 'a' && opname[2] <= 'z'
+	   && opname[3] >= 'a' && opname[3] <= 'z')
+    {
+      if (opname[4] == '\0')
+	{
+	  /* Operator.  */
+	  for (i = 0; i < sizeof (optable) / sizeof (optable[0]); i++)
+	    {
+	      if (strlen (optable[i].in) == 2
+		  && memcmp (optable[i].in, opname + 2, 2) == 0)
+		{
+		  strcat (result, "operator");
+		  strcat (result, optable[i].out);
+		  ret = 1;
+		  break;
+		}
+	    }
+	}
+      else
+	{
+	  if (opname[2] == 'a' && opname[5] == '\0')
+	    {
+	      /* Assignment. */
+	      for (i = 0; i < sizeof (optable) / sizeof (optable[0]); i++)
+		{
+		  if (strlen (optable[i].in) == 3
+		      && memcmp (optable[i].in, opname + 2, 3) == 0)
+		    {
+		      strcat (result, "operator");
+		      strcat (result, optable[i].out);
+		      ret = 1;
+		      break;
+		    }		      
+		}
+	    }
+	}
+    }
+  else if (len >= 3 
+      && opname[0] == 'o'
+      && opname[1] == 'p'
+      && strchr (cplus_markers, opname[2]) != NULL)
+    {
+      /* see if it's an assignment expression */
+      if (len >= 10 /* op$assign_ */
+	  && memcmp (opname + 3, "assign_", 7) == 0)
+	{
+	  for (i = 0; i < sizeof (optable) / sizeof (optable[0]); i++)
+	    {
+	      len1 = len - 10;
+	      if (strlen (optable[i].in) == len1
+		  && memcmp (optable[i].in, opname + 10, len1) == 0)
+		{
+		  strcat (result, "operator");
+		  strcat (result, optable[i].out);
+		  strcat (result, "=");
+		  ret = 1;
+		  break;
+		}
+	    }
+	}
+      else
+	{
+	  for (i = 0; i < sizeof (optable) / sizeof (optable[0]); i++)
+	    {
+	      len1 = len - 3;
+	      if (strlen (optable[i].in) == len1 
+		  && memcmp (optable[i].in, opname + 3, len1) == 0)
+		{
+		  strcat (result, "operator");
+		  strcat (result, optable[i].out);
+		  ret = 1;
+		  break;
+		}
+	    }
+	}
+    }
+  else if (len >= 5 && memcmp (opname, "type", 4) == 0
+	   && strchr (cplus_markers, opname[4]) != NULL)
+    {
+      /* type conversion operator */
+      tem = opname + 5;
+      if (do_type (work, &tem, &type))
+	{
+	  strcat (result, "operator ");
+	  strncat (result, type.b, type.p - type.b);
+	  string_delete (&type);
+	  ret = 1;
+	}
+    }
+  return ret;
+
+}
 /* Takes operator name as e.g. "++" and returns mangled
    operator name (e.g. "postincrement_expr"), or NULL if not found.
 
@@ -343,9 +466,9 @@ int cplus_match (mangled, text, text_len)
   }
 }
 
-/* char *cplus_demangle (const char *name, int options)
+/* char *cplus_demangle (const char *mangled, int options)
 
-   If NAME is a mangled function name produced by GNU C++, then
+   If MANGLED is a mangled function name produced by GNU C++, then
    a pointer to a malloced string giving a C++ representation
    of the name will be returned; otherwise NULL will be returned.
    It is the caller's responsibility to free the string which
@@ -369,7 +492,7 @@ int cplus_match (mangled, text, text_len)
 
    Note that any leading underscores, or other such characters prepended by
    the compilation system, are presumed to have already been stripped from
-   TYPE.  */
+   MANGLED.  */
 
 char *
 cplus_demangle (mangled, options)
@@ -803,7 +926,10 @@ demangle_template (work, mangled, tname, trawname)
 		    done = is_real = 1;
 		    break;
 		  default:
-		    abort ();
+		    /* it's probably user defined type, let's assume
+		       it's integeral, it seems hard to figure out
+		       what it really is */
+		    done = is_integral = 1;
 		}
 	    }
 	  if (is_integral)
@@ -905,6 +1031,42 @@ arm_pt (work, mangled, n, anchor, args)
   return 0;
 }
 
+static void
+demangle_arm_pt (work, mangled, n, declp)
+     struct work_stuff *work;
+     CONST char **mangled;
+     int n;
+     string *declp;
+{
+  CONST char *p;
+  CONST char *args;
+  CONST char *e = *mangled + n;
+
+  /* ARM template? */
+  if (arm_pt (work, *mangled, n, &p, &args))
+  {
+    string arg;
+    string_init (&arg);
+    string_appendn (declp, *mangled, p - *mangled);
+    string_append (declp, "<");
+    /* should do error checking here */
+    while (args < e) {
+      string_clear (&arg);
+      do_type (work, &args, &arg);
+      string_appends (declp, &arg);
+      string_append (declp, ",");
+    }
+    string_delete (&arg);
+    --declp->p;
+    string_append (declp, ">");
+  }
+  else
+  {
+    string_appendn (declp, *mangled, n);
+  }
+  *mangled += n;
+}
+
 static int
 demangle_class_name (work, mangled, declp)
      struct work_stuff *work;
@@ -916,35 +1078,11 @@ demangle_class_name (work, mangled, declp)
 
   n = consume_count (mangled);
   if (strlen (*mangled) >= n)
-    {
-      CONST char *p;
-      CONST char *args;
-      CONST char *e = *mangled + n;
-      /* ARM template? */
-      if (arm_pt (work, *mangled, n, &p, &args))
-	{
-	  string arg;
-	  string_init (&arg);
-	  string_appendn (declp, *mangled, p - *mangled);
-	  string_append (declp, "<");
-	  /* should do error checking here */
-	  while (args < e) {
-	    string_clear (&arg);
-	    do_type (work, &args, &arg);
-	    string_appends (declp, &arg);
-	    string_append (declp, ",");
-	  }
-	  string_delete (&arg);
-	  --declp->p;
-	  string_append (declp, ">");
-        }
-      else
-	{
-	  string_appendn (declp, *mangled, n);
-        }
-      *mangled += n;
-      success = 1;
-    }
+  {
+    demangle_arm_pt (work, mangled, n, declp);
+    success = 1;
+  }
+
   return (success);
 }
 
@@ -1057,17 +1195,24 @@ demangle_prefix (work, mangled, declp)
   CONST char *scan;
   int i;
 
-  if (strncmp(*mangled, "_GLOBAL_$D$", 11) == 0)
+  if (strlen(*mangled) >= 11 && strncmp(*mangled, "_GLOBAL_", 8) == 0)
     {
-      /* it's a GNU global destructor to be executed at program exit */
-      (*mangled) += 11;
-      work->destructor = 2;
-    }
-  else if (strncmp(*mangled, "_GLOBAL_$I$", 11) == 0)
-    {
-      /* it's a GNU global constructor to be executed at program initial */
-      (*mangled) += 11;
-      work->constructor = 2;
+      char *marker = strchr (cplus_markers, (*mangled)[8]);
+      if (marker != NULL && *marker == (*mangled)[10])
+	{
+	  if ((*mangled)[9] == 'D')
+	    {
+	      /* it's a GNU global destructor to be executed at program exit */
+	      (*mangled) += 11;
+	      work->destructor = 2;
+	    }
+	  else if ((*mangled)[9] == 'I')
+	    {
+	      /* it's a GNU global constructor to be executed at program init */
+	      (*mangled) += 11;
+	      work->constructor = 2;
+	    }
+	}
     }
   else if (ARM_DEMANGLING && strncmp(*mangled, "__std__", 7) == 0)
     {
@@ -1162,6 +1307,14 @@ demangle_prefix (work, mangled, declp)
 	      demangle_function_name (work, mangled, declp, scan);
 	    }
 	}
+    }
+  else if (ARM_DEMANGLING && scan[2] == 'p' && scan[3] == 't')
+    {
+      /* Cfront-style parameterized type.  Handled later as a signature. */
+      success = 1;
+
+      /* ARM template? */
+      demangle_arm_pt (work, mangled, strlen (*mangled), declp);
     }
   else if (*(scan + 2) != '\0')
     {
@@ -2271,7 +2424,8 @@ demangle_function_name (work, mangled, declp, scan)
 	    }
 	}
     }
-  else if (declp->p - declp->b >= 5 && memcmp (declp->b, "type$", 5) == 0)
+  else if (declp->p - declp->b >= 5 && memcmp (declp->b, "type", 4) == 0
+	   && strchr (cplus_markers, declp->b[4]) != NULL)
     {
       /* type conversion operator */
       tem = declp->b + 5;

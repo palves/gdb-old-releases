@@ -34,7 +34,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Prototypes for local functions */
 
 static void
-print_hex_chars PARAMS ((FILE *, unsigned char *, unsigned int));
+print_hex_chars PARAMS ((GDB_FILE *, unsigned char *, unsigned int));
 
 static void
 show_print PARAMS ((char *, int));
@@ -61,7 +61,7 @@ static void
 set_output_radix_1 PARAMS ((int, unsigned));
 
 static void
-value_print_array_elements PARAMS ((value, FILE *, int, enum val_prettyprint));
+value_print_array_elements PARAMS ((value, GDB_FILE *, int, enum val_prettyprint));
 
 /* Maximum number of chars to print for a string pointer value or vector
    contents, or UINT_MAX for no limit.  Note that "set print elements 0"
@@ -121,7 +121,7 @@ val_print (type, valaddr, address, stream, format, deref_ref, recurse, pretty)
      struct type *type;
      char *valaddr;
      CORE_ADDR address;
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      int deref_ref;
      int recurse;
@@ -143,7 +143,7 @@ val_print (type, valaddr, address, stream, format, deref_ref, recurse, pretty)
   if (TYPE_FLAGS (type) & TYPE_FLAG_STUB)
     {
       fprintf_filtered (stream, "<incomplete type>");
-      fflush (stream);
+      gdb_flush (stream);
       return (0);
     }
   
@@ -159,7 +159,7 @@ val_print (type, valaddr, address, stream, format, deref_ref, recurse, pretty)
 int
 value_print (val, stream, format, pretty)
      value val;
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      enum val_prettyprint pretty;
 {
@@ -236,7 +236,7 @@ void
 val_print_type_code_int (type, valaddr, stream)
      struct type *type;
      char *valaddr;
-     FILE *stream;
+     GDB_FILE *stream;
 {
   char *p;
   /* Pointer to first (i.e. lowest address) nonzero character.  */
@@ -317,7 +317,7 @@ val_print_type_code_int (type, valaddr, stream)
 
 void
 print_longest (stream, format, use_local, val_long)
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      int use_local;
      LONGEST val_long;
@@ -431,7 +431,7 @@ void
 print_floating (valaddr, type, stream)
      char *valaddr;
      struct type *type;
-     FILE *stream;
+     GDB_FILE *stream;
 {
   double doub;
   int inv;
@@ -447,43 +447,48 @@ print_floating (valaddr, type, stream)
      representation, but is not IEEE conforming.  */
 
   {
-    long low, high;
+    unsigned long low, high;
     /* Is the sign bit 0?  */
     int nonnegative;
     /* Is it is a NaN (i.e. the exponent is all ones and
        the fraction is nonzero)?  */
     int is_nan;
 
-    if (len == sizeof (float))
+    if (len == 4)
       {
-	/* It's single precision. */
-	memcpy ((char *) &low, valaddr, sizeof (low));
-	/* target -> host.  */
-	SWAP_TARGET_AND_HOST (&low, sizeof (float));
-	nonnegative = low >= 0;
+	/* It's single precision.  */
+	/* Assume that floating point byte order is the same as
+	   integer byte order.  */
+	low = extract_unsigned_integer (valaddr, 4);
+	nonnegative = ((low & 0x80000000) == 0);
 	is_nan = ((((low >> 23) & 0xFF) == 0xFF) 
 		  && 0 != (low & 0x7FFFFF));
 	low &= 0x7fffff;
 	high = 0;
       }
-    else
+    else if (len == 8)
       {
 	/* It's double precision.  Get the high and low words.  */
 
+	/* Assume that floating point byte order is the same as
+	   integer byte order.  */
 #if TARGET_BYTE_ORDER == BIG_ENDIAN
-	memcpy (&low, valaddr+4,  sizeof (low));
-	memcpy (&high, valaddr+0, sizeof (high));
+	low = extract_unsigned_integer (valaddr + 4, 4);
+	high = extract_unsigned_integer (valaddr, 4);
 #else
-	memcpy (&low, valaddr+0,  sizeof (low));
-	memcpy (&high, valaddr+4, sizeof (high));
+	low = extract_unsigned_integer (valaddr, 4);
+	high = extract_unsigned_integer (valaddr + 4, 4);
 #endif
-	SWAP_TARGET_AND_HOST (&low, sizeof (low));
-	SWAP_TARGET_AND_HOST (&high, sizeof (high));
-	nonnegative = high >= 0;
+	nonnegative = ((high & 0x80000000) == 0);
 	is_nan = (((high >> 20) & 0x7ff) == 0x7ff
 		  && ! ((((high & 0xfffff) == 0)) && (low == 0)));
 	high &= 0xfffff;
       }
+    else
+      /* Extended.  We can't detect NaNs for extendeds yet.  Also note
+	 that currently extendeds get nuked to double in
+	 REGISTER_CONVERTIBLE.  */
+      is_nan = 0;
 
     if (is_nan)
       {
@@ -512,7 +517,7 @@ print_floating (valaddr, type, stream)
 
 static void
 print_hex_chars (stream, valaddr, len)
-     FILE *stream;
+     GDB_FILE *stream;
      unsigned char *valaddr;
      unsigned len;
 {
@@ -551,7 +556,7 @@ val_print_array_elements (type, valaddr, address, stream, format, deref_ref,
      struct type *type;
      char *valaddr;
      CORE_ADDR address;
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      int deref_ref;
      int recurse;
@@ -621,7 +626,7 @@ val_print_array_elements (type, valaddr, address, stream, format, deref_ref,
 static void
 value_print_array_elements (val, stream, format, pretty)
      value val;
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      enum val_prettyprint pretty;
 {
@@ -657,7 +662,7 @@ value_print_array_elements (val, stream, format, pretty)
 	  val_print (VALUE_TYPE (val), VALUE_CONTENTS (val) + typelen * i,
 		     VALUE_ADDRESS (val) + typelen * i, stream, format, 1,
 		     0, pretty);
-	  fprintf (stream, " <repeats %u times>", reps);
+	  fprintf_unfiltered (stream, " <repeats %u times>", reps);
 	  i = rep1 - 1;
 	  things_printed += repeat_count_threshold;
 	}
@@ -684,7 +689,7 @@ int
 val_print_string (addr, len, stream)
     CORE_ADDR addr;
     unsigned int len;
-    FILE *stream;
+    GDB_FILE *stream;
 {
   int force_ellipsis = 0;	/* Force ellipsis to be printed if nonzero. */
   int errcode;			/* Errno returned from bad reads. */
@@ -714,9 +719,10 @@ val_print_string (addr, len, stream)
      are looking for a null terminator to end the fetching, so we might as
      well read in blocks that are large enough to be efficient, but not so
      large as to be slow if fetchlimit happens to be large.  So we choose the
-     minimum of DEFAULT_PRINT_MAX and fetchlimit. */
+     minimum of 8 and fetchlimit.  We used to use 200 instead of 8 but
+     200 is way too big for remote debugging over a serial line.  */
 
-  chunksize = (len == 0 ? min (PRINT_MAX_DEFAULT, fetchlimit) : fetchlimit);
+  chunksize = (len == 0 ? min (8, fetchlimit) : fetchlimit);
 
   /* Loop until we either have all the characters to print, or we encounter
      some error, such as bumping into the end of the address space. */
@@ -761,7 +767,7 @@ val_print_string (addr, len, stream)
 	} while (bufptr < limit && *(bufptr - 1) != '\0');
       }
   } while (errcode == 0					/* no error */
-	   && bufptr < buffer + fetchlimit		/* no overrun */
+	   && bufsize < fetchlimit			/* no overrun */
 	   && !(len == 0 && *(bufptr - 1) == '\0'));	/* no null term */
 
   /* We now have either successfully filled the buffer to fetchlimit, or
@@ -809,7 +815,7 @@ val_print_string (addr, len, stream)
 		 safe_strerror (errcode));
 	}
     }
-  fflush (stream);
+  gdb_flush (stream);
   do_cleanups (old_chain);
   return (bufptr - buffer);
 }
@@ -952,9 +958,9 @@ set_print (arg, from_tty)
      char *arg;
      int from_tty;
 {
-  printf (
+  printf_unfiltered (
 "\"set print\" must be followed by the name of a print subcommand.\n");
-  help_list (setprintlist, "set print ", -1, stdout);
+  help_list (setprintlist, "set print ", -1, gdb_stdout);
 }
 
 /*ARGSUSED*/

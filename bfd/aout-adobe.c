@@ -32,7 +32,7 @@ extern bfd_target a_out_adobe_vec;		/* Forward decl */
 PROTO (static bfd_target *, aout_adobe_callback, (bfd *));
 
 PROTO (boolean, aout_32_slurp_symbol_table, (bfd *abfd));
-PROTO (void , aout_32_write_syms, ());
+PROTO (boolean , aout_32_write_syms, ());
 PROTO (static void, aout_adobe_write_section, (bfd *abfd, sec_ptr sect));
 
 /* Swaps the information in an executable header taken from a raw byte
@@ -340,7 +340,8 @@ aout_adobe_write_object_contents (abfd)
     {
       bfd_seek (abfd, (file_ptr)(N_SYMOFF(*exec_hdr(abfd))), SEEK_SET);
 
-      aout_32_write_syms (abfd);
+      if (! aout_32_write_syms (abfd))
+	return false;
 
       bfd_seek (abfd, (file_ptr)(N_TRELOFF(*exec_hdr(abfd))), SEEK_SET);
 
@@ -476,11 +477,13 @@ DEFUN(aout_adobe_sizeof_headers,(ignore_abfd, ignore),
 
 #define aout_32_bfd_get_relocated_section_contents  bfd_generic_get_relocated_section_contents
 #define aout_32_bfd_relax_section                   bfd_generic_relax_section
-#define aout_32_bfd_seclet_link			    bfd_generic_seclet_link
 #define aout_32_bfd_reloc_type_lookup \
   ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
 #define aout_32_bfd_make_debug_symbol \
   ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
+#define aout_32_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
+#define aout_32_bfd_link_add_symbols _bfd_generic_link_add_symbols
+#define aout_32_bfd_final_link _bfd_generic_final_link
 
 bfd_target a_out_adobe_vec =
 {
@@ -490,7 +493,7 @@ bfd_target a_out_adobe_vec =
   true,				/* hdr byte order is big */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT ),
+   HAS_SYMS | HAS_LOCALS | WP_TEXT ),
   /* section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_CODE | SEC_DATA | SEC_RELOC),
   '_',				/*  symbol leading char */

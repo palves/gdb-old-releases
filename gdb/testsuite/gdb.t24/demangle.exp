@@ -108,26 +108,26 @@ proc test_gnu_style_demangling {} {
 
     send "show demangle-style\n"
     expect {
-	-re "The current C\+\+ demangling style is \"gnu\".\r\n$prompt $" {}
+	-re "The current C\[+\]+ demangling style is \"gnu\".\r\n$prompt $" {}
 	-re ".*$prompt $" { fail "demangling style not set to gnu" }
 	timeout { fail "show demangle-style timed out" }
     }
 
     gdb_test "maint dem Abort__FP6EditoriPCc" \
-	"Abort\(Editor \*, int, (const char|char const) \*\)"
+	"Abort\[(\]+Editor \[*\]+, int, (const char|char const) \[*\]+\[)\]+"
     demangle "AddAlignment__9ivTSolverUiP12ivInteractorP7ivTGlue" "ivTSolver::AddAlignment(unsigned int, ivInteractor *, ivTGlue *)"
     gdb_test "maint dem Append__15NameChooserViewPCc" \
-	"NameChooserView::Append\((const char|char const) \*\)"
+	"NameChooserView::Append\[(\]+(const char|char const) \[*\]+\[)\]+"
     gdb_test "maint dem Append__17NameChooserDialogPCc" \
-	"NameChooserDialog::Append\((const char|char const) \*\)"
+	"NameChooserDialog::Append\[(\]+(const char|char const) \[*\]+\[)\]+"
     demangle "ArrowheadIntersects__9ArrowLineP9ArrowheadR6BoxObjP7Graphic" "ArrowLine::ArrowheadIntersects(Arrowhead *, BoxObj &, Graphic *)"
     demangle "AtEnd__13ivRubberGroup" "ivRubberGroup::AtEnd(void)"
     demangle "BgFilter__9ivTSolverP12ivInteractor" "ivTSolver::BgFilter(ivInteractor *)"
     gdb_test "maint dem BitPatterntoa__FRC10BitPatternccc" \
-	"BitPatterntoa\((const BitPattern|BitPattern const) &, char, char, char\)"
+	"BitPatterntoa\[(\]+(const BitPattern|BitPattern const) &, char, char, char\[)\]+"
     demangle "Check__6UArrayi" "UArray::Check(int)"
     gdb_test "maint dem Checked__14ConflictDialogPCc" \
-	"ConflictDialog::Checked\((const char|char const) \*\)"
+	"ConflictDialog::Checked\[(\]+(const char|char const) \[*\]+\[)\]+"
     demangle "CoreConstDecls__8TextCodeR7ostream" "TextCode::CoreConstDecls(ostream &)"
     demangle "CoreConstInits__9GroupCodeR7ostream" "GroupCode::CoreConstInits(ostream &)"
     demangle "DeleteViews__15PostScriptViews" "PostScriptViews::DeleteViews(void)"
@@ -142,7 +142,7 @@ proc test_gnu_style_demangling {} {
     demangle "DrawAdditions__6Damage" "Damage::DrawAdditions(void)"
     demangle "DrawDate__5DFace" "DFace::DrawDate(void)"
     gdb_test "maint dem DrawDestinationTransformedImage__FP7_XImageiiT0iiUlUiiiUiUlUlP4_XGCRC13ivTransformeriiii" \
-	"DrawDestinationTransformedImage\(_XImage \*, int, int, _XImage \*, int, int, unsigned long, unsigned int, int, int, unsigned int, unsigned long, unsigned long, _XGC \*, (const ivTransformer|ivTransformer const) &, int, int, int, int\)"
+	"DrawDestinationTransformedImage\[(\]+_XImage \[*\]+, int, int, _XImage \[*\]+, int, int, unsigned long, unsigned int, int, int, unsigned int, unsigned long, unsigned long, _XGC \[*\]+, (const ivTransformer|ivTransformer const) &, int, int, int, int\[)\]+"
     demangle "Edit__12StringEditor" "StringEditor::Edit(void)"
 
     if $dem_failcount>$max_dem_failcount then {
@@ -154,7 +154,7 @@ proc test_gnu_style_demangling {} {
     }
 
     gdb_test "maint dem Edit__12StringEditorPCcii" \
-	"StringEditor::Edit\((const char|char const) \*, int, int\)"
+	"StringEditor::Edit\[(\]+(const char|char const) \[*\]+, int, int\[)\]+"
     demangle "Effect__11RelateManipR7ivEvent" "RelateManip::Effect(ivEvent &)"
     demangle "Effect__9DragManipR7ivEvent" "DragManip::Effect(ivEvent &)"
     demangle "Elem__12GraphicViewsG8Iterator" "GraphicViews::Elem(Iterator)"
@@ -166,21 +166,21 @@ proc test_gnu_style_demangling {} {
     demangle "EndOfSelection__9TextManip" "TextManip::EndOfSelection(void)"
     demangle "EndOfText__12ivTextEditor" "ivTextEditor::EndOfText(void)"
     gdb_test "maint dem FilterName__FPCc" \
-	"FilterName\((const char|char const) \*\)"
+	"FilterName\[(\]+(const char|char const) \[*\]+\[)\]+"
     gdb_test "maint dem Filter__6PSTextPCci" \
-	"PSText::Filter\((const char|char const) \*, int\)"
+	"PSText::Filter\[(\]+(const char|char const) \[*\]+, int\[)\]+"
     gdb_test "maint dem FindColor__7CatalogPCciii" \
-	"Catalog::FindColor\((const char|char const) \*, int, int, int\)"
+	"Catalog::FindColor\[(\]+(const char|char const) \[*\]+, int, int, int\[)\]+"
     gdb_test "maint dem FindControl__9ToolPanelPCc" \
-	"ToolPanel::FindControl\((const char|char const) \*\)"
+	"ToolPanel::FindControl\[(\]+(const char|char const) \[*\]+\[)\]+"
     demangle "FindFixed__FRP4CNetP4CNet" "FindFixed(CNet *&, CNet *)"
     gdb_test "maint dem FindFont__7CatalogPCcN21" \
-	"Catalog::FindFont\((const char|char const) \*, (const char|char const) \*, (const char|char const) \*\)"
+	"Catalog::FindFont\[(\]+(const char|char const) \[*\]+, (const char|char const) \[*\]+, (const char|char const) \[*\]+\[)\]+"
     demangle "FindParallelPeer__8ConnInfo" "ConnInfo::FindParallelPeer(void)"
     demangle "Fix48_abort__FR8twolongs" "Fix48_abort(twolongs &)"
     demangle "GetArrowSplineComp__15ArrowSplineView" "ArrowSplineView::GetArrowSplineComp(void)"
     gdb_test "maint dem GetAttribute__7CatalogPCc" \
-	"Catalog::GetAttribute\((const char|char const) \*\)"
+	"Catalog::GetAttribute\[(\]+(const char|char const) \[*\]+\[)\]+"
     demangle "GetBarInfo__15iv2_6_VScrollerP13ivPerspectiveRiT2" "iv2_6_VScroller::GetBarInfo(ivPerspective *, int &, int &)"
     demangle "GetBaseClass__15SubclassNameVar" "SubclassNameVar::GetBaseClass(void)"
     demangle "GetBgColor__8ColorVar" "ColorVar::GetBgColor(void)"
@@ -241,17 +241,17 @@ proc test_gnu_style_demangling {} {
     demangle "GetKeyMap__11IdrawEditor" "IdrawEditor::GetKeyMap(void)"
     demangle "GetKeyMap__6Editor" "Editor::GetKeyMap(void)"
     gdb_test "maint dem GetState__12IBViewerCompPCc" \
-	"IBViewerComp::GetState\((const char|char const) \*\)"
+	"IBViewerComp::GetState\[(\]+(const char|char const) \[*\]+\[)\]+"
     gdb_test "maint dem GetState__12MenuItemCompPCc" \
-	"MenuItemComp::GetState\((const char|char const) \*\)"
+	"MenuItemComp::GetState\[(\]+(const char|char const) \[*\]+\[)\]+"
     gdb_test "maint dem GetState__15MarginFrameCompPCc" \
-	"MarginFrameComp::GetState\((const char|char const) \*\)"
+	"MarginFrameComp::GetState\[(\]+(const char|char const) \[*\]+\[)\]+"
     gdb_test "maint dem GetState__5ICompPCc" \
-	"IComp::GetState\((const char|char const) \*\)"
+	"IComp::GetState\[(\]+(const char|char const) \[*\]+\[)\]+"
     demangle "GetStencilComp__11StencilView" "StencilView::GetStencilComp(void)"
     demangle "GetStencil__11StencilComp" "StencilComp::GetStencil(void)"
     gdb_test "maint dem Iisdouble__FPC6IntRep" \
-	"Iisdouble\((const IntRep|IntRep const) \*\)"
+	"Iisdouble\[(\]+(const IntRep|IntRep const) \[*\]+\[)\]+"
     demangle "Include__10InfoDialogP9IBVarView" "InfoDialog::Include(IBVarView *)"
     demangle "Include__10RelateMenuP9ivControl" "RelateMenu::Include(ivControl *)"
     demangle "Include__15H_PullrightMenuP9ivControl" "H_PullrightMenu::Include(ivControl *)"
@@ -272,7 +272,7 @@ proc test_gnu_style_demangling {} {
     demangle "InsertToplevel__7ivWorldP12ivInteractorT1" "ivWorld::InsertToplevel(ivInteractor *, ivInteractor *)"
     demangle "InsertToplevel__7ivWorldP12ivInteractorT1iiUi" "ivWorld::InsertToplevel(ivInteractor *, ivInteractor *, int, int, unsigned int)"
     gdb_test "maint dem IsADirectory__FPCcR4stat" \
-	"IsADirectory\((const char|char const) \*, stat &\)"
+	"IsADirectory\[(\]+(const char|char const) \[*\]+, stat &\[)\]+"
     demangle "IsAGroup__FP11GraphicViewP11GraphicComp" "IsAGroup(GraphicView *, GraphicComp *)"
     demangle "IsAScene__14InteractorComp" "InteractorComp::IsAScene(void)"
     demangle "IsAScene__9SceneComp" "SceneComp::IsAScene(void)"
@@ -285,7 +285,7 @@ proc test_gnu_style_demangling {} {
     demangle "IsA__8AlignCmdUl" "AlignCmd::IsA(unsigned long)"
     demangle "IsA__8ArrowCmdUl" "ArrowCmd::IsA(unsigned long)"
     gdb_test "maint dem Normalize__11FBDirectoryPCc" \
-	"FBDirectory::Normalize\((const char|char const) \*\)"
+	"FBDirectory::Normalize\[(\]+(const char|char const) \[*\]+\[)\]+"
     demangle "NorthWest__13ConstrainRectii" "ConstrainRect::NorthWest(int, int)"
     demangle "Note__13StringBrowserR7ivEvent" "StringBrowser::Note(ivEvent &)"
     demangle "Notify__7PrintBS" "PrintBS::Notify(void)"
@@ -320,7 +320,7 @@ proc test_gnu_style_demangling {} {
     demangle "Rotated__C13ivTransformerf" "ivTransformer::Rotated(float) const"
     demangle "Round__Ff" "Round(float)"
     gdb_test "maint dem SetDirectory__13ivFileBrowserPCc" \
-	"ivFileBrowser::SetDirectory\((const char|char const) \*\)"
+	"ivFileBrowser::SetDirectory\[(\]+(const char|char const) \[*\]+\[)\]+"
     demangle "SetEditorInfo__7CatalogP10EditorInfo" "Catalog::SetEditorInfo(EditorInfo *)"
     demangle "SetExport__16MemberSharedNameUi" "MemberSharedName::SetExport(unsigned int)"
     demangle "SetFeedback__7ivWorldii" "ivWorld::SetFeedback(int, int)"
@@ -343,9 +343,9 @@ proc test_gnu_style_demangling {} {
     demangle "VConvert__9ivTSolverP7ivTGlueRP8TElement" "ivTSolver::VConvert(ivTGlue *, TElement *&)"
     demangle "VOrder__9ivTSolverUiRP12ivInteractorT2" "ivTSolver::VOrder(unsigned int, ivInteractor *&, ivInteractor *&)"
     gdb_test "maint dem Valid__7CatalogPCcRP4Tool" \
-	"Catalog::Valid\((const char|char const) \*, Tool \*&\)"
+	"Catalog::Valid\[(\]+(const char|char const) \[*\]+, Tool \[*\]+&\[)\]+"
     gdb_test "maint dem Valid__7CatalogPCcRP7Command" \
-	"Catalog::Valid\((const char|char const) \*, Command \*&\)"
+	"Catalog::Valid\[(\]+(const char|char const) \[*\]+, Command \[*\]+&\[)\]+"
     demangle "_10PageButton\$__both" "PageButton::__both"
     demangle "_10PageButton\$__chosen" "PageButton::__chosen"
     demangle "_10PageButton\$__fade" "PageButton::__fade"
@@ -422,22 +422,22 @@ proc test_gnu_style_demangling {} {
     demangle "__10ostrstream" "ostrstream::ostrstream(void)"
     demangle "__10ostrstreamPcii" "ostrstream::ostrstream(char *, int, int)"
     gdb_test "maint dem __11BasicDialogiPCcP13ivButtonStateN22Ui" \
-	"BasicDialog::BasicDialog\(int, (const char|char const) \*, ivButtonState \*, (const char|char const) \*, (const char|char const) \*, unsigned int\)"
+	"BasicDialog::BasicDialog\[(\]+int, (const char|char const) \[*\]+, ivButtonState \[*\]+, (const char|char const) \[*\]+, (const char|char const) \[*\]+, unsigned int\[)\]+"
     demangle "__11BitmapTablei" "BitmapTable::BitmapTable(int)"
     demangle "__12ViewportCodeP12ViewportComp" "ViewportCode::ViewportCode(ViewportComp *)"
     demangle "__12ViewportCompP15ViewportGraphic" "ViewportComp::ViewportComp(ViewportGraphic *)"
     gdb_test "maint dem __12iv2_6_BorderiPCci" \
-	"iv2_6_Border::iv2_6_Border\(int, (const char|char const) \*, int\)"
+	"iv2_6_Border::iv2_6_Border\[(\]+int, (const char|char const) \[*\]+, int\[)\]+"
     demangle "__12iv2_6_Borderii" "iv2_6_Border::iv2_6_Border(int, int)"
     gdb_test "maint dem __12ivBackgroundiP7ivGlyphPC7ivColor" \
-	"ivBackground::ivBackground\(int, ivGlyph \*, (const ivColor|ivColor const) \*\)"
+	"ivBackground::ivBackground\[(\]+int, ivGlyph \[*\]+, (const ivColor|ivColor const) \[*\]+\[)\]+"
     demangle "__12ivBreak_Listl" "ivBreak_List::ivBreak_List(long)"
     gdb_test "maint dem __14TextInteractoriPCcUi" \
-	"TextInteractor::TextInteractor\(int, (const char|char const) \*, unsigned int\)"
+	"TextInteractor::TextInteractor\[(\]+int, (const char|char const) \[*\]+, unsigned int\[)\]+"
     demangle "__14edit_streambufP11edit_stringi" "edit_streambuf::edit_streambuf(edit_string *, int)"
     demangle "__14iv2_6_MenuItemiP12ivInteractor" "iv2_6_MenuItem::iv2_6_MenuItem(int, ivInteractor *)"
     gdb_test "maint dem __14iv2_6_MenuItemiPCcP12ivInteractor" \
-	"iv2_6_MenuItem::iv2_6_MenuItem\(int, (const char|char const) \*, ivInteractor \*\)"
+	"iv2_6_MenuItem::iv2_6_MenuItem\[(\]+int, (const char|char const) \[*\]+, ivInteractor \[*\]+\[)\]+"
 
     if $dem_failcount>$max_dem_failcount then {
 	if $dem_passcount then {
@@ -459,19 +459,19 @@ proc test_gnu_style_demangling {} {
     demangle "__3fooi" "foo::foo(int)"
     demangle "__3fooiN31" "foo::foo(int, int, int, int)"
     gdb_test "maint dem __3fooiPCc" \
-	"foo::foo\(int, (const char|char const) \*\)"
+	"foo::foo\[(\]+int, (const char|char const) \[*\]+\[)\]+"
     demangle "__3fooiRT0iT2iT2" "foo::foo(int, foo &, int, foo &, int, foo &)"
     demangle "__6ExeCmdP11ControlInfo" "ExeCmd::ExeCmd(ControlInfo *)"
     demangle "__6ExeCmdP6Editor" "ExeCmd::ExeCmd(Editor *)"
     gdb_test "maint dem __6GetOptiPPcPCc" \
-	"GetOpt::GetOpt\(int, char \*\*, (const char|char const) \*\)"
+	"GetOpt::GetOpt\[(\]+int, char \[*\]+\[*\]+, (const char|char const) \[*\]+\[)\]+"
     demangle "__6KeyMapP8UControl" "KeyMap::KeyMap(UControl *)"
     demangle "__6KeyMapPT0" "KeyMap::KeyMap(KeyMap *)"
     demangle "__6PSLineP8LineComp" "PSLine::PSLine(LineComp *)"
     gdb_test "maint dem __7ivWorldPCcRiPPcPC12ivOptionDescPC14ivPropertyData" \
-	"ivWorld::ivWorld\((const char|char const) \*, int &, char \*\*, (const ivOptionDesc|ivOptionDesc const) \*, (const ivPropertyData|ivPropertyData const) \*\)"
+	"ivWorld::ivWorld\[(\]+(const char|char const) \[*\]+, int &, char \[*\]+\[*\]+, (const ivOptionDesc|ivOptionDesc const) \[*\]+, (const ivPropertyData|ivPropertyData const) \[*\]+\[)\]+"
     gdb_test "maint dem __7procbufPCci" \
-	"procbuf::procbuf\((const char|char const) \*, int\)"
+	"procbuf::procbuf\[(\]+(const char|char const) \[*\]+, int\[)\]+"
     demangle "__8AboutCmdP11ControlInfo" "AboutCmd::AboutCmd(ControlInfo *)"
     demangle "__8ArrowCmdP11ControlInfoUiUi" "ArrowCmd::ArrowCmd(ControlInfo *, unsigned int, unsigned int)"
     demangle "__8ArrowCmdP6EditorUiUi" "ArrowCmd::ArrowCmd(Editor *, unsigned int, unsigned int)"
@@ -487,7 +487,7 @@ proc test_gnu_style_demangling {} {
 
     demangle "__8BrushCmdP6EditorP7PSBrush" "BrushCmd::BrushCmd(Editor *, PSBrush *)"
     gdb_test "maint dem __9ExeDialogiPCc" \
-	"ExeDialog::ExeDialog\(int, (const char|char const) \*\)"
+	"ExeDialog::ExeDialog\[(\]+int, (const char|char const) \[*\]+\[)\]+"
     demangle "__9F_EllipseiiiiP7Graphic" "F_Ellipse::F_Ellipse(int, int, int, int, Graphic *)"
     demangle "__9FrameDataP9FrameCompi" "FrameData::FrameData(FrameComp *, int)"
     demangle "__9FrameViewP9FrameComp" "FrameView::FrameView(FrameComp *)"
@@ -556,15 +556,15 @@ proc test_gnu_style_demangling {} {
 
     demangle "__ne__3fooRT0" "foo::operator!=(foo &)"
     gdb_test "maint dem __ne__FRC7ComplexT0" \
-	"operator!=\((const Complex|Complex const) &, (const Complex|Complex const) &\)"
+	"operator!=\[(\]+(const Complex|Complex const) &, (const Complex|Complex const) &\[)\]+"
     gdb_test "maint dem __ne__FRC7Complexd" \
-	"operator!=\((const Complex|Complex const) &, double\)"
+	"operator!=\[(\]+(const Complex|Complex const) &, double\[)\]+"
     gdb_test "maint dem __ne__FRC8RationalT0" \
-	"operator!=\((const Rational|Rational const) &, (const Rational|Rational const) &\)"
+	"operator!=\[(\]+(const Rational|Rational const) &, (const Rational|Rational const) &\[)\]+"
     gdb_test "maint dem __ne__FRC9SubStringRC6String" \
-	"operator!=\((const SubString|SubString const) &, (const String|String const) &\)"
+	"operator!=\[(\]+(const SubString|SubString const) &, (const String|String const) &\[)\]+"
     gdb_test "maint dem __ne__FRC9SubStringT0" \
-	"operator!=\((const SubString|SubString const) &, (const SubString|SubString const) &\)"
+	"operator!=\[(\]+(const SubString|SubString const) &, (const SubString|SubString const) &\[)\]+"
     demangle "__nt__3foo" "foo::operator!(void)"
     demangle "__nw__3fooi" "foo::operator new(int)"
     demangle "__oo__3fooRT0" "foo::operator||(foo &)"
@@ -578,7 +578,7 @@ proc test_gnu_style_demangling {} {
     demangle "__rs__3fooRT0" "foo::operator>>(foo &)"
     demangle "__vc__3fooRT0" "foo::operator\\\[\\\](foo &)"
     gdb_test "maint dem _gsub__6StringRC5RegexPCci" \
-	"String::_gsub\((const Regex|Regex const) &, (const char|char const) \*, int\)"
+	"String::_gsub\[(\]+(const Regex|Regex const) &, (const char|char const) \[*\]+, int\[)\]+"
     demangle "_new_Fix__FUs" "_new_Fix(unsigned short)"
 
     if $dem_failcount>$max_dem_failcount then {
@@ -609,7 +609,7 @@ proc test_gnu_style_demangling {} {
     demangle "append__7ivGlyphPT0" "ivGlyph::append(ivGlyph *)"
     demangle "append__7ivMacroP8ivAction" "ivMacro::append(ivAction *)"
     gdb_test "maint dem arg__FRC7Complex" \
-	"arg\((const Complex|Complex const) &\)"
+	"arg\[(\]+(const Complex|Complex const) &\[)\]+"
     demangle "blank__7Obstacki" "Obstack::blank(int)"
     demangle "blank_fast__7Obstacki" "Obstack::blank_fast(int)"
     demangle "body__8Document" "Document::body(void)"
@@ -639,26 +639,26 @@ proc test_gnu_style_demangling {} {
     demangle "complexfunc6__FPFPi_PFl_i" "complexfunc6(int (*(*)(int *))(long))"
     demangle "complexfunc7__FPFPFPc_i_PFl_i" "complexfunc7(int (*(*)(int (*)(char *)))(long))"
     gdb_test "maint dem contains__C9BitStringRC10BitPattern" \
-	"BitString::contains\((const BitPattern|BitPattern const) &\) const"
+	"BitString::contains\[(\]+(const BitPattern|BitPattern const) &\[)\]+ const"
     gdb_test "maint dem contains__C9BitStringRC12BitSubStringi" \
-	"BitString::contains\((const BitSubString|BitSubString const) &, int\) const"
+	"BitString::contains\[(\]+(const BitSubString|BitSubString const) &, int\[)\]+ const"
     gdb_test "maint dem contains__C9BitStringRT0" \
-	"BitString::contains\((const BitString|BitString const) &\) const"
+	"BitString::contains\[(\]+(const BitString|BitString const) &\[)\]+ const"
     gdb_test "maint dem contains__C9SubStringRC5Regex" \
-	"SubString::contains\((const Regex|Regex const) &\) const"
+	"SubString::contains\[(\]+(const Regex|Regex const) &\[)\]+ const"
     gdb_test "maint dem div__FPC6IntRepT0P6IntRep" \
-	"div\((const IntRep|IntRep const) \*, (const IntRep|IntRep const) \*, IntRep \*\)"
+	"div\[(\]+(const IntRep|IntRep const) \[*\]+, (const IntRep|IntRep const) \[*\]+, IntRep \[*\]+\[)\]+"
     gdb_test "maint dem div__FPC6IntReplP6IntRep" \
-	"div\((const IntRep|IntRep const) \*, long, IntRep \*\)"
+	"div\[(\]+(const IntRep|IntRep const) \[*\]+, long, IntRep \[*\]+\[)\]+"
     gdb_test "maint dem div__FRC8RationalT0R8Rational" \
-	"div\((const Rational|Rational const) &, (const Rational|Rational const) &, Rational &\)"
+	"div\[(\]+(const Rational|Rational const) &, (const Rational|Rational const) &, Rational &\[)\]+"
     gdb_test "maint dem divide__FRC7IntegerT0R7IntegerT2" \
-	"divide\((const Integer|Integer const) &, (const Integer|Integer const) &, Integer &, Integer &\)"
+	"divide\[(\]+(const Integer|Integer const) &, (const Integer|Integer const) &, Integer &, Integer &\[)\]+"
     gdb_test "maint dem divide__FRC7IntegerlR7IntegerRl" \
-	"divide\((const Integer|Integer const) &, long, Integer &, long &\)"
+	"divide\[(\]+(const Integer|Integer const) &, long, Integer &, long &\[)\]+"
     demangle "enable__12ivChoiceItemUi" "ivChoiceItem::enable(unsigned int)"
     gdb_test "maint dem enable__14DocumentViewerPCcUi" \
-	"DocumentViewer::enable\((const char|char const) \*, unsigned int\)"
+	"DocumentViewer::enable\[(\]+(const char|char const) \[*\]+, unsigned int\[)\]+"
     demangle "end__5ivHit" "ivHit::end(void)"
     demangle "end__C11ivAllotment" "ivAllotment::end(void) const"
     demangle "ends__FR7ostream" "ends(ostream &)"
@@ -685,7 +685,7 @@ proc test_gnu_style_demangling {} {
     demangle "gray_in__C10ivOL_Style" "ivOL_Style::gray_in(void) const"
     demangle "group_leader__C16ivTopLevelWindow" "ivTopLevelWindow::group_leader(void) const"
     gdb_test "maint dem grow__7ObstackPCc" \
-	"Obstack::grow\((const char|char const) \*\)"
+	"Obstack::grow\[(\]+(const char|char const) \[*\]+\[)\]+"
     demangle "grow__7Obstackc" "Obstack::grow(char)"
     demangle "insert__15ivClippingStacklRP8_XRegion" "ivClippingStack::insert(long, _XRegion *&)"
     demangle "insert__16ChooserInfo_ListlR11ChooserInfo" "ChooserInfo_List::insert(long, ChooserInfo &)"
@@ -700,9 +700,9 @@ proc test_gnu_style_demangling {} {
     demangle "left_is_down__C7ivEvent" "ivEvent::left_is_down(void) const"
     demangle "left_mover__C7ivMFKitP12ivAdjustableP7ivStyle" "ivMFKit::left_mover(ivAdjustable *, ivStyle *) const"
     gdb_test "maint dem matches__C9BitStringRC10BitPatterni" \
-	"BitString::matches\((const BitPattern|BitPattern const) &, int\) const"
+	"BitString::matches\[(\]+(const BitPattern|BitPattern const) &, int\[)\]+ const"
     gdb_test "maint dem matches__C9SubStringRC5Regex" \
-	"SubString::matches\((const Regex|Regex const) &\) const"
+	"SubString::matches\[(\]+(const Regex|Regex const) &\[)\]+ const"
 
     if $dem_failcount>$max_dem_failcount then {
 	if $dem_passcount then {
@@ -719,7 +719,7 @@ proc test_gnu_style_demangling {} {
     demangle "nocrmode__Fv" "nocrmode(void)"
     demangle "noecho__Fv" "noecho(void)"
     gdb_test "maint dem norm__FRC7Complex" \
-	"norm\((const Complex|Complex const) &\)"
+	"norm\[(\]+(const Complex|Complex const) &\[)\]+"
     demangle "notify__11TabularItem" "TabularItem::notify(void)"
     demangle "overload1arg__FSc" "overload1arg(signed char)"
     demangle "overload1arg__FUc" "overload1arg(unsigned char)"
@@ -754,21 +754,21 @@ proc test_gnu_style_demangling {} {
     demangle "overloadargs__Fiiiiiiiiii" "overloadargs(int, int, int, int, int, int, int, int, int, int)"
     demangle "overloadargs__Fiiiiiiiiiii" "overloadargs(int, int, int, int, int, int, int, int, int, int, int)"
     gdb_test "maint dem pick__13ivCompositionP8ivCanvasRC12ivAllocationiR5ivHit" \
-	"ivComposition::pick\(ivCanvas \*, (const ivAllocation|ivAllocation const) &, int, ivHit &\)"
+	"ivComposition::pick\[(\]+ivCanvas \[*\]+, (const ivAllocation|ivAllocation const) &, int, ivHit &\[)\]+"
     gdb_test "maint dem pick__7ivLabelP8ivCanvasRC12ivAllocationiR5ivHit" \
-	"ivLabel::pick\(ivCanvas \*, (const ivAllocation|ivAllocation const) &, int, ivHit &\)"
+	"ivLabel::pick\[(\]+ivCanvas \[*\]+, (const ivAllocation|ivAllocation const) &, int, ivHit &\[)\]+"
     gdb_test "maint dem pick__7ivSpaceP8ivCanvasRC12ivAllocationiR5ivHit" \
-	"ivSpace::pick\(ivCanvas \*, (const ivAllocation|ivAllocation const) &, int, ivHit &\)"
+	"ivSpace::pick\[(\]+ivCanvas \[*\]+, (const ivAllocation|ivAllocation const) &, int, ivHit &\[)\]+"
     gdb_test "maint dem pointer__C11ivHScrollerRC7ivEventRC12ivAllocation" \
-	"ivHScroller::pointer\((const ivEvent|ivEvent const) &, (const ivAllocation|ivAllocation const) &\) const"
+	"ivHScroller::pointer\[(\]+(const ivEvent|ivEvent const) &, (const ivAllocation|ivAllocation const) &\[)\]+ const"
     gdb_test "maint dem pointer__C11ivVScrollerRC7ivEventRC12ivAllocation" \
-	"ivVScroller::pointer\((const ivEvent|ivEvent const) &, (const ivAllocation|ivAllocation const) &\) const"
+	"ivVScroller::pointer\[(\]+(const ivEvent|ivEvent const) &, (const ivAllocation|ivAllocation const) &\[)\]+ const"
     demangle "poke__8ivRasterUlUlffff" "ivRaster::poke(unsigned long, unsigned long, float, float, float, float)"
     demangle "polar__Fdd" "polar(double, double)"
     gdb_test "maint dem read__10osStdInputRPCc" \
-	"osStdInput::read\((const char|char const) \*&\)"
+	"osStdInput::read\[(\]+(const char|char const) \[*\]+&\[)\]+"
     gdb_test "maint dem read__11ApplicationPCc" \
-	"Application::read\((const char|char const) \*\)"
+	"Application::read\[(\]+(const char|char const) \[*\]+\[)\]+"
     demangle "remove_all__14LabelInfo_List" "LabelInfo_List::remove_all(void)"
     demangle "remove_all__14MacroInfo_List" "MacroInfo_List::remove_all(void)"
     demangle "remove_all__15ivClippingStack" "ivClippingStack::remove_all(void)"
@@ -789,9 +789,9 @@ proc test_gnu_style_demangling {} {
 
     demangle "scale__13ivTransformerff" "ivTransformer::scale(float, float)"
     gdb_test "maint dem scanw__12CursesWindowPCce" \
-	"CursesWindow::scanw\((const char|char const) \*,...\)"
+	"CursesWindow::scanw\[(\]+(const char|char const) \[*\]+,...\[)\]+"
     gdb_test "maint dem scmp__FPCcT0" \
-	"scmp\((const char|char const) \*, (const char|char const) \*\)"
+	"scmp\[(\]+(const char|char const) \[*\]+, (const char|char const) \[*\]+\[)\]+"
     demangle "sgetn__7filebufPci" "filebuf::sgetn(char *, int)"
     demangle "sgetn__9streambufPci" "streambuf::sgetn(char *, int)"
     demangle "shaped_windows__C7ivWorld" "ivWorld::shaped_windows(void) const"
@@ -800,15 +800,15 @@ proc test_gnu_style_demangling {} {
     demangle "test__C6BitSeti" "BitSet::test(int) const"
     demangle "test__C6BitSetii" "BitSet::test(int, int) const"
     gdb_test "maint dem testbit__FRC7Integerl" \
-	"testbit\((const Integer|Integer const) &, long\)"
+	"testbit\[(\]+(const Integer|Integer const) &, long\[)\]+"
     demangle "text_source__8Documentl" "Document::text_source(long)"
     demangle "variance__6Erlangd" "Erlang::variance(double)"
     demangle "variance__9LogNormal" "LogNormal::variance(void)"
     demangle "variance__9LogNormald" "LogNormal::variance(double)"
     gdb_test "maint dem vform__8iostreamPCcPc" \
-	"iostream::vform\((const char|char const) \*, char \*\)"
+	"iostream::vform\[(\]+(const char|char const) \[*\]+, char \[*\]+\[)\]+"
     gdb_test "maint dem vform__9streambufPCcPc" \
-	"streambuf::vform\((const char|char const) \*, char \*\)"
+	"streambuf::vform\[(\]+(const char|char const) \[*\]+, char \[*\]+\[)\]+"
     demangle "view__14DocumentViewerP8ItemViewP11TabularItem" "DocumentViewer::view(ItemView *, TabularItem *)"
     demangle "xput_char__9streambufc" "streambuf::xput_char(char)"
     demangle "xy_extents__11ivExtensionffff" "ivExtension::xy_extents(float, float, float, float)"
@@ -838,16 +838,16 @@ proc test_gnu_style_demangling {} {
 
     demangle "bar__3fooPv"       "foo::bar(void*)"
     gdb_test "maint dem bar__3fooPCv" \
-	"foo::bar\((const void|void const) *\*\)"
+	"foo::bar\[(\]+(const void|void const) *\[*\]+\[)\]+"
     demangle "bar__C3fooPv"      "foo::bar(void*) const"
     gdb_test "maint dem bar__C3fooPCv" \
-	"foo::bar\((const void|void const) *\*\) const"
+	"foo::bar\[(\]+(const void|void const) *\[*\]+\[)\]+ const"
     demangle "__eq__3fooRT0"     "foo::operator==(foo &)"
     gdb_test "maint dem __eq__3fooRC3foo" \
-	 "foo::operator==\((const foo|foo const) &\)"
+	 "foo::operator==\[(\]+(const foo|foo const) &\[)\]+"
     demangle "__eq__C3fooR3foo"  "foo::operator==(foo &) const"
     gdb_test "maint dem __eq__C3fooRT0" \
-	   "foo::operator==\((const foo|foo const) &\) const"
+	   "foo::operator==\[(\]+(const foo|foo const) &\[)\]+ const"
 
     demangle "elem__t6vector1Zdi" "vector<double>::elem(int)"
     demangle "elem__t6vector1Zii" "vector<int>::elem(int)"
@@ -1076,7 +1076,7 @@ proc test_gnu_style_demangling {} {
     demangle "__t8BDDHookV1ZPcRCPc" \
 	"BDDHookV<char *>::BDDHookV(char *const &)"
 
-    setup_xfail "*-*-*" 3220
+    setup_xfail "*-*-*"
     demangle "_vt\$t8BDDHookV1ZPc" "DDHookV<char *> virtual table"
     clear_xfail "*-*-*"
 
@@ -1121,7 +1121,7 @@ proc test_lucid_style_demangling {} {
 
     send "show demangle-style\n"
     expect {
-	-re "The current C\+\+ demangling style is \"lucid\".\r\n$prompt $" {}
+	-re "The current C\[+\]+ demangling style is \"lucid\".\r\n$prompt $" {}
 	-re ".*$prompt $" { fail "demangling style not set to lucid" }
 	timeout { fail "show demangle-style timed out" }
     }
@@ -1166,8 +1166,8 @@ proc test_lucid_style_demangling {} {
     demangle "__ct__10ostrstreamFPciT2" "ostrstream::ostrstream(char *, int, int)"
     demangle "__ct__10ostrstreamFv" "ostrstream::ostrstream(void)"
     demangle "__ct__10smanip_intFPFR3iosi_R3iosi" "smanip_int::smanip_int(ios &(*)(ios &, int), int)"
-    gdb_test "maint dem __ct__11c_exceptionFPcRC7complexT2" "c_exception::c_exception\(char \*, (const complex|complex const) &, (const complex|complex const) &\)"
-    gdb_test "maint dem __ct__11fstreambaseFPCciT2" "fstreambase::fstreambase\((const char|char const) \*, int, int\)"
+    gdb_test "maint dem __ct__11c_exceptionFPcRC7complexT2" "c_exception::c_exception\[(\]+char \[*\]+, (const complex|complex const) &, (const complex|complex const) &\[)\]+"
+    gdb_test "maint dem __ct__11fstreambaseFPCciT2" "fstreambase::fstreambase\[(\]+(const char|char const) \[*\]+, int, int\[)\]+"
     demangle "__ct__11fstreambaseFi" "fstreambase::fstreambase(int)"
     demangle "__ct__11fstreambaseFiPcT1" "fstreambase::fstreambase(int, char *, int)"
     demangle "__ct__11fstreambaseFv" "fstreambase::fstreambase(void)"
@@ -1197,7 +1197,7 @@ proc test_lucid_style_demangling {} {
     demangle "__ct__3fooFi" "foo::foo(int)"
     demangle "__ct__3fooFiN31" "foo::foo(int, int, int, int)"
     gdb_test "maint dem __ct__3fooFiPCc" \
-	"foo::foo\(int, (const char|char const) \*\)"
+	"foo::foo\[(\]+int, (const char|char const) \[*\]+\[)\]+"
     demangle "__ct__3fooFiR3fooT1T2T1T2" "foo::foo(int, foo &, int, foo &, int, foo &)"
     demangle "__ct__3iosFP9streambuf" "ios::ios(streambuf *)"
     demangle "__ct__3iosFv" "ios::ios(void)"
@@ -1205,7 +1205,7 @@ proc test_lucid_style_demangling {} {
     demangle "__ct__7filebufFiPcT1" "filebuf::filebuf(int, char *, int)"
     demangle "__ct__7filebufFv" "filebuf::filebuf(void)"
     gdb_test "maint dem __ct__7fstreamFPCciT2" \
-	"fstream::fstream\((const char|char const) \*, int, int\)"
+	"fstream::fstream\[(\]+(const char|char const) \[*\]+, int, int\[)\]+"
     demangle "__ct__7fstreamFi" "fstream::fstream(int)"
     demangle "__ct__7fstreamFiPcT1" "fstream::fstream(int, char *, int)"
     demangle "__ct__7fstreamFv" "fstream::fstream(void)"
@@ -1219,7 +1219,7 @@ proc test_lucid_style_demangling {} {
     demangle "__ct__7ostreamFiPc" "ostream::ostream(int, char *)"
     demangle "__ct__7ostreamFv" "ostream::ostream(void)"
     gdb_test "maint dem __ct__8ifstreamFPCciT2" \
-	"ifstream::ifstream\((const char|char const) \*, int, int\)"
+	"ifstream::ifstream\[(\]+(const char|char const) \[*\]+, int, int\[)\]+"
     demangle "__ct__8ifstreamFi" "ifstream::ifstream(int)"
     demangle "__ct__8ifstreamFiPcT1" "ifstream::ifstream(int, char *, int)"
 
@@ -1235,7 +1235,7 @@ proc test_lucid_style_demangling {} {
     demangle "__ct__8iostreamFP9streambuf" "iostream::iostream(streambuf *)"
     demangle "__ct__8iostreamFv" "iostream::iostream(void)"
     gdb_test "maint dem __ct__8ofstreamFPCciT2" \
-	"ofstream::ofstream\((const char|char const) \*, int, int\)"
+	"ofstream::ofstream\[(\]+(const char|char const) \[*\]+, int, int\[)\]+"
     demangle "__ct__8ofstreamFi" "ofstream::ofstream(int)"
     demangle "__ct__8ofstreamFiPcT1" "ofstream::ofstream(int, char *, int)"
     demangle "__ct__8ofstreamFv" "ofstream::ofstream(void)"
@@ -1301,7 +1301,7 @@ proc test_lucid_style_demangling {} {
     }
 
     gdb_test "maint dem __ls__7ostreamFPCc" \
-	"ostream::operator<<\((const char|char const) \*\)"
+	"ostream::operator<<\[(\]+(const char|char const) \[*\]+\[)\]+"
     demangle "__ls__7ostreamFPFR3ios_R3ios" "ostream::operator<<(ios &(*)(ios &))"
     demangle "__ls__7ostreamFPv" "ostream::operator<<(void *)"
     demangle "__ls__7ostreamFUi" "ostream::operator<<(unsigned int)"
@@ -1458,7 +1458,7 @@ proc test_lucid_style_demangling {} {
     demangle "foo__FiN31" "foo(int, int, int, int)"
     demangle "foo__FiR3fooT1T2T1T2" "foo(int, foo &, int, foo &, int, foo &)"
     demangle "foo___3barFl" "bar::foo_(long)"
-    gdb_test "maint dem form__FPCce" "form\((const char|char const) \*,...\)"
+    gdb_test "maint dem form__FPCce" "form\[(\]+(const char|char const) \[*\]+,...\[)\]+"
     demangle "freeze__12strstreambufFi" "strstreambuf::freeze(int)"
     demangle "gbump__9streambufFi" "streambuf::gbump(int)"
     demangle "gcount__7istreamFv" "istream::gcount(void)"
@@ -1499,12 +1499,12 @@ proc test_lucid_style_demangling {} {
     demangle "oct__FR3ios" "oct(ios &)"
     demangle "oct__Fli" "oct(long, int)"
     gdb_test "maint dem open__11fstreambaseFPCciT2" \
-	"fstreambase::open\((const char|char const) \*, int, int\)"
+	"fstreambase::open\[(\]+(const char|char const) \[*\]+, int, int\[)\]+"
     gdb_test "maint dem open__7filebufFPCciT2" \
-	"filebuf::open\((const char|char const) \*, int, int\)"
-    gdb_test "maint dem open__7fstreamFPCciT2" "fstream::open\((const char|char const) \*, int, int\)"
-    gdb_test "maint dem open__8ifstreamFPCciT2" "ifstream::open\((const char|char const) \*, int, int\)"
-    gdb_test "maint dem open__8ofstreamFPCciT2" "ofstream::open\((const char|char const) \*, int, int\)"
+	"filebuf::open\[(\]+(const char|char const) \[*\]+, int, int\[)\]+"
+    gdb_test "maint dem open__7fstreamFPCciT2" "fstream::open\[(\]+(const char|char const) \[*\]+, int, int\[)\]+"
+    gdb_test "maint dem open__8ifstreamFPCciT2" "ifstream::open\[(\]+(const char|char const) \[*\]+, int, int\[)\]+"
+    gdb_test "maint dem open__8ofstreamFPCciT2" "ofstream::open\[(\]+(const char|char const) \[*\]+, int, int\[)\]+"
 
     if $dem_failcount>$max_dem_failcount then {
 	if $dem_passcount then {
@@ -1655,7 +1655,7 @@ proc test_lucid_style_demangling {} {
     demangle "sputbackc__9streambufFc" "streambuf::sputbackc(char)"
     demangle "sputc__9streambufFi" "streambuf::sputc(int)"
     gdb_test "maint dem sputn__9streambufFPCci" \
-	"streambuf::sputn\((const char|char const) \*, int\)"
+	"streambuf::sputn\[(\]+(const char|char const) \[*\]+, int\[)\]+"
     demangle "sqrt__F7complex" "sqrt(complex)"
     demangle "stdioflush__3ios" "ios::stdioflush"
     demangle "stdioflush__Fv" "stdioflush(void)"
@@ -1664,7 +1664,7 @@ proc test_lucid_style_demangling {} {
     demangle "str__12strstreambufFv" "strstreambuf::str(void)"
     demangle "str__9strstreamFv" "strstream::str(void)"
     gdb_test "maint dem str__FPCci" \
-	"str\((const char|char const) \*, int\)"
+	"str\[(\]+(const char|char const) \[*\]+, int\[)\]+"
     demangle "sync__7filebufFv" "filebuf::sync(void)"
     demangle "sync__8stdiobufFv" "stdiobuf::sync(void)"
     demangle "sync__9streambufFv" "streambuf::sync(void)"
@@ -1693,14 +1693,14 @@ proc test_lucid_style_demangling {} {
     demangle "verify__11fstreambaseFi" "fstreambase::verify(int)"
     demangle "width__3iosFi" "ios::width(int)"
     gdb_test "maint dem write__7ostreamFPCci" \
-	"ostream::write\((const char|char const) \*, int\)"
+	"ostream::write\[(\]+(const char|char const) \[*\]+, int\[)\]+"
     demangle "ws__FR7istream" "ws(istream &)"
     demangle "x_snextc__9streambufFv" "streambuf::x_snextc(void)"
     demangle "xalloc__3iosSFv" "ios::xalloc(void) static"
     demangle "xget__7istreamFPc" "istream::xget(char *)"
     demangle "xsgetn__9streambufFPci" "streambuf::xsgetn(char *, int)"
     gdb_test "maint dem xsputn__9streambufFPCci" \
-	"streambuf::xsputn\((const char|char const) \*, int\)"
+	"streambuf::xsputn\[(\]+(const char|char const) \[*\]+, int\[)\]+"
 
     if $dem_passcount then {
 	pass "$dem_passcount correct lucid style demanglings"
@@ -1733,7 +1733,7 @@ proc test_arm_style_demangling {} {
 
     send "show demangle-style\n"
     expect {
-	-re "The current C\+\+ demangling style is \"arm\".\r\n$prompt $" {}
+	-re "The current C\[+\]+ demangling style is \"arm\".\r\n$prompt $" {}
 	-re ".*$prompt $" { fail "demangling style not set to arm" }
 	timeout { fail "show demangle-style timed out" }
     }
@@ -1754,40 +1754,40 @@ proc test_arm_style_demangling {} {
     demangle "__dt__17T5__pt__8_PFcPv_iFv" "T5<int (*)(char, void*)>::~T5<int (*)(char, void*)>(void)"
 
     gdb_test "maint dem g__FP1cPC1cT1" \
-	"g\(c *\*, (const c|c const) *\*, c *\*\)"
+	"g\[(\]+c *\[*\]+, (const c|c const) *\[*\]+, c *\[*\]+\[)\]+"
     gdb_test "maint dem g__FPUlPCUlT1" \
-	"g\(unsigned long \*, (const unsigned long|unsigned long const) \*, unsigned long \*\)"
+	"g\[(\]+unsigned long \[*\]+, (const unsigned long|unsigned long const) \[*\]+, unsigned long \[*\]+\[)\]+"
     gdb_test "maint dem g__FPUiPCUiT1" \
-	"g\(unsigned int \*, (const unsigned int|unsigned int const) \*, unsigned int \*\)"
+	"g\[(\]+unsigned int \[*\]+, (const unsigned int|unsigned int const) \[*\]+, unsigned int \[*\]+\[)\]+"
     gdb_test "maint dem g__FPUsPCUsT1" \
-	"g\(unsigned short \*, (const unsigned short|unsigned short const) \*, unsigned short \*\)"
+	"g\[(\]+unsigned short \[*\]+, (const unsigned short|unsigned short const) \[*\]+, unsigned short \[*\]+\[)\]+"
     gdb_test "maint dem g__FPUcPCUcT1" \
-	"g\(unsigned char \*, (const unsigned char|unsigned char const) \*, unsigned char \*\)"
+	"g\[(\]+unsigned char \[*\]+, (const unsigned char|unsigned char const) \[*\]+, unsigned char \[*\]+\[)\]+"
     gdb_test "maint dem g__F1TPlPClT2" \
-	"g\(T, long \*, (const long|long const) \*, long \*\)"
+	"g\[(\]+T, long \[*\]+, (const long|long const) \[*\]+, long \[*\]+\[)\]+"
     gdb_test "maint dem g__F1RRlRClT2" \
-	"g\(R, long &, (const long|long const) &, long &\)"
+	"g\[(\]+R, long &, (const long|long const) &, long &\[)\]+"
     gdb_test "maint dem g__F1TPiPCiT2" \
-	"g\(T, int \*, (const int|int const) \*, int \*\)"
+	"g\[(\]+T, int \[*\]+, (const int|int const) \[*\]+, int \[*\]+\[)\]+"
     gdb_test "maint dem g__F1RRiRCiT2" \
-	"g\(R, int &, (const int|int const) &, int &\)"
+	"g\[(\]+R, int &, (const int|int const) &, int &\[)\]+"
     gdb_test "maint dem g__F1TPsPCsT2" \
-	"g\(T, short \*, (const short|short const) \*, short \*\)"
+	"g\[(\]+T, short \[*\]+, (const short|short const) \[*\]+, short \[*\]+\[)\]+"
     gdb_test "maint dem g__F1RRsRCsT2" \
-	"g\(R, short &, (const short|short const) &, short &\)"
+	"g\[(\]+R, short &, (const short|short const) &, short &\[)\]+"
     gdb_test "maint dem g__F1TPcPCcT2" \
-	"g\(T, char \*, (const char|char const) \*, char \*\)"
+	"g\[(\]+T, char \[*\]+, (const char|char const) \[*\]+, char \[*\]+\[)\]+"
     gdb_test "maint dem g__F1RRcRCcT2" \
-	"g\(R, char &, (const char|char const) &, char &\)"
+	"g\[(\]+R, char &, (const char|char const) &, char &\[)\]+"
 
     demangle "__ct__21T5__pt__11_PFiPPdPv_iFi" "T5<int (*)(int, double**, void*)>::T5<int (*)(int, double**, void*)>(int)"
 
     gdb_test "maint dem __gt__FRC2T2c" \
-	"operator>\((const T2|T2 const) &, char\)"
+	"operator>\[(\]+(const T2|T2 const) &, char\[)\]+"
     gdb_test "maint dem __ge__FRC2T2c" \
-	"operator>=\((const T2|T2 const) &, char\)"
+	"operator>=\[(\]+(const T2|T2 const) &, char\[)\]+"
     gdb_test "maint dem __lt__FRC2T2c" \
-	"operator<\((const T2|T2 const) &, char\)"
+	"operator<\[(\]+(const T2|T2 const) &, char\[)\]+"
 
     if $dem_failcount>$max_dem_failcount then {
 	if $dem_passcount then {
@@ -1798,11 +1798,11 @@ proc test_arm_style_demangling {} {
     }
 
     gdb_test "maint dem __le__FRC2T2c" \
-	"operator<=\((const T2|T2 const) &, char\)"
+	"operator<=\[(\]+(const T2|T2 const) &, char\[)\]+"
     gdb_test "maint dem __ne__FRC2T2c" \
-	"operator!=\((const T2|T2 const) &, char\)"
+	"operator!=\[(\]+(const T2|T2 const) &, char\[)\]+"
     gdb_test "maint dem __eq__FRC2T2c" \
-	"operator==\((const T2|T2 const) &, char\)"
+	"operator==\[(\]+(const T2|T2 const) &, char\[)\]+"
     demangle "__amd__FR2T2i" "operator%=(T2 &, int)"
     demangle "__adv__FR2T2i" "operator/=(T2 &, int)"
     demangle "__amu__FR2T2i" "operator*=(T2 &, int)"
@@ -1823,15 +1823,15 @@ proc test_arm_style_demangling {} {
     demangle "h__FUs" "h(unsigned short)"
     demangle "h__Fcs" "h(char, short)"
     gdb_test "maint dem __amd__FR2T2RC2T2" \
-	"operator%=\(T2 &, (const T2|T2 const) &\)"
+	"operator%=\[(\]+T2 &, (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __adv__FR2T2RC2T2" \
-	"operator/=\(T2 &, (const T2|T2 const) &\)"
+	"operator/=\[(\]+T2 &, (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __amu__FR2T2RC2T2" \
-	"operator\*=\(T2 &, (const T2|T2 const) &\)"
+	"operator\[*\]+=\[(\]+T2 &, (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __ami__FR2T2RC2T2" \
-	"operator-=\(T2 &, (const T2|T2 const) &\)"
+	"operator-=\[(\]+T2 &, (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __apl__FR2T2RC2T2" \
-	"operator\+=\(T2 &, (const T2|T2 const) &\)"
+	"operator\[+\]+=\[(\]+T2 &, (const T2|T2 const) &\[)\]+"
 
     if $dem_failcount>$max_dem_failcount then {
 	if $dem_passcount then {
@@ -1842,19 +1842,19 @@ proc test_arm_style_demangling {} {
     }
 
     gdb_test "maint dem g__F1SRPUlRPCUlT2" \
-	"g\(S, unsigned long \*&, (const unsigned long|unsigned long const) \*&, unsigned long \*&\)"
+	"g\[(\]+S, unsigned long \[*\]+&, (const unsigned long|unsigned long const) \[*\]+&, unsigned long \[*\]+&\[)\]+"
     gdb_test "maint dem g__F1SRPUiRPCUiT2" \
-	"g\(S, unsigned int \*&, (const unsigned int|unsigned int const) \*&, unsigned int \*&\)"
+	"g\[(\]+S, unsigned int \[*\]+&, (const unsigned int|unsigned int const) \[*\]+&, unsigned int \[*\]+&\[)\]+"
     gdb_test "maint dem g__F1SRPUsRPCUsT2" \
-	"g\(S, unsigned short \*&, (const unsigned short|unsigned short const) \*&, unsigned short \*&\)"
+	"g\[(\]+S, unsigned short \[*\]+&, (const unsigned short|unsigned short const) \[*\]+&, unsigned short \[*\]+&\[)\]+"
     gdb_test "maint dem g__F1SRPUcRPCUcT2" \
-	"g\(S, unsigned char \*&, (const unsigned char|unsigned char const) \*&, unsigned char \*&\)"
+	"g\[(\]+S, unsigned char \[*\]+&, (const unsigned char|unsigned char const) \[*\]+&, unsigned char \[*\]+&\[)\]+"
     gdb_test "maint dem g__F1T1SRPlRPClT3" \
-	"g\(T, S, long \*&, (const long|long const) \*&, long \*&\)"
+	"g\[(\]+T, S, long \[*\]+&, (const long|long const) \[*\]+&, long \[*\]+&\[)\]+"
     gdb_test "maint dem g__F1T1SRPiRPCiT3" \
-	"g\(T, S, int \*&, (const int|int const) \*&, int \*&\)"
+	"g\[(\]+T, S, int \[*\]+&, (const int|int const) \[*\]+&, int \[*\]+&\[)\]+"
     gdb_test "maint dem g__F1T1SRPcRPCcT3" \
-	"g\(T, S, char \*&, (const char|char const) \*&, char \*&\)"
+	"g\[(\]+T, S, char \[*\]+&, (const char|char const) \[*\]+&, char \[*\]+&\[)\]+"
 
     demangle "X__12T5__pt__3_1x" "T5<x>::X"
 
@@ -1863,33 +1863,33 @@ proc test_arm_style_demangling {} {
     demangle "__ct__11T5__pt__2_cFi" "T5<char>::T5<char>(int)"
 
     gdb_test "maint dem __gt__FRC2T2T1" \
-	"operator>\((const T2|T2 const) &, (const T2|T2 const) &\)"
+	"operator>\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __ge__FRC2T2T1" \
-	"operator>=\((const T2|T2 const) &, (const T2|T2 const) &\)"
+	"operator>=\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __lt__FRC2T2T1" \
-	"operator<\((const T2|T2 const) &, (const T2|T2 const) &\)"
+	"operator<\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __le__FRC2T2T1" \
-	"operator<=\((const T2|T2 const) &, (const T2|T2 const) &\)"
+	"operator<=\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __ne__FRC2T2T1" \
-	"operator!=\((const T2|T2 const) &, (const T2|T2 const) &\)"
+	"operator!=\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __eq__FRC2T2T1" \
-	"operator==\((const T2|T2 const) &, (const T2|T2 const) &\)"
+	"operator==\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem g__FcR1cRC1cT2" \
-	"g\(char, c &, (const c|c const) &, c &\)"
+	"g\[(\]+char, c &, (const c|c const) &, c &\[)\]+"
     gdb_test "maint dem g__FcRPdRPCdT2" \
-	"g\(char, double *\*&, (const double|double const) *\*&, double *\*&\)"
+	"g\[(\]+char, double *\[*\]+&, (const double|double const) *\[*\]+&, double *\[*\]+&\[)\]+"
     gdb_test "maint dem g__FcRPfRPCfT2" \
-	"g\(char, float *\*&, (const float|float const) *\*&, float *\*&\)"
+	"g\[(\]+char, float *\[*\]+&, (const float|float const) *\[*\]+&, float *\[*\]+&\[)\]+"
     demangle "h__FcT1" "h(char, char)"
     demangle "f__Ficd" "f(int, char, double)"
     gdb_test "maint dem g__F1T1SdRPsRPCsT4" \
-	"g\(T, S, double, short \*&, (const short|short const) \*&, short \*&\)"
+	"g\[(\]+T, S, double, short \[*\]+&, (const short|short const) \[*\]+&, short \[*\]+&\[)\]+"
     gdb_test "maint dem g__F1cC1cT1" \
-	"g\(c, (const c|c const), c\)"
+	"g\[(\]+c, (const c|c const), c\[)\]+"
     gdb_test "maint dem g__FPdPCdT1" \
-	"g\(double *\*, (const double|double const) *\*, double *\*\)"
+	"g\[(\]+double *\[*\]+, (const double|double const) *\[*\]+, double *\[*\]+\[)\]+"
     gdb_test "maint dem g__FPfPCfT1" \
-	"g\(float *\*, (const float|float const) *\*, float *\*\)"
+	"g\[(\]+float *\[*\]+, (const float|float const) *\[*\]+, float *\[*\]+\[)\]+"
 
     if $dem_failcount>$max_dem_failcount then {
 	if $dem_passcount then {
@@ -1900,63 +1900,63 @@ proc test_arm_style_demangling {} {
     }
 
     gdb_test "maint dem g__FUlCUlT1" \
-	"g\(unsigned long, (const unsigned long|unsigned long const), unsigned long\)"
+	"g\[(\]+unsigned long, (const unsigned long|unsigned long const), unsigned long\[)\]+"
     gdb_test "maint dem g__FPlPClT1" \
-	"g\(long \*, (const long|long const) \*, long \*\)"
+	"g\[(\]+long \[*\]+, (const long|long const) \[*\]+, long \[*\]+\[)\]+"
     gdb_test "maint dem g__FUiCUiT1" \
-	"g\(unsigned int, (const unsigned int|unsigned int const), unsigned int\)"
+	"g\[(\]+unsigned int, (const unsigned int|unsigned int const), unsigned int\[)\]+"
     gdb_test "maint dem g__FPiPCiT1" \
-	"g\(int \*, (const int|int const) \*, int \*\)"
+	"g\[(\]+int \[*\]+, (const int|int const) \[*\]+, int \[*\]+\[)\]+"
     gdb_test "maint dem g__FUsCUsT1" \
-	"g\(unsigned short, (const unsigned short|unsigned short const), unsigned short\)"
+	"g\[(\]+unsigned short, (const unsigned short|unsigned short const), unsigned short\[)\]+"
     gdb_test "maint dem g__FPsPCsT1" \
-	"g\(short \*, (const short|short const) \*, short \*\)"
+	"g\[(\]+short \[*\]+, (const short|short const) \[*\]+, short \[*\]+\[)\]+"
     gdb_test "maint dem g__FUcCUcT1" \
-	"g\(unsigned char, (const unsigned char|unsigned char const), unsigned char\)"
+	"g\[(\]+unsigned char, (const unsigned char|unsigned char const), unsigned char\[)\]+"
     gdb_test "maint dem g__FPcPCcT1" \
-	"g\(char \*, (const char|char const) \*, char \*\)"
+	"g\[(\]+char \[*\]+, (const char|char const) \[*\]+, char \[*\]+\[)\]+"
     gdb_test "maint dem g__F1TlClT2" \
-	"g\(T, long, (const long|long const), long\)"
+	"g\[(\]+T, long, (const long|long const), long\[)\]+"
     gdb_test "maint dem g__F1TiCiT2" \
-	"g\(T, int, (const int|int const), int\)"
+	"g\[(\]+T, int, (const int|int const), int\[)\]+"
     gdb_test "maint dem g__F1TsCsT2" \
-	"g\(T, short, (const short|short const), short\)"
+	"g\[(\]+T, short, (const short|short const), short\[)\]+"
     gdb_test "maint dem g__F1TcCcT2" \
-	"g\(T, char, (const char|char const), char\)"
+	"g\[(\]+T, char, (const char|char const), char\[)\]+"
 
     demangle "__dl__17T5__pt__8_PFcPv_iSFPv" "T5<int (*)(char, void *)>::operator delete(void *) static"
 
     gdb_test "maint dem printf__FPCce" \
-	"printf\((const char|char const) \*,...\)"
+	"printf\[(\]+(const char|char const) \[*\]+,...\[)\]+"
 
     demangle "X__17T5__pt__8_PFcPv_i" "T5<int (*)(char, void*)>::X"
 
     demangle "__ct__12T5__pt__3_1xFi" "T5<x>::T5<x>(int)"
 
     gdb_test "maint dem g__F1SRUlRCUlT2" \
-	"g\(S, unsigned long &, (const unsigned long|unsigned long const) &, unsigned long &\)"
+	"g\[(\]+S, unsigned long &, (const unsigned long|unsigned long const) &, unsigned long &\[)\]+"
     gdb_test "maint dem g__F1SRPlRPClT2" \
-	"g\(S, long \*&, (const long|long const) \*&, long \*&\)"
+	"g\[(\]+S, long \[*\]+&, (const long|long const) \[*\]+&, long \[*\]+&\[)\]+"
     gdb_test "maint dem g__F1RRUiRCUiT2" \
-	"g\(R, unsigned int &, (const unsigned int|unsigned int const) &, unsigned int &\)"
+	"g\[(\]+R, unsigned int &, (const unsigned int|unsigned int const) &, unsigned int &\[)\]+"
     gdb_test "maint dem g__F1SRPiRPCiT2" \
-	"g\(S, int \*&, (const int|int const) \*&, int \*&\)"
+	"g\[(\]+S, int \[*\]+&, (const int|int const) \[*\]+&, int \[*\]+&\[)\]+"
     gdb_test "maint dem g__F1RRUsRCUsT2" \
-	"g\(R, unsigned short &, (const unsigned short|unsigned short const) &, unsigned short &\)"
+	"g\[(\]+R, unsigned short &, (const unsigned short|unsigned short const) &, unsigned short &\[)\]+"
     gdb_test "maint dem g__F1SRPsRPCsT2" \
-	"g\(S, short \*&, (const short|short const) \*&, short \*&\)"
+	"g\[(\]+S, short \[*\]+&, (const short|short const) \[*\]+&, short \[*\]+&\[)\]+"
     gdb_test "maint dem g__F1RRUcRCUcT2" \
-	"g\(R, unsigned char &, (const unsigned char|unsigned char const) &, unsigned char &\)"
+	"g\[(\]+R, unsigned char &, (const unsigned char|unsigned char const) &, unsigned char &\[)\]+"
     gdb_test "maint dem g__F1SRPcRPCcT2" \
-	"g\(S, char \*&, (const char|char const) \*&, char \*&\)"
+	"g\[(\]+S, char \[*\]+&, (const char|char const) \[*\]+&, char \[*\]+&\[)\]+"
     gdb_test "maint dem g__F1T1RRlRClT3" \
-	"g\(T, R, long &, (const long|long const) &, long &\)"
+	"g\[(\]+T, R, long &, (const long|long const) &, long &\[)\]+"
     gdb_test "maint dem g__F1T1RRiRCiT3" \
-	"g\(T, R, int &, (const int|int const) &, int &\)"
+	"g\[(\]+T, R, int &, (const int|int const) &, int &\[)\]+"
     gdb_test "maint dem g__F1T1RRsRCsT3" \
-	"g\(T, R, short &, (const short|short const) &, short &\)"
+	"g\[(\]+T, R, short &, (const short|short const) &, short &\[)\]+"
     gdb_test "maint dem g__F1T1RRcRCcT3" \
-	"g\(T, R, char &, (const char|char const) &, char &\)"
+	"g\[(\]+T, R, char &, (const char|char const) &, char &\[)\]+"
 
     if $dem_failcount>$max_dem_failcount then {
 	if $dem_passcount then {
@@ -1979,19 +1979,19 @@ proc test_arm_style_demangling {} {
     demangle "X__21T5__pt__11_PFiPPdPv_i" "T5<int (*)(int, double **, void *)>::X"
 
     gdb_test "maint dem g__FcRdRCdT2" \
-	"g\(char, double &, (const double|double const) &, double &\)"
+	"g\[(\]+char, double &, (const double|double const) &, double &\[)\]+"
     gdb_test "maint dem g__FcRfRCfT2" \
-	"g\(char, float &, (const float|float const) &, float &\)"
+	"g\[(\]+char, float &, (const float|float const) &, float &\[)\]+"
     gdb_test "maint dem __md__FC2T2i" \
-	"operator%\((const T2|T2 const), int\)"
+	"operator%\[(\]+(const T2|T2 const), int\[)\]+"
     gdb_test "maint dem __dv__FC2T2i" \
-	"operator/\((const T2|T2 const), int\)"
+	"operator/\[(\]+(const T2|T2 const), int\[)\]+"
     gdb_test "maint dem __ml__FC2T2i" \
-	"operator\*\((const T2|T2 const), int\)"
+	"operator\[*\]+\[(\]+(const T2|T2 const), int\[)\]+"
     gdb_test "maint dem __mi__FC2T2i" \
-	"operator-\((const T2|T2 const), int\)"
+	"operator-\[(\]+(const T2|T2 const), int\[)\]+"
     gdb_test "maint dem __pl__FC2T2i" \
-	"operator\+\((const T2|T2 const), int\)"
+	"operator\[+\]+\[(\]+(const T2|T2 const), int\[)\]+"
 
     demangle "__dl__11T5__pt__2_iSFPv" "T5<int>::operator delete(void *) static"
 
@@ -2014,34 +2014,34 @@ proc test_arm_style_demangling {} {
 
     demangle "h__Fs" "h(short)"
     gdb_test "maint dem __md__FC2T2RC2T2" \
-	"operator%\((const T2|T2 const), (const T2|T2 const) &\)"
+	"operator%\[(\]+(const T2|T2 const), (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __dv__FC2T2RC2T2" \
-	"operator/\((const T2|T2 const), (const T2|T2 const) &\)"
+	"operator/\[(\]+(const T2|T2 const), (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __ml__FC2T2RC2T2" \
-	"operator\*\((const T2|T2 const), (const T2|T2 const) &\)"
+	"operator\[*\]+\[(\]+(const T2|T2 const), (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __mi__FC2T2RC2T2" \
-	"operator-\((const T2|T2 const), (const T2|T2 const) &\)"
+	"operator-\[(\]+(const T2|T2 const), (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem __pl__FC2T2RC2T2" \
-	"operator\+\((const T2|T2 const), (const T2|T2 const) &\)"
+	"operator\[+\]+\[(\]+(const T2|T2 const), (const T2|T2 const) &\[)\]+"
     gdb_test "maint dem g__FcRP1cRPC1cT2" \
-	"g\(char, c *\*&, (const c|c const) *\*&, c *\*&\)"
+	"g\[(\]+char, c *\[*\]+&, (const c|c const) *\[*\]+&, c *\[*\]+&\[)\]+"
 
     demangle "X__11T5__pt__2_c" "T5<char>::X"
 
     demangle "X__11T5__pt__2_i" "T5<int>::X"
 
     gdb_test "maint dem g__FdCdT1" \
-	"g\(double, (const double|double const), double\)"
+	"g\[(\]+double, (const double|double const), double\[)\]+"
     gdb_test "maint dem g__FfCfT1" \
-	"g\(float, (const float|float const), float\)"
+	"g\[(\]+float, (const float|float const), float\[)\]+"
     gdb_test "maint dem g__FlClT1" \
-	"g\(long, (const long|long const), long\)"
+	"g\[(\]+long, (const long|long const), long\[)\]+"
     gdb_test "maint dem g__FiCiT1" \
-	"g\(int, (const int|int const), int\)"
+	"g\[(\]+int, (const int|int const), int\[)\]+"
     gdb_test "maint dem g__FsCsT1" \
-	"g\(short, (const short|short const), short\)"
+	"g\[(\]+short, (const short|short const), short\[)\]+"
     gdb_test "maint dem g__FcCcT1" \
-	"g\(char, (const char|char const), char\)"
+	"g\[(\]+char, (const char|char const), char\[)\]+"
 
     demangle "__ct__17T5__pt__8_PFcPv_iFi" "T5<int (*)(char, void *)>::T5<int (*)(char, void *)>(int)"
 
@@ -2094,16 +2094,16 @@ proc test_arm_style_demangling {} {
 
     demangle "bar__3fooFPv"       "foo::bar(void*)"
     gdb_test "maint dem bar__3fooFPCv" \
-	     "foo::bar\((const void|void const) *\*\)"
+	     "foo::bar\[(\]+(const void|void const) *\[*\]+\[)\]+"
     demangle "bar__3fooCFPv"      "foo::bar(void*) const"
     gdb_test "maint dem bar__3fooCFPCv" \
-	    "foo::bar\((const void|void const) *\*\) const"
+	    "foo::bar\[(\]+(const void|void const) *\[*\]+\[)\]+ const"
     demangle "__eq__3fooFR3foo"   "foo::operator==(foo &)"
     gdb_test "maint dem __eq__3fooFRC3foo" \
-	 "foo::operator==\((const foo|foo const) &\)"
+	 "foo::operator==\[(\]+(const foo|foo const) &\[)\]+"
     demangle "__eq__3fooCFR3foo"  "foo::operator==(foo &) const"
     gdb_test "maint dem __eq__3fooCFRC3foo" \
-	"foo::operator==\((const foo|foo const) &\) const"
+	"foo::operator==\[(\]+(const foo|foo const) &\[)\]+ const"
 
     demangle "elem__15vector__pt__2_dFi" "vector<double>::elem(int)"
 

@@ -1,17 +1,5 @@
-struct state_struct ;
-
-int sim_clear_breakpoints ();
-int sim_fetch_register ();
-
-void sim_write PARAMS ((long int, char *, int));
-void sim_read PARAMS ((long int, char *, int));
+/* FIXME: This decl may not be necessary anymore.  /dje 931025 */
 int sim_clear_breakpoints PARAMS ((void));
-void sim_set_pc PARAMS ((int));
-void sim_store_register PARAMS ((int, int));
-void sim_resume PARAMS ((int, int));
-int sim_stop_signal PARAMS ((void));
-void sim_info PARAMS ((struct state_struct *));
-void sim_info_print PARAMS ((struct state_struct  *));
 
 #define SIM_SINGLE_STEP 1
 #define SIM_DONE 2

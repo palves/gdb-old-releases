@@ -25,12 +25,16 @@ struct external_filehdr {
 /* this is the magic of the Bull dpx/2 */
 #define MC68KBCSMAGIC	0526
 
+/* This is Lynx's all-platform magic number for executables. */
+
+#define LYNXCOFFMAGIC	0415
+
 #define OMAGIC M68MAGIC
 
 /* This intentionally does not include MC68KBCSMAGIC; it only includes
    magic numbers which imply that names do not have underscores.  */
 #define M68KBADMAG(x) (((x).f_magic!=MC68MAGIC) && ((x).f_magic!=MC68KWRMAGIC) && ((x).f_magic!=MC68TVMAGIC) && \
-  ((x).f_magic!=MC68KROMAGIC) && ((x).f_magic!=MC68KPGMAGIC) && ((x).f_magic!=M68MAGIC) && ((x).f_magic!=M68TVMAGIC) )
+  ((x).f_magic!=MC68KROMAGIC) && ((x).f_magic!=MC68KPGMAGIC) && ((x).f_magic!=M68MAGIC) && ((x).f_magic!=M68TVMAGIC) && ((x).f_magic!=LYNXCOFFMAGIC) )
 
 
 #define	FILHDR	struct external_filehdr

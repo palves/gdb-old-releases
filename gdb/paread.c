@@ -24,6 +24,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/types.h> /* For time_t, if not in time.h.  */
 #include "libbfd.h"
 #include "som.h"
+#include "libhppa.h"
 #include <syms.h>
 #include "symtab.h"
 #include "symfile.h"
@@ -45,6 +46,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 static void
 pa_symfile_init PARAMS ((struct objfile *));
+
+static int
+compare_unwind_entries PARAMS ((struct unwind_table_entry *,   
+				struct unwind_table_entry *));
 
 static void
 pa_new_init PARAMS ((struct objfile *));
@@ -80,7 +85,7 @@ record_minimal_symbol (name, address, ms_type, objfile)
      struct objfile *objfile;
 {
   name = obsavestring (name, strlen (name), &objfile -> symbol_obstack);
-  prim_record_minimal_symbol (name, address, ms_type);
+  prim_record_minimal_symbol (name, address, ms_type, objfile);
 }
 
 /*
@@ -119,15 +124,15 @@ pa_symtab_read (abfd, addr, objfile)
   number_of_symbols = bfd_get_symcount (abfd);
 
   buf = alloca (symsize * number_of_symbols);
-  bfd_seek (abfd, obj_sym_filepos (abfd), L_SET);
+  bfd_seek (abfd, obj_som_sym_filepos (abfd), L_SET);
   val = bfd_read (buf, symsize * number_of_symbols, 1, abfd);
   if (val != symsize * number_of_symbols)
     error ("Couldn't read symbol dictionary!");
 
-  stringtab = alloca (obj_stringtab_size (abfd));
-  bfd_seek (abfd, obj_str_filepos (abfd), L_SET);
-  val = bfd_read (stringtab, obj_stringtab_size (abfd), 1, abfd);
-  if (val != obj_stringtab_size (abfd))
+  stringtab = alloca (obj_som_stringtab_size (abfd));
+  bfd_seek (abfd, obj_som_str_filepos (abfd), L_SET);
+  val = bfd_read (stringtab, obj_som_stringtab_size (abfd), 1, abfd);
+  if (val != obj_som_stringtab_size (abfd))
     error ("Can't read in HP string table.");
 
   endbufp = buf + number_of_symbols;
@@ -181,13 +186,18 @@ pa_symtab_read (abfd, addr, objfile)
 	      bufp->symbol_value &= ~0x3; /* clear out permission bits */
 
 	    check_strange_names:
-	      /* GAS leaves symbols with the prefixes "LS$", "LBB$",
-		 and "LBE$" in .o files after assembling.  And thus
-		 they appear in the final executable.  This can
-		 cause problems if these special symbols have the
-		 same value as real symbols.  So ignore them.  Also "LC$".  */
+	      /* GAS leaves labels in .o files after assembling.  At
+		 least labels starting with "LS$", "LBB$", "LBE$",
+		 "LC$", and "L$" can happen.  This should be fixed in
+		 the assembler and/or compiler, to save space in the
+		 executable (and because having GDB make gross
+		 distinctions based on the name is kind of ugly), but
+		 until then, just ignore them.  ("L$" at least, has something
+		 to do with getting relocation correct, so that one might
+		 be hard to fix).  */
 	      if (*symname == 'L'
-		  && (symname[2] == '$' || symname[3] == '$'))
+		  && (symname[1] == '$' || symname[2] == '$' 
+		      || symname[3] == '$'))
 		continue;
 	      break;
 
@@ -214,7 +224,7 @@ pa_symtab_read (abfd, addr, objfile)
 	  continue;
 	}
 
-      if (bufp->name.n_strx > obj_stringtab_size (abfd))
+      if (bufp->name.n_strx > obj_som_stringtab_size (abfd))
 	error ("Invalid symbol data; bad HP string table offset: %d",
 	       bufp->name.n_strx);
 
@@ -224,6 +234,23 @@ pa_symtab_read (abfd, addr, objfile)
     }
 
   install_minimal_symbols (objfile);
+}
+
+/* Compare the start address for two unwind entries returning 1 if 
+   the first address is larger than the second, -1 if the second is
+   larger than the first, and zero if they are equal.  */
+
+static int
+compare_unwind_entries (a, b)
+     struct unwind_table_entry *a;
+     struct unwind_table_entry *b;
+{
+  if (a->region_start > b->region_start)
+    return 1;
+  else if (a->region_start < b->region_start)
+    return -1;
+  else
+    return 0;
 }
 
 /* Read in the backtrace information stored in the `$UNWIND_START$' section of
@@ -236,7 +263,9 @@ static void
 read_unwind_info (objfile)
      struct objfile *objfile;
 {
-  asection *unwind_sec;
+  asection *unwind_sec, *stub_unwind_sec;
+  unsigned unwind_size, stub_unwind_size, total_size;
+  unsigned index, unwind_entries, stub_entries, total_entries;
   struct obj_unwind_info *ui;
 
   ui = obstack_alloc (&objfile->psymbol_obstack,
@@ -246,22 +275,132 @@ read_unwind_info (objfile)
   ui->cache = NULL;
   ui->last = -1;
 
-  unwind_sec = bfd_get_section_by_name (objfile->obfd,
-					"$UNWIND_START$");
+  /* Get hooks to both unwind sections.  */
+  unwind_sec = bfd_get_section_by_name (objfile->obfd, "$UNWIND_START$");
+  stub_unwind_sec = bfd_get_section_by_name (objfile->obfd, "$UNWIND_END$");
+
+  /* Get sizes and unwind counts for both sections.  */
   if (unwind_sec)
     {
-      int size;
-      int i, *ip;
-
-      size = bfd_section_size (objfile->obfd, unwind_sec);
-      ui->table = obstack_alloc (&objfile->psymbol_obstack, size);
-      ui->last = size / sizeof (struct unwind_table_entry) - 1;
-
-      bfd_get_section_contents (objfile->obfd, unwind_sec, ui->table,
-				0, size);
-
-      OBJ_UNWIND_INFO (objfile) = ui;
+      unwind_size = bfd_section_size (objfile->obfd, unwind_sec);
+      unwind_entries = unwind_size / UNWIND_ENTRY_SIZE;
     }
+  else
+    {
+      unwind_size = 0;
+      unwind_entries = 0;
+    }
+
+  if (stub_unwind_sec)
+    {
+      stub_unwind_size = bfd_section_size (objfile->obfd, stub_unwind_sec);
+      stub_entries = stub_unwind_size / STUB_UNWIND_ENTRY_SIZE;
+    }
+  else
+    {
+      stub_unwind_size = 0;
+      stub_entries = 0;
+    }
+
+  /* Compute total number of stubs.  */
+  total_entries = unwind_entries + stub_entries;
+  total_size = total_entries * sizeof (struct unwind_table_entry);
+
+  /* Allocate memory for the unwind table.  */
+  ui->table = obstack_alloc (&objfile->psymbol_obstack, total_size);
+  ui->last = total_entries - 1;
+
+  /* We will read the unwind entries into temporary memory, then
+     fill in the actual unwind table.  */
+  if (unwind_size > 0)
+    {
+      unsigned long tmp;
+      unsigned i;
+      char *buf = alloca (unwind_size);
+
+      bfd_get_section_contents (objfile->obfd, unwind_sec, buf, 0, unwind_size);
+
+      /* Now internalize the information being careful to handle host/target
+	 endian issues.  */
+      for (i = 0; i < unwind_entries; i++)
+	{
+	  ui->table[i].region_start = bfd_get_32 (objfile->obfd,
+						  (bfd_byte *)buf);
+	  buf += 4;
+	  ui->table[i].region_end = bfd_get_32 (objfile->obfd, (bfd_byte *)buf);
+	  buf += 4;
+	  tmp = bfd_get_32 (objfile->obfd, (bfd_byte *)buf);
+	  buf += 4;
+	  ui->table[i].Cannot_unwind = (tmp >> 31) & 0x1;;
+	  ui->table[i].Millicode = (tmp >> 30) & 0x1;
+	  ui->table[i].Millicode_save_sr0 = (tmp >> 29) & 0x1;
+	  ui->table[i].Region_description = (tmp >> 27) & 0x3;
+	  ui->table[i].reserved1 = (tmp >> 26) & 0x1;
+	  ui->table[i].Entry_SR = (tmp >> 25) & 0x1;
+	  ui->table[i].Entry_FR = (tmp >> 21) & 0xf;
+	  ui->table[i].Entry_GR = (tmp >> 16) & 0x1f;
+	  ui->table[i].Args_stored = (tmp >> 15) & 0x1;
+	  ui->table[i].Variable_Frame = (tmp >> 14) & 0x1;
+	  ui->table[i].Separate_Package_Body = (tmp >> 13) & 0x1;
+	  ui->table[i].Frame_Extension_Millicode = (tmp >> 12 ) & 0x1;
+	  ui->table[i].Stack_Overflow_Check = (tmp >> 11) & 0x1;
+	  ui->table[i].Two_Instruction_SP_Increment = (tmp >> 10) & 0x1;
+	  ui->table[i].Ada_Region = (tmp >> 9) & 0x1;
+	  ui->table[i].reserved2 = (tmp >> 5) & 0xf;
+	  ui->table[i].Save_SP = (tmp >> 4) & 0x1;
+	  ui->table[i].Save_RP = (tmp >> 3) & 0x1;
+	  ui->table[i].Save_MRP_in_frame = (tmp >> 2) & 0x1;
+	  ui->table[i].extn_ptr_defined = (tmp >> 1) & 0x1;
+	  ui->table[i].Cleanup_defined = tmp & 0x1;
+	  tmp = bfd_get_32 (objfile->obfd, (bfd_byte *)buf);
+	  buf += 4;
+	  ui->table[i].MPE_XL_interrupt_marker = (tmp >> 31) & 0x1;
+	  ui->table[i].HP_UX_interrupt_marker = (tmp >> 30) & 0x1;
+	  ui->table[i].Large_frame = (tmp >> 29) & 0x1;
+	  ui->table[i].reserved4 = (tmp >> 27) & 0x3;
+	  ui->table[i].Total_frame_size = tmp & 0x7ffffff;
+	}
+      
+    }
+     
+  if (stub_unwind_size > 0)
+    {
+      unsigned int i;
+      char *buf = alloca (stub_unwind_size);
+
+      /* Read in the stub unwind entries.  */
+      bfd_get_section_contents (objfile->obfd, stub_unwind_sec, buf,
+				0, stub_unwind_size);
+
+      /* Now convert them into regular unwind entries.  */
+      index = unwind_entries;
+      for (i = 0; i < stub_entries; i++, index++)
+	{
+	  /* Clear out the next unwind entry.  */
+	  memset (&ui->table[index], 0, sizeof (struct unwind_table_entry));
+
+	  /* Convert offset & size into region_start and region_end.  
+	     Stuff away the stub type into "reserved" fields.  */
+	  ui->table[index].region_start = bfd_get_32 (objfile->obfd,
+						      (bfd_byte *) buf);
+	  buf += 4;
+	  ui->table[index].stub_type = bfd_get_8 (objfile->obfd,
+						  (bfd_byte *) buf);
+	  buf += 2;
+	  ui->table[index].region_end
+	    = ui->table[index].region_start + 4 * bfd_get_16 (objfile->obfd,
+							      (bfd_byte *) buf);
+	  buf += 2;
+	}
+
+    }
+
+  /* Unwind table needs to be kept sorted.  */
+  qsort (ui->table, total_entries, sizeof (struct unwind_table_entry),
+	 compare_unwind_entries);
+
+  /* Keep a pointer to the unwind information.  */
+  OBJ_UNWIND_INFO (objfile) = ui;
 }
 
 /* Scan and build partial symbols for a symbol file.
@@ -406,11 +545,6 @@ pa_symfile_init (objfile)
 
   memset ((PTR) objfile->sym_stab_info, 0, sizeof (struct dbx_symfile_info));
 
-  if (!stabsect)
-    return;
-
-  if (!stringsect)
-    error ("Found stabs, but not string section");
 
   /* FIXME POKING INSIDE BFD DATA STRUCTURES */
 #define	STRING_TABLE_OFFSET	(stringsect->filepos)
@@ -419,10 +553,16 @@ pa_symfile_init (objfile)
   /* FIXME POKING INSIDE BFD DATA STRUCTURES */
 
   DBX_SYMFILE_INFO (objfile)->stab_section_info = NULL;
-  DBX_TEXT_SECT (objfile) = bfd_get_section_by_name (sym_bfd, ".text");
+  DBX_TEXT_SECT (objfile) = bfd_get_section_by_name (sym_bfd, "$TEXT$");
   if (!DBX_TEXT_SECT (objfile))
-    error ("Can't find .text section in symbol file");
+    error ("Can't find $TEXT$ section in symbol file");
 
+  if (!stabsect)
+    return;
+
+  if (!stringsect)
+    error ("Found stabs, but not string section");
+  
   /* FIXME: I suspect this should be external_nlist.  The size of host
      types like long and bfd_vma should not affect how we read the
      file.  */
@@ -486,26 +626,24 @@ pa_symfile_offsets (objfile, addr)
 {
   struct section_offsets *section_offsets;
   int i;
- 
+
+  objfile->num_sections = SECT_OFF_MAX;
   section_offsets = (struct section_offsets *)
     obstack_alloc (&objfile -> psymbol_obstack,
-		   sizeof (struct section_offsets) +
-		          sizeof (section_offsets->offsets) * (SECT_OFF_MAX-1));
+		   sizeof (struct section_offsets)
+		   + sizeof (section_offsets->offsets) * (SECT_OFF_MAX-1));
 
   for (i = 0; i < SECT_OFF_MAX; i++)
     ANOFFSET (section_offsets, i) = addr;
-  
+
   return section_offsets;
 }
 
-/*  Register that we are able to handle PA object file formats. */
+/* Register that we are able to handle SOM object file formats.  */
 
-/* This is probably a mistake.  FIXME.  Why can't the HP's use an ordinary
-   file format name with an -hppa suffix?  */
 static struct sym_fns pa_sym_fns =
 {
-  "hppa",		/* sym_name: name or name prefix of BFD target type */
-  4,			/* sym_namelen: number of significant sym_name chars */
+  bfd_target_som_flavour,
   pa_new_init,		/* sym_new_init: init anything gbl to entire symtab */
   pa_symfile_init,	/* sym_init: read initial info, setup for sym_read() */
   pa_symfile_read,	/* sym_read: read a symbol file into symtab */

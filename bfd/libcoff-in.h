@@ -106,11 +106,17 @@ extern boolean coff_find_nearest_line PARAMS ((bfd *,
 extern int coff_sizeof_headers PARAMS ((bfd *, boolean reloc));
 extern boolean bfd_coff_reloc16_relax_section PARAMS ((bfd *,
 						       asection *,
+						       struct bfd_link_info *,
 						       asymbol **));
 extern bfd_byte *bfd_coff_reloc16_get_relocated_section_contents
-  PARAMS ((bfd *, struct bfd_seclet *, bfd_byte *, boolean relocateable));
+  PARAMS ((bfd *, struct bfd_link_info *, struct bfd_link_order *,
+	   bfd_byte *, boolean relocateable, asymbol **));
 extern bfd_vma bfd_coff_reloc16_get_value PARAMS ((arelent *,
-						   struct bfd_seclet *));
+						   struct bfd_link_info *,
+						   asection *));
+extern void bfd_perform_slip PARAMS ((asymbol **s, unsigned int slip,
+				      asection *input_section,
+				      bfd_vma value));
 
 /* And more taken from the source .. */
 

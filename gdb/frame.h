@@ -217,7 +217,7 @@ extern struct block * block_for_pc PARAMS ((CORE_ADDR));
 extern int frameless_look_for_prologue PARAMS ((FRAME));
 
 extern void print_frame_args PARAMS ((struct symbol *, struct frame_info *,
-				      int, FILE *));
+				      int, GDB_FILE *));
 
 extern FRAME find_relative_frame PARAMS ((FRAME, int*));
 

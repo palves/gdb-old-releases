@@ -40,7 +40,7 @@ main (argc, argv)
   target = argv[1];
   if (target == NULL) {
       fprintf(stderr, "Usage: gen-aout target_name\n");
-      exit (-1);
+      exit (1);
   }
 
   printf("pagesize = %d\n", getpagesize());

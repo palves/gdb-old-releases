@@ -1,5 +1,5 @@
-/* Host-dependent definitions for Intel 386 running Lynx, for GDB.
-   Copyright 1986, 1987, 1989, 1992 Free Software Foundation, Inc.
+/* Host-dependent definitions for Intel 386 running LynxOS.
+   Copyright 1993 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -19,15 +19,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define HOST_BYTE_ORDER LITTLE_ENDIAN
 
-#include <limits.h>		/* for INT_MIN, to avoid "INT_MIN
-				   redefined" warnings from defs.h */
+/* Get generic LynxOS host definitions. */
 
-/* psignal() is in <signal.h>.  */
-
-#define PSIGNAL_IN_SIGNAL_H
-
-/* Get rid of any system-imposed stack limit if possible.  */
-
-#define SET_STACK_LIMIT_HUGE
-
-#define MEM_FNS_DECLARED
+#include "xm-lynx.h"

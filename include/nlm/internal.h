@@ -55,7 +55,7 @@ typedef unsigned short		Nlm64_Half;
 typedef struct nlm_internal_fixed_header
 {
   /* The signature field identifies the file as an NLM.  It must contain
-     the string defined by NLM_SIGNATURE. */
+     the signature string, which depends upon the NLM target. */
 
   char signature[NLM_SIGNATURE_SIZE];
 
@@ -252,6 +252,8 @@ typedef struct nlm_internal_extended_header
   long sharedExternalReferenceCount;
   file_ptr sharedPublicsOffset;
   long sharedPublicsCount;
+  file_ptr sharedDebugRecordOffset;
+  long sharedDebugRecordCount;
   bfd_vma SharedInitializationOffset;
   bfd_vma SharedExitProcedureOffset;
   long productID;

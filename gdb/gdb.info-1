@@ -6,8 +6,8 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.09, August 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.11.
+   This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.12.
 
    Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
@@ -33,7 +33,7 @@ Debugging with GDB
 
    This file describes GDB, the GNU symbolic debugger.
 
-   This is Edition 4.09, August 1993, for GDB Version 4.11.
+   This is Edition 4.12, January 1994, for GDB Version 4.12.
 
 * Menu:
 
@@ -97,11 +97,20 @@ these) to help you catch bugs in the act:
    * Change things in your program, so you can experiment with
      correcting the effects of one bug and go on to learn about another.
 
-   You can use GDB to debug programs written in C, C++, and Modula-2.
-G{No Value For "DBN"} can be used to debug programs written in Fortran,
-although it does not yet support entering expressions, printing values,
-etc.  using Fortran syntax.  It may be necessary to refer to some
-variables with a trailing underscore.
+   You can use GDB to debug programs written in C or C++.  For more
+information, see *Note C and C++: C.
+
+   Support for Modula-2 and Chill is partial.  For information on
+Modula-2, see *Note Modula-2: Modula-2.  There is no further
+documentation on Chill yet.
+
+   Debugging Pascal programs which use sets, subranges, file variables,
+or nested functions does not currently work.  GDB does not support
+entering expressions, printing values, or similar features using Pascal
+syntax.  GDB can be used to debug programs written in Fortran, although
+it does not yet support entering expressions, printing values, or
+similar features using Fortran syntax.  It may be necessary to refer to
+some variables with a trailing underscore.
 
 * Menu:
 
@@ -147,12 +156,12 @@ regret, we cannot actually acknowledge everyone here.  The file
 
    So that they may not regard their long labor as thankless, we
 particularly thank those who shepherded GDB through major releases: Fred
-Fish (releases 4.11, 4.10, 4.9), Stu Grossman and John Gilmore (releases
-4.8, 4.7, 4.6, 4.5, 4.4), John Gilmore (releases 4.3, 4.2, 4.1, 4.0, and
-3.9); Jim Kingdon (releases 3.5, 3.4, 3.3); and Randy Smith (releases
-3.2, 3.1, 3.0).  As major maintainer of GDB for some period, each
-contributed significantly to the structure, stability, and capabilities
-of the entire debugger.
+Fish (releases 4.12, 4.11, 4.10, 4.9), Stu Grossman and John Gilmore
+(releases 4.8, 4.7, 4.6, 4.5, 4.4), John Gilmore (releases 4.3, 4.2,
+4.1, 4.0, and 3.9); Jim Kingdon (releases 3.5, 3.4, 3.3); and Randy
+Smith (releases 3.2, 3.1, 3.0).  As major maintainer of GDB for some
+period, each contributed significantly to the structure, stability, and
+capabilities of the entire debugger.
 
    Richard Stallman, assisted at various times by Peter TerMaat, Chris
 Hanson, and Richard Mlynarik, handled releases through 2.8.
@@ -214,15 +223,15 @@ New Features since GDB Version 3.5
 *Targets*
      Using the new command `target', you can select at runtime whether
      you are debugging local files, local processes, standalone systems
-     over a serial port, realtime systems over a TCP/IP connection,
-     etc.  The command `load' can download programs into a remote
-     system.  Serial stubs are available for Motorola 680x0, Intel
-     80386, and Sparc remote systems; GDB also supports debugging
-     realtime processes running under VxWorks, using SunRPC Remote
-     Procedure Calls over TCP/IP to talk to a debugger stub on the
-     target system.  Internally, GDB now uses a function vector to
-     mediate access to different targets; if you need to add your own
-     support for a remote protocol, this makes it much easier.
+     over a serial port, or realtime systems over a TCP/IP connection.
+     The command `load' can download programs into a remote system.
+     Serial stubs are available for Motorola 680x0, Intel 80386, and
+     Sparc remote systems; GDB also supports debugging realtime
+     processes running under VxWorks, using SunRPC Remote Procedure
+     Calls over TCP/IP to talk to a debugger stub on the target system.
+     Internally, GDB now uses a function vector to mediate access to
+     different targets; if you need to add your own support for a
+     remote protocol, this makes it much easier.
 
 *Watchpoints*
      GDB now sports watchpoints as well as breakpoints.  You can use a
@@ -287,6 +296,10 @@ New Features since GDB Version 3.5
      GDB 4 can debug programs and core files that use SunOS, SVR4, or
      IBM RS/6000 shared libraries.
 
+*Threads*
+     On some systems, GDB 4 has facilities to debug multi-thread
+     programs.
+
 *Reference Card*
      GDB 4 has a reference card.  *Note Formatting the Documentation:
      Formatting Documentation, for instructions about how to print it.
@@ -336,13 +349,13 @@ Let us use GDB to try to see what is going on.
       the conditions.
      There is absolutely no warranty for GDB; type "show warranty"
       for details.
-     GDB 4.11, Copyright 1993 Free Software Foundation, Inc...
+     GDB 4.12, Copyright 1993 Free Software Foundation, Inc...
      (gdb)
 
 GDB reads only enough symbol data to know where to find the rest when
 needed; as a result, the first prompt comes up very quickly.  We now
 tell GDB to use a narrower display width than usual, so that examples
-will fit in this manual.
+fit in this manual.
 
      (gdb) set width 70
 
@@ -409,9 +422,9 @@ spelled `bt'), to see where we are in the stack as a whole: the
      #4  0x79dc in expand_input () at macro.c:40
      #5  0x2930 in main (argc=0, argv=0xf7fffb20) at m4.c:195
 
-We will step through a few more lines to see what happens.  The first
-two times, we can use `s'; the next two times we use `n' to avoid
-falling into the `xstrdup' subroutine.
+We step through a few more lines to see what happens.  The first two
+times, we can use `s'; the next two times we use `n' to avoid falling
+into the `xstrdup' subroutine.
 
      (gdb) s
      0x3b5c  532         if (rquote != def_rquote)
@@ -636,10 +649,10 @@ them, so long as enough of the option is present to be unambiguous.
      `mmap' system call, you can use this option to have GDB write the
      symbols from your program into a reusable file in the current
      directory.  If the program you are debugging is called
-     `/tmp/fred', the mapped symbol file will be `./fred.syms'.  Future
-     GDB debugging sessions will notice the presence of this file, and
-     will quickly map in symbol information from it, rather than reading
-     the symbol table from the executable program.
+     `/tmp/fred', the mapped symbol file is `./fred.syms'.  Future GDB
+     debugging sessions notice the presence of this file, and can
+     quickly map in symbol information from it, rather than reading the
+     symbol table from the executable program.
 
      The `.syms' file is specific to the host machine where GDB is run.
      It holds an exact image of the internal GDB symbol table.  It
@@ -729,11 +742,11 @@ Quitting GDB
      To exit GDB, use the `quit' command (abbreviated `q'), or type an
      end-of-file character (usually `C-d').
 
-   An interrupt (often `C-c') will not exit from GDB, but rather will
-terminate the action of any GDB command that is in progress and return
-to GDB command level.  It is safe to type the interrupt character at
-any time because GDB does not allow it to take effect until a time when
-it is safe.
+   An interrupt (often `C-c') does not exit from GDB, but rather
+terminates the action of any GDB command that is in progress and
+returns to GDB command level.  It is safe to type the interrupt
+character at any time because GDB does not allow it to take effect
+until a time when it is safe.
 
    If you have been using GDB to control an attached process or device,
 you can release it with the `detach' command (*note Debugging an
@@ -802,8 +815,8 @@ to the `help' command.
 
    A blank line as input to GDB (typing just RET) means to repeat the
 previous command. Certain commands (for example, `run') will not repeat
-this way; these are commands for which unintentional repetition might
-cause trouble and which you are unlikely to want to repeat.
+this way; these are commands whose unintentional repetition might cause
+trouble and which you are unlikely to want to repeat.
 
    The `list' and `x' commands, when you repeat them with RET,
 construct new arguments rather than repeating exactly as typed.  This
@@ -831,8 +844,8 @@ are for the next word in a command, at any time.  This works for GDB
 commands, GDB subcommands, and the names of symbols in your program.
 
    Press the TAB key whenever you want GDB to fill out the rest of a
-word.  If there is only one possibility, GDB will fill in the word, and
-wait for you to finish the command (or press RET to enter it).  For
+word.  If there is only one possibility, GDB fills in the word, and
+waits for you to finish the command (or press RET to enter it).  For
 example, if you type
 
      (gdb) info bre TAB
@@ -850,13 +863,13 @@ immediately after `info bre', to exploit command abbreviations rather
 than command completion).
 
    If there is more than one possibility for the next word when you
-press TAB, GDB will sound a bell.  You can either supply more
-characters and try again, or just press TAB a second time, and GDB will
-display all the possible completions for that word.  For example, you
-might want to set a breakpoint on a subroutine whose name begins with
-`make_', but when you type `b make_TAB' GDB just sounds the bell.
-Typing TAB again will display all the function names in your program
-that begin with those characters, for example:
+press TAB, GDB sounds a bell.  You can either supply more characters
+and try again, or just press TAB a second time; GDB displays all the
+possible completions for that word.  For example, you might want to set
+a breakpoint on a subroutine whose name begins with `make_', but when
+you type `b make_TAB' GDB just sounds the bell.  Typing TAB again
+displays all the function names in your program that begin with those
+characters, for example:
 
      (gdb) b make_ TAB
 GDB sounds bell; press TAB again, to see:
@@ -896,8 +909,8 @@ than usual when you press TAB or `M-?' to request word completion:
      bubble(double,double)    bubble(int,int)
      (gdb) b 'bubble(
 
-   In some cases, GDB can tell that completing a name will require
-quotes.  When this happens, GDB will insert the quote for you (while
+   In some cases, GDB can tell that completing a name requires using
+quotes.  When this happens, GDB inserts the quote for you (while
 completing as much as it can) if you do not type the quote in the first
 place:
 
@@ -964,7 +977,7 @@ the command `help'.
           (gdb)
 
 `help COMMAND'
-     With a command name as `help' argument, GDB will display a short
+     With a command name as `help' argument, GDB displays a short
      paragraph on how to use that command.
 
    In addition to `help', you can use the GDB commands `info' and
@@ -1034,6 +1047,7 @@ child process.
 * Attach::                      Debugging an already-running process
 * Kill Process::                Killing the child process
 * Process Information::         Additional process information
+* Threads::			Debugging programs with multiple threads
 
 
 File: gdb.info,  Node: Compilation,  Next: Starting,  Up: Running
@@ -1060,11 +1074,11 @@ use `-g' whenever you compile a program.  You may think your program is
 correct, but there is no sense in pushing your luck.
 
    When you debug a program compiled with `-g -O', remember that the
-optimizer is rearranging your code; the debugger will show you what is
+optimizer is rearranging your code; the debugger shows you what is
 really there.  Do not be too surprised when the execution path does not
 exactly match your source file!  An extreme example: if you define a
-variable, but never use it, GDB will never see that variable--because
-the compiler optimizes it out of existence.
+variable, but never use it, GDB never sees that variable--because the
+compiler optimizes it out of existence.
 
    Some things do not work as well with `-g -O' as with just `-g',
 particularly on machines with instruction scheduling.  If in doubt,
@@ -1097,9 +1111,9 @@ jumps to the start of your program.)
    The execution of a program is affected by certain information it
 receives from its superior.  GDB provides ways to specify this
 information, which you must do *before* starting your program.  (You
-can change it after starting your program, but such changes will only
-affect your program the next time you start it.)  This information may
-be divided into four categories:
+can change it after starting your program, but such changes only affect
+your program the next time you start it.)  This information may be
+divided into four categories:
 
 The *arguments.*
      Specify the arguments to give your program as the arguments of the
@@ -1113,8 +1127,8 @@ The *arguments.*
 The *environment.*
      Your program normally inherits its environment from GDB, but you
      can use the GDB commands `set environment' and `unset environment'
-     to change parts of the environment that will be given to your
-     program.  *Note Your program's environment: Environment.
+     to change parts of the environment that affect your program.
+     *Note Your program's environment: Environment.
 
 The *working directory.*
      Your program inherits its working directory from GDB.  You can set
@@ -1140,8 +1154,8 @@ stopped, you may call functions in your program, using the `print' or
 `call' commands.  *Note Examining Data: Data.
 
    If the modification time of your symbol file has changed since the
-last time GDB read its symbols, GDB will discard its symbol table and
-re-read it.  When it does this, GDB tries to retain your current
+last time GDB read its symbols, GDB discards its symbol table, and
+reads it again.  When it does this, GDB tries to retain your current
 breakpoints.
 
 
@@ -1161,10 +1175,10 @@ GDB if you do not define `SHELL', GDB uses `/bin/sh'.
 
 `set args'
      Specify the arguments to be used the next time your program is
-     run.  If `set args' has no arguments, `run' will execute your
-     program with no arguments.  Once you have run your program with
-     arguments, using `set args' before the next `run' is the only way
-     to run it again without arguments.
+     run.  If `set args' has no arguments, `run' executes your program
+     with no arguments.  Once you have run your program with arguments,
+     using `set args' before the next `run' is the only way to run it
+     again without arguments.
 
 `show args'
      Show the arguments to give your program when it is started.
@@ -1189,7 +1203,7 @@ again.
      search path for executables), for both GDB and your program.  You
      may specify several directory names, separated by `:' or
      whitespace.  If DIRECTORY is already in the path, it is moved to
-     the front, so it will be searched sooner.
+     the front, so it is searched sooner.
 
      You can use the string `$cwd' to refer to whatever is the current
      working directory at the time GDB searches the path.  If you use
@@ -1233,9 +1247,9 @@ again.
 `SHELL' environment variable if it exists (or `/bin/sh' if not).  If
 your `SHELL' variable names a shell that runs an initialization
 file--such as `.cshrc' for C-shell, or `.bashrc' for BASH--any
-variables you set in that file will affect your program.  You may wish
-to move setting of environment variables to files that are only run
-when you sign on, such as `.login' or `.profile'.
+variables you set in that file affect your program.  You may wish to
+move setting of environment variables to files that are only run when
+you sign on, such as `.login' or `.profile'.
 
 
 File: gdb.info,  Node: Working Directory,  Next: Input/Output,  Prev: Environment,  Up: Running
@@ -1258,47 +1272,4 @@ files: Files.
 
 `pwd'
      Print the GDB working directory.
-
-
-File: gdb.info,  Node: Input/Output,  Next: Attach,  Prev: Working Directory,  Up: Running
-
-Your program's input and output
-===============================
-
-   By default, the program you run under GDB does input and output to
-the same terminal that GDB uses.  GDB switches the terminal to its own
-terminal modes to interact with you, but it records the terminal modes
-your program was using and switches back to them when you continue
-running your program.
-
-`info terminal'
-     Displays information recorded by GDB about the terminal modes your
-     program is using.
-
-   You can redirect your program's input and/or output using shell
-redirection with the `run' command.  For example,
-
-     run > outfile
-
-starts your program, diverting its output to the file `outfile'.
-
-   Another way to specify where your program should do input and output
-is with the `tty' command.  This command accepts a file name as
-argument, and causes this file to be the default for future `run'
-commands.  It also resets the controlling terminal for the child
-process, for future `run' commands.  For example,
-
-     tty /dev/ttyb
-
-directs that processes started with subsequent `run' commands default
-to do input and output on the terminal `/dev/ttyb' and have that as
-their controlling terminal.
-
-   An explicit redirection in `run' overrides the `tty' command's
-effect on the input/output device, but not its effect on the controlling
-terminal.
-
-   When you use the `tty' command or redirect input in the `run'
-command, only the input *for your program* is affected.  The input for
-GDB still comes from your terminal.
 

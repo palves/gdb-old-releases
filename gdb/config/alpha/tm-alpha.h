@@ -27,11 +27,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Redefine some target bit sizes from the default.  */
 
-#undef TARGET_LONG_BIT
 #define TARGET_LONG_BIT 64
-#undef TARGET_LONG_LONG_BIT
 #define TARGET_LONG_LONG_BIT 64
-#undef TARGET_PTR_BIT
 #define TARGET_PTR_BIT 64
 
 /* Floating point is IEEE compliant */
@@ -91,10 +88,11 @@ alpha_saved_pc_after_call PARAMS ((struct frame_info *));
 
 #define INVALID_FLOAT(p,l) 0
 
-/* Say how long (all) registers are.
-   This is unused for the alpha, but the define is necessary.  */
+/* Say how long (ordinary) registers are.  This is a piece of bogosity
+   used in push_word and a few other places; REGISTER_RAW_SIZE is the
+   real way to know how big a register is.  */
 
-#define REGISTER_TYPE long
+#define REGISTER_SIZE 8
 
 /* Number of machine registers */
 
@@ -167,21 +165,34 @@ alpha_saved_pc_after_call PARAMS ((struct frame_info *));
 #define MAX_REGISTER_VIRTUAL_SIZE 8
 
 /* Nonzero if register N requires conversion
-   from raw format to virtual format.  */
+   from raw format to virtual format.
+   The alpha needs a conversion between register and memory format if
+   the register is a floating point register and
+      memory format is float, as the register format must be double
+   or
+      memory format is an integer with 4 bytes or less, as the representation
+      of integers in floating point registers is different. */
 
-#define REGISTER_CONVERTIBLE(N) 0
+#define REGISTER_CONVERTIBLE(N) ((N) >= FP0_REGNUM && (N) < FP0_REGNUM + 32)
 
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
+/* Convert data from raw format for register REGNUM in buffer FROM
+   to virtual format with type TYPE in buffer TO.  */
 
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)	\
-  memcpy ((TO), (FROM), 8);
+#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM, TYPE, FROM, TO) \
+  alpha_register_convert_to_virtual (REGNUM, TYPE, FROM, TO)
+#ifdef __STDC__
+struct type;
+#endif
+extern void
+alpha_register_convert_to_virtual PARAMS ((int, struct type *, char *, char *));
 
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
+/* Convert data from virtual format with type TYPE in buffer FROM
+   to raw format for register REGNUM in buffer TO.  */
 
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-  memcpy ((TO), (FROM), 8);
+#define REGISTER_CONVERT_TO_RAW(TYPE, REGNUM, FROM, TO)	\
+  alpha_register_convert_to_raw (TYPE, REGNUM, FROM, TO)
+extern void
+alpha_register_convert_to_raw PARAMS ((struct type *, int, char *, char *));
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -201,9 +212,6 @@ alpha_saved_pc_after_call PARAMS ((struct frame_info *));
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
   alpha_extract_return_value(TYPE, REGBUF, VALBUF)
-#ifdef __STDC__
-struct type;
-#endif
 extern void
 alpha_extract_return_value PARAMS ((struct type *, char *, char *));
 
@@ -325,13 +333,13 @@ alpha_pop_frame PARAMS ((void));
 
 #define CALL_DUMMY_LOCATION AT_ENTRY_POINT
 
-/* We need a fake CALL_DUMMY definition to enable the proper
+/* On the Alpha the call dummy code is never copied to user space,
+   stopping the user call is achieved via a bp_call_dummy breakpoint.
+   But we need a fake CALL_DUMMY definition to enable the proper
    call_function_by_hand and to avoid zero length array warnings
    in valops.c  */
-   
-#define CALL_DUMMY {\
- 0x80,				/* call_pal bpt */			\
-}
+
+#define CALL_DUMMY { 0 }	/* Content doesn't matter. */
 
 #define CALL_DUMMY_START_OFFSET (0)
 

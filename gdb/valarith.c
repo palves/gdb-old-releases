@@ -24,6 +24,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "expression.h"
 #include "target.h"
 #include "language.h"
+#include "demangle.h"
 #include <string.h>
 
 /* Define whether or not the C operator '/' truncates towards zero for
@@ -128,7 +129,8 @@ value_subscript (array, idx)
 
   COERCE_REF (array);
 
-  if (TYPE_CODE (VALUE_TYPE (array)) == TYPE_CODE_ARRAY)
+  if (TYPE_CODE (VALUE_TYPE (array)) == TYPE_CODE_ARRAY
+      || TYPE_CODE (VALUE_TYPE (array)) == TYPE_CODE_STRING)
     {
       range_type = TYPE_FIELD_TYPE (VALUE_TYPE (array), 0);
       lowerbound = TYPE_FIELD_BITPOS (range_type, 0);
@@ -141,6 +143,7 @@ value_subscript (array, idx)
 	{
 	  return value_subscripted_rvalue (array, idx);
 	}
+      array = value_coerce_array (array);
     }
   return value_ind (value_add (array, idx));
 }
@@ -227,8 +230,8 @@ value_x_binop (arg1, arg2, op, otherop)
      enum exp_opcode op, otherop;
 {
   value * argvec;
-  char *ptr;
-  char tstr[13];
+  char *ptr, *mangle_ptr;
+  char tstr[13], mangle_tstr[13];
   int static_memfuncp;
 
   COERCE_REF (arg1);
@@ -294,7 +297,9 @@ value_x_binop (arg1, arg2, op, otherop)
     default:
       error ("Invalid binary operation specified.");
     }
+
   argvec[0] = value_struct_elt (&arg1, argvec+1, tstr, &static_memfuncp, "structure");
+  
   if (argvec[0])
     {
       if (static_memfuncp)
@@ -322,8 +327,8 @@ value_x_unop (arg1, op)
      enum exp_opcode op;
 {
   value * argvec;
-  char *ptr;
-  char tstr[13];
+  char *ptr, *mangle_ptr;
+  char tstr[13], mangle_tstr[13];
   int static_memfuncp;
 
   COERCE_ENUM (arg1);
@@ -341,6 +346,8 @@ value_x_unop (arg1, op)
   /* make the right function name up */  
   strcpy(tstr,"operator__");
   ptr = tstr+8;
+  strcpy(mangle_tstr, "__");
+  mangle_ptr = mangle_tstr+2;
   switch (op)
     {
     case UNOP_PREINCREMENT:	strcpy(ptr,"++"); break;
@@ -353,7 +360,9 @@ value_x_unop (arg1, op)
     default:
       error ("Invalid binary operation specified.");
     }
+
   argvec[0] = value_struct_elt (&arg1, argvec+1, tstr, &static_memfuncp, "structure");
+
   if (argvec[0])
     {
       if (static_memfuncp)
@@ -545,6 +554,9 @@ value_binop (arg1, arg2, op)
       ||
       TYPE_CODE (VALUE_TYPE (arg2)) == TYPE_CODE_FLT)
     {
+      /* FIXME-if-picky-about-floating-accuracy: Should be doing this
+	 in target format.  real.c in GCC probably has the necessary
+	 code.  */
       double v1, v2, v;
       v1 = value_as_double (arg1);
       v2 = value_as_double (arg2);
@@ -571,8 +583,8 @@ value_binop (arg1, arg2, op)
 	}
 
       val = allocate_value (builtin_type_double);
-      SWAP_TARGET_AND_HOST (&v, sizeof (v));
-      *(double *) VALUE_CONTENTS_RAW (val) = v;
+      store_floating (VALUE_CONTENTS_RAW (val), TYPE_LENGTH (VALUE_TYPE (val)),
+		      v);
     }
   else if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_BOOL
 	   &&
@@ -967,3 +979,65 @@ value_complement (arg1)
   return value_from_longest (VALUE_TYPE (arg1), ~ value_as_long (arg1));
 }
 
+/* The INDEX'th bit of SET value whose VALUE_TYPE is TYPE,
+   and whose VALUE_CONTENTS is valaddr.
+   Return -1 if out of range, -2 other error. */
+
+int
+value_bit_index (type, valaddr, index)
+     struct type *type;
+     char *valaddr;
+     int index;
+{
+  struct type *range;
+  int low_bound, high_bound, bit_length;
+  LONGEST word;
+  range = TYPE_FIELD_TYPE (type, 0);
+  if (TYPE_CODE (range) != TYPE_CODE_RANGE)
+    return -2;
+  low_bound = TYPE_LOW_BOUND (range);
+  high_bound = TYPE_HIGH_BOUND (range);
+  if (index < low_bound || index > high_bound)
+    return -1;
+  bit_length = high_bound - low_bound + 1;
+  index -= low_bound;
+  if (bit_length <= TARGET_CHAR_BIT)
+    word = unpack_long (builtin_type_unsigned_char, valaddr);
+  else if (bit_length <= TARGET_SHORT_BIT)
+    word = unpack_long (builtin_type_unsigned_short, valaddr);
+  else
+    {
+      int word_start_index = (index / TARGET_INT_BIT) * TARGET_INT_BIT;
+      index -= word_start_index;
+      word = unpack_long (builtin_type_unsigned_int,
+			  valaddr + (word_start_index / HOST_CHAR_BIT));
+    }
+#if BITS_BIG_ENDIAN
+  if (bit_length <= TARGET_CHAR_BIT)
+    index = TARGET_CHAR_BIT - 1 - index;
+  else if (bit_length <= TARGET_SHORT_BIT)
+    index = TARGET_SHORT_BIT - 1 - index;
+  else
+    index = TARGET_INT_BIT - 1 - index;
+#endif
+  return (word >> index) & 1;
+}
+
+value
+value_in (element, set)
+     value element, set;
+{
+  int member;
+  if (TYPE_CODE (VALUE_TYPE (set)) != TYPE_CODE_SET)
+    error ("Second argument of 'IN' has wrong type");
+  if (TYPE_CODE (VALUE_TYPE (element)) != TYPE_CODE_INT
+      && TYPE_CODE (VALUE_TYPE (element)) != TYPE_CODE_CHAR
+      && TYPE_CODE (VALUE_TYPE (element)) != TYPE_CODE_ENUM
+      && TYPE_CODE (VALUE_TYPE (element)) != TYPE_CODE_BOOL)
+    error ("First argument of 'IN' has wrong type");
+  member = value_bit_index (VALUE_TYPE (set), VALUE_CONTENTS (set),
+			    value_as_long (element));
+  if (member < 0)
+    error ("First argument of 'IN' not in range");
+  return value_from_longest (builtin_type_int, member);
+}

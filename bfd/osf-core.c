@@ -202,7 +202,7 @@ osf_core_core_file_matches_executable_p (core_bfd, exec_bfd)
 #define	osf_core_close_and_cleanup		bfd_generic_close_and_cleanup
 #define	osf_core_set_section_contents		(boolean (*) PARAMS	\
         ((bfd *abfd, asection *section, PTR data, file_ptr offset,	\
-        bfd_size_type count))) bfd_false
+        bfd_size_type count))) bfd_generic_set_section_contents
 #define	osf_core_get_section_contents		bfd_generic_get_section_contents
 #define	osf_core_new_section_hook		(boolean (*) PARAMS	\
 	((bfd *, sec_ptr))) bfd_true
@@ -236,12 +236,16 @@ osf_core_core_file_matches_executable_p (core_bfd, exec_bfd)
 	((bfd *, struct sec *))) bfd_void
 #define osf_core_bfd_get_relocated_section_contents bfd_generic_get_relocated_section_contents
 #define osf_core_bfd_relax_section		bfd_generic_relax_section
-#define osf_core_bfd_seclet_link \
-  ((boolean (*) PARAMS ((bfd *, PTR, boolean))) bfd_false)
 #define osf_core_bfd_reloc_type_lookup \
   ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
 #define osf_core_bfd_make_debug_symbol \
   ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
+#define osf_core_bfd_link_hash_table_create \
+  ((struct bfd_link_hash_table *(*) PARAMS ((bfd *))) bfd_nullvoidptr)
+#define osf_core_bfd_link_add_symbols \
+  ((boolean (*) PARAMS ((bfd *, struct bfd_link_info *))) bfd_false)
+#define osf_core_bfd_final_link \
+  ((boolean (*) PARAMS ((bfd *, struct bfd_link_info *))) bfd_false)
 
 /* If somebody calls any byte-swapping routines, shoot them.  */
 static void
@@ -249,9 +253,10 @@ swap_abort()
 {
   abort(); /* This way doesn't require any declaration for ANSI to fuck up */
 }
-#define	NO_GET	((bfd_vma (*) PARAMS ((         bfd_byte *))) swap_abort )
+#define	NO_GET	((bfd_vma (*) PARAMS ((   const bfd_byte *))) swap_abort )
 #define	NO_PUT	((void    (*) PARAMS ((bfd_vma, bfd_byte *))) swap_abort )
-#define	NO_SIGNED_GET ((bfd_signed_vma (*) PARAMS ((bfd_byte *))) swap_abort )
+#define	NO_SIGNED_GET \
+  ((bfd_signed_vma (*) PARAMS ((const bfd_byte *))) swap_abort )
 
 bfd_target osf_core_vec =
   {
@@ -261,7 +266,7 @@ bfd_target osf_core_vec =
     true,			/* target headers byte order */
     (HAS_RELOC | EXEC_P |	/* object flags */
      HAS_LINENO | HAS_DEBUG |
-     HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
+     HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
     (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
     0,			                                   /* symbol prefix */
     ' ',						   /* ar_pad_char */

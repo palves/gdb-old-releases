@@ -27,7 +27,7 @@ set prms_id 0
 set bug_id 0
 
 # are we on a target board
-if [string first $target_alias $host_alias]==-1 then {
+if ![isnative] then {
     warning "These test cases can't run on a target system."
     continue
 }
@@ -60,7 +60,7 @@ proc test_with_self {} {
     # disassemble yourself
     send "x/10i main\n"
     expect {
-	-re "x/10i.*main.*main\+$decimal.*main\+$decimal.*$prompt $"\
+	-re "x/10i.*main.*main.$decimal.*main.$decimal.*$prompt $"\
 	    { pass "Disassemble main" }
 	-re ".*$prompt $"	{ fail "Disassemble main" }
 	timeout		{ fail "(timeout) Disassemble main" }
@@ -68,6 +68,10 @@ proc test_with_self {} {
 
 
     # do we have a version number ?
+    # This is the usual RS/6000 problem with text and data being mapped
+    # to the same addresses, so we can't get them both until the program
+    # is run and we relocate them.
+    setup_xfail "rs*-*-aix*"
     send "print version\n"
     expect {
 	-re ".\[0-9\]+ = 0x.*\[0-9.\]+.*$prompt $"\
@@ -95,7 +99,7 @@ proc test_with_self {} {
     set description "run until breakpoint at main"
     send "run\n"
     expect {
-	-re "Starting program.*Breakpoint \[0-9\]+,.*main \(argc.*argv.*\) at .*main.c:.*$prompt $" {
+	-re "Starting program.*Breakpoint \[0-9\]+,.*main .argc.*argv.* at .*main.c:.*$prompt $" {
 	    pass "$description"
 	}
 	-re "vfork: No more processes.*$prompt $" {
@@ -116,7 +120,7 @@ proc test_with_self {} {
     set description "step over symarg initialization"
     send "step\n"
     expect {
-	-re "char \*execarg = NULL;.*$prompt $" {
+	-re "char \[*\]+execarg = NULL;.*$prompt $" {
 	    pass "$description"
 	}
 	-re ".*No such file or directory.\r\n$prompt $" {
@@ -136,7 +140,7 @@ proc test_with_self {} {
     set description "step over execarg initialization"
     send "step\n"
     expect {
-	-re "char \*corearg = NULL;.*$prompt $" {
+	-re "char \[*\]corearg = NULL;.*$prompt $" {
 	    pass "$description"
 	}
 	-re ".*No such file or directory.\r\n$prompt $" {
@@ -156,7 +160,7 @@ proc test_with_self {} {
     set description "step over corearg initialization"
     send "step\n"
     expect {
-	-re "char \*cdarg = NULL;.*$prompt $" {
+	-re "char \[*\]cdarg = NULL;.*$prompt $" {
 	    pass "$description"
 	}
 	-re ".*No such file or directory.\r\n$prompt $" {
@@ -176,7 +180,7 @@ proc test_with_self {} {
     set description "step over cdarg initialization"
     send "step\n"
     expect {
-	-re "char \*ttyarg = NULL;.*$prompt $" {
+	-re "char \[*\]ttyarg = NULL;.*$prompt $" {
 	    pass "$description"
 	}
 	-re ".*No such file or directory.\r\n$prompt $" {
@@ -370,14 +374,14 @@ GDB.*Copyright \[0-9\]+ Free Software Foundation, Inc..*$prompt $"\
     # set xgdb prompt so we can tell which is which
     send "set prompt (xgdb) \n"
     expect {
-	-re "\(xgdb\).*\(xgdb\) $"	{ pass "Set xgdb prompt" }
+	-re "\[(\]xgdb\[)\].*\[(\]xgdb\[)\] $"	{ pass "Set xgdb prompt" }
 	-re ".*$prompt $"		{ fail "Set xgdb prompt" }
 	default				{ fail "(timeout) Set xgdb prompt" }
     }
     
     # kill the xgdb process
     set description "send ^C to child process"
-    send "\Cc"
+    send "\003"
     expect {
 	-re "Program received signal SIGINT.*$prompt $" {
 	    pass "$description"
@@ -428,12 +432,16 @@ GDB.*Copyright \[0-9\]+ Free Software Foundation, Inc..*$prompt $"\
     system rm -f core core.gdb
     send "maint dump-me\n"
     expect {
-	-re "Should GDB dump core\? \(y or n\) $" {
+	-re "maint dump-me.*Should GDB dump core.*y or n. $" {
 	    send "y\n"
 	    expect {
 		-re "Quit.*core dumped.*"    { pass "GDB dumped core" }
-		-re "Program received signal SIGQUIT.* in kill.*$prompt $" {
+		-re "Program received signal SIGQUIT.*$prompt $" {
 		    pass "GDB dumped core"
+		    # This means we just told xgdb, not gdb, to dump core.
+		    # Get out of gdb so that removing xgdb doesn't get
+		    # test busy errors.
+		    gdb_exit
 		}
 		-re "$prompt $" { fail "GDB dumped core" }
 		default { 
@@ -496,9 +504,7 @@ if ![file executable $GDB_FULLPATH] then {
     if [catch "exec cp $GDB_FULLPATH ./x$tool"] then {
 	fail "couldn't copy $GDB_FULLPATH to current directory"
     } else {
-	if $verbose>1 then {
-	    send_user "\t\tCopied $GDB_FULLPATH to ./x$tool\n"
-	}
+	verbose "\t\tCopied $GDB_FULLPATH to ./x$tool"
 	if {[test_with_self] <0} then {
 	    warning "Couldn't test self"
 	    catch "exec rm -f ./x$tool"

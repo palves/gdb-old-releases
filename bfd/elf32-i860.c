@@ -28,5 +28,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define TARGET_BIG_SYM	bfd_elf32_i860_vec
 #define TARGET_BIG_NAME "elf32-i860"
 #define ELF_ARCH	bfd_arch_i860
+#define ELF_MACHINE_CODE EM_860
 
 #include "elf32-target.h"

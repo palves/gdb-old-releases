@@ -6,8 +6,8 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.09, August 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.11.
+   This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.12.
 
    Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
@@ -24,6 +24,343 @@ of a permission notice identical to this one.
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
 versions.
+
+
+File: gdb.info,  Node: Hooks,  Next: Command Files,  Prev: Define,  Up: Sequences
+
+User-defined command hooks
+==========================
+
+   You may define *hooks*, which are a special kind of user-defined
+command.  Whenever you run the command `foo', if the user-defined
+command `hook-foo' exists, it is executed (with no arguments) before
+that command.
+
+   In addition, a pseudo-command, `stop' exists.  Defining
+(`hook-stop') makes the associated commands execute every time
+execution stops in your program: before breakpoint commands are run,
+displays are printed, or the stack frame is printed.
+
+   For example, to ignore `SIGALRM' signals while single-stepping, but
+treat them normally during normal execution, you could define:
+
+     define hook-stop
+     handle SIGALRM nopass
+     end
+     
+     define hook-run
+     handle SIGALRM pass
+     end
+     
+     define hook-continue
+     handle SIGLARM pass
+     end
+
+   You can define a hook for any single-word command in GDB, but not
+for command aliases; you should define a hook for the basic command
+name, e.g.  `backtrace' rather than `bt'.  If an error occurs during
+the execution of your hook, execution of GDB commands stops and GDB
+issues a prompt (before the command that you actually typed had a
+chance to run).
+
+   If you try to define a hook which does not match any known command,
+you get a warning from the `define' command.
+
+
+File: gdb.info,  Node: Command Files,  Next: Output,  Prev: Hooks,  Up: Sequences
+
+Command files
+=============
+
+   A command file for GDB is a file of lines that are GDB commands.
+Comments (lines starting with `#') may also be included.  An empty line
+in a command file does nothing; it does not mean to repeat the last
+command, as it would from the terminal.
+
+   When you start GDB, it automatically executes commands from its
+"init files".  These are files named `.gdbinit'.  GDB reads the init
+file (if any) in your home directory, then processes command line
+options and operands, and then reads the init file (if any) in the
+current working directory.  This is so the init file in your home
+directory can set options (such as `set complaints') which affect the
+processing of the command line options and operands.  The init files
+are not executed if you use the `-nx' option; *note Choosing modes:
+Mode Options..
+
+   On some configurations of GDB, the init file is known by a different
+name (these are typically environments where a specialized form of GDB
+may need to coexist with other forms, hence a different name for the
+specialized version's init file).  These are the environments with
+special init file names:
+
+   * VxWorks (Wind River Systems real-time OS): `.vxgdbinit'
+
+   * OS68K (Enea Data Systems real-time OS): `.os68gdbinit'
+
+   * ES-1800 (Ericsson Telecom AB M68000 emulator): `.esgdbinit'
+
+   You can also request the execution of a command file with the
+`source' command:
+
+`source FILENAME'
+     Execute the command file FILENAME.
+
+   The lines in a command file are executed sequentially.  They are not
+printed as they are executed.  An error in any command terminates
+execution of the command file.
+
+   Commands that would ask for confirmation if used interactively
+proceed without asking when used in a command file.  Many GDB commands
+that normally print messages to say what they are doing omit the
+messages when called from command files.
+
+
+File: gdb.info,  Node: Output,  Prev: Command Files,  Up: Sequences
+
+Commands for controlled output
+==============================
+
+   During the execution of a command file or a user-defined command,
+normal GDB output is suppressed; the only output that appears is what is
+explicitly printed by the commands in the definition.  This section
+describes three commands useful for generating exactly the output you
+want.
+
+`echo TEXT'
+     Print TEXT.  Nonprinting characters can be included in TEXT using
+     C escape sequences, such as `\n' to print a newline.  *No newline
+     is printed unless you specify one.* In addition to the standard C
+     escape sequences, a backslash followed by a space stands for a
+     space.  This is useful for displaying a string with spaces at the
+     beginning or the end, since leading and trailing spaces are
+     otherwise trimmed from all arguments.  To print ` and foo = ', use
+     the command `echo \ and foo = \ '.
+
+     A backslash at the end of TEXT can be used, as in C, to continue
+     the command onto subsequent lines.  For example,
+
+          echo This is some text\n\
+          which is continued\n\
+          onto several lines.\n
+
+     produces the same output as
+
+          echo This is some text\n
+          echo which is continued\n
+          echo onto several lines.\n
+
+`output EXPRESSION'
+     Print the value of EXPRESSION and nothing but that value: no
+     newlines, no `$NN = '.  The value is not entered in the value
+     history either.  *Note Expressions: Expressions, for more
+     information on expressions.
+
+`output/FMT EXPRESSION'
+     Print the value of EXPRESSION in format FMT.  You can use the same
+     formats as for `print'.  *Note Output formats: Output Formats, for
+     more information.
+
+`printf STRING, EXPRESSIONS...'
+     Print the values of the EXPRESSIONS under the control of STRING.
+     The EXPRESSIONS are separated by commas and may be either numbers
+     or pointers.  Their values are printed as specified by STRING,
+     exactly as if your program were to execute the C subroutine
+
+          printf (STRING, EXPRESSIONS...);
+
+     For example, you can print two values in hex like this:
+
+          printf "foo, bar-foo = 0x%x, 0x%x\n", foo, bar-foo
+
+     The only backslash-escape sequences that you can use in the format
+     string are the simple ones that consist of backslash followed by a
+     letter.
+
+
+File: gdb.info,  Node: Emacs,  Next: GDB Bugs,  Prev: Sequences,  Up: Top
+
+Using GDB under GNU Emacs
+*************************
+
+   A special interface allows you to use GNU Emacs to view (and edit)
+the source files for the program you are debugging with GDB.
+
+   To use this interface, use the command `M-x gdb' in Emacs.  Give the
+executable file you want to debug as an argument.  This command starts
+GDB as a subprocess of Emacs, with input and output through a newly
+created Emacs buffer.
+
+   Using GDB under Emacs is just like using GDB normally except for two
+things:
+
+   * All "terminal" input and output goes through the Emacs buffer.
+
+   This applies both to GDB commands and their output, and to the input
+and output done by the program you are debugging.
+
+   This is useful because it means that you can copy the text of
+previous commands and input them again; you can even use parts of the
+output in this way.
+
+   All the facilities of Emacs' Shell mode are available for interacting
+with your program.  In particular, you can send signals the usual
+way--for example, `C-c C-c' for an interrupt, `C-c C-z' for a stop.
+
+   * GDB displays source code through Emacs.
+
+   Each time GDB displays a stack frame, Emacs automatically finds the
+source file for that frame and puts an arrow (`=>') at the left margin
+of the current line.  Emacs uses a separate buffer for source display,
+and splits the screen to show both your GDB session and the source.
+
+   Explicit GDB `list' or search commands still produce output as
+usual, but you probably have no reason to use them from Emacs.
+
+     *Warning:* If the directory where your program resides is not your
+     current directory, it can be easy to confuse Emacs about the
+     location of the source files, in which case the auxiliary display
+     buffer does not appear to show your source.  GDB can find programs
+     by searching your environment's `PATH' variable, so the GDB input
+     and output session proceeds normally; but Emacs does not get
+     enough information back from GDB to locate the source files in
+     this situation.  To avoid this problem, either start GDB mode from
+     the directory where your program resides, or specify a full path
+     name when prompted for the `M-x gdb' argument.
+
+     A similar confusion can result if you use the GDB `file' command to
+     switch to debugging a program in some other location, from an
+     existing GDB buffer in Emacs.
+
+   By default, `M-x gdb' calls the program called `gdb'.  If you need
+to call GDB by a different name (for example, if you keep several
+configurations around, with different names) you can set the Emacs
+variable `gdb-command-name'; for example,
+
+     (setq gdb-command-name "mygdb")
+
+(preceded by `ESC ESC', or typed in the `*scratch*' buffer, or in your
+`.emacs' file) makes Emacs call the program named "`mygdb'" instead.
+
+   In the GDB I/O buffer, you can use these special Emacs commands in
+addition to the standard Shell mode commands:
+
+`C-h m'
+     Describe the features of Emacs' GDB Mode.
+
+`M-s'
+     Execute to another source line, like the GDB `step' command; also
+     update the display window to show the current file and location.
+
+`M-n'
+     Execute to next source line in this function, skipping all function
+     calls, like the GDB `next' command.  Then update the display window
+     to show the current file and location.
+
+`M-i'
+     Execute one instruction, like the GDB `stepi' command; update
+     display window accordingly.
+
+`M-x gdb-nexti'
+     Execute to next instruction, using the GDB `nexti' command; update
+     display window accordingly.
+
+`C-c C-f'
+     Execute until exit from the selected stack frame, like the GDB
+     `finish' command.
+
+`M-c'
+     Continue execution of your program, like the GDB `continue'
+     command.
+
+     *Warning:* In Emacs v19, this command is `C-c C-p'.
+
+`M-u'
+     Go up the number of frames indicated by the numeric argument
+     (*note Numeric Arguments: (emacs)Arguments.), like the GDB `up'
+     command.
+
+     *Warning:* In Emacs v19, this command is `C-c C-u'.
+
+`M-d'
+     Go down the number of frames indicated by the numeric argument,
+     like the GDB `down' command.
+
+     *Warning:* In Emacs v19, this command is `C-c C-d'.
+
+`C-x &'
+     Read the number where the cursor is positioned, and insert it at
+     the end of the GDB I/O buffer.  For example, if you wish to
+     disassemble code around an address that was displayed earlier,
+     type `disassemble'; then move the cursor to the address display,
+     and pick up the argument for `disassemble' by typing `C-x &'.
+
+     You can customize this further by defining elements of the list
+     `gdb-print-command'; once it is defined, you can format or
+     otherwise process numbers picked up by `C-x &' before they are
+     inserted.  A numeric argument to `C-x &' indicates that you wish
+     special formatting, and also acts as an index to pick an element
+     of the list.  If the list element is a string, the number to be
+     inserted is formatted using the Emacs function `format'; otherwise
+     the number is passed as an argument to the corresponding list
+     element.
+
+   In any source file, the Emacs command `C-x SPC' (`gdb-break') tells
+GDB to set a breakpoint on the source line point is on.
+
+   If you accidentally delete the source-display buffer, an easy way to
+get it back is to type the command `f' in the GDB buffer, to request a
+frame display; when you run under Emacs, this recreates the source
+buffer if necessary to show you the context of the current frame.
+
+   The source files displayed in Emacs are in ordinary Emacs buffers
+which are visiting the source files in the usual way.  You can edit the
+files with these buffers if you wish; but keep in mind that GDB
+communicates with Emacs in terms of line numbers.  If you add or delete
+lines from the text, the line numbers that GDB knows cease to
+correspond properly with the code.
+
+
+File: gdb.info,  Node: GDB Bugs,  Next: Command Line Editing,  Prev: Emacs,  Up: Top
+
+Reporting Bugs in GDB
+*********************
+
+   Your bug reports play an essential role in making GDB reliable.
+
+   Reporting a bug may help you by bringing a solution to your problem,
+or it may not.  But in any case the principal function of a bug report
+is to help the entire community by making the next version of GDB work
+better.  Bug reports are your contribution to the maintenance of GDB.
+
+   In order for a bug report to serve its purpose, you must include the
+information that enables us to fix the bug.
+
+* Menu:
+
+* Bug Criteria::                Have you found a bug?
+* Bug Reporting::               How to report bugs
+
+
+File: gdb.info,  Node: Bug Criteria,  Next: Bug Reporting,  Up: GDB Bugs
+
+Have you found a bug?
+=====================
+
+   If you are not sure whether you have found a bug, here are some
+guidelines:
+
+   * If the debugger gets a fatal signal, for any input whatever, that
+     is a GDB bug.  Reliable debuggers never crash.
+
+   * If GDB produces an error message for valid input, that is a bug.
+
+   * If GDB does not produce an error message for invalid input, that
+     is a bug.  However, you should note that your idea of "invalid
+     input" might be our idea of "an extension" or "support for
+     traditional practice".
+
+   * If you are an experienced user of debugging tools, your suggestions
+     for improvement of GDB are welcome in any case.
 
 
 File: gdb.info,  Node: Bug Reporting,  Prev: Bug Criteria,  Up: GDB Bugs
@@ -158,7 +495,7 @@ to respond to them* except to chide the sender to report bugs properly.
      Of course, if you can find a simpler example to report *instead*
      of the original one, that is a convenience for us.  Errors in the
      output will be easier to spot, running under the debugger will take
-     less time, etc.
+     less time, and so on.
 
      However, simplification is not vital; if you do not want to do
      this, report the bug anyway and send us the entire test case you
@@ -563,7 +900,7 @@ Commands For Manipulating The History
 
 `forward-search-history (C-s)'
      Search forward starting at the current line and moving `down'
-     through the the history as neccessary.
+     through the the history as necessary.
 
 
 File: gdb.info,  Node: Commands For Text,  Next: Commands For Killing,  Prev: Commands For History,  Up: Readline Init Syntax
@@ -934,7 +1271,7 @@ distribution.
 Info formatting programs, such as `texinfo-format-buffer' or `makeinfo'.
 
    If you have `makeinfo' installed, and are in the top level GDB
-source directory (`gdb-4.11', in the case of version 4.11), you can
+source directory (`gdb-4.12', in the case of version 4.12), you can
 make the Info file by typing:
 
      cd gdb
@@ -960,274 +1297,12 @@ format.  On its own, TeX cannot read, much less typeset a Texinfo file.
 
    If you have TeX and a DVI printer program installed, you can typeset
 and print this manual.  First switch to the the `gdb' subdirectory of
-the main source directory (for example, to `gdb-4.11/gdb') and then
+the main source directory (for example, to `gdb-4.12/gdb') and then
 type:
 
      make gdb.dvi
 
    ---------- Footnotes ----------
 
-   (1)  In `gdb-4.11/gdb/refcard.ps' of the version 4.11 release.
-
-
-File: gdb.info,  Node: Installing GDB,  Next: Index,  Prev: Formatting Documentation,  Up: Top
-
-Installing GDB
-**************
-
-   GDB comes with a `configure' script that automates the process of
-preparing GDB for installation; you can then use `make' to build the
-`gdb' program.
-
-   The GDB distribution includes all the source code you need for GDB in
-a single directory, whose name is usually composed by appending the
-version number to `gdb'.
-
-   For example, the GDB version 4.11 distribution is in the `gdb-4.11'
-directory.  That directory contains:
-
-`gdb-4.11/configure (and supporting files)'
-     script for configuring GDB and all its supporting libraries.
-
-`gdb-4.11/gdb'
-     the source specific to GDB itself
-
-`gdb-4.11/bfd'
-     source for the Binary File Descriptor library
-
-`gdb-4.11/include'
-     GNU include files
-
-`gdb-4.11/libiberty'
-     source for the `-liberty' free software library
-
-`gdb-4.11/opcodes'
-     source for the library of opcode tables and disassemblers
-
-`gdb-4.11/readline'
-     source for the GNU command-line interface
-
-`gdb-4.11/glob'
-     source for the GNU filename pattern-matching subroutine
-
-`gdb-4.11/mmalloc'
-     source for the GNU memory-mapped malloc package
-
-   The simplest way to configure and build GDB is to run `configure'
-from the `gdb-VERSION-NUMBER' source directory, which in this example
-is the `gdb-4.11' directory.
-
-   First switch to the `gdb-VERSION-NUMBER' source directory if you are
-not already in it; then run `configure'.  Pass the identifier for the
-platform on which GDB will run as an argument.
-
-   For example:
-
-     cd gdb-4.11
-     ./configure HOST
-     make
-
-where HOST is an identifier such as `sun4' or `decstation', that
-identifies the platform where GDB will run.  (You can often leave off
-HOST; `configure' tries to guess the correct value by examining your
-system.)
-
-   Running `configure HOST' and then running `make' builds the `bfd',
-`readline', `mmalloc', and `libiberty' libraries, then `gdb' itself.
-The configured source files, and the binaries, are left in the
-corresponding source directories.
-
-   `configure' is a Bourne-shell (`/bin/sh') script; if your system
-does not recognize this automatically when you run a different shell,
-you may need to run `sh' on it explicitly:
-
-     sh configure HOST
-
-   If you run `configure' from a directory that contains source
-directories for multiple libraries or programs, such as the `gdb-4.11'
-source directory for version 4.11, `configure' creates configuration
-files for every directory level underneath (unless you tell it not to,
-with the `--norecursion' option).
-
-   You can run the `configure' script from any of the subordinate
-directories in the GDB distribution if you only want to configure that
-subdirectory, but be sure to specify a path to it.
-
-   For example, with version 4.11, type the following to configure only
-the `bfd' subdirectory:
-
-     cd gdb-4.11/bfd
-     ../configure HOST
-
-   You can install `gdb' anywhere; it has no hardwired paths.  However,
-you should make sure that the shell on your path (named by the `SHELL'
-environment variable) is publicly readable.  Remember that GDB uses the
-shell to start your program--some systems refuse to let GDB debug child
-processes whose programs are not readable.
-
-* Menu:
-
-* Separate Objdir::             Compiling GDB in another directory
-* Config Names::                Specifying names for hosts and targets
-* configure Options::           Summary of options for configure
-
-
-File: gdb.info,  Node: Separate Objdir,  Next: Config Names,  Up: Installing GDB
-
-Compiling GDB in another directory
-==================================
-
-   If you want to run GDB versions for several host or target machines,
-you need a different `gdb' compiled for each combination of host and
-target.  `configure' is designed to make this easy by allowing you to
-generate each configuration in a separate subdirectory, rather than in
-the source directory.  If your `make' program handles the `VPATH'
-feature (GNU `make' does), running `make' in each of these directories
-builds the `gdb' program specified there.
-
-   To build `gdb' in a separate directory, run `configure' with the
-`--srcdir' option to specify where to find the source.  (You also need
-to specify a path to find `configure' itself from your working
-directory.  If the path to `configure' would be the same as the
-argument to `--srcdir', you can leave out the `--srcdir' option; it
-will be assumed.)
-
-   For example, with version 4.11, you can build GDB in a separate
-directory for a Sun 4 like this:
-
-     cd gdb-4.11
-     mkdir ../gdb-sun4
-     cd ../gdb-sun4
-     ../gdb-4.11/configure sun4
-     make
-
-   When `configure' builds a configuration using a remote source
-directory, it creates a tree for the binaries with the same structure
-(and using the same names) as the tree under the source directory.  In
-the example, you'd find the Sun 4 library `libiberty.a' in the
-directory `gdb-sun4/libiberty', and GDB itself in `gdb-sun4/gdb'.
-
-   One popular reason to build several GDB configurations in separate
-directories is to configure GDB for cross-compiling (where GDB runs on
-one machine--the host--while debugging programs that run on another
-machine--the target).  You specify a cross-debugging target by giving
-the `--target=TARGET' option to `configure'.
-
-   When you run `make' to build a program or library, you must run it
-in a configured directory--whatever directory you were in when you
-called `configure' (or one of its subdirectories).
-
-   The `Makefile' that `configure' generates in each source directory
-also runs recursively.  If you type `make' in a source directory such
-as `gdb-4.11' (or in a separate configured directory configured with
-`--srcdir=PATH/gdb-4.11'), you will build all the required libraries,
-and then build GDB.
-
-   When you have multiple hosts or targets configured in separate
-directories, you can run `make' on them in parallel (for example, if
-they are NFS-mounted on each of the hosts); they will not interfere
-with each other.
-
-
-File: gdb.info,  Node: Config Names,  Next: configure Options,  Prev: Separate Objdir,  Up: Installing GDB
-
-Specifying names for hosts and targets
-======================================
-
-   The specifications used for hosts and targets in the `configure'
-script are based on a three-part naming scheme, but some short
-predefined aliases are also supported.  The full naming scheme encodes
-three pieces of information in the following pattern:
-
-     ARCHITECTURE-VENDOR-OS
-
-   For example, you can use the alias `sun4' as a HOST argument, or as
-the value for TARGET in a `--target=TARGET' option.  The equivalent
-full name is `sparc-sun-sunos4'.
-
-   The `configure' script accompanying GDB does not provide any query
-facility to list all supported host and target names or aliases.
-`configure' calls the Bourne shell script `config.sub' to map
-abbreviations to full names; you can read the script, if you wish, or
-you can use it to test your guesses on abbreviations--for example:
-
-     % sh config.sub sun4
-     sparc-sun-sunos4.1.1
-     % sh config.sub sun3
-     m68k-sun-sunos4.1.1
-     % sh config.sub decstation
-     mips-dec-ultrix4.2
-     % sh config.sub hp300bsd
-     m68k-hp-bsd
-     % sh config.sub i386v
-     i386-unknown-sysv
-     % sh config.sub i786v
-     Invalid configuration `i786v': machine `i786v' not recognized
-
-`config.sub' is also distributed in the GDB source directory
-(`gdb-4.11', for version 4.11).
-
-
-File: gdb.info,  Node: configure Options,  Prev: Config Names,  Up: Installing GDB
-
-`configure' options
-===================
-
-   Here is a summary of the `configure' options and arguments that are
-most often useful for building GDB.  `configure' also has several other
-options not listed here.  *note : (configure.info)What Configure Does,
-for a full explanation of `configure'.
-
-     configure [--help]
-               [--prefix=DIR]
-               [--srcdir=PATH]
-               [--norecursion] [--rm]
-               [--target=TARGET] HOST
-
-You may introduce options with a single `-' rather than `--' if you
-prefer; but you may abbreviate option names if you use `--'.
-
-`--help'
-     Display a quick summary of how to invoke `configure'.
-
-`-prefix=DIR'
-     Configure the source to install programs and files under directory
-     `DIR'.
-
-`--srcdir=PATH'
-     *Warning: using this option requires GNU `make', or another `make'
-     that implements the `VPATH' feature.*
-     Use this option to make configurations in directories separate
-     from the GDB source directories.  Among other things, you can use
-     this to build (or maintain) several configurations simultaneously,
-     in separate directories.  `configure' writes configuration
-     specific files in the current directory, but arranges for them to
-     use the source in the directory PATH.  `configure' will create
-     directories under the working directory in parallel to the source
-     directories below PATH.
-
-`--norecursion'
-     Configure only the directory level where `configure' is executed;
-     do not propagate configuration to subdirectories.
-
-`--rm'
-     *Remove* files otherwise built during configuration.
-
-`--target=TARGET'
-     Configure GDB for cross-debugging programs running on the specified
-     TARGET.  Without this option, GDB is configured to debug programs
-     that run on the same machine (HOST) as GDB itself.
-
-     There is no convenient way to generate a list of all available
-     targets.
-
-`HOST ...'
-     Configure GDB to run on the specified HOST.
-
-     There is no convenient way to generate a list of all available
-     hosts.
-
-`configure' accepts other options, for compatibility with configuring
-other GNU tools recursively; but these are the only options that affect
-GDB or its supporting libraries.
+   (1)  In `gdb-4.12/gdb/refcard.ps' of the version 4.12 release.
 

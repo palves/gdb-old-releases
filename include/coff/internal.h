@@ -499,7 +499,7 @@ struct internal_reloc
 #define R_CALLR	  0x05		/* callr 12 bit disp */
 #define R_SEG     0x10		/* set if in segmented mode */
 #define R_IMM4H   0x24		/* high nibble */
-
+#define R_DISP7   0x25          /* djnz displacement */
 
 /* H8500 modes */
 
@@ -533,6 +533,6 @@ struct internal_reloc
 #define R_SH_IMM4BY4    21
 #define R_SH_PCRELIMM8BY2   22
 #define R_SH_PCRELIMM8BY4   23
-
+#define R_SH_IMM16      24    		/* 16 bit immediate */
 
 

@@ -61,7 +61,7 @@ strtoul(s, ptr, base)
   maxdiv = ULONG_MAX / base;
   maxrem = ULONG_MAX % base;
 
-  while ( digit = *s )
+  while ((digit = *s) != '\0')
     {
       if (digit >= '0' && digit < ('0'+base))
 	digit -= '0';

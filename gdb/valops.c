@@ -286,7 +286,6 @@ value_assign (toval, fromval)
   register struct type *type = VALUE_TYPE (toval);
   register value val;
   char raw_buffer[MAX_REGISTER_RAW_SIZE];
-  char virtual_buffer[MAX_REGISTER_VIRTUAL_SIZE];
   int use_buffer = 0;
 
   COERCE_ARRAY (fromval);
@@ -300,17 +299,19 @@ value_assign (toval, fromval)
      convert FROMVAL's contents now, with result in `raw_buffer',
      and set USE_BUFFER to the number of bytes to write.  */
 
+#ifdef REGISTER_CONVERTIBLE
   if (VALUE_REGNO (toval) >= 0
       && REGISTER_CONVERTIBLE (VALUE_REGNO (toval)))
     {
       int regno = VALUE_REGNO (toval);
-      if (VALUE_TYPE (fromval) != REGISTER_VIRTUAL_TYPE (regno))
-	fromval = value_cast (REGISTER_VIRTUAL_TYPE (regno), fromval);
-      memcpy (virtual_buffer, VALUE_CONTENTS (fromval),
-	     REGISTER_VIRTUAL_SIZE (regno));
-      REGISTER_CONVERT_TO_RAW (regno, virtual_buffer, raw_buffer);
-      use_buffer = REGISTER_RAW_SIZE (regno);
+      if (REGISTER_CONVERTIBLE (regno))
+	{
+	  REGISTER_CONVERT_TO_RAW (VALUE_TYPE (fromval), regno,
+				   VALUE_CONTENTS (fromval), raw_buffer);
+	  use_buffer = REGISTER_RAW_SIZE (regno);
+	}
     }
+#endif
 
   switch (VALUE_LVAL (toval))
     {
@@ -329,13 +330,24 @@ value_assign (toval, fromval)
     case lval_memory:
       if (VALUE_BITSIZE (toval))
 	{
-	  int v;		/* FIXME, this won't work for large bitfields */
+	  char buffer[sizeof (LONGEST)];
+	  /* We assume that the argument to read_memory is in units of
+	     host chars.  FIXME:  Is that correct?  */
+	  int len = (VALUE_BITPOS (toval)
+		     + VALUE_BITSIZE (toval)
+		     + HOST_CHAR_BIT - 1)
+		    / HOST_CHAR_BIT;
+
+	  if (len > sizeof (LONGEST))
+	    error ("Can't handle bitfields which don't fit in a %d bit word.",
+		   sizeof (LONGEST) * HOST_CHAR_BIT);
+
 	  read_memory (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
-		       (char *) &v, sizeof v);
-	  modify_field ((char *) &v, value_as_long (fromval),
+		       buffer, len);
+	  modify_field (buffer, value_as_long (fromval),
 			VALUE_BITPOS (toval), VALUE_BITSIZE (toval));
 	  write_memory (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
-			(char *)&v, sizeof v);
+			buffer, len);
 	}
       else if (use_buffer)
 	write_memory (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
@@ -348,14 +360,26 @@ value_assign (toval, fromval)
     case lval_register:
       if (VALUE_BITSIZE (toval))
 	{
-	  int v;
+	  char buffer[sizeof (LONGEST)];
+          int len = REGISTER_RAW_SIZE (VALUE_REGNO (toval));
 
-	  read_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
-			       (char *) &v, sizeof v);
-	  modify_field ((char *) &v, value_as_long (fromval),
-			VALUE_BITPOS (toval), VALUE_BITSIZE (toval));
-	  write_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
-				(char *) &v, sizeof v);
+	  if (len > sizeof (LONGEST))
+	    error ("Can't handle bitfields in registers larger than %d bits.",
+		   sizeof (LONGEST) * HOST_CHAR_BIT);
+
+	  if (VALUE_BITPOS (toval) + VALUE_BITSIZE (toval)
+	      > len * HOST_CHAR_BIT)
+	    /* Getting this right would involve being very careful about
+	       byte order.  */
+	    error ("\
+Can't handle bitfield which doesn't fit in a single register.");
+
+          read_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
+                               buffer, len);
+          modify_field (buffer, value_as_long (fromval),
+                        VALUE_BITPOS (toval), VALUE_BITSIZE (toval));
+          write_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
+                                buffer, len);
 	}
       else if (use_buffer)
 	write_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
@@ -374,6 +398,12 @@ value_assign (toval, fromval)
 			        VALUE_CONTENTS (fromval), TYPE_LENGTH (type));
 #endif
 	}
+      /* Assigning to the stack pointer, frame pointer, and other
+	 (architecture and calling convention specific) registers may
+	 cause the frame cache to be out of date.  We just do this
+	 on all assignments to registers for simplicity; I doubt the slowdown
+	 matters.  */
+      reinit_frame_cache ();
       break;
 
     case lval_reg_frame_relative:
@@ -386,7 +416,12 @@ value_assign (toval, fromval)
 	int byte_offset = VALUE_OFFSET (toval) % reg_size;
 	int reg_offset = VALUE_OFFSET (toval) / reg_size;
 	int amount_copied;
-	char *buffer = (char *) alloca (amount_to_copy);
+
+	/* Make the buffer large enough in all cases.  */
+	char *buffer = (char *) alloca (amount_to_copy
+					+ sizeof (LONGEST)
+					+ MAX_REGISTER_RAW_SIZE);
+
 	int regno;
 	FRAME frame;
 
@@ -463,9 +498,6 @@ value_assign (toval, fromval)
       type = VALUE_TYPE (fromval);
     }
 
-  /* FIXME: This loses if fromval is a different size than toval, for
-     example because fromval got cast in the REGISTER_CONVERTIBLE case
-     above.  */
   val = allocate_value (type);
   memcpy (val, toval, VALUE_CONTENTS_RAW (val) - (char *) val);
   memcpy (VALUE_CONTENTS_RAW (val), VALUE_CONTENTS (fromval),
@@ -563,7 +595,8 @@ value_coerce_array (arg1)
     error ("Attempt to take address of value not located in memory.");
 
   /* Get type of elements.  */
-  if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_ARRAY)
+  if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_ARRAY
+      || TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_STRING)
     type = TYPE_TARGET_TYPE (VALUE_TYPE (arg1));
   else
     /* A phony array made by value_repeat.
@@ -650,9 +683,9 @@ value_ind (arg1)
 CORE_ADDR
 push_word (sp, word)
      CORE_ADDR sp;
-     REGISTER_TYPE word;
+     unsigned LONGEST word;
 {
-  register int len = sizeof (REGISTER_TYPE);
+  register int len = REGISTER_SIZE;
   char buffer[MAX_REGISTER_RAW_SIZE];
 
   store_unsigned_integer (buffer, len, word);
@@ -832,11 +865,12 @@ call_function_by_hand (function, nargs, args)
   register CORE_ADDR sp;
   register int i;
   CORE_ADDR start_sp;
-  /* CALL_DUMMY is an array of words (REGISTER_TYPE), but each word
-     is in host byte order.  It is switched to target byte order before calling
-     FIX_CALL_DUMMY.  */
-  static REGISTER_TYPE dummy[] = CALL_DUMMY;
-  REGISTER_TYPE dummy1[sizeof dummy / sizeof (REGISTER_TYPE)];
+  /* CALL_DUMMY is an array of words (REGISTER_SIZE), but each word
+     is in host byte order.  Before calling FIX_CALL_DUMMY, we byteswap it
+     and remove any extra bytes which might exist because unsigned LONGEST is
+     bigger than REGISTER_SIZE.  */
+  static unsigned LONGEST dummy[] = CALL_DUMMY;
+  char dummy1[REGISTER_SIZE * sizeof dummy / sizeof (unsigned LONGEST)];
   CORE_ADDR old_sp;
   struct type *value_type;
   unsigned char struct_return;
@@ -884,8 +918,9 @@ call_function_by_hand (function, nargs, args)
 
   /* Create a call sequence customized for this function
      and the number of arguments for it.  */
-  for (i = 0; i < sizeof dummy / sizeof (REGISTER_TYPE); i++)
-    store_unsigned_integer (&dummy1[i], sizeof (REGISTER_TYPE),
+  for (i = 0; i < sizeof dummy / sizeof (dummy[0]); i++)
+    store_unsigned_integer (&dummy1[i * REGISTER_SIZE],
+			    REGISTER_SIZE,
 			    (unsigned LONGEST)dummy[i]);
 
 #ifdef GDB_TARGET_IS_HPPA
@@ -1246,21 +1281,27 @@ typecmp (staticp, t1, t2)
   if (t1[!staticp] == 0) return 0;
   for (i = !staticp; t1[i] && TYPE_CODE (t1[i]) != TYPE_CODE_VOID; i++)
     {
+    struct type *tt1, *tt2;
       if (! t2[i])
 	return i+1;
-      if (TYPE_CODE (t1[i]) == TYPE_CODE_REF
+      tt1 = t1[i];
+      tt2 = VALUE_TYPE(t2[i]);
+      if (TYPE_CODE (tt1) == TYPE_CODE_REF
 	  /* We should be doing hairy argument matching, as below.  */
-	  && (TYPE_CODE (TYPE_TARGET_TYPE (t1[i]))
-	      == TYPE_CODE (VALUE_TYPE (t2[i]))))
+	  && (TYPE_CODE (TYPE_TARGET_TYPE (tt1)) == TYPE_CODE (tt2)))
 	{
 	  t2[i] = value_addr (t2[i]);
 	  continue;
 	}
 
-      if (TYPE_CODE (t1[i]) == TYPE_CODE_PTR
-	  && TYPE_CODE (VALUE_TYPE (t2[i])) == TYPE_CODE_ARRAY)
-	/* Array to pointer is a `trivial conversion' according to the ARM.  */
-	continue;
+      while (TYPE_CODE (tt1) == TYPE_CODE_PTR
+	  && (TYPE_CODE(tt2)==TYPE_CODE_ARRAY || TYPE_CODE(tt2)==TYPE_CODE_PTR))
+	{
+	   tt1 = TYPE_TARGET_TYPE(tt1); 
+	   tt2 = TYPE_TARGET_TYPE(tt2);
+	}
+      if (TYPE_CODE(tt1) == TYPE_CODE(tt2)) continue;
+      /* Array to pointer is a `trivial conversion' according to the ARM.  */
 
       /* We should be doing much hairier argument matching (see section 13.2
 	 of the ARM), but as a quick kludge, just check for the same type
@@ -1368,12 +1409,23 @@ search_struct_method (name, arg1p, args, offset, static_memfuncp, type)
      register struct type *type;
 {
   int i;
-  static int name_matched = 0;
+  value v;
+  int name_matched = 0;
+  char dem_opname[64];
 
   check_stub_type (type);
   for (i = TYPE_NFN_FIELDS (type) - 1; i >= 0; i--)
     {
       char *t_field_name = TYPE_FN_FIELDLIST_NAME (type, i);
+      if (strncmp(t_field_name, "__", 2)==0 ||
+	strncmp(t_field_name, "op", 2)==0 ||
+	strncmp(t_field_name, "type", 4)==0 )
+	{
+	  if (cplus_demangle_opname(t_field_name, dem_opname, DMGL_ANSI))
+	    t_field_name = dem_opname;
+	  else if (cplus_demangle_opname(t_field_name, dem_opname, 0))
+	    t_field_name = dem_opname; 
+	}
       if (t_field_name && STREQ (t_field_name, name))
 	{
 	  int j = TYPE_FN_FIELDLIST_LENGTH (type, i) - 1;
@@ -1393,7 +1445,8 @@ search_struct_method (name, arg1p, args, offset, static_memfuncp, type)
 		    return (value)value_virtual_fn_field (arg1p, f, j, type, offset);
 		  if (TYPE_FN_FIELD_STATIC_P (f, j) && static_memfuncp)
 		    *static_memfuncp = 1;
-		  return (value)value_fn_field (arg1p, f, j, type, offset);
+		  v = (value)value_fn_field (arg1p, f, j, type, offset);
+		  if (v != (value)NULL) return v;
 		}
 	      j--;
 	    }
@@ -1402,7 +1455,6 @@ search_struct_method (name, arg1p, args, offset, static_memfuncp, type)
 
   for (i = TYPE_N_BASECLASSES (type) - 1; i >= 0; i--)
     {
-      value v;
       int base_offset;
 
       if (BASETYPE_VIA_VIRTUAL (type, i))
@@ -1500,7 +1552,9 @@ value_struct_elt (argp, args, name, static_memfuncp, err)
 
       v = search_struct_method (name, argp, args, 0, static_memfuncp, t);
 
-      if (v == 0)
+      if (v == (value) -1)
+	error ("Cannot take address of a method");
+      else if (v == 0)
 	{
 	  if (TYPE_NFN_FIELDS (t))
 	    error ("There is no member or method named %s.", name);
@@ -1515,9 +1569,10 @@ value_struct_elt (argp, args, name, static_memfuncp, err)
       if (!args[1])
 	{
 	  /* destructors are a special case.  */
-	  return (value)value_fn_field (NULL, TYPE_FN_FIELDLIST1 (t, 0),
-					TYPE_FN_FIELDLIST_LENGTH (t, 0),
-					0, 0);
+	  v = (value)value_fn_field (NULL, TYPE_FN_FIELDLIST1 (t, 0),
+				TYPE_FN_FIELDLIST_LENGTH (t, 0), 0, 0);
+	  if (!v) error("could not find destructor function named %s.", name);
+	  else return v;
 	}
       else
 	{
@@ -1697,7 +1752,19 @@ value_struct_elt_for_reference (domain, offset, curtype, name, intype)
 
   for (i = TYPE_NFN_FIELDS (t) - 1; i >= 0; --i)
     {
-      if (STREQ (TYPE_FN_FIELDLIST_NAME (t, i), name))
+      char *t_field_name = TYPE_FN_FIELDLIST_NAME (t, i);
+      char dem_opname[64];
+
+      if (strncmp(t_field_name, "__", 2)==0 ||
+	strncmp(t_field_name, "op", 2)==0 ||
+	strncmp(t_field_name, "type", 4)==0 )
+	{
+	  if (cplus_demangle_opname(t_field_name, dem_opname, DMGL_ANSI))
+	    t_field_name = dem_opname;
+	  else if (cplus_demangle_opname(t_field_name, dem_opname, 0))
+	    t_field_name = dem_opname; 
+	}
+      if (t_field_name && STREQ (t_field_name, name))
 	{
 	  int j = TYPE_FN_FIELDLIST_LENGTH (t, i);
 	  struct fn_field *f = TYPE_FN_FIELDLIST1 (t, i);

@@ -30,7 +30,7 @@ set binfile "gdbme"
 set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    error "$objdir/$subdir/$binfile does not exist."
+    perror "$objdir/$subdir/$binfile does not exist."
     return 0
 }
 
@@ -78,7 +78,7 @@ setup_xfail_on_opaque_pointer
 send "whatis foop\n"
 expect {
 	-re "whatis foop\r
-type = struct foo \*\r
+type = struct foo \[*\]+\r
 $prompt $" { pass "whatis on opaque struct pointer (statically)"}
 	-re ".*$prompt $"	{ fail "whatis on opaque struct *" }
 	timeout 		{ fail "(timeout) whatis on opaque struct *" }
@@ -94,7 +94,7 @@ expect {
 type = struct foo \{\r
     int a;\r
     int b;\r
-\} \*\r
+\} \[*\]+\r
 $prompt $" { pass "ptype on opaque struct pointer (statically)" }
 	-re ".*$prompt $"	{ fail "ptype on opaque struct *" }
 	timeout 		{ fail "(timeout) ptype on opaque struct *" }
@@ -166,7 +166,7 @@ gdb_load $objdir/$subdir/$binfile
 
 send "break main\n"
 expect {
-	-re "Breakpoint.*at.* file .*gdbme0\.c, line.*$prompt $" {}
+	-re "Breakpoint.*at.* file .*gdbme0.c, line.*$prompt $" {}
 	-re ".*$prompt $"	{ fail "setting breakpoint at main" }
 	timeout 		{ fail "(timeout) setting breakpoint" }
 }
@@ -191,7 +191,7 @@ setup_xfail_on_opaque_pointer
 send "whatis foop\n"
 expect {
 	-re "whatis foop\r
-type = struct foo \*\r
+type = struct foo \[*\]+\r
 $prompt $" { pass "whatis on opaque struct pointer (dynamically)"}
 	-re ".*$prompt $"	{ fail "whatis on opaque struct pointer" }
 	timeout			{ fail "(timeout) whatis on opaque struct ptr" }
@@ -207,7 +207,7 @@ expect {
 type = struct foo \{\r
     int a;\r
     int b;\r
-\} \*\r
+\} \[*\]+\r
 $prompt $" { pass "ptype on opaque struct pointer (dynamically)" }
 	-re ".*$prompt $"	{ fail "ptype on opaque struct *" }
 	timeout 		{ fail "(timeout) ptype on opaque struct *" }
@@ -299,7 +299,7 @@ setup_xfail_on_opaque_pointer
 send "whatis foop\n"
 expect {
 	-re "whatis foop\r
-type = struct foo \*\r
+type = struct foo \[*\]+\r
 $prompt $" { pass "whatis on opaque struct pointer (dynamically)"}
 	-re ".*$prompt $"	{ fail "whatis on opaque struct pointer" }
 	timeout			{ fail "(timeout) whatis on opaque struct ptr" }
@@ -315,7 +315,7 @@ expect {
 type = struct foo \{\r
     int a;\r
     int b;\r
-\} \*\r
+\} \[*\]+\r
 $prompt $" { pass "ptype on opaque struct pointer (dynamically)" }
 	-re ".*$prompt $"	{ fail "ptype on opaque struct *" }
 	timeout 		{ fail "(timeout) ptype on opaque struct *" }

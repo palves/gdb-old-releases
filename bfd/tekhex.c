@@ -986,11 +986,13 @@ tekhex_print_symbol (ignore_abfd, filep, symbol, how)
 #define tekhex_bfd_debug_info_accumulate  (FOO(void, (*), (bfd *,	 asection *))) bfd_void
 #define tekhex_bfd_get_relocated_section_contents bfd_generic_get_relocated_section_contents
 #define tekhex_bfd_relax_section bfd_generic_relax_section
-#define tekhex_bfd_seclet_link bfd_generic_seclet_link
 #define tekhex_bfd_reloc_type_lookup \
   ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
 #define tekhex_bfd_make_debug_symbol \
   ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
+#define tekhex_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
+#define tekhex_bfd_link_add_symbols _bfd_generic_link_add_symbols
+#define tekhex_bfd_final_link _bfd_generic_final_link
 
 bfd_target tekhex_vec =
 {
@@ -999,7 +1001,7 @@ bfd_target tekhex_vec =
   true,				/* target byte order */
   true,				/* target headers byte order */
   (EXEC_P |			/* object flags */
-   HAS_SYMS | HAS_LINENO | HAS_DEBUG | HAS_RELOC | HAS_LOCALS | DYNAMIC |
+   HAS_SYMS | HAS_LINENO | HAS_DEBUG | HAS_RELOC | HAS_LOCALS |
    WP_TEXT | D_PAGED),
   (SEC_CODE | SEC_DATA | SEC_ROM | SEC_HAS_CONTENTS
    | SEC_ALLOC | SEC_LOAD | SEC_RELOC),	/* section flags */

@@ -63,7 +63,7 @@ extern CORE_ADDR sh_skip_prologue ();
 
 /* If your kernel resets the pc after the trap happens you may need to
    define this before including this file.  */
-#define DECR_PC_AFTER_BREAK 0
+#define DECR_PC_AFTER_BREAK 2
 
 /* Nonzero if instruction at PC is a return instruction.  */
 #define ABOUT_TO_RETURN(pc) (read_memory_integer(pc,2) == 0x000b)
@@ -72,8 +72,11 @@ extern CORE_ADDR sh_skip_prologue ();
 
 #define INVALID_FLOAT(p, len) 0   /* Just a first guess; not checked */
 
-/* Say how long registers are.  */
-#define REGISTER_TYPE  long
+/* Say how long (ordinary) registers are.  This is a piece of bogosity
+   used in push_word and a few other places; REGISTER_RAW_SIZE is the
+   real way to know how big a register is.  */
+
+#define REGISTER_SIZE 4
 
 /* Say how much memory is needed to store a copy of the register set */
 #define REGISTER_BYTES    (NUM_REGS*4) 
@@ -97,23 +100,6 @@ extern CORE_ADDR sh_skip_prologue ();
 /* Largest value REGISTER_VIRTUAL_SIZE can have.  */
 
 #define MAX_REGISTER_VIRTUAL_SIZE 4
-
-/* Nonzero if register N requires conversion
-   from raw format to virtual format.  */
-
-#define REGISTER_CONVERTIBLE(N) (0)
-
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
-
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)  \
-	{ memcpy ((TO), (FROM), 4); }
-
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
-
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)   \
-	{ memcpy ((TO), (FROM), 4); }
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -145,8 +131,8 @@ extern CORE_ADDR sh_skip_prologue ();
 #define VBR_REGNUM 	19
 #define MACH_REGNUM 	20
 #define MACL_REGNUM 	21
-#define CR_REGNUM 	22
-
+#define SR_REGNUM 	22
+#define NUM_REALREGS     23
 /* Store the address of the place in which to copy the structure the
    subroutine will return.  This is called from call_function. 
 
@@ -225,7 +211,7 @@ extern CORE_ADDR sh_skip_prologue ();
 
 typedef unsigned short INSN_WORD;
 
-#define ADDR_BITS_REMOVE(addr) ((addr) & 0xffffff)
+#define ADDR_BITS_REMOVE(addr) ((addr))
 
 #define CALL_DUMMY_LENGTH 10
 
@@ -234,3 +220,5 @@ typedef unsigned short INSN_WORD;
 
 #define POP_FRAME pop_frame();
 
+
+#define NOP   {0x20, 0x0b}

@@ -209,7 +209,7 @@ ecoff_swap_fdr_in (abfd, ext_copy, intern)
 static void
 ecoff_swap_fdr_out (abfd, intern_copy, ext_ptr)
      bfd *abfd;
-     FDR *intern_copy;
+     const FDR *intern_copy;
      PTR ext_ptr;
 {
   struct fdr_ext *ext = (struct fdr_ext *) ext_ptr;
@@ -336,7 +336,7 @@ ecoff_swap_pdr_in (abfd, ext_copy, intern)
 static void
 ecoff_swap_pdr_out (abfd, intern_copy, ext_ptr)
      bfd *abfd;
-     PDR *intern_copy;
+     const PDR *intern_copy;
      PTR ext_ptr;
 {
   struct pdr_ext *ext = (struct pdr_ext *) ext_ptr;
@@ -443,7 +443,7 @@ ecoff_swap_sym_in (abfd, ext_copy, intern)
 static void
 ecoff_swap_sym_out (abfd, intern_copy, ext_ptr)
      bfd *abfd;
-     SYMR *intern_copy;
+     const SYMR *intern_copy;
      PTR ext_ptr;
 {
   struct sym_ext *ext = (struct sym_ext *) ext_ptr;
@@ -531,7 +531,7 @@ ecoff_swap_ext_in (abfd, ext_copy, intern)
 static void
 ecoff_swap_ext_out (abfd, intern_copy, ext_ptr)
      bfd *abfd;
-     EXTR *intern_copy;
+     const EXTR *intern_copy;
      PTR ext_ptr;
 {
   struct ext_ext *ext = (struct ext_ext *) ext_ptr;
@@ -590,7 +590,7 @@ ecoff_swap_rfd_in (abfd, ext_ptr, intern)
 static void
 ecoff_swap_rfd_out (abfd, intern, ext_ptr)
      bfd *abfd;
-     RFDT *intern;
+     const RFDT *intern;
      PTR ext_ptr;
 {
   struct rfd_ext *ext = (struct rfd_ext *) ext_ptr;
@@ -646,7 +646,7 @@ ecoff_swap_opt_in (abfd, ext_copy, intern)
 static void
 ecoff_swap_opt_out (abfd, intern_copy, ext_ptr)
      bfd *abfd;
-     OPTR *intern_copy;
+     const OPTR *intern_copy;
      PTR ext_ptr;
 {
   struct opt_ext *ext = (struct opt_ext *) ext_ptr;
@@ -706,7 +706,7 @@ ecoff_swap_dnr_in (abfd, ext_copy, intern)
 static void
 ecoff_swap_dnr_out (abfd, intern_copy, ext_ptr)
      bfd *abfd;
-     DNR *intern_copy;
+     const DNR *intern_copy;
      PTR ext_ptr;
 {
   struct dnr_ext *ext = (struct dnr_ext *) ext_ptr;

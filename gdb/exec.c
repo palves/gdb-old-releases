@@ -22,6 +22,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "inferior.h"
 #include "target.h"
 #include "gdbcmd.h"
+#include "language.h"
 
 #ifdef USG
 #include <sys/types.h>
@@ -150,13 +151,23 @@ exec_file_command (args, from_tty)
 	error ("Could not open `%s' as an executable file: %s",
 	       scratch_pathname, bfd_errmsg (bfd_error));
       if (!bfd_check_format (exec_bfd, bfd_object))
-	error ("\"%s\": not in executable format: %s.",
-	       scratch_pathname, bfd_errmsg (bfd_error));
+	{
+	  /* Make sure to close exec_bfd, or else "run" might try to use
+	     it.  */
+	  exec_close (0);
+	  error ("\"%s\": not in executable format: %s.",
+		 scratch_pathname, bfd_errmsg (bfd_error));
+	}
 
       if (build_section_table (exec_bfd, &exec_ops.to_sections,
 				&exec_ops.to_sections_end))
-	error ("Can't find the file sections in `%s': %s", 
-		exec_bfd->filename, bfd_errmsg (bfd_error));
+	{
+	  /* Make sure to close exec_bfd, or else "run" might try to use
+	     it.  */
+	  exec_close (0);
+	  error ("Can't find the file sections in `%s': %s", 
+		 exec_bfd->filename, bfd_errmsg (bfd_error));
+	}
 
 #ifdef NEED_TEXT_START_END
 
@@ -193,7 +204,7 @@ exec_file_command (args, from_tty)
 	(*exec_file_display_hook) (filename);
     }
   else if (from_tty)
-    printf ("No exec file now.\n");
+    printf_unfiltered ("No exec file now.\n");
 }
 
 /* Set both the exec file and the symbol file, in one command.  
@@ -226,8 +237,7 @@ add_to_section_table (abfd, asect, table_pp_char)
   flagword aflag;
 
   aflag = bfd_get_section_flags (abfd, asect);
-  /* FIXME, we need to handle BSS segment here...it alloc's but doesn't load */
-  if (!(aflag & SEC_LOAD))
+  if (!(aflag & SEC_ALLOC))
     return;
   if (0 == bfd_section_size (abfd, asect))
     return;

@@ -14,13 +14,13 @@ gdb_test "add-symbol-file" "add-symbol-file takes a file name and an address"
 setup_xfail "mips-idt-*"
 send "attach\n"
 expect {
-    -re "Argument required \(process-id to attach\).*$prompt $"\
+    -re "Argument required .process-id to attach.*$prompt $"\
 			{ pass "attach" }
     -re "You can't do that when your target is `None'.*$prompt $"\
 			{ pass "attach" }
     -re "Don't know how to attach.  Try \"help target\"..*$prompt $"\
 			{ pass "attach" }
-    -re "Kill it\? \(y or n\)" {
+    -re "Kill it? .y or n." {
 	send "y\n"
 	continue -expect
     }
@@ -83,7 +83,7 @@ expect {
 #test cd
 send "cd\n"
 expect {
-	-re "Argument required \(new working directory\)..*$prompt $"\
+	-re "Argument required .new working directory.*$prompt $"\
 			{ pass "cd" }
 	-re ".*$prompt $"	{ fail "cd" }
 	timeout		{ fail "(timeout) cd" }
@@ -113,7 +113,7 @@ expect {
 #test condition
 send "condition\n"
 expect {
-	-re "Argument required \(breakpoint number\)..*$prompt $"\
+	-re "Argument required .breakpoint number.*$prompt $"\
 			{ pass "condition" }
 	-re ".*$prompt $"	{ fail "condition" }
 	timeout		{ fail "(timeout) condition" }
@@ -153,7 +153,7 @@ expect {
 #test define
 send "define\n"
 expect {
-	-re "Argument required \(name of command to define\)..*$prompt $"\
+	-re "Argument required \[(\]name of command to define\[)\]..*$prompt $"\
 			{ pass "define" }
 	timeout		{ fail "(timeout) define" }
 	}
@@ -172,7 +172,7 @@ expect {
 # FIXME -- need to dump full output to detailed log
 send "delete display\n"
 expect {
-	-re "Delete all auto-display expressions\? \(y or n\) $"\
+	-re "delete display.*Delete all auto-display expressions.*y or n. $"\
 	    { send "y\n"
 		expect {
 		    -re "$prompt $"\
@@ -204,7 +204,7 @@ if [istarget "a29k-*-udi"] then {
 # FIXME -- need to dump full output to detailed log
 send "directory\n"
 expect {
-	-re "Reinitialize source path to empty\? \(y or n\) $"\
+	-re "Reinitialize source path to empty.*y or n. $"\
 	    { send "y\n"
 		expect {
 		    -re "Source directories searched: .cdir:.cwd.*$prompt $"\
@@ -292,7 +292,7 @@ expect {
 #test document
 send "document\n"
 expect {
-	-re "Argument required \(name of command to define\)..*$prompt $"\
+	-re "Argument required .name of command to define.*$prompt $"\
 			{ pass "document" }
 	-re ".*$prompt $"	{ fail "document" }
 	timeout		{ fail "(timeout) document" }
@@ -302,7 +302,7 @@ expect {
 #test down
 send "down\n"
 expect {
-	-re "No stack..*$prompt $"\
+	-re "No stack.*$prompt $"\
 			{ pass "down" }
 	-re ".*$prompt $"	{ fail "down" }
 	timeout		{ fail "(timeout) down" }
@@ -331,7 +331,7 @@ expect {
 #test enable breakpoints delete
 send "enable breakpoints delete\n"
 expect {
-	-re "Argument required \(one or more breakpoint numbers\)..*$prompt $"\
+	-re "Argument required .one or more breakpoint numbers.*$prompt $"\
 			{ pass "enable breakpoints delete" }
 	-re ".*$prompt $"	{ fail "enable breakpoints delete" }
 	timeout		{ fail "(timeout) enable breakpoints delete" }
@@ -341,7 +341,7 @@ expect {
 #test enable breakpoints once
 send "enable breakpoints once\n"
 expect {
-	-re "Argument required \(one or more breakpoint numbers\)..*$prompt $"\
+	-re "Argument required .one or more breakpoint numbers.*$prompt $"\
 			{ pass "enable breakpoints once" }
 	-re ".*$prompt $"	{ fail "enable breakpoints once" }
 	timeout		{ fail "(timeout) enable breakpoints once" }
@@ -360,7 +360,7 @@ expect {
 #test enable delete
 send "enable delete\n"
 expect {
-	-re "Argument required \(one or more breakpoint numbers\)..*$prompt $"\
+	-re "Argument required .one or more breakpoint numbers.*$prompt $"\
 			{ pass "enable delete" }
 	-re ".*$prompt $"	{ fail "enable delete" }
 	timeout		{ fail "(timeout) enable delete" }
@@ -379,7 +379,7 @@ expect {
 #test enable once
 send "enable once\n"
 expect {
-	-re "Argument required \(one or more breakpoint numbers\)..*$prompt $"\
+	-re "Argument required .one or more breakpoint numbers.*$prompt $"\
 			{ pass "enable once" }
 	-re ".*$prompt $"	{ fail "enable once" }
 	timeout		{ fail "(timeout) enable once" }
@@ -401,7 +401,7 @@ expect {
     -re "No exec file now..*$prompt $" {
 	pass "exec-file"
     }
-    -re "exec-file.*A program is being debugged already.  Kill it\? \(y or n\).*$" {
+    -re "exec-file.*A program is being debugged already.  Kill it? .y or n.*$" {
 	send "n\n"
 	if $verbose>1 then {
 	    send_user "\tDidn't kill program being debugged\n"
@@ -457,7 +457,7 @@ send "file\n"
 expect {
 	-re "No exec file now..*$prompt $"\
 			{ pass "file" }
-	-re ".*A program is being debugged already.  Kill it\? \(y or n\).*$" {
+	-re ".*A program is being debugged already.  Kill it? .y or n.*$" {
 	    send "n\n"
 	    if $verbose>1 then {
 		send_user "\t\tDidn't kill program being debugged\n"
@@ -544,7 +544,7 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 #test handle
 send "handle\n"
 expect {
-	-re "Argument required \(signal to handle\)..*$prompt $"\
+	-re "Argument required .signal to handle.*$prompt $"\
 			{ pass "handle" }
 	-re ".*$prompt $"	{ fail "handle" }
 	timeout		{ fail "(timeout) handle" }
@@ -556,33 +556,6 @@ send "i\n"
 expect {
 	-re "\"info\" must be followed by the name of an info command..*
 List of info subcommands:.*
-info set -- Show all GDB settings.*\
-info files -- Names of targets and files being debugged.*\
-info target -- Names of targets and files being debugged.*\
-info sources -- Source files in the program.*\
-info types -- All type names.*\
-info functions -- All function names.*\
-info variables -- All global and static variable names.*\
-info catch -- Exceptions that can be caught in the current stack frame.*\
-info args -- Argument variables of current stack frame.*\
-info locals -- Local variables of current stack frame.*\
-info frame -- All about selected stack frame.*\
-info stack -- Backtrace of the stack.*\
-info line -- Core addresses of the code for a source line.*\
-info source -- Information about the current source file.*\
-(info sharedlibrary -- Status of loaded shared object libraries.*)?\
-info display -- Expressions to display when program stops.*\
-info address -- Describe where variable VAR is stored.*\
-info signals -- What debugger does when program gets various signals.*\
-info terminal -- Print inferior's saved terminal status.*\
-info float -- Print the status of the floating point unit.*\
-info program -- Execution status of the program.*\
-info all-registers -- List of all registers and their contents.*\
-info registers -- List of integer registers and their contents.*\
-info warranty -- Various kinds of warranty you do not have.*\
-info copying -- Conditions for redistributing copies of GDB.*\
-info watchpoints -- Synonym for ``info breakpoints''.*\
-info breakpoints -- Status of user-settable breakpoints.*\
 Type \"help info\" followed by info subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "info \"i\" abbreviation" }
@@ -596,33 +569,6 @@ send "info\n"
 expect {
 	-re "\"info\" must be followed by the name of an info command..*
 List of info subcommands:.*
-info set -- Show all GDB settings.*\
-info files -- Names of targets and files being debugged.*\
-info target -- Names of targets and files being debugged.*\
-info sources -- Source files in the program.*\
-info types -- All type names.*\
-info functions -- All function names.*\
-info variables -- All global and static variable names.*\
-info catch -- Exceptions that can be caught in the current stack frame.*\
-info args -- Argument variables of current stack frame.*\
-info locals -- Local variables of current stack frame.*\
-info frame -- All about selected stack frame.*\
-info stack -- Backtrace of the stack.*\
-info line -- Core addresses of the code for a source line.*\
-info source -- Information about the current source file.*\
-(info sharedlibrary -- Status of loaded shared object libraries.*)?\
-info display -- Expressions to display when program stops.*\
-info address -- Describe where variable VAR is stored.*\
-info signals -- What debugger does when program gets various signals.*\
-info terminal -- Print inferior's saved terminal status.*\
-info float -- Print the status of the floating point unit.*\
-info program -- Execution status of the program.*\
-info all-registers -- List of all registers and their contents.*\
-info registers -- List of integer registers and their contents.*\
-info warranty -- Various kinds of warranty you do not have.*\
-info copying -- Conditions for redistributing copies of GDB.*\
-info watchpoints -- Synonym for ``info breakpoints''.*\
-info breakpoints -- Status of user-settable breakpoints.*\
 Type \"help info\" followed by info subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "info" }
@@ -634,7 +580,7 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 #test ignore
 send "ignore\n"
 expect {
-	-re "Argument required \(a breakpoint number\)..*$prompt $"\
+	-re "Argument required .a breakpoint number.*$prompt $"\
 			{ pass "ignore" }
 	-re ".*$prompt $"	{ fail "ignore" }
 	timeout		{ fail "(timeout) ignore" }
@@ -922,10 +868,10 @@ REPAIR OR CORRECTION..*
 WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR.*
 REDISTRIBUTE THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES,.*
 INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING.*
-OUT OF THE USE OR INABILITY TO USE THE PROGRAM \(INCLUDING BUT NOT LIMITED.*
+OUT OF THE USE OR INABILITY TO USE THE PROGRAM .INCLUDING BUT NOT LIMITED.*
 TO LOSS OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY.*
 YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER.*
-PROGRAMS\), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE.*
+PROGRAMS., EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE.*
 POSSIBILITY OF SUCH DAMAGES..*$prompt $"\
 			{ pass "info warranty" }
 	-re ".*$prompt $"	{ fail "info warranty" }
@@ -1056,7 +1002,7 @@ expect {
 #test output
 send "output\n"
 expect {
-	-re "Argument required \(expression to compute\)..*$prompt $"\
+	-re "Argument required .expression to compute.*$prompt $"\
 			{ pass "output" }
 	-re ".*$prompt $"	{ fail "output" }
 	timeout		{ fail "(timeout) output" }
@@ -1086,7 +1032,7 @@ expect {
 #test printf
 send "printf\n"
 expect {
-	-re "Argument required \(format-control string and values to print\)..*$prompt $"\
+	-re "Argument required .format-control string and values to print.*$prompt $"\
 			{ pass "printf" }
 	-re ".*$prompt $"	{ fail "printf" }
 	timeout		{ fail "(timeout) printf" }
@@ -1328,7 +1274,7 @@ expect {
 #test set complaints
 send "set complaints\n"
 expect {
-	-re "Argument required \(integer to set it to.\)..*$prompt $"\
+	-re "Argument required .integer to set it to.*$prompt $"\
 			{ pass "set complaints" }
 	-re ".*$prompt $"	{ fail "set complaints" }
 	timeout		{ fail "(timeout) set complaints" }
@@ -1357,7 +1303,7 @@ expect {
 #test set environment
 send "set environment\n"
 expect {
-	-re "Argument required \(environment variable and value\)..*$prompt $"\
+	-re "Argument required .environment variable and value.*$prompt $"\
 			{ pass "set environment" }
 	-re ".*$prompt $"	{ fail "set environment" }
 	timeout		{ fail "(timeout) set environment" }
@@ -1367,7 +1313,7 @@ expect {
 #test set height
 send "set height\n"
 expect {
-	-re "Argument required \(integer to set it to.\)..*$prompt $"\
+	-re "Argument required .integer to set it to.*$prompt $"\
 			{ pass "set height" }
 	-re ".*$prompt $"	{ fail "set height" }
 	timeout		{ fail "(timeout) set height" }
@@ -1386,11 +1332,16 @@ expect {
 #test set history filename
 send "set history filename\n"
 expect {
-	-re "Argument required \(filename to set it to.\)..*$prompt $"\
-			{ pass "set history filename" }
-	-re ".*$prompt $"	{ fail "set history filename" }
-	timeout		{ fail "(timeout) set history filename" }
+	-re "Argument required .filename to set it to.*$prompt $" {
+	    pass "set history filename"
 	}
+	-re ".*$prompt $" {
+	    fail "set history filename"
+	}
+	timeout	{
+	    fail "(timeout) set history filename"
+	}
+    }
 
 
 #test set history save
@@ -1405,7 +1356,7 @@ expect {
 #test set history size
 send "set history size\n"
 expect {
-	-re "Argument required \(integer to set it to.\)..*$prompt $"\
+	-re "Argument required .integer to set it to.*$prompt $"\
 			{ pass "set history size" }
 	-re ".*$prompt $"	{ fail "set history size" }
 	timeout		{ fail "(timeout) set history size" }
@@ -1432,22 +1383,28 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 #test set language
 send "set language\n"
 expect {
-	-re "The currently understood settings are:.*\
-local or auto    Automatic setting based on source file.*\
-c                Use the C language.*\
-c\+\+              Use the C\+\+ language.*\
-modula-2         Use the Modula-2 language.*$prompt $"\
-			{ pass "set language" }
-	-re ".*$prompt $"	{ fail "set language" }
-	timeout		{ fail "(timeout) set language" }
+	-re "The currently understood settings are:.*
+local or auto    Automatic setting based on source file.*
+c                Use the C language.*
+c\[+\]+              Use the C\[+\]+ language.*
+modula-2         Use the Modula-2 language.*$prompt $" {
+           pass "set language"
+        }
+	-re ".*$prompt $" {
+	    fail "set language"
+	}
+	timeout	{
+	    fail "(timeout) set language"
+	}
 	}
 
 
 #test set listsize
 send "set listsize\n"
 expect {
-	-re "Argument required \(integer to set it to.\)..*$prompt $"\
-			{ pass "set listsize" }
+	-re "Argument required .integer to set it to.*$prompt $" {
+	    pass "set listsize"
+	}
 	-re ".*$prompt $"	{ fail "set listsize" }
 	timeout		{ fail "(timeout) set listsize" }
 	}
@@ -1456,22 +1413,12 @@ expect {
 #test set print "p" abbreviation
 send "set p\n"
 expect {
-	-re "\"set print\" must be followed by the name of a print subcommand..*\
-List of set print subcommands:.*\
-set print address -- Set printing of addresses.*\
-set print array -- Set prettyprinting of arrays.*\
-set print union -- Set printing of unions interior to structures.*\
-set print pretty -- Set prettyprinting of structures.*\
-set print repeats -- Set threshold for repeated print elements.*\
-set print elements -- Set limit on string chars or array elements to print.*\
-set print asm-demangle -- Set demangling of C\+\+ names in disassembly listings.*\
-set print sevenbit-strings -- Set printing of 8-bit characters in strings as .nnn.*\
-set print demangle -- Set demangling of encoded C\+\+ names when displaying symbols.*\
-set print object -- Set printing of object's derived type based on vtable info.*\
-set print vtbl -- Set printing of C\+\+ virtual function tables.*\
-Type \"help set print\" followed by set print subcommand name for full documentation..*\
-Command name abbreviations are allowed if unambiguous..*$prompt $"\
-			{ pass "set print \"p\" abbreviation" }
+	-re "\"set print\" must be followed by the name of a print subcommand..*
+List of set print subcommands:.*
+Type \"help set print\" followed by set print subcommand name for full documentation..*
+Command name abbreviations are allowed if unambiguous..*$prompt $" {
+            pass "set print \"p\" abbreviation"
+        }
 	-re ".*$prompt $"	{ fail "set print \"p\" abbreviation" }
 	timeout		{ fail "(timeout) set print \"p\" abbreviation" }
 	}
@@ -1480,22 +1427,12 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 #test set print "pr" abbreviation
 send "set pr\n"
 expect {
-	-re "\"set print\" must be followed by the name of a print subcommand..*\
-List of set print subcommands:.*\
-set print address -- Set printing of addresses.*\
-set print array -- Set prettyprinting of arrays.*\
-set print union -- Set printing of unions interior to structures.*\
-set print pretty -- Set prettyprinting of structures.*\
-set print repeats -- Set threshold for repeated print elements.*\
-set print elements -- Set limit on string chars or array elements to print.*\
-set print asm-demangle -- Set demangling of C\+\+ names in disassembly listings.*\
-set print sevenbit-strings -- Set printing of 8-bit characters in strings as .nnn.*\
-set print demangle -- Set demangling of encoded C\+\+ names when displaying symbols.*\
-set print object -- Set printing of object's derived type based on vtable info.*\
-set print vtbl -- Set printing of C\+\+ virtual function tables.*\
-Type \"help set print\" followed by set print subcommand name for full documentation..*\
-Command name abbreviations are allowed if unambiguous..*$prompt $"\
-			{ pass "set print \"pr\" abbreviation" }
+	-re "\"set print\" must be followed by the name of a print subcommand..*
+List of set print subcommands:.*
+Type \"help set print\" followed by set print subcommand name for full documentation..*
+Command name abbreviations are allowed if unambiguous..*$prompt $" {
+            pass "set print \"pr\" abbreviation"
+	}
 	-re ".*$prompt $"	{ fail "set print \"pr\" abbreviation" }
 	timeout		{ fail "(timeout) set print \"pr\" abbreviation" }
 	}
@@ -1504,22 +1441,12 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 #test set print
 send "set print\n"
 expect {
-	-re "\"set print\" must be followed by the name of a print subcommand..*\
-List of set print subcommands:.*\
-set print address -- Set printing of addresses.*\
-set print array -- Set prettyprinting of arrays.*\
-set print union -- Set printing of unions interior to structures.*\
-set print pretty -- Set prettyprinting of structures.*\
-set print repeats -- Set threshold for repeated print elements.*\
-set print elements -- Set limit on string chars or array elements to print.*\
-set print asm-demangle -- Set demangling of C\+\+ names in disassembly listings.*\
-set print sevenbit-strings -- Set printing of 8-bit characters in strings as .nnn.*\
-set print demangle -- Set demangling of encoded C\+\+ names when displaying symbols.*\
-set print object -- Set printing of object's derived type based on vtable info.*\
-set print vtbl -- Set printing of C\+\+ virtual function tables.*\
-Type \"help set print\" followed by set print subcommand name for full documentation..*\
-Command name abbreviations are allowed if unambiguous..*$prompt $"\
-			{ pass "set print" }
+	-re "\"set print\" must be followed by the name of a print subcommand..*
+List of set print subcommands:.*
+Type \"help set print\" followed by set print subcommand name for full documentation..*
+Command name abbreviations are allowed if unambiguous..*$prompt $" {
+            pass "set print"
+        }
 	-re ".*$prompt $"	{ fail "set print" }
 	timeout		{ fail "(timeout) set print" }
 	}
@@ -1564,7 +1491,7 @@ expect {
 #test set print elements
 send "set print elements\n"
 expect {
-	-re "Argument required \(integer to set it to.\)..*$prompt $"\
+	-re "Argument required .integer to set it to.*$prompt $"\
 			{ pass "set print elements" }
 	-re ".*$prompt $"	{ fail "set print elements" }
 	timeout		{ fail "(timeout) set print elements" }
@@ -1622,7 +1549,7 @@ send "set radix\n"
 expect {
 	-re "Input and output radices now set to decimal 10, hex a, octal 12.*$prompt $"\
 			{ pass "set radix" }
-	-re "Argument required \(integer to set it to.\)..*$prompt $"\
+	-re "Argument required .integer to set it to.*$prompt $"\
 			{ fail "set radix (obsolete radix support)" }
 	-re ".*$prompt $"	{ fail "set radix" }
 	timeout		{ fail "(timeout) set radix" }
@@ -1641,7 +1568,7 @@ expect {
 #test set variable
 send "set variable\n"
 expect {
-	-re "Argument required \(expression to compute\)..*$prompt $"\
+	-re "Argument required .expression to compute.*$prompt $"\
 			{ pass "set variable" }
 	-re ".*$prompt $"	{ fail "set variable" }
 	timeout		{ fail "(timeout) set variable" }
@@ -1660,7 +1587,7 @@ expect {
 #test set width
 send "set width\n"
 expect {
-	-re "Argument required \(integer to set it to.\)..*$prompt $"\
+	-re "Argument required .integer to set it to.*$prompt $"\
 			{ pass "set width" }
 	-re ".*$prompt $"	{ fail "set width" }
 	timeout		{ fail "(timeout) set width" }
@@ -1683,7 +1610,7 @@ if ![istarget "rs6000-*-*"] then {
 #test set
 send "set\n"
 expect {
-	-re "Argument required \(expression to compute\)..*$prompt $"\
+	-re "Argument required .expression to compute.*$prompt $"\
 			{ pass "set" }
 	-re ".*$prompt $"	{ fail "set" }
 	timeout		{ fail "(timeout) set" }
@@ -1837,7 +1764,7 @@ expect {
 #test show history expansion
 send "show history expansion\n"
 expect {
-	-re "History expansion on command input is on..*$prompt $"\
+	-re "History expansion on command input is on.*$prompt $"\
 			{ pass "show history expansion" }
 	-re ".*$prompt $"	{ fail "show history expansion" }
 	timeout		{ fail "(timeout) show history expansion" }
@@ -1847,9 +1774,7 @@ expect {
 #test show history filename
 send "show history filename\n"
 expect {
-	-re "The filename in which to record the command history is.*\
-.*.gdb_history\"..*$prompt $"\
-			{ pass "show history filename" }
+	-re "The filename in which to record the command history is.*.gdb_history.*$prompt $" { pass "show history filename" }
 	-re ".*$prompt $"	{ fail "show history filename" }
 	timeout		{ fail "(timeout) show history filename" }
 	}
@@ -1858,8 +1783,9 @@ expect {
 #test show history save
 send "show history save\n"
 expect {
-	-re "Saving of the history record on exit is on..*$prompt $"\
-			{ pass "show history save" }
+	-re "Saving of the history record on exit is on..*$prompt $" {
+	    pass "show history save"
+	}
 	-re ".*$prompt $"	{ fail "show history save" }
 	timeout		{ fail "(timeout) show history save" }
 	}
@@ -1878,10 +1804,10 @@ expect {
 #test show history
 send "show history\n"
 expect {
-	-re "filename:  The filename in which to record the command history is \".*.gdb_history\"..*\
-size:  The size of the command history is.*\
-save:  Saving of the history record on exit is o.*\
-expansion:  History expansion on command input is o.*$prompt $"\
+	-re "filename:  The filename in which to record the command history is.*.gdb_history.*
+size:  The size of the command history is.*
+save:  Saving of the history record on exit is o.*
+expansion:  History expansion on command input is o.*$prompt $"
 			{ pass "show history" }
 	-re ".*$prompt $"	{ fail "show history" }
 	timeout		{ fail "(timeout) show history" }
@@ -1911,21 +1837,8 @@ expect {
 #test show print "p" abbreviation
 send "show p\n"
 expect {
-	-re ".*\
-address:  Printing of addresses is o.*\
-array:  Prettyprinting of arrays is o.*\
-union:  Printing of unions interior to structures is o.*\
-pretty:  Prettyprinting of structures is o.*\
-repeats:  Threshold for repeated print elements is \[0-9\]*.*\
-elements:  Limit on string chars or array elements to print is \[0-9\]*.*\
-asm-demangle:  Demangling of C\+\+ names in disassembly listings is o.*\
-sevenbit-strings:  Printing of 8-bit characters in strings as .nnn is o.*\
-demangle:  Demangling of encoded C\+\+ names when displaying symbols is o.*\
-object:  Printing of object's derived type based on vtable info is o.*\
-vtbl:  Printing of C\+\+ virtual function tables is o.*\
-$prompt $"\
+	-re ".*$prompt $"\
 			{ pass "show print \"p\" abbreviation" }
-	-re ".*$prompt $"	{ fail "show print \"p\" abbreviation" }
 	timeout		{ fail "(timeout) show print \"p\" abbreviation" }
 	}
 
@@ -1933,20 +1846,8 @@ $prompt $"\
 #test show print "pr" abbreviation
 send "show pr\n"
 expect {
-	-re ".*\
-address:  Printing of addresses is o.*\
-array:  Prettyprinting of arrays is o.*\
-union:  Printing of unions interior to structures is o.*\
-pretty:  Prettyprinting of structures is o.*\
-elements:  Limit on string chars or array elements to print is \[0-9\]*.*\
-asm-demangle:  Demangling of C\+\+ names in disassembly listings is o.*\
-sevenbit-strings:  Printing of 8-bit characters in strings as .nnn is o.*\
-demangle:  Demangling of encoded C\+\+ names when displaying symbols is o.*\
-object:  Printing of object's derived type based on vtable info is o.*\
-vtbl:  Printing of C\+\+ virtual function tables is o.*\
-$prompt $"\
+	-re ".*$prompt $"\
 			{ pass "show print \"pr\" abbreviation" }
-	-re ".*$prompt $"	{ fail "show print \"pr\" abbreviation" }
 	timeout		{ fail "(timeout) show print \"pr\" abbreviation" }
 	}
 
@@ -1955,21 +1856,8 @@ $prompt $"\
 #test show print
 send "show print\n"
 expect {
-	-re ".*\
-address:  Printing of addresses is o.*\
-array:  Prettyprinting of arrays is o.*\
-union:  Printing of unions interior to structures is o.*\
-pretty:  Prettyprinting of structures is o.*\
-repeats:  Threshold for repeated print elements is \[0-9\]*.*\
-elements:  Limit on string chars or array elements to print is \[0-9\]*.*\
-asm-demangle:  Demangling of C\+\+ names in disassembly listings is o.*\
-sevenbit-strings:  Printing of 8-bit characters in strings as .nnn is o.*\
-demangle:  Demangling of encoded C\+\+ names when displaying symbols is o.*\
-object:  Printing of object's derived type based on vtable info is o.*\
-vtbl:  Printing of C\+\+ virtual function tables is o.*\
-$prompt $"\
+	-re ".*$prompt $"\
 			{ pass "show print" }
-	-re ".*$prompt $"	{ fail "show print" }
 	timeout		{ fail "(timeout) show print" }
 	}
 
@@ -2007,7 +1895,7 @@ expect {
 #test show print asm-demangle
 send "show print asm-demangle\n"
 expect {
-	-re "Demangling of C\+\+ names in disassembly listings is on..*$prompt $"\
+	-re "Demangling of C\[+\]+ names in disassembly listings is on..*$prompt $"\
 			{ pass "show print asm-demangle" }
 	-re ".*$prompt $"	{ fail "show print asm-demangle" }
 	timeout		{ fail "(timeout) show print asm-demangle" }
@@ -2017,7 +1905,7 @@ expect {
 #test show print demangle
 send "show print demangle\n"
 expect {
-	-re "Demangling of encoded C\+\+ names when displaying symbols is on..*$prompt $"\
+	-re "Demangling of encoded C\[+\]+ names when displaying symbols is on..*$prompt $"\
 			{ pass "show print demangle" }
 	-re ".*$prompt $"	{ fail "show print demangle" }
 	timeout		{ fail "(timeout) show print demangle" }
@@ -2077,7 +1965,7 @@ expect {
 #test show print vtbl
 send "show print vtbl\n"
 expect {
-	-re "Printing of C\+\+ virtual function tables is on..*$prompt $"\
+	-re "Printing of C\[+\]+ virtual function tables is on..*$prompt $"\
 			{ pass "show print vtbl" }
 	-re ".*$prompt $"	{ fail "show print vtbl" }
 	timeout		{ fail "(timeout) show print vtbl" }
@@ -2085,11 +1973,14 @@ expect {
 
 
 #test show prompt
+# In the FAIL case, can't just look for $prompt because that will match
+# the output, rather than the prompt.  So look for $prompt at the start
+# of a line.
 send "show prompt\n"
 expect {
 	-re "Gdb's prompt is \"$prompt \".*$prompt $"\
 			{ pass "show prompt" }
-	-re ".*$prompt $"	{ fail "show prompt" }
+	-re ".*\r\n$prompt $"	{ fail "show prompt" }
 	timeout		{ fail "(timeout) show prompt" }
 	}
 
@@ -2299,7 +2190,7 @@ send "target core\n"
 expect {
 	-re "No core file specified..*$prompt $"\
 			{ pass "target core" }
-	-re ".*A program is being debugged already.  Kill it\? \(y or n\).*$" {
+	-re ".*A program is being debugged already.  Kill it? .y or n.*$" {
 	    send "n\n"
 	    if $verbose>1 then {
 		send_user "\t\tDidn't kill program being debugged\n"
@@ -2319,7 +2210,7 @@ send "target exec\n"
 expect {
 	-re "No exec file now..*$prompt $"\
 			{ pass "target exec" }
-	-re ".*A program is being debugged already.  Kill it\? \(y or n\).*$" {
+	-re ".*A program is being debugged already.  Kill it? .y or n.*$" {
 	    send "n\n"
 	    if $verbose>1 then {
 		send_user "\t\tDidn't kill program being debugged\n"
@@ -2336,9 +2227,9 @@ expect {
 send "target remote\n"
 expect {
 	-re "To open a remote debug connection, you need to specify what serial.*
-device is attached to the remote system \(e.g. /dev/ttya\)..*$prompt $"\
+device is attached to the remote system .e.g. /dev/ttya.*$prompt $"\
 			{ pass "target remote" }
-	-re ".*A program is being debugged already.  Kill it\? \(y or n\).*$" {
+	-re ".*A program is being debugged already.  Kill it? .y or n.*$" {
 	    send "n\n"
 	    if $verbose>1 then {
 		send_user "\t\tDidn't kill program being debugged\n"
@@ -2354,7 +2245,7 @@ device is attached to the remote system \(e.g. /dev/ttya\)..*$prompt $"\
 #test target
 send "target\n"
 expect {
-	-re "Argument required \(target name\)..*$prompt $"\
+	-re "Argument required .target name.*$prompt $"\
 			{ pass "target" }
 	-re ".*$prompt $"	{ fail "target" }
 	timeout		{ fail "(timeout) target" }
@@ -2374,7 +2265,7 @@ expect {
 #test tty
 send "tty\n"
 expect {
-	-re "Argument required \(terminal name for running target process\)..*$prompt $"\
+	-re "Argument required .terminal name for running target process.*$prompt $"\
 			{ pass "tty" }
 	-re ".*$prompt $"	{ fail "tty" }
 	timeout		{ fail "(timeout) tty" }
@@ -2407,10 +2298,10 @@ expect {
 # FIXME -- need to dump full output to detailed log
 send "undisplay\n"
 expect {
-	-re "Delete all auto-display expressions\? \(y or n\) $"\
+	-re "Delete all auto-display expressions.*y or n. $"\
 	    { send "y\n"
 		expect {
-		    -re "\gdb\) $"\
+		    -re "$prompt $"\
 			{ pass "undisplay prompt" }
 		    timeout		{ fail "(timeout) (timeout) undisplay prompt" }
 		    }
@@ -2422,10 +2313,10 @@ expect {
 #test unset environment
 send "unset environment\n"
 expect {
-	-re "Delete all environment variables\? \(y or n\) $"\
+	-re "Delete all environment variables?.*y or n. $"\
 	    { send "y\n"
 		expect {
-		    -re "\gdb\) $"\
+		    -re "$prompt $"\
 			{ pass "unset environmentprompt" }
 		    timeout		{ fail "(timeout) (timeout) unset environment prompt" }
 		    }
@@ -2472,7 +2363,7 @@ expect {
 #test watch
 send "watch\n"
 expect {
-	-re "Argument required \(expression to compute\)..*$prompt $"\
+	-re "Argument required .expression to compute.*$prompt $"\
 			{ pass "watch" }
 	-re ".*$prompt $"	{ fail "watch" }
 	timeout		{ fail "(timeout) watch" }

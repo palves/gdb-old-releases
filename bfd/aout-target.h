@@ -93,11 +93,11 @@ DEFUN(MY(object_p),(abfd),
     return 0;
   }
 
-#ifdef NO_SWAP_MAGIC
-  memcpy (&exec.a_info, exec_bytes.e_info, sizeof(exec.a_info));
+#ifdef SWAP_MAGIC
+  exec.a_info = SWAP_MAGIC (exec_bytes.e_info);
 #else
   exec.a_info = bfd_h_get_32 (abfd, exec_bytes.e_info);
-#endif /* NO_SWAP_MAGIC */
+#endif /* SWAP_MAGIC */
 
   if (N_BADMAG (exec)) return 0;
 #ifdef MACHTYPE_OK
@@ -204,6 +204,38 @@ static CONST struct aout_backend_data MY(backend_data) = {
   0,				/* exec header is counted */
 };
 #define MY_backend_data &MY(backend_data)
+#endif
+
+#ifndef MY_bfd_final_link
+
+/* Final link routine.  We need to use a call back to get the correct
+   offsets in the output file.  */
+
+static void final_link_callback
+  PARAMS ((bfd *, file_ptr *, file_ptr *, file_ptr *));
+
+static void
+final_link_callback (abfd, ptreloff, pdreloff, psymoff)
+     bfd *abfd;
+     file_ptr *ptreloff;
+     file_ptr *pdreloff;
+     file_ptr *psymoff;
+{
+  struct internal_exec *execp = exec_hdr (abfd);
+
+  *ptreloff = N_TRELOFF (*execp);
+  *pdreloff = N_DRELOFF (*execp);
+  *psymoff = N_SYMOFF (*execp);
+}
+
+static boolean
+MY_bfd_final_link (abfd, info)
+     bfd *abfd;
+     struct bfd_link_info *info;
+{
+  return NAME(aout,final_link) (abfd, info, final_link_callback);
+}
+
 #endif
 
 /* We assume BFD generic archive files.  */
@@ -324,20 +356,24 @@ static CONST struct aout_backend_data MY(backend_data) = {
 #ifndef MY_sizeof_headers
 #define MY_sizeof_headers NAME(aout,sizeof_headers)
 #endif
-#ifndef MY_bfd_debug_info_start
-#define MY_bfd_debug_info_start NAME(aout,bfd_debug_info_start)
+#ifndef MY_bfd_get_relocated_section_contents
+#define MY_bfd_get_relocated_section_contents \
+			bfd_generic_get_relocated_section_contents
 #endif
-#ifndef MY_bfd_debug_info_end
-#define MY_bfd_debug_info_end NAME(aout,bfd_debug_info_end)
+#ifndef MY_bfd_relax_section
+#define MY_bfd_relax_section bfd_generic_relax_section
 #endif
-#ifndef MY_bfd_debug_info_accumulat
-#define MY_bfd_debug_info_accumulat NAME(aout,bfd_debug_info_accumulat)
+#ifndef MY_bfd_reloc_type_lookup
+#define MY_bfd_reloc_type_lookup NAME(aout,reloc_type_lookup)
 #endif
-#ifndef MY_reloc_howto_type_lookup
-#define MY_reloc_howto_type_lookup NAME(aout,reloc_type_lookup)
+#ifndef MY_bfd_make_debug_symbol
+#define MY_bfd_make_debug_symbol 0
 #endif
-#ifndef MY_make_debug_symbol
-#define MY_make_debug_symbol 0
+#ifndef MY_bfd_link_hash_table_create
+#define MY_bfd_link_hash_table_create NAME(aout,link_hash_table_create)
+#endif
+#ifndef MY_bfd_link_add_symbols
+#define MY_bfd_link_add_symbols NAME(aout,link_add_symbols)
 #endif
 
 /* Aout symbols normally have leading underscores */
@@ -392,38 +428,7 @@ bfd_target MY(vec) =
     {bfd_false, MY_write_object_contents, /* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
 
-  MY_core_file_failing_command,
-  MY_core_file_failing_signal,
-  MY_core_file_matches_executable_p,
-  MY_slurp_armap,
-  MY_slurp_extended_name_table,
-  MY_truncate_arname,
-  MY_write_armap,
-  MY_close_and_cleanup,
-  MY_set_section_contents,
-  MY_get_section_contents,
-  MY_new_section_hook,
-  MY_get_symtab_upper_bound,
-  MY_get_symtab,
-  MY_get_reloc_upper_bound,
-  MY_canonicalize_reloc,
-  MY_make_empty_symbol,
-  MY_print_symbol,
-  MY_get_symbol_info,
-  MY_get_lineno,
-  MY_set_arch_mach,
-  MY_openr_next_archived_file,
-  MY_find_nearest_line,
-  MY_generic_stat_arch_elt,
-  MY_sizeof_headers,
-  MY_bfd_debug_info_start,
-  MY_bfd_debug_info_end,
-  MY_bfd_debug_info_accumulate,
-  bfd_generic_get_relocated_section_contents,
-  bfd_generic_relax_section,
-  bfd_generic_seclet_link,
-  MY_reloc_howto_type_lookup,
-  MY_make_debug_symbol,
+  JUMP_TABLE (MY),
   (PTR) MY_backend_data,
 };
 #endif /* MY_BFD_TARGET */

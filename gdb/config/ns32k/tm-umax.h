@@ -87,9 +87,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 		NaD (*(double *) p))
 #endif /* INVALID_FLOAT */
 
-/* Say how long (ordinary) registers are.  */
+/* Say how long (ordinary) registers are.  This is a piece of bogosity
+   used in push_word and a few other places; REGISTER_RAW_SIZE is the
+   real way to know how big a register is.  */
 
-#define REGISTER_TYPE long
+#define REGISTER_SIZE 4
 
 /* Number of machine registers */
 
@@ -155,23 +157,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Largest value REGISTER_VIRTUAL_SIZE can have.  */
 
 #define MAX_REGISTER_VIRTUAL_SIZE 8
-
-/* Nonzero if register N requires conversion
-   from raw format to virtual format.  */
-
-#define REGISTER_CONVERTIBLE(N) 0
-
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
-
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)	\
-  memcpy ((TO), (FROM), REGISTER_VIRTUAL_SIZE(REGNUM));
-
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
-
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-  memcpy ((TO), (FROM), REGISTER_VIRTUAL_SIZE(REGNUM));
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */

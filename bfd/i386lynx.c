@@ -1,4 +1,4 @@
-/* BFD back-end for i386 a.out binaries under Lynx.
+/* BFD back-end for i386 a.out binaries under LynxOS.
    Copyright (C) 1990, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -58,7 +58,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	    {								      \
 	      bfd_seek (abfd, (file_ptr)(N_SYMOFF(*execp)), SEEK_SET);	      \
 									      \
-	      NAME(aout,write_syms)(abfd);				      \
+	      if (! NAME(aout,write_syms)(abfd)) return false;		      \
 									      \
 	      bfd_seek (abfd, (file_ptr)(N_TRELOFF(*execp)), SEEK_SET);	      \
 									      \
@@ -318,9 +318,7 @@ DEFUN(NAME(lynx,swap_ext_reloc_in), (abfd, bytes, cache_ptr, symbols),
 
   cache_ptr->address = (GET_SWORD (abfd, bytes->r_address));
 
-  r_index = (bytes->r_type[0] << 16)
-    | (bytes->r_index[2] << 8)
-      |  bytes->r_index[1];
+  r_index = bytes->r_index[1];
   r_extern = (0 != (bytes->r_index[0] & RELOC_EXT_BITS_EXTERN_BIG));
   r_type   =       (bytes->r_index[0] & RELOC_EXT_BITS_TYPE_BIG)
       >> RELOC_EXT_BITS_TYPE_SH_BIG;
@@ -336,7 +334,6 @@ DEFUN(NAME(lynx,swap_std_reloc_in), (abfd, bytes, cache_ptr, symbols),
   arelent *cache_ptr AND
   asymbol **symbols)
 {
-  char tmp;
   int r_index;
   int r_extern;
   unsigned int r_length;
@@ -346,9 +343,7 @@ DEFUN(NAME(lynx,swap_std_reloc_in), (abfd, bytes, cache_ptr, symbols),
 
   cache_ptr->address = bfd_h_get_32 (abfd, bytes->r_address);
 
-  r_index = (bytes->r_type[0] << 16)
-    | (bytes->r_index[2] << 8)
-      |  bytes->r_index[1];
+  r_index = bytes->r_index[1];
   r_extern  = (0 != (bytes->r_index[0] & RELOC_STD_BITS_EXTERN_BIG));
   r_pcrel   = (0 != (bytes->r_index[0] & RELOC_STD_BITS_PCREL_BIG));
   r_baserel = (0 != (bytes->r_index[0] & RELOC_STD_BITS_BASEREL_BIG));

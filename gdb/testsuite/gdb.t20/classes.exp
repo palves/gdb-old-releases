@@ -267,7 +267,7 @@ proc test_ptype_class_objects {} {
     setup_xfail "*-*-*"
     send "ptype class vB\n"
     expect {
-	-re "type = class vB : public virtual vA \{\r\n\[ \]*private:\r\n\[ \]*vA \*_vb\\\$vA;\r\n\[ \]*public:\r\n\[ \]*int vb;\r\n\[ \]*int vx;\r\n\}\r\n$prompt $" {
+	-re "type = class vB : public virtual vA \{\r\n\[ \]*private:\r\n\[ \]*vA \[*\]+_vb\\\$vA;\r\n\[ \]*public:\r\n\[ \]*int vb;\r\n\[ \]*int vx;\r\n\}\r\n$prompt $" {
 	    fail "ptype class vB (FIXME)"
 	}
 	-re ".*$prompt $" { fail "ptype class vB" }
@@ -281,7 +281,7 @@ proc test_ptype_class_objects {} {
     setup_xfail "*-*-*"
     send "ptype class vC\n"
     expect {
-	-re "type = class vC : public virtual vA \{\r\n\[ \]*private:\r\n\[ \]*vA \*_vb\\\$vA;\r\n\[ \]*public:\r\n\[ \]*int vc;\r\n\[ \]*int vx;\r\n\}\r\n$prompt $" {
+	-re "type = class vC : public virtual vA \{\r\n\[ \]*private:\r\n\[ \]*vA \[*\]+_vb\\\$vA;\r\n\[ \]*public:\r\n\[ \]*int vc;\r\n\[ \]*int vx;\r\n\}\r\n$prompt $" {
 	    fail "ptype class vC (FIXME)"
 	}
 	-re ".*$prompt $" { fail "ptype class vC" }
@@ -295,7 +295,7 @@ proc test_ptype_class_objects {} {
     setup_xfail "*-*-*"
     send "ptype class vD\n"
     expect {
-	-re "type = class vD : public virtual vB, public virtual vC \{\r\n\[ \]*private:\r\n\[ \]*vC \*_vb\\\$vC;\r\n\[ \]*vB \*_vb\\\$vB;\r\n\[ \]*public:\r\n\[ \]*int vd;\r\n\[ \]*int vx;\r\n\}\r\n$prompt $" {
+	-re "type = class vD : public virtual vB, public virtual vC \{\r\n\[ \]+private:\r\n\[ \]+vC \[*\]+_vb\\\$vC;\r\n\[ \]+vB \[*\]+_vb\\\$vB;\r\n\[ \]*public:\r\n\[ \]*int vd;\r\n\[ \]*int vx;\r\n\}\r\n$prompt $" {
 	    fail "ptype class vD (FIXME)"
 	}
 	-re ".*$prompt $" { fail "ptype class vD" }
@@ -309,7 +309,7 @@ proc test_ptype_class_objects {} {
     setup_xfail "*-*-*"
     send "ptype class vE\n"
     expect {
-	-re "type = class vE : public virtual vD \{\r\n\[ \]*private:\r\n\[ \]*vD \*_vb\\\$vD;\r\n\[ \]*public:\r\n\[ \]*int ve;\r\n\[ \]*int vx;\r\n\}\r\n$prompt $" {
+	-re "type = class vE : public virtual vD \{\r\n\[ \]*private:\r\n\[ \]*vD \[*\]+_vb\\\$vD;\r\n\[ \]*public:\r\n\[ \]*int ve;\r\n\[ \]*int vx;\r\n\}\r\n$prompt $" {
 	    fail "ptype class vE (FIXME)"
 	}
 	-re ".*$prompt $" { fail "ptype class vE" }
@@ -321,7 +321,7 @@ proc test_ptype_class_objects {} {
     # post-2.4.5 Cygnus gcc version.
     # It happens without that constructor for gcc 2.4.5.
     expect {
-	-re "type = class Base1 \{\r\n\[ \]*public:\r\n\[ \]*int x;\r\n(|\r\n\[ \]*Base1\(Base1 const &\);)\r\n\[ \]*Base1\(int\);\r\n\}\r\n$prompt $" {
+	-re "type = class Base1 \{\r\n\[ \]*public:\r\n\[ \]*int x;\r\n(|\r\n\[ \]*Base1.Base1 const &.;)\r\n\[ \]*Base1.int.;\r\n\}\r\n$prompt $" {
 	    incr passcount
 	}
 	-re "type = struct Base1 \{\r\n\[ \]*int x;\r\n\}\r\n$prompt $" {
@@ -334,7 +334,7 @@ proc test_ptype_class_objects {} {
     setup_xfail "*-*-*"
     send "ptype class Foo\n"
     expect {
-	-re "type = class Foo \{\r\n\[ \]*public:\r\n\[ \]*int x;\r\n\[ \]*int y;\r\n\[ \]*static int st;\r\n\r\n\[ \]*Foo\(Foo const &\);\r\n\[ \]*Foo\(int, int\);\r\n\[ \]*int operator\!\(void\);\r\n\[ \]*int operator int\(void\);\r\n\[ \]*int times\(int\);\r\n\}\r\n$prompt $" {
+	-re "type = class Foo \{\r\n\[ \]*public:\r\n\[ \]*int x;\r\n\[ \]*int y;\r\n\[ \]*static int st;\r\n\r\n\[ \]*Foo.Foo const &.;\r\n\[ \]*Foo.int, int.;\r\n\[ \]*int operator!.void.;\r\n\[ \]*int operator int.void.;\r\n\[ \]*int times.int.;\r\n\}\r\n$prompt $" {
 	    incr passcount
 	}
 	-re "type = struct Foo \{\r\n\[ \]*int x;\r\n\[ \]*int y;\r\n\}\r\n$prompt $" {
@@ -348,7 +348,7 @@ proc test_ptype_class_objects {} {
     setup_xfail "*-*-*"
     send "ptype class Bar\n"
     expect {
-	-re "type = class Bar : public Base1, public Foo \{\r\n\[ \]*public:\r\n\[ \]*int z;\r\n\r\n\[ \]*Bar\(Bar const &\);\r\n\[ \]*Bar\(int, int, int\);\r\n\}\r\n$prompt $" {
+	-re "type = class Bar : public Base1, public Foo \{\r\n\[ \]*public:\r\n\[ \]*int z;\r\n\r\n\[ \]*Bar.Bar const &.;\r\n\[ \]*Bar.int, int, int.;\r\n\}\r\n$prompt $" {
 	    incr passcount
 	}
 	-re "type = struct Bar \{\r\n\[ \]*struct Base1 Base1;\r\n\[ \]*struct Foo Foo;\r\n\[ \]*int z;\r\n\}\r\n$prompt $" {
@@ -575,7 +575,7 @@ proc test_pointers_to_class_members {} {
     setup_xfail "*-*-*"
     send "print Bar::z\n"
     expect {
-	-re ".* = \(int\[ \]*\(\[ \]*Bar::&\)\)\[ \]*Bar::z\r\n$prompt $" {
+	-re ".* = .int\[ \]*\[( \]*Bar::&\[)\]+\[ \]*Bar::z\r\n$prompt $" {
 	    incr passcount
 	}
 	-re ".*$prompt $" { fail "print Bar::z" }
@@ -585,7 +585,7 @@ proc test_pointers_to_class_members {} {
     setup_xfail "*-*-*"
     send "print &Foo::x\n"
     expect {
-	-re ".* = \(int\[ \]*\(\[ \]*Foo::\*\)\)\[ \]*&Foo::x\r\n$prompt $" {
+	-re ".* = .int\[ \]*\[( \]*Foo::\[*)\]+\[ \]*&Foo::x\r\n$prompt $" {
 	    incr passcount
 	}
 	-re ".*$prompt $" { fail "print &Foo::x" }
@@ -617,7 +617,7 @@ proc test_pointers_to_class_members {} {
     send "next\n"
     setup_xfail "*-*-*"
     expect {
-	-re "$decimal\[ \t\]+inheritance3 \(\);\r\n$prompt $" {}
+	-re "$decimal\[ \t\]+inheritance3 \[)(\]+;\r\n$prompt $" {}
 	-re ".*$prompt $" { fail "next to inheritance3" ; return }
     }
 
@@ -679,7 +679,7 @@ proc test_static_members {} {
 
     send "print &foo.st\n"
     expect {
-	-re ".* = \(int \*\) $hex\r\n$prompt $" {
+	-re ".* = .int \[*)\]+ $hex\r\n$prompt $" {
 	    incr passcount
 	}
 	-re "There is no member named st.*$prompt $" {
@@ -693,7 +693,7 @@ proc test_static_members {} {
     set got_bar_st 0
     send "print &Bar::st\n"
     expect {
-	-re ".* = \(int \*\) $hex\r\n$prompt $" {
+	-re ".* = .int \[*)\]+ $hex\r\n$prompt $" {
 	    incr passcount
 	    set got_bar_st 1
 	}
@@ -793,8 +793,7 @@ proc do_tests {} {
 	    -re "= 82.*$prompt $" {
 		pass "calling method for small class"
 	    }
-	    -re "\
-Address requested for identifier .v. which is in a register.*$prompt $" {
+	    -re "Address requested for identifier .v. which is in a register.*$prompt $" {
 		setup_xfail "*-*-*" 2972
 		fail "calling method for small class"
 	    }

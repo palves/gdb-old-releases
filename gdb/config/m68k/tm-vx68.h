@@ -22,6 +22,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define	DEFAULT_PROMPT		"(vxgdb) "
 
+/* GCC is probably the only compiler used on this configuration.  So
+   get this right even if the code which detects gcc2_compiled. is
+   still broken.  */
+
+#define BELIEVE_PCC_PROMOTION 1
+
 /* We have more complex, useful breakpoints on the target.  */
 #define	DECR_PC_AFTER_BREAK	0
 
@@ -82,4 +88,4 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Number of registers in a ptrace_getfpregs call. */
 
 #define VX_SIZE_FPREGS (8 * REGISTER_RAW_SIZE (FP0_REGNUM) \
-			+ (3 * sizeof (REGISTER_TYPE)))
+			+ (3 * REGISTER_SIZE))

@@ -40,3 +40,8 @@ i386_register_u_addr PARAMS ((int, int));
  * (why, I don't know), and we don't need it.
  */
 #define NO_PTRACE_H
+
+/* When calling functions on SCO, sometimes we get an error writing some
+   of the segment registers.  This would appear to be a kernel
+   bug/non-feature.  */
+#define CANNOT_STORE_REGISTER(regno) ((regno) == 14 || (regno) == 15)

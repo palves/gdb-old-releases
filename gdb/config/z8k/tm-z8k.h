@@ -19,11 +19,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define IEEE_FLOAT 1
 
-#undef TARGET_INT_BIT
-#undef TARGET_LONG_BIT
-#undef TARGET_SHORT_BIT
-#undef TARGET_PTR_BIT
-
 #define TARGET_SHORT_BIT 16
 #define TARGET_INT_BIT 16
 #define TARGET_LONG_BIT 32
@@ -74,9 +69,11 @@ extern CORE_ADDR mz8k_skip_prologue PARAMS ((CORE_ADDR ip));
 
 #define INVALID_FLOAT(p, len) 0   /* Just a first guess; not checked */
 
-/* Say how long registers are.  */
+/* Say how long (ordinary) registers are.  This is a piece of bogosity
+   used in push_word and a few other places; REGISTER_RAW_SIZE is the
+   real way to know how big a register is.  */
 
-#define REGISTER_TYPE unsigned int
+#define REGISTER_SIZE 4
 
 #define NUM_REGS 	23   /* 16 registers + 1 ccr + 1 pc + 3 debug
 				regs + fake fp + fake sp*/
@@ -106,23 +103,6 @@ extern CORE_ADDR mz8k_skip_prologue PARAMS ((CORE_ADDR ip));
 /* Largest value REGISTER_VIRTUAL_SIZE can have.  */
 
 #define MAX_REGISTER_VIRTUAL_SIZE 4
-
-/* Nonzero if register N requires conversion
-   from raw format to virtual format.  */
-
-#define REGISTER_CONVERTIBLE(N) 0
-
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
-
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO) \
- register_convert_to_virtual(REGNUM, FROM, TO)
-
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
-
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO) \
- register_convert_to_raw(REGNUM, FROM, TO)
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -291,8 +271,8 @@ extern void z8k_pop_frame PARAMS ((void));
 #define SP_ARG0 (1 * 4)
 
 #define ADDR_BITS_REMOVE(x) addr_bits_remove(x)
-int z8001_mode;
-#define BIG (z8001_mode)
+int sim_z8001_mode;
+#define BIG (sim_z8001_mode)
 
 #define read_memory_short(x)  (read_memory_integer(x,2) & 0xffff)
 

@@ -38,7 +38,7 @@ struct external_exec
 #define ZMAGIC 0413		/* Code indicating demand-paged executable.  */
 
 /* This indicates a demand-paged executable with the header in the text.
-   As far as I know it is only used by 386BSD and/or BSDI.  */
+   It is used by 386BSD (and variants) and Linux, at least.  */
 #define QMAGIC 0314
 # ifndef N_BADMAG
 #  define N_BADMAG(x)	  (N_MAGIC(x) != OMAGIC		\
@@ -57,7 +57,7 @@ struct external_exec
 #endif
 
 /* The difference between PAGE_SIZE and N_SEGSIZE is that PAGE_SIZE is
-   the the finest granularity at which you can page something, thus it
+   the finest granularity at which you can page something, thus it
    controls the padding (if any) before the text segment of a ZMAGIC
    file.  N_SEGSIZE is the resolution at which things can be marked as
    read-only versus read/write, so it controls the padding between the
@@ -121,6 +121,11 @@ struct external_exec
 #define N_SHARED_LIB(x) ((x).a_entry < TEXT_START_ADDR)
 #endif
 
+/* Returning 0 not TEXT_START_ADDR for OMAGIC and NMAGIC is based on
+   the assumption that we are dealing with a .o file, not an
+   executable.  This is necessary for OMAGIC (but means we don't work
+   right on the output from ld -N); more questionable for NMAGIC.  */
+
 #ifndef N_TXTADDR
 #define N_TXTADDR(x) \
     (/* The address of a QMAGIC file is always one page in, */ \
@@ -134,6 +139,19 @@ struct external_exec
     )
 #endif
 
+/* If N_HEADER_IN_TEXT is not true for ZMAGIC, there is some padding
+   to make the text segment start at a certain boundary.  For most
+   systems, this boundary is PAGE_SIZE.  But for Linux, in the
+   time-honored tradition of crazy ZMAGIC hacks, it is 1024 which is
+   not what PAGE_SIZE needs to be for QMAGIC.  */
+
+#ifndef ZMAGIC_DISK_BLOCK_SIZE
+#define ZMAGIC_DISK_BLOCK_SIZE PAGE_SIZE
+#endif
+
+#define N_DISK_BLOCK_SIZE(x) \
+  (N_MAGIC(x) == ZMAGIC ? ZMAGIC_DISK_BLOCK_SIZE : PAGE_SIZE)
+
 /* Offset in an a.out of the start of the text section. */
 #ifndef N_TXTOFF
 #define N_TXTOFF(x)	\
@@ -142,7 +160,7 @@ struct external_exec
      N_SHARED_LIB(x) ? 0 : \
      N_HEADER_IN_TEXT(x) ?	\
 	    EXEC_BYTES_SIZE :			/* no padding */\
-	    PAGE_SIZE				/* a page of padding */\
+	    ZMAGIC_DISK_BLOCK_SIZE		/* a page of padding */\
     )
 #endif
 /* Size of the text section.  It's always as stated, except that we
@@ -174,15 +192,21 @@ struct external_exec
 
 /* Offsets of the various portions of the file after the text segment.  */
 
-/* For {N,Q,Z}MAGIC, there is padding to make the data segment start
-   on a page boundary.  Most of the time the a_text field (and thus
-   N_TXTSIZE) already contains this padding.  But if it doesn't (I
-   think maybe this happens on BSDI and/or 386BSD), then add it.  */
+/* For {Q,Z}MAGIC, there is padding to make the data segment start on
+   a page boundary.  Most of the time the a_text field (and thus
+   N_TXTSIZE) already contains this padding.  It is possible that for
+   BSDI and/or 386BSD it sometimes doesn't contain the padding, and
+   perhaps we should be adding it here.  But this seems kind of
+   questionable and probably should be BSDI/386BSD-specific if we do
+   do it.
+
+   For NMAGIC (at least for hp300 BSD, probably others), there is
+   padding in memory only, not on disk, so we must *not* ever pad here
+   for NMAGIC.  */
 
 #ifndef N_DATOFF
 #define N_DATOFF(x) \
- (N_MAGIC(x) == OMAGIC ? N_TXTOFF(x) + N_TXTSIZE(x) : \
-  PAGE_SIZE + ((N_TXTOFF(x) + N_TXTSIZE(x) - 1) & ~(PAGE_SIZE - 1)))
+ (N_TXTOFF(x) + N_TXTSIZE(x))
 #endif
 
 #ifndef N_TRELOFF
@@ -298,13 +322,13 @@ struct reloc_std_external {
 #define	RELOC_STD_BITS_EXTERN_LITTLE	0x08
 
 #define	RELOC_STD_BITS_BASEREL_BIG	0x08
-#define	RELOC_STD_BITS_BASEREL_LITTLE	0x08
+#define	RELOC_STD_BITS_BASEREL_LITTLE	0x10
 
 #define	RELOC_STD_BITS_JMPTABLE_BIG	0x04
-#define	RELOC_STD_BITS_JMPTABLE_LITTLE	0x04
+#define	RELOC_STD_BITS_JMPTABLE_LITTLE	0x20
 
 #define	RELOC_STD_BITS_RELATIVE_BIG	0x02
-#define	RELOC_STD_BITS_RELATIVE_LITTLE	0x02
+#define	RELOC_STD_BITS_RELATIVE_LITTLE	0x40
 
 #define	RELOC_STD_SIZE	(BYTES_IN_WORD + 3 + 1)		/* Bytes per relocation entry */
 

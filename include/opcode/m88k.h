@@ -355,7 +355,7 @@ struct  PROCESSOR   {
 #define RRR        0xf4000000
 #define SFUMASK    0xfc00ffe0
 #define RRRMASK    0xfc00ffe0
-#define RRI10MASK  0xfc00ffe0
+#define RRI10MASK  0xfc00fc00
 #define DEFMASK    0xfc000000
 #define CTRL       0x0000f000
 #define CTRLMASK   0xfc00f800

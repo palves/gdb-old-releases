@@ -24,6 +24,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symfile.h"
 #include "objfiles.h"
 #include "gdb-stabs.h"
+#include "buildsym.h"
+#include "stabsread.h"
 
 static void
 nlm_new_init PARAMS ((struct objfile *));
@@ -87,7 +89,7 @@ record_minimal_symbol (name, address, ms_type, objfile)
      struct objfile *objfile;
 {
   name = obsavestring (name, strlen (name), &objfile -> symbol_obstack);
-  prim_record_minimal_symbol (name, address, ms_type);
+  prim_record_minimal_symbol (name, address, ms_type, objfile);
 }
 
 
@@ -264,7 +266,8 @@ nlm_symfile_offsets (objfile, addr)
 {
   struct section_offsets *section_offsets;
   int i;
- 
+
+  objfile->num_sections = SECT_OFF_MAX;
   section_offsets = (struct section_offsets *)
     obstack_alloc (&objfile -> psymbol_obstack,
 		   sizeof (struct section_offsets) +
@@ -279,12 +282,11 @@ nlm_symfile_offsets (objfile, addr)
 }
 
 
-/*  Register that we are able to handle NLM file format. */
+/* Register that we are able to handle NLM file format. */
 
 static struct sym_fns nlm_sym_fns =
 {
-  "nlm",		/* sym_name: name or name prefix of BFD target type */
-  3,			/* sym_namelen: number of significant sym_name chars */
+  bfd_target_nlm_flavour,
   nlm_new_init,		/* sym_new_init: init anything gbl to entire symtab */
   nlm_symfile_init,	/* sym_init: read initial info, setup for sym_read() */
   nlm_symfile_read,	/* sym_read: read a symbol file into symtab */

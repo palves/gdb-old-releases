@@ -309,7 +309,9 @@ monitor_create_inferior (execfile, args, env)
   target_terminal_inferior ();
 
   /* insert_step_breakpoint ();  FIXME, do we need this?  */
-  proceed ((CORE_ADDR)entry_pt, -1, 0);		/* Let 'er rip... */
+
+  /* Let 'er rip... */
+  proceed ((CORE_ADDR)entry_pt, TARGET_SIGNAL_DEFAULT, 0);
 }
 
 /* Open a connection to a remote debugger.
@@ -435,7 +437,8 @@ monitor_detach (from_tty)
  */
 static void
 monitor_resume (pid, step, sig)
-     int pid, step, sig;
+     int pid, step;
+     enum target_signal sig;
 {
 #ifdef LOG_FILE
   fprintf (log_file, "\nIn Resume (step=%d, sig=%d)\n", step, sig);
@@ -463,20 +466,22 @@ monitor_resume (pid, step, sig)
 static int
 monitor_wait (pid, status)
      int pid;
-     WAITTYPE *status;
+     struct target_waitstatus *status;
 {
   int old_timeout = timeout;
 #ifdef LOG_FILE
   fputs ("\nIn wait ()", log_file);
 #endif
 
-  WSETEXIT ((*status), 0);
+  status->kind = TARGET_WAITKIND_EXITED;
+  status->value.integer = 0;
 
   timeout = 0;		/* Don't time out -- user program is running. */
 
   expect_prompt(0);    /* Wait for prompt, outputting extraneous text */
 
-  WSETSTOP ((*status), SIGTRAP);
+  status->kind = TARGET_WAITKIND_STOPPED;
+  status->value.sig = TARGET_SIGNAL_TRAP;
 
   timeout = old_timeout;
 
@@ -1177,14 +1182,6 @@ Specify the serial device it is connected to (e.g. /dev/ttya).",
 void
 _initialize_remote_monitors ()
 {
-/***  add_show_from_set (
-                     add_set_cmd ("remotedebug", no_class, var_boolean,
-                                  (char *)&kiodebug,
-                                  "Set debugging of I/O to a serial based Monitor.\n\
-When enabled, debugging info is displayed.",
-                                  &setlist),
-		     &showlist);
-***/
   add_show_from_set (
                      add_set_cmd ("hash", no_class, var_boolean,
                                   (char *)&hashmark,

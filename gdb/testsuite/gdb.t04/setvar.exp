@@ -32,7 +32,7 @@ set bug_id 0
 set binfile "gdbme"
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    error "$objdir/$subdir/$binfile does not exist."
+    perror "$objdir/$subdir/$binfile does not exist."
     return 0
 }
 
@@ -47,7 +47,7 @@ gdb_load $objdir/$subdir/$binfile
 send "set print sevenbit-strings\n" ; expect -re "$prompt $"
 
 if ![runto main] then {
-    error "couldn't run to breakpoint"
+    perror "couldn't run to breakpoint"
     continue
 }
 

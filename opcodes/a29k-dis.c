@@ -121,8 +121,9 @@ typedef (*find_byte_func_type)
      PARAMS ((char *, unsigned char *, unsigned char *,
 	      unsigned char *, unsigned char *));
 
-/* Print one instruction from MEMADDR on STREAM.
+/* Print one instruction from MEMADDR on INFO->STREAM.
    Return the size of the instruction (always 4 on a29k).  */
+
 static int
 print_insn (memaddr, info)
      bfd_vma memaddr;
@@ -317,7 +318,7 @@ print_insn (memaddr, info)
     }
   /* This used to be %8x for binutils.  */
   (*info->fprintf_func)
-    (info->stream, ".word 0x%8x",
+    (info->stream, ".word 0x%08x",
      (insn24 << 24) + (insn16 << 16) + (insn8 << 8) + insn0);
   return 4;
 }

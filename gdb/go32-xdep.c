@@ -19,21 +19,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 
-static void uerror(char *s)
+int
+sigsetmask (mask)
+     int mask;
 {
-  fprintf(stderr, "Fatal: %s!\n");
-  exit(1);
-}
-
-re_comp(){uerror("attempt to call re_comp()");}
-re_exec(){uerror("attempt to call re_exec()");}
-
-sigsetmask()
-{
+  return 0;
 }
 
 void
-strlwr(str)
+strlwr (str)
      char *str;
 {
   for (; *str; str++)

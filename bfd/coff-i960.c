@@ -28,6 +28,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "coff/i960.h"
 #include "coff/internal.h"
 #include "libcoff.h"		/* to allow easier abstraction-breaking */
+
+static bfd_reloc_status_type optcall_callback
+  PARAMS ((bfd *, arelent *, asymbol *, PTR, asection *, bfd *, char **));
+       
 #define COFF_LONG_FILENAMES
 
 #define CALLS	 0x66003800	/* Template for 'calls' instruction	*/
@@ -35,14 +39,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define BAL_MASK 0x00ffffff
 
 static bfd_reloc_status_type 
-DEFUN (optcall_callback, (abfd, reloc_entry, symbol_in, data,
-			  ignore_input_section, ignore_bfd),
-       bfd *abfd AND
-       arelent *reloc_entry AND
-       asymbol *symbol_in AND
-       PTR data AND
-       asection *ignore_input_section AND
-       bfd *ignore_bfd)
+optcall_callback (abfd, reloc_entry, symbol_in, data,
+		  ignore_input_section, ignore_bfd, error_message)
+     bfd *abfd;
+     arelent *reloc_entry;
+     asymbol *symbol_in;
+     PTR data;
+     asection *ignore_input_section;
+     bfd *ignore_bfd;
+     char **error_message;
 {
   /* This item has already been relocated correctly, but we may be
    * able to patch in yet better code - done by digging out the
@@ -53,32 +58,35 @@ DEFUN (optcall_callback, (abfd, reloc_entry, symbol_in, data,
   /* So the target symbol has to be of coff type, and the symbol 
      has to have the correct native information within it */
   if ((bfd_asymbol_flavour(&cs->symbol) != bfd_target_coff_flavour)
-      || (cs->native == (combined_entry_type *)NULL)) {
-     /* This is interesting, consider the case where we're outputting */
-     /* coff from a mix n match input, linking from coff to a symbol */
-     /* defined in a bout file will cause this match to be true. Should */
-     /* I complain ? - This will only work if the bout symbol is non */
-     /* leaf. */
-     result = bfd_reloc_dangerous;
-  }
-  else  {
+      || (cs->native == (combined_entry_type *)NULL))
+    {
+      /* This is interesting, consider the case where we're outputting coff
+	 from a mix n match input, linking from coff to a symbol defined in a
+	 bout file will cause this match to be true. Should I complain?  This
+	 will only work if the bout symbol is non leaf.  */
+      *error_message =
+	(char *) "uncertain calling convention for non-COFF symbol";
+      result = bfd_reloc_dangerous;
+    }
+  else
+    {
     switch (cs->native->u.syment.n_sclass) 
       {
       case C_LEAFSTAT:
       case C_LEAFEXT:
   	/* This is a call to a leaf procedure, replace instruction with a bal
-	 to the correct location */
+	   to the correct location.  */
 	{
 	  union internal_auxent *aux = &((cs->native+2)->u.auxent);
 	  int word = bfd_get_32(abfd, (bfd_byte *)data + reloc_entry->address);
 	  int olf = (aux->x_bal.x_balntry - cs->native->u.syment.n_value);
 	  BFD_ASSERT(cs->native->u.syment.n_numaux==2);
-	  /* We replace the original call instruction with a bal to */
-	  /* the bal entry point - the offset of which is described in the */
-	  /* 2nd auxent of the original symbol. We keep the native sym and */
-	  /* auxents untouched, so the delta between the two is the */
-	  /* offset of the bal entry point */
 
+	  /* We replace the original call instruction with a bal to
+	     the bal entry point - the offset of which is described in
+	     the 2nd auxent of the original symbol. We keep the native
+	     sym and auxents untouched, so the delta between the two
+	     is the offset of the bal entry point.  */
 	  word = ((word +  olf)  & BAL_MASK) | BAL;
   	  bfd_put_32(abfd, word, (bfd_byte *) data + reloc_entry->address);
   	}
@@ -108,7 +116,7 @@ static reloc_howto_type howto_optcall =
   {  R_OPTCALL, 0,2,24,true,0, complain_overflow_signed,
        optcall_callback, "optcall", true, 0x00ffffff, 0x00ffffff};
 
-static reloc_howto_type *
+static const reloc_howto_type *
 DEFUN (coff_i960_reloc_type_lookup, (abfd, code),
        bfd *abfd AND
        bfd_reloc_code_real_type code)
@@ -154,7 +162,7 @@ bfd_target icoff_little_vec =
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT),
+   HAS_SYMS | HAS_LOCALS | WP_TEXT),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
   0,				/* leading underscore */
@@ -189,7 +197,7 @@ bfd_target icoff_big_vec =
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT),
+   HAS_SYMS | HAS_LOCALS | WP_TEXT),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
   0,				/* leading underscore */

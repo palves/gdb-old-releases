@@ -76,13 +76,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define nlm_bfd_get_relocated_section_contents \
 				bfd_generic_get_relocated_section_contents
 #define nlm_bfd_relax_section	bfd_generic_relax_section
-#define nlm_bfd_seclet_link	bfd_generic_seclet_link
 #define nlm_bfd_reloc_type_lookup \
 				bfd_default_reloc_type_lookup
 #define nlm_bfd_make_debug_symbol \
 				((asymbol *(*) PARAMS ((bfd *, void *, \
 							unsigned long))) \
 				 bfd_nullvoidptr)
+#define nlm_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
+#define nlm_bfd_link_add_symbols _bfd_generic_link_add_symbols
+#define nlm_bfd_final_link _bfd_generic_final_link
 
 /* This structure contains everything that BFD knows about a target.
    It includes things like its byte order, name, what routines to call
@@ -109,8 +111,8 @@ bfd_target TARGET_BIG_SYM =
   true,
 
   /* object_flags: mask of all file flags */
-  (HAS_RELOC | EXEC_P | HAS_LINENO | HAS_DEBUG | HAS_SYMS | HAS_LOCALS |
-   DYNAMIC | WP_TEXT),
+  (HAS_RELOC | EXEC_P | HAS_LINENO | HAS_DEBUG | HAS_SYMS | HAS_LOCALS
+   | WP_TEXT),
   
   /* section_flags: mask of all section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |
@@ -191,8 +193,8 @@ bfd_target TARGET_LITTLE_SYM =
   false,		/* Nope -- this one's little endian */
 
   /* object_flags: mask of all file flags */
-  (HAS_RELOC | EXEC_P | HAS_LINENO | HAS_DEBUG | HAS_SYMS | HAS_LOCALS |
-   DYNAMIC | WP_TEXT),
+  (HAS_RELOC | EXEC_P | HAS_LINENO | HAS_DEBUG | HAS_SYMS | HAS_LOCALS
+   | WP_TEXT),
   
   /* section_flags: mask of all section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |

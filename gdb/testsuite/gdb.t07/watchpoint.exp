@@ -30,7 +30,7 @@ set binfile "gdbme"
 set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    error "$objdir/$subdir/$binfile does not exist."
+    perror "$objdir/$subdir/$binfile does not exist."
     return 0
 }
 
@@ -163,7 +163,7 @@ proc test_simple_watchpoint {} {
 	-re "Continuing.*Watchpoint.*ival3.*Old value = -1.*New value = 0.*ival3 = count; ival4 = count;.*$prompt $" {
 	    pass "watchpoint hit, first time"
 	}
-	-re "Continuing.*Watchpoint.*ival3.*Old value = -1.*New value = 0.*for \(count = 0; count < 4; count\+\+\) \{.*$prompt $" {
+	-re "Continuing.*Watchpoint.*ival3.*Old value = -1.*New value = 0.*for .count = 0; count < 4; count\[+)\]+ \{.*$prompt $" {
 	    # setup_xfail "m68*-*-sunos*" 1836
 	    fail "missed first watchpoint"
 	    return
@@ -309,7 +309,7 @@ proc test_disabling_watchpoints {} {
 	-re "Continuing.*Watchpoint.*ival3.*Old value = .*New value = 0.*ival3 = count; ival4 = count;.*$prompt $" {
 	    pass "watchpoint hit, first time"
 	}
-	-re "Continuing.*Watchpoint.*ival3.*Old value = .*New value = 0.*for \(count = 0; count < 4; count\+\+\) \{.*$prompt $" {
+	-re "Continuing.*Watchpoint.*ival3.*Old value = .*New value = 0.*for .count = 0; count < 4; count\[+)]+ \{.*$prompt $" {
 	    # setup_xfail "m68*-*-sunos*" 1836
 	    fail "missed first watchpoint"
 	    return
@@ -357,7 +357,7 @@ proc test_disabling_watchpoints {} {
 
     send "cont\n"
     expect {
-	-re "Continuing.*Breakpoint.*marker2 \(\).*$prompt $" {
+	-re "Continuing.*Breakpoint.*marker2 \[)(\]+.*$prompt $" {
 	    pass "disabled watchpoint skipped"
 	}
 	-re "Continuing.*Watchpoint.*ival3.*$prompt $" {
@@ -405,6 +405,7 @@ proc test_stepping {} {
 	    clear_xfail "vax-*-*"
 	    # The following architectures define CALL_DUMMY_BREAKPOINT_OFFSET.
 	    clear_xfail "alpha-*-*"
+	    clear_xfail "mips*-*-*"
 	    clear_xfail "sparc-*-*"
 	    gdb_test "p func1 ()" "= 73" \
 		"calling function with watchpoint enabled"
@@ -423,11 +424,11 @@ proc test_stepping {} {
 	    default { fail "finish from marker1" ; return }
 	}
 	expect {
-	    -re "marker1 \(\);.*$prompt $" {
+	    -re "marker1 \[)(\]+;.*$prompt $" {
 		send "step\n"
 		continue -expect
 	    }
-	    -re "func1 \(\);.*$prompt $" {
+	    -re "func1 \[)(\]+;.*$prompt $" {
 		pass "finish from marker1"
 	    }
 	    -re ".*$prompt $" {
@@ -443,7 +444,7 @@ next over breakpoint with false condition would cause infinite loop"
 	gdb_test "disable \\\$func2_breakpoint_number" ""
 	# END xfail for next over bp problem.
 
-	gdb_test "next" "for \(count = 0"
+	gdb_test "next" "for \[(\]+count = 0"
 
 	# Now test that "until" works.  It's a bit tricky to test
 	# "until", because compilers don't always arrange the code
@@ -458,7 +459,7 @@ next over breakpoint with false condition would cause infinite loop"
 	gdb_test "until" "ival3 = count"
 	send "until\n"
 	expect {
-	    -re "(for \(count = 0|\}).*$prompt $" {
+	    -re "(for \[(\]+count = 0|\}).*$prompt $" {
 		gdb_test "until" "ival1 = count; /. Outside loop ./"
 	    }
 	    -re "ival1 = count; /. Outside loop ./.*$prompt $" {

@@ -21,7 +21,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sim.h"
 #include "tm.h"
 #include "signal.h"
-#include "../include/wait.h"
+#include "remote-sim.h"
 
 int
 sim_clear_breakpoints ()
@@ -29,53 +29,59 @@ sim_clear_breakpoints ()
   return 1;
 }
 
-void
+int
 sim_set_pc (addr)
-     int addr;
+     SIM_ADDR addr;
 {
   tm_store_register (REG_PC, addr);
+  return 0;
 }
 
-void
+int
 sim_store_register (regno, value)
      int regno;
-     int value;
+     unsigned char *value;
 {
-  tm_store_register (regno, value);
+  /* FIXME: Review the computation of regval.  */
+  int regval = (value[0] << 24) | (value[1] << 16) | (value[2] << 8) | value[3];
+
+  tm_store_register (regno, regval);
+  return 0;
 }
 
 int
 sim_fetch_register (regno, buf)
      int regno;
-     char *buf;
+     unsigned char *buf;
 {
   tm_fetch_register (regno, buf);
-  return 1;
+  return 0;
 }
 
-void
+int
 sim_write (where, what, howmuch)
-     long int where;
-     char *what;
+     SIM_ADDR where;
+     unsigned char *what;
      int howmuch;
 {
   int i;
 
   for (i = 0; i < howmuch; i++)
     tm_write_byte (where + i, what[i]);
+  return howmuch;
 }
 
-void
+int
 sim_read (where, what, howmuch)
-     long int where;
-     char *what;
+     SIM_ADDR where;
+     unsigned char *what;
      int howmuch;
 {
   int i;
 
   for (i = 0; i < howmuch; i++)
     what[i] = tm_read_byte (where + i);
-
+  return howmuch;
 }
 
 static
@@ -89,7 +95,7 @@ control_c (sig, code, scp, addr)
   tm_exception (SIM_INTERRUPT);
 }
 
-void
+int
 sim_resume (step, sig)
      int step;
      int sig;
@@ -99,55 +105,56 @@ sim_resume (step, sig)
   prev = signal (SIGINT, control_c);
   tm_resume (step);
   signal (SIGINT, prev);
+  return 0;
 }
 
 int
-sim_stop_signal ()
+sim_stop_reason (reason, sigrc)
+     enum sim_stop *reason;
+     int *sigrc;
 {
-  int a;
-
   switch (tm_signal ())
     {
     case SIM_DIV_ZERO:
-      WSETSTOP (a, SIGFPE);
+      *sigrc = SIGFPE;
       break;
     case SIM_INTERRUPT:
-      WSETSTOP (a, SIGINT);
+      *sigrc = SIGINT;
       break;
     case SIM_BAD_INST:
-      WSETSTOP (a, SIGILL);
+      *sigrc = SIGILL;
       break;
     case SIM_BREAKPOINT:
-      WSETSTOP (a, SIGTRAP);
+      *sigrc = SIGTRAP;
       break;
     case SIM_SINGLE_STEP:
-      WSETSTOP (a, SIGTRAP);
+      *sigrc = SIGTRAP;
       break;
     case SIM_BAD_SYSCALL:
-      WSETSTOP (a, SIGSYS);
+      *sigrc = SIGSYS;
       break;
     case SIM_BAD_ALIGN:
-      WSETSTOP (a, SIGSEGV);
+      *sigrc = SIGSEGV;
       break;
     case SIM_DONE:
-      WSETEXIT (a, 1);
-      break;
+      *sigrc = 1;
+      *reason = sim_exited;
+      return 0;
     default:
       abort ();
     }
-  return a;
+  *reason = sim_stopped;
+  return 0;
 }
 
-void
-sim_info (x)
-     sim_state_type *x;
+int
+sim_info (printf_fn, verbose)
+     void (*printf_fn)();
+     int verbose;
 {
-  tm_state (x);
-}
+  sim_state_type x;
 
-void
-sim_info_print (x)
-     sim_state_type *x;
-{
-  tm_info_print (x);
+  tm_state (&x);
+  tm_info_print (&x);
+  return 0;
 }

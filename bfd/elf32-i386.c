@@ -59,12 +59,12 @@ static CONST char *CONST reloc_type_names[] =
 
 static reloc_howto_type elf_howto_table[]=
 {
-  HOWTO(R_386_NONE,	 0,0, 0,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_NONE",	true,0x00000000,0x00000000,false),
-  HOWTO(R_386_32,	 0,2,32,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_32",	true,0xffffffff,0xffffffff,false),
-  HOWTO(R_386_PC32,	 0,2,32,true, 0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_PC32",	true,0xffffffff,0xffffffff,true),
-  HOWTO(R_386_GOT32,	 0,2,32,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_GOT32",	true,0xffffffff,0xffffffff,false),
-  HOWTO(R_386_PLT32,	 0,2,32,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_PLT32",	true,0xffffffff,0xffffffff,false),
-  HOWTO(R_386_COPY,      0,2,32,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_COPY",	true,0xffffffff,0xffffffff,false),
+  HOWTO(R_386_NONE,	 0,0, 0,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_NONE",	    true,0x00000000,0x00000000,false),
+  HOWTO(R_386_32,	 0,2,32,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_32",	    true,0xffffffff,0xffffffff,false),
+  HOWTO(R_386_PC32,	 0,2,32,true, 0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_PC32",	    true,0xffffffff,0xffffffff,true),
+  HOWTO(R_386_GOT32,	 0,2,32,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_GOT32",    true,0xffffffff,0xffffffff,false),
+  HOWTO(R_386_PLT32,	 0,2,32,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_PLT32",    true,0xffffffff,0xffffffff,false),
+  HOWTO(R_386_COPY,      0,2,32,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_COPY",	    true,0xffffffff,0xffffffff,false),
   HOWTO(R_386_GLOB_DAT,  0,2,32,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_GLOB_DAT", true,0xffffffff,0xffffffff,false),
   HOWTO(R_386_JUMP_SLOT, 0,2,32,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_JUMP_SLOT",true,0xffffffff,0xffffffff,false),
   HOWTO(R_386_RELATIVE,  0,2,32,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_386_RELATIVE", true,0xffffffff,0xffffffff,false),
@@ -83,7 +83,6 @@ DEFUN (elf_i386_reloc_type_lookup, (abfd, code),
        bfd *abfd AND
        bfd_reloc_code_real_type code)
 {
-  int i;
   switch (code)
     {
     case BFD_RELOC_NONE:
@@ -129,6 +128,9 @@ DEFUN (elf_i386_reloc_type_lookup, (abfd, code),
     case BFD_RELOC_386_GOTPC:
       TRACE ("BFD_RELOC_386_GOTPC");
       return &elf_howto_table[ (int)R_386_GOTPC ];
+
+    default:
+      break;
     }
 
   TRACE ("Unknown");
@@ -160,6 +162,7 @@ DEFUN(elf_i386_info_to_howto_rel, (abfd, cache_ptr, dst),
 #define TARGET_LITTLE_SYM		bfd_elf32_i386_vec
 #define TARGET_LITTLE_NAME		"elf32-i386"
 #define ELF_ARCH			bfd_arch_i386
+#define ELF_MACHINE_CODE		EM_386
 #define elf_info_to_howto		elf_i386_info_to_howto
 #define elf_info_to_howto_rel		elf_i386_info_to_howto_rel
 #define bfd_elf32_bfd_reloc_type_lookup	elf_i386_reloc_type_lookup

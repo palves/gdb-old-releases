@@ -180,7 +180,7 @@ Assuming you are at NYU debuging a kernel, i.e., no need to download.\n\n");
   init_wait_for_inferior ();
   clear_proceed_status ();
   stop_soon_quietly = 1;
-  proceed(-1,-1,0);
+  proceed (-1, TARGET_SIGNAL_DEFAULT, 0);
   normal_stop ();
 }
 /**************************************************** REMOTE_MOURN_INFERIOR */
@@ -476,10 +476,11 @@ mm_detach (args,from_tty)
 
 static void
 mm_resume (pid, step, sig)
-     int pid, step, sig;
+     int pid, step;
+     enum target_signal sig;
 {
-  if (sig)
-    error ("Can't send signals to a remote MiniMon system.");
+  if (sig != TARGET_SIGNAL_0)
+    warning ("Can't send signals to a remote MiniMon system.");
 
   if (step) {
       out_msg_buf->step_msg.code= STEP;
@@ -499,14 +500,14 @@ mm_resume (pid, step, sig)
 
 static int
 mm_wait (status)
-     WAITTYPE *status;
+     struct target_waitstatus *status;
 {
   int i, result;
   int old_timeout = timeout;
   int old_immediate_quit = immediate_quit;
 
-  WSETEXIT ((*status), 0);
-
+  status->kind = TARGET_WAITKIND_EXITED;
+  status->value.integer = 0;
 
 /* wait for message to arrive. It should be:
 	- A HIF service request.
@@ -541,7 +542,7 @@ mm_wait (status)
         i=in_msg_buf->channel1_msg.length;
         in_msg_buf->channel1_msg.data[i] = '\0';
         printf("%s", in_msg_buf->channel1_msg.data);
-	fflush(stdout);
+	gdb_flush(stdout);
         /* Send CHANNEL1_ACK message */
         out_msg_buf->channel1_ack_msg.code = CHANNEL1_ACK;
         out_msg_buf->channel1_ack_msg.length = 0;
@@ -559,59 +560,78 @@ halted:
   if (in_msg_buf->halt_msg.trap_number== 0)
   { printf("Am290*0 received vector number %d (break point)\n",
 	in_msg_buf->halt_msg.trap_number);
-    WSETSTOP ((*status), SIGTRAP);
+    status->kind = TARGET_WAITKIND_STOPPED;
+    status->value.sig = TARGET_SIGNAL_TRAP;
   }
   else if (in_msg_buf->halt_msg.trap_number== 1)
-  { printf("Am290*0 received vector number %d\n",
-	in_msg_buf->halt_msg.trap_number);
-    WSETSTOP ((*status), SIGBUS);
-  }
+    {
+      printf("Am290*0 received vector number %d\n",
+	     in_msg_buf->halt_msg.trap_number);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_BUS;
+    }
   else if (in_msg_buf->halt_msg.trap_number== 3
         || in_msg_buf->halt_msg.trap_number== 4)
   { printf("Am290*0 received vector number %d\n",
 	in_msg_buf->halt_msg.trap_number);
-    WSETSTOP ((*status), SIGFPE);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_FPE;
   }
   else if (in_msg_buf->halt_msg.trap_number== 5)
   { printf("Am290*0 received vector number %d\n",
 	in_msg_buf->halt_msg.trap_number);
-    WSETSTOP ((*status), SIGILL);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_ILL;
   }
   else if (in_msg_buf->halt_msg.trap_number >= 6
         && in_msg_buf->halt_msg.trap_number <= 11)
   { printf("Am290*0 received vector number %d\n",
 	in_msg_buf->halt_msg.trap_number);
-    WSETSTOP ((*status), SIGSEGV);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_SEGV;
   }
   else if (in_msg_buf->halt_msg.trap_number== 12
         || in_msg_buf->halt_msg.trap_number== 13)
   { printf("Am290*0 received vector number %d\n",
 	in_msg_buf->halt_msg.trap_number);
-    WSETSTOP ((*status), SIGILL);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_ILL;
   }
   else if (in_msg_buf->halt_msg.trap_number== 14)
   { printf("Am290*0 received vector number %d\n",
 	in_msg_buf->halt_msg.trap_number);
-    WSETSTOP ((*status), SIGALRM);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_ALRM;
   }
   else if (in_msg_buf->halt_msg.trap_number== 15)
-    WSETSTOP ((*status), SIGTRAP);
+    {
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_TRAP;
+    }
   else if (in_msg_buf->halt_msg.trap_number >= 16
         && in_msg_buf->halt_msg.trap_number <= 21)
   { printf("Am290*0 received vector number %d\n",
 	in_msg_buf->halt_msg.trap_number);
-    WSETSTOP ((*status), SIGINT);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_INT;
   }
   else if (in_msg_buf->halt_msg.trap_number== 22)
   { printf("Am290*0 received vector number %d\n",
 	in_msg_buf->halt_msg.trap_number);
-    WSETSTOP ((*status), SIGILL);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_ILL;
   } /* BREAK message was sent */
   else if (in_msg_buf->halt_msg.trap_number== 75)
-    WSETSTOP ((*status), SIGTRAP);
+    {
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_TRAP;
+    }
   else
 exit:
-    WSETEXIT ((*status), 0);
+    {
+      status->kind = TARGET_WAITKIND_EXITED;
+      status->value.integer = 0;
+    }
 
   timeout = old_timeout;	/* Restore original timeout value */
   immediate_quit = old_immediate_quit;

@@ -37,8 +37,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    * a pass through mode a la kermit or telnet.
    * autobaud.
    * ask remote to change his baud rate.
-   * put generic load here.
-
    */
 
 #include <ctype.h>
@@ -76,7 +74,7 @@ usage(proto, junk)
      char *junk;
 {
   if (junk != NULL)
-    fprintf(stderr, "Unrecognized arguments: `%s'.\n", junk);
+    fprintf_unfiltered(gdb_stderr, "Unrecognized arguments: `%s'.\n", junk);
 
   /* FIXME-now: service@host? */
 
@@ -217,7 +215,7 @@ sr_readchar ()
     error ("Timeout reading from remote system.");
 
   if (sr_get_debug() > 0)
-    printf ("%c", buf);
+    printf_unfiltered ("%c", buf);
 
   return buf & 0x7f;
 }
@@ -232,9 +230,9 @@ sr_pollchar()
     buf = 0;
   if (sr_get_debug() > 0)
     if (buf)
-      printf ("%c", buf);
+      printf_unfiltered ("%c", buf);
     else
-      printf ("<empty character poll>");
+      printf_unfiltered ("<empty character poll>");
 
   return buf & 0x7f;
 }
@@ -276,7 +274,7 @@ sr_write (a, l)
 
   if (sr_get_debug() > 0)
     for (i = 0; i < l; i++)
-      printf ("%c", a[i]);
+      printf_unfiltered ("%c", a[i]);
 
   return;
 }
@@ -573,9 +571,9 @@ gr_multi_scan (list, passthrough)
 	  if (passthrough)
 	    {
 	      for (p = swallowed; p < swallowed_p; ++p)
-		putc (*p, stdout);
+		fputc_unfiltered (*p, gdb_stdout);
 
-	      putc (ch, stdout);
+	      fputc_unfiltered (ch, gdb_stdout);
 	    }
 
 	  swallowed_p = swallowed;
@@ -620,17 +618,66 @@ gr_store_word (addr, word)
   dcache_poke (gr_get_dcache(), addr, word);
 }
 
+/* general purpose load a file specified on the command line
+   into target memory. */
+
+void
+gr_load_image (args, fromtty)
+     char *args;
+     int fromtty;
+{
+  bfd *abfd;
+
+  asection *s;
+  struct cleanup *old_cleanups;
+  int delta = 4096;
+  char *buffer = xmalloc (delta);
+
+  abfd = bfd_openr (args, (char *) 0);
+
+  if (!abfd)
+    perror_with_name (args);
+
+  old_cleanups = make_cleanup (bfd_close, abfd);
+
+  QUIT;
+
+  if (!bfd_check_format (abfd, bfd_object))
+    error ("It doesn't seem to be an object file.\n");
+
+  for (s = abfd->sections; s && !quit_flag; s = s->next)
+    {
+      if (bfd_get_section_flags (abfd, s) & SEC_LOAD)
+	{
+	  int i;
+	  printf_filtered ("%s\t: 0x%4x .. 0x%4x  ",
+			   s->name, s->vma, s->vma + s->_raw_size);
+	  fflush (stdout);
+	  for (i = 0; i < s->_raw_size && !quit_flag; i += delta)
+	    {
+	      int sub_delta = delta;
+	      if (sub_delta > s->_raw_size - i)
+		sub_delta = s->_raw_size - i;
+	      QUIT;
+	      bfd_get_section_contents (abfd, s, buffer, i, sub_delta);
+	      target_write_memory (s->vma + i, buffer, sub_delta);
+	      printf_filtered ("*");
+	      fflush (stdout);
+	    }
+	  printf_filtered ("\n");
+	}
+    }
+
+  free (buffer);
+  write_pc (bfd_get_start_address (abfd));
+  bfd_close (abfd);
+  discard_cleanups (old_cleanups);
+}
+
+
 void
 _initialize_sr_support ()
 {
-/* FIXME-now: if target is open when baud changes... */
-  add_show_from_set (add_set_cmd ("remotebaud", no_class,
-				  var_zinteger, (char *)&baud_rate,
-				  "Set baud rate for remote serial I/O.\n\
-This value is used to set the speed of the serial port when debugging\n\
-using remote targets.", &setlist),
-		     &showlist);
-
 /* FIXME-now: if target is open... */
   add_show_from_set (add_set_cmd ("remotedevice", no_class,
 				  var_filename, (char *)&sr_settings.device,

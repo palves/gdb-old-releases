@@ -1,5 +1,5 @@
 /* Remote debugging interface for MIPS remote debugging protocol.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994 Free Software Foundation, Inc.
    Contributed by Cygnus Support.  Written by Ian Lance Taylor
    <ian@cygnus.com>.
 
@@ -31,6 +31,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "remote-utils.h"
 
 #include <signal.h>
+#include <varargs.h>
 
 /* Prototypes for local functions.  */
 
@@ -52,12 +53,12 @@ static int mips_cksum PARAMS ((const unsigned char *hdr,
 static void
 mips_send_packet PARAMS ((const char *s, int get_ack));
 
-static int
-mips_receive_packet PARAMS ((char *buff));
+static int mips_receive_packet PARAMS ((char *buff, int throw_error,
+					int timeout));
 
 static int
 mips_request PARAMS ((char cmd, unsigned int addr, unsigned int data,
-		      int *perr));
+		      int *perr, int timeout));
 
 static void
 mips_initialize PARAMS ((void));
@@ -71,11 +72,11 @@ mips_close PARAMS ((int quitting));
 static void
 mips_detach PARAMS ((char *args, int from_tty));
 
-static void
-mips_resume PARAMS ((int pid, int step, int siggnal));
+static void mips_resume PARAMS ((int pid, int step,
+				 enum target_signal siggnal));
 
 static int
-mips_wait PARAMS ((int pid, WAITTYPE *status));
+mips_wait PARAMS ((int pid, struct target_waitstatus *status));
 
 static int
 mips_map_regno PARAMS ((int regno));
@@ -280,6 +281,41 @@ static int mips_need_reply = 0;
 /* Handle used to access serial I/O stream.  */
 static serial_t mips_desc;
 
+/* Handle low-level error that we can't recover from.  Note that just
+   error()ing out from target_wait or some such low-level place will cause
+   all hell to break loose--the rest of GDB will tend to get left in an
+   inconsistent state.  */
+
+static void NORETURN
+mips_error (va_alist)
+     va_dcl
+{
+  va_list args;
+  char *string;
+
+  va_start (args);
+  target_terminal_ours ();
+  wrap_here("");			/* Force out any buffered output */
+  gdb_flush (gdb_stdout);
+  if (error_pre_print)
+    fprintf_filtered (gdb_stderr, error_pre_print);
+  string = va_arg (args, char *);
+  vfprintf_filtered (gdb_stderr, string, args);
+  fprintf_filtered (gdb_stderr, "\n");
+  va_end (args);
+
+  /* Clean up in such a way that mips_close won't try to talk to the
+     board (it almost surely won't work since we weren't able to talk to
+     it).  */
+  mips_is_open = 0;
+  SERIAL_CLOSE (mips_desc);
+
+  printf_unfiltered ("Ending remote MIPS debugging.\n");
+  target_mourn_inferior ();
+
+  return_to_top_level (RETURN_ERROR);
+}
+
 /* Read a character from the remote, aborting on error.  Returns
    SERIAL_TIMEOUT on timeout (since that's what SERIAL_READCHAR
    returns).  FIXME: If we see the string "<IDT>" from the board, then
@@ -304,9 +340,9 @@ mips_readchar (timeout)
 
   ch = SERIAL_READCHAR (mips_desc, timeout);
   if (ch == SERIAL_EOF)
-    error ("End of file from remote");
+    mips_error ("End of file from remote");
   if (ch == SERIAL_ERROR)
-    error ("Error reading from remote: %s", safe_strerror (errno));
+    mips_error ("Error reading from remote: %s", safe_strerror (errno));
   if (sr_get_debug () > 1)
     {
       if (ch != SERIAL_TIMEOUT)
@@ -334,7 +370,7 @@ mips_readchar (timeout)
 
       state = 0;
 
-      error ("Remote board reset");
+      mips_error ("Remote board reset");
     }
 
   if (ch == nextstate[state])
@@ -378,13 +414,13 @@ mips_receive_header (hdr, pgarbage, ch, timeout)
 		 should be filtered?  */
 	      if (! mips_initializing || sr_get_debug () > 0)
 		{
-		  putchar (ch);
-		  fflush (stdout);
+		  putchar_unfiltered (ch);
+		  gdb_flush (gdb_stdout);
 		}
 
 	      ++*pgarbage;
 	      if (*pgarbage > mips_syn_garbage)
-		error ("Remote debugging protocol failure");
+		mips_error ("Remote debugging protocol failure");
 	    }
 	}
 
@@ -480,7 +516,7 @@ mips_send_packet (s, get_ack)
 
   len = strlen (s);
   if (len > DATA_MAXLEN)
-    error ("MIPS protocol data packet too long: %s", s);
+    mips_error ("MIPS protocol data packet too long: %s", s);
 
   packet = (unsigned char *) alloca (HDR_LENGTH + len + TRLR_LENGTH + 1);
 
@@ -519,7 +555,7 @@ mips_send_packet (s, get_ack)
 
       if (SERIAL_WRITE (mips_desc, packet,
 			HDR_LENGTH + len + TRLR_LENGTH) != 0)
-	error ("write to target failed: %s", safe_strerror (errno));
+	mips_error ("write to target failed: %s", safe_strerror (errno));
 
       garbage = 0;
       ch = 0;
@@ -592,18 +628,21 @@ mips_send_packet (s, get_ack)
 	}
     }
 
-  error ("Remote did not acknowledge packet");
+  mips_error ("Remote did not acknowledge packet");
 }
 
 /* Receive and acknowledge a packet, returning the data in BUFF (which
    should be DATA_MAXLEN + 1 bytes).  The protocol documentation
    implies that only the sender retransmits packets, so this code just
    waits silently for a packet.  It returns the length of the received
-   packet.  */
+   packet.  If THROW_ERROR is nonzero, call error() on errors.  If not,
+   don't print an error message and return -1.  */
 
 static int
-mips_receive_packet (buff)
+mips_receive_packet (buff, throw_error, timeout)
      char *buff;
+     int throw_error;
+     int timeout;
 {
   int ch;
   int garbage;
@@ -620,8 +659,13 @@ mips_receive_packet (buff)
       int i;
       int err;
 
-      if (mips_receive_header (hdr, &garbage, ch, mips_receive_wait) != 0)
-	error ("Timed out waiting for remote packet");
+      if (mips_receive_header (hdr, &garbage, ch, timeout) != 0)
+	{
+	  if (throw_error)
+	    mips_error ("Timed out waiting for remote packet");
+	  else
+	    return -1;
+	}
 
       ch = 0;
 
@@ -648,14 +692,19 @@ mips_receive_packet (buff)
 	{
 	  int rch;
 
-	  rch = mips_readchar (mips_receive_wait);
+	  rch = mips_readchar (timeout);
 	  if (rch == SYN)
 	    {
 	      ch = SYN;
 	      break;
 	    }
 	  if (rch == SERIAL_TIMEOUT)
-	    error ("Timed out waiting for remote packet");
+	    {
+	      if (throw_error)
+		mips_error ("Timed out waiting for remote packet");
+	      else
+		return -1;
+	    }
 	  buff[i] = rch;
 	}
 
@@ -667,9 +716,14 @@ mips_receive_packet (buff)
 	  continue;
 	}
 
-      err = mips_receive_trailer (trlr, &garbage, &ch, mips_receive_wait);
+      err = mips_receive_trailer (trlr, &garbage, &ch, timeout);
       if (err == -1)
-	error ("Timed out waiting for packet");
+	{
+	  if (throw_error)
+	    mips_error ("Timed out waiting for packet");
+	  else
+	    return -1;
+	}
       if (err == -2)
 	{
 	  if (sr_get_debug () > 0)
@@ -706,7 +760,12 @@ mips_receive_packet (buff)
 	}
 
       if (SERIAL_WRITE (mips_desc, ack, HDR_LENGTH + TRLR_LENGTH) != 0)
-	error ("write to target failed: %s", safe_strerror (errno));
+	{
+	  if (throw_error)
+	    mips_error ("write to target failed: %s", safe_strerror (errno));
+	  else
+	    return -1;
+	}
     }
 
   if (sr_get_debug () > 0)
@@ -737,7 +796,12 @@ mips_receive_packet (buff)
     }
 
   if (SERIAL_WRITE (mips_desc, ack, HDR_LENGTH + TRLR_LENGTH) != 0)
-    error ("write to target failed: %s", safe_strerror (errno));
+    {
+      if (throw_error)
+	mips_error ("write to target failed: %s", safe_strerror (errno));
+      else
+	return -1;
+    }
 
   return len;
 }
@@ -768,11 +832,12 @@ mips_receive_packet (buff)
    target board reports.  */
 
 static int
-mips_request (cmd, addr, data, perr)
+mips_request (cmd, addr, data, perr, timeout)
      char cmd;
      unsigned int addr;
      unsigned int data;
      int *perr;
+     int timeout;
 {
   char buff[DATA_MAXLEN + 1];
   int len;
@@ -798,13 +863,13 @@ mips_request (cmd, addr, data, perr)
 
   mips_need_reply = 0;
 
-  len = mips_receive_packet (buff);
+  len = mips_receive_packet (buff, 1, timeout);
   buff[len] = '\0';
 
   if (sscanf (buff, "0x%x %c 0x%x 0x%x",
 	      &rpid, &rcmd, &rerrflg, &rresponse) != 4
       || (cmd != '\0' && rcmd != cmd))
-    error ("Bad response from remote board");
+    mips_error ("Bad response from remote board");
 
   if (rerrflg != 0)
     {
@@ -830,8 +895,6 @@ static void
 mips_initialize ()
 {
   char cr;
-  int hold_wait;
-  int tries;
   char buff[DATA_MAXLEN + 1];
   int err;
 
@@ -849,19 +912,9 @@ mips_initialize ()
   cr = '\r';
   SERIAL_WRITE (mips_desc, &cr, 1);
 
-  hold_wait = mips_receive_wait;
-  mips_receive_wait = 3;
-
-  tries = 0;
-  while (catch_errors (mips_receive_packet, buff, (char *) NULL,
-		       RETURN_MASK_ALL)
-	 == 0)
+  if (mips_receive_packet (buff, 0, 3) < 0)
     {
       char cc;
-
-      if (tries > 0)
-	error ("Could not connect to target");
-      ++tries;
 
       /* We did not receive the packet we expected; try resetting the
 	 board and trying again.  */
@@ -874,13 +927,14 @@ mips_initialize ()
       cr = '\r';
       SERIAL_WRITE (mips_desc, &cr, 1);
     }
+  mips_receive_packet (buff, 1, 3);
 
-  mips_receive_wait = hold_wait;
   mips_initializing = 0;
 
   /* If this doesn't call error, we have connected; we don't care if
      the request itself succeeds or fails.  */
-  mips_request ('r', (unsigned int) 0, (unsigned int) 0, &err);
+  mips_request ('r', (unsigned int) 0, (unsigned int) 0, &err,
+		mips_receive_wait);
 }
 
 /* Open a connection to the remote board.  */
@@ -911,7 +965,7 @@ device is attached to the target board (e.g., /dev/ttya).");
   mips_initialize ();
 
   if (from_tty)
-    printf ("Remote MIPS debugging using %s\n", name);
+    printf_unfiltered ("Remote MIPS debugging using %s\n", name);
   push_target (&mips_ops);	/* Switch to using remote target now */
 
   /* FIXME: Should we call start_remote here?  */
@@ -930,7 +984,8 @@ mips_close (quitting)
       mips_is_open = 0;
 
       /* Get the board out of remote debugging mode.  */
-      mips_request ('x', (unsigned int) 0, (unsigned int) 0, &err);
+      mips_request ('x', (unsigned int) 0, (unsigned int) 0, &err,
+		    mips_receive_wait);
 
       SERIAL_CLOSE (mips_desc);
     }
@@ -948,7 +1003,7 @@ mips_detach (args, from_tty)
 
   pop_target ();
   if (from_tty)
-    printf ("Ending remote MIPS debugging.\n");
+    printf_unfiltered ("Ending remote MIPS debugging.\n");
 }
 
 /* Tell the target board to resume.  This does not wait for a reply
@@ -956,16 +1011,39 @@ mips_detach (args, from_tty)
 
 static void
 mips_resume (pid, step, siggnal)
-     int pid, step, siggnal;
+     int pid, step;
+     enum target_signal siggnal;
 {
-  if (siggnal)
-    error ("Can't send signals to a remote system.  Try `handle %d ignore'.",
-	   siggnal);
+  if (siggnal != TARGET_SIGNAL_0)
+    warning
+      ("Can't send signals to a remote system.  Try `handle %s ignore'.",
+       target_signal_to_name (siggnal));
 
   mips_request (step ? 's' : 'c',
 		(unsigned int) 1,
 		(unsigned int) 0,
-		(int *) NULL);
+		(int *) NULL,
+		mips_receive_wait);
+}
+
+/* Return the signal corresponding to SIG, where SIG is the number which
+   the MIPS protocol uses for the signal.  */
+enum target_signal
+mips_signal_from_protocol (sig)
+     int sig;
+{
+  /* We allow a few more signals than the IDT board actually returns, on
+     the theory that there is at least *some* hope that perhaps the numbering
+     for these signals is widely agreed upon.  */
+  if (sig <= 0
+      || sig > 31)
+    return TARGET_SIGNAL_UNKNOWN;
+
+  /* Don't want to use target_signal_from_host because we are converting
+     from MIPS signal numbers, not host ones.  Our internal numbers
+     match the MIPS numbers for the signals the board can return, which
+     are: SIGINT, SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGTRAP.  */
+  return (enum target_signal) sig;
 }
 
 /* Wait until the remote stops, and return a wait status.  */
@@ -973,7 +1051,7 @@ mips_resume (pid, step, siggnal)
 static int
 mips_wait (pid, status)
      int pid;
-     WAITTYPE *status;
+     struct target_waitstatus *status;
 {
   int rstatus;
   int err;
@@ -983,24 +1061,34 @@ mips_wait (pid, status)
      indicating that it is stopped.  */
   if (! mips_need_reply)
     {
-      WSETSTOP (*status, SIGTRAP);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_TRAP;
       return 0;
     }
 
-  rstatus = mips_request ('\0', (unsigned int) 0, (unsigned int) 0, &err);
+  /* No timeout; we sit here as long as the program continues to execute.  */
+  rstatus = mips_request ('\0', (unsigned int) 0, (unsigned int) 0, &err, -1);
   if (err)
-    error ("Remote failure: %s", safe_strerror (errno));
+    mips_error ("Remote failure: %s", safe_strerror (errno));
 
-  /* FIXME: The target board uses numeric signal values which are
-     those used on MIPS systems.  If the host uses different signal
-     values, we need to translate here.  I believe all Unix systems
-     use the same values for the signals the board can return, which
-     are: SIGINT, SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGTRAP.  */
-
-  /* FIXME: The target board uses a standard Unix wait status int.  If
-     the host system does not, we must translate here.  */
-
-  *status = rstatus;
+  /* Translate a MIPS waitstatus.  We use constants here rather than WTERMSIG
+     and so on, because the constants we want here are determined by the
+     MIPS protocol and have nothing to do with what host we are running on.  */
+  if ((rstatus & 0377) == 0)
+    {
+      status->kind = TARGET_WAITKIND_EXITED;
+      status->value.integer = (((rstatus) >> 8) & 0377);
+    }
+  else if ((rstatus & 0377) == 0177)
+    {
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = mips_signal_from_protocol (((rstatus) >> 8) & 0377);
+    }
+  else
+    {
+      status->kind = TARGET_WAITKIND_SIGNALLED;
+      status->value.sig = mips_signal_from_protocol (rstatus & 0177);
+    }
 
   return 0;
 }
@@ -1045,7 +1133,7 @@ static void
 mips_fetch_registers (regno)
      int regno;
 {
-  REGISTER_TYPE val;
+  unsigned LONGEST val;
   int err;
 
   if (regno == -1)
@@ -1056,9 +1144,9 @@ mips_fetch_registers (regno)
     }
 
   val = mips_request ('r', (unsigned int) mips_map_regno (regno),
-		      (unsigned int) 0, &err);
+		      (unsigned int) 0, &err, mips_receive_wait);
   if (err)
-    error ("Can't read register %d: %s", regno, safe_strerror (errno));
+    mips_error ("Can't read register %d: %s", regno, safe_strerror (errno));
 
   {
     char buf[MAX_REGISTER_RAW_SIZE];
@@ -1095,9 +1183,9 @@ mips_store_registers (regno)
 
   mips_request ('R', (unsigned int) mips_map_regno (regno),
 		(unsigned int) read_register (regno),
-		&err);
+		&err, mips_receive_wait);
   if (err)
-    error ("Can't write register %d: %s", regno, safe_strerror (errno));
+    mips_error ("Can't write register %d: %s", regno, safe_strerror (errno));
 }
 
 /* Fetch a word from the target board.  */
@@ -1109,13 +1197,15 @@ mips_fetch_word (addr)
   int val;
   int err;
 
-  val = mips_request ('d', (unsigned int) addr, (unsigned int) 0, &err);
+  val = mips_request ('d', (unsigned int) addr, (unsigned int) 0, &err,
+		      mips_receive_wait);
   if (err)
     {
       /* Data space failed; try instruction space.  */
-      val = mips_request ('i', (unsigned int) addr, (unsigned int) 0, &err);
+      val = mips_request ('i', (unsigned int) addr, (unsigned int) 0, &err,
+			  mips_receive_wait);
       if (err)
-	error ("Can't read address 0x%x: %s", addr, safe_strerror (errno));
+	mips_error ("Can't read address 0x%x: %s", addr, safe_strerror (errno));
     }
   return val;
 }
@@ -1129,13 +1219,15 @@ mips_store_word (addr, val)
 {
   int err;
 
-  mips_request ('D', (unsigned int) addr, (unsigned int) val, &err);
+  mips_request ('D', (unsigned int) addr, (unsigned int) val, &err,
+		mips_receive_wait);
   if (err)
     {
       /* Data space failed; try instruction space.  */
-      mips_request ('I', (unsigned int) addr, (unsigned int) val, &err);
+      mips_request ('I', (unsigned int) addr, (unsigned int) val, &err,
+		    mips_receive_wait);
       if (err)
-	error ("Can't write address 0x%x: %s", addr, safe_strerror (errno));
+	mips_error ("Can't write address 0x%x: %s", addr, safe_strerror (errno));
     }
 }
 
@@ -1212,7 +1304,7 @@ static void
 mips_files_info (ignore)
      struct target_ops *ignore;
 {
-  printf ("Debugging a MIPS board over a serial line.\n");
+  printf_unfiltered ("Debugging a MIPS board over a serial line.\n");
 }
 
 /* Kill the process running on the board.  This will actually only
@@ -1248,10 +1340,10 @@ mips_create_inferior (execfile, args, env)
   CORE_ADDR entry_pt;
 
   if (args && *args)
-    error ("Can't pass arguments to remote MIPS board.");
+    mips_error ("Can't pass arguments to remote MIPS board.");
 
   if (execfile == 0 || exec_bfd == 0)
-    error ("No exec file specified");
+    mips_error ("No exec file specified");
 
   entry_pt = (CORE_ADDR) bfd_get_start_address (exec_bfd);
 
@@ -1259,7 +1351,7 @@ mips_create_inferior (execfile, args, env)
 
   /* FIXME: Should we set inferior_pid here?  */
 
-  proceed (entry_pt, -1, 0);
+  proceed (entry_pt, TARGET_SIGNAL_DEFAULT, 0);
 }
 
 /* Clean up after a process.  Actually nothing to do.  */

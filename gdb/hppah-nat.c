@@ -208,7 +208,7 @@ void
 child_resume (pid, step, signal)
      int pid;
      int step;
-     int signal;
+     enum target_signal signal;
 {
   errno = 0;
 
@@ -220,9 +220,11 @@ child_resume (pid, step, signal)
      written a new PC value to the child.)  */
 
   if (step)
-    ptrace (PT_SINGLE, pid, (PTRACE_ARG3_TYPE) 1, signal, 0);
+    ptrace (PT_SINGLE, pid, (PTRACE_ARG3_TYPE) 1, 
+	    target_signal_to_host (signal), 0);
   else
-    ptrace (PT_CONTIN, pid, (PTRACE_ARG3_TYPE) 1, signal, 0);
+    ptrace (PT_CONTIN, pid, (PTRACE_ARG3_TYPE) 1, 
+	    target_signal_to_host (signal), 0);
 
   if (errno)
     perror_with_name ("ptrace");

@@ -3,11 +3,7 @@
 # script appropriate for this directory.  For more information, check
 # any existing configure script.
 
-# At least for a GDB distribution, omitting doc is the right thing since
-# this is part of a GDB distribution only so that inc-hist and rluser
-# can get included in the GDB manual; the programmer's information on
-# readline should probably not get installed or built with a GDB distribution.
-configdirs=
+configdirs=doc
 srctrigger=readline.c
 srcname="the readline library"
 

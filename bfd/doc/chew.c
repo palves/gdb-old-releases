@@ -1281,6 +1281,17 @@ static void DEFUN_VOID(usage)
     exit(33);    
 }
 
+/* There is no reliable way to declare exit.  Sometimes it returns
+   int, and sometimes it returns void.  Sometimes it changes between
+   OS releases.  Trying to get it declared correctly in the hosts file
+   is a pointless waste of time.  */
+
+static void
+chew_exit ()
+{
+  exit (0);
+}
+
 int DEFUN(main,(ac,av),
 int ac AND
 char *av[])
@@ -1310,7 +1321,8 @@ char *av[])
   add_intrinsic("courierize", courierize );
   /* If the following line gives an error, exit() is not declared in the
      ../hosts/foo.h file for this host.  Fix it there, not here!  */
-  add_intrinsic("exit", exit );
+  /* No, don't fix it anywhere; see comment on chew_exit--Ian Taylor.  */
+  add_intrinsic("exit", chew_exit );
   add_intrinsic("swap", swap );
   add_intrinsic("outputdots", outputdots );
   add_intrinsic("paramstuff", paramstuff );

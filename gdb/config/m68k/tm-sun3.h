@@ -17,12 +17,34 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* Let native-versus-cross support code know we are targeting sun3,
-   and modify registers to include sun3 fpustate register.  */
+#ifndef TM_SUN3_H
+#define TM_SUN3_H
 
-#define GDB_TARGET_IS_SUN3 1
+/* Sun3 status includes fpflags, which shows whether the FPU has been used
+   by the process, and whether the FPU was done with an instruction or 
+   was interrupted in the middle of a long instruction.  See
+   <machine/reg.h>.  */
+/*                      a&d, pc,sr, fp, fpstat, fpflags   */
+
+#define REGISTER_BYTES (16*4 + 8 + 8*12 + 3*4 + 4)
+
+#define NUM_REGS 31
+
+#define REGISTER_BYTES_OK(b) \
+     ((b) == REGISTER_BYTES \
+      || (b) == REGISTER_BYTES_FP \
+      || (b) == REGISTER_BYTES_NOFP)
+
+/* If PC contains this instruction, then we know what we are in a system
+   call stub, and the return PC is is at SP+4, instead of SP. */
+
+#define SYSCALL_TRAP 0x4e40	/* trap #0 */
+#define SYSCALL_TRAP_OFFSET 0	/* PC points at trap instruction */
 
 #include "m68k/tm-m68k.h"
+
+/* Disable alternate breakpoint mechanism needed by 68k stub. */
+#undef REMOTE_BREAKPOINT
 
 /* Offsets (in target ints) into jmp_buf.  Not defined by Sun, but at least
    documented in a comment in <machine/setjmp.h>! */
@@ -53,19 +75,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define GET_LONGJMP_TARGET(ADDR) get_longjmp_target(ADDR)
 
-#undef SAVED_PC_AFTER_CALL
-
-#ifdef __STDC__
-struct frame_info;
-#endif
-
-extern CORE_ADDR m68k_saved_pc_after_call PARAMS ((struct frame_info *));
-
-#define SAVED_PC_AFTER_CALL(frame) \
-  m68k_saved_pc_after_call(frame)
-
 /* If sun3 pcc says that a parameter is a short, it's a short.  */
 #define BELIEVE_PCC_PROMOTION_TYPE
+
+/* Can't define BELIEVE_PCC_PROMOTION for SunOS /bin/cc of SunOS 4.1.1.
+   Apparently Sun fixed this for the sparc but not the sun3.  */
 
 /* The code which tries to deal with this bug is never harmful on a sun3.  */
 #define SUN_FIXED_LBRAC_BUG (0)
@@ -88,3 +102,5 @@ extern CORE_ADDR m68k_saved_pc_after_call PARAMS ((struct frame_info *));
 #undef SIG_PC_FP_OFFSET
 #define SIG_PC_FP_OFFSET 324
 #define SIG_SP_FP_OFFSET 332
+
+#endif /* TM_SUN3_H */

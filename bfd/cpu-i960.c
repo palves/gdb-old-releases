@@ -111,15 +111,15 @@ DEFUN(compatible,(a,b),
 
 
   static CONST char matrix[7][7] = 
-      {
-	ERROR,CORE,	KA,	KB,	MC,	XA,	CA,
-	CORE,	CORE,	KA,	KB,	MC,	XA,	CA,
-	KA,	KA,	KA,	KB,	MC,	XA,	ERROR,
-	KB,	KB,	KB,	KB,	MC,	XA,	ERROR,
-	MC,	MC,	MC,	MC,	MC,	XA,	ERROR,
-	XA,	XA,	XA,	XA,	XA,	XA,	ERROR,
-	CA,	CA,	ERROR,	ERROR,	ERROR,	ERROR,	CA 
-	};
+    {
+      { ERROR,	CORE,	KA,	KB,	MC,	XA,	CA },
+      { CORE,	CORE,	KA,	KB,	MC,	XA,	CA },
+      { KA,	KA,	KA,	KB,	MC,	XA,	ERROR },
+      { KB,	KB,	KB,	KB,	MC,	XA,	ERROR },
+      { MC,	MC,	MC,	MC,	MC,	XA,	ERROR },
+      { XA,	XA,	XA,	XA,	XA,	XA,	ERROR },
+      { CA,	CA,	ERROR,	ERROR,	ERROR,	ERROR,	CA }
+    };
 
 
   if (a->arch != b->arch || matrix[a->mach][b->mach] == ERROR) 

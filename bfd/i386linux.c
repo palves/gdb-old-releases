@@ -13,14 +13,11 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* The reason for the text segment offset is to align things suitably
-   for demand paging.  However, for unknown reason Linux's text segment
-   is offset by 1024, while the true page size is 4096.  The former
-   is the one we care about here.
-*/
-#define	PAGE_SIZE	1024
+#define	PAGE_SIZE	4096
+#define ZMAGIC_DISK_BLOCK_SIZE 1024
 #define	SEGMENT_SIZE	4096
 #define TEXT_START_ADDR	0x0
+#define N_SHARED_LIB(x) 0
 #define ARCH 32
 #define BYTES_IN_WORD 4
 #include "bfd.h"

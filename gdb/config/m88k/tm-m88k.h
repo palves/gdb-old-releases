@@ -102,9 +102,11 @@ extern CORE_ADDR skip_prologue ();
 
 #define INVALID_FLOAT(p,len) 0
 
-/* Say how long (ordinary) registers are.  */
+/* Say how long (ordinary) registers are.  This is a piece of bogosity
+   used in push_word and a few other places; REGISTER_RAW_SIZE is the
+   real way to know how big a register is.  */
 
-#define REGISTER_TYPE long
+#define REGISTER_SIZE 4
 
 /* Number of machine registers */
 
@@ -386,27 +388,25 @@ if (!target_is_m88110) \
 
 #define REGISTER_CONVERTIBLE(N) ((N) >= XFP_REGNUM)
 
-  /* Convert data from raw format for register REGNUM
-     to virtual format for register REGNUM.  */
+extern const struct ext_format ext_format_m88110;
 
-  extern const struct ext_format ext_format_m88110;
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO) \
+/* Convert data from raw format for register REGNUM in buffer FROM
+   to virtual format with type TYPE in buffer TO.  */
+
+#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,TYPE,FROM,TO) \
 { \
-  if ((REGNUM) < XFP_REGNUM) \
-    memcpy ((TO), (FROM), REGISTER_RAW_SIZE (REGNUM)); \
-      else ieee_extended_to_double(&ext_format_m88110, \
-				   (FROM), (double *)(TO)); \
+  double val; \
+  ieee_extended_to_double (&ext_format_m88110, (FROM), &val); \
+  store_floating ((TO), TYPE_LENGTH (TYPE), val); \
 }
 
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
+/* Convert data from virtual format with type TYPE in buffer FROM
+   to raw format for register REGNUM in buffer TO.  */
 
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO) \
+#define REGISTER_CONVERT_TO_RAW(TYPE,REGNUM,FROM,TO)	\
 { \
-    if ((REGNUM) < XFP_REGNUM) \
-      memcpy ((TO), (FROM), REGISTER_RAW_SIZE (REGNUM)); \
-	else double_to_ieee_extended (&ext_format_m88110, \
-				      (double *)(FROM), (TO)); \
+  double val = extract_floating ((FROM), TYPE_LENGTH (TYPE)); \
+  double_to_ieee_extended (&ext_format_m88110, &val, (TO)); \
 }
 
 /* Return the GDB type object for the "standard" data type

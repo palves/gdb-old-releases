@@ -28,7 +28,7 @@ hppa*-*-osf*)		my_host=hppaosf ;;
 i[34]86-*-bsd*)		my_host=i386bsd ;;
 i[34]86-*-netbsd*)	my_host=i386bsd ;;
 i[34]86-ncr*-sysv4*)	my_host=ncr3000 ;;
-i[34]86-*-go32*)		my_host=go32 ;;
+i[34]86-*-go32*)	my_host=go32 ;;
 i[34]86-esix-sysv3*)	my_host=esix ;;
 i[34]86-*-sysv4*)	my_host=i386v4 ;;
 i[34]86-*-sysv*)	my_host=i386v ;;
@@ -48,6 +48,7 @@ mips-dec-bsd*)          my_host=mipsbsd ;;
 mips-dec-*)		my_host=decstation ;;
 mips-sgi-irix3*)	my_host=irix3 ;;
 mips-sgi-irix4*)	my_host=irix4 ;;
+mips-sgi-irix5*)	my_host=irix5 ;;
 mips-*-sysv*)		my_host=riscos ;;
 mips-*-riscos*)		my_host=riscos ;;
 mips-sony-bsd*)		my_host=news-mips ;;
@@ -77,10 +78,11 @@ romp-*-*)		my_host=rtbsd ;;
 
 rs6000-*-*)		my_host=rs6000 ;;
 
+sparc-*-lynxos*)	my_host=sparclynx ;;
 sparc-*-sunos64*)	my_host=sparc-ll ;;
 sparc-*-sysv4*)		my_host=sysv4 ;;
 sparc-*-solaris2*)	my_host=solaris2 ;;
-sparc-*-sysv64*)		my_host=sysv4-ll ;;
+sparc-*-sysv64*)	my_host=sysv4-ll ;;
 sparc-*-*)		my_host=sparc ;;
 
 tahoe-*-*)		my_host=tahoe ;;

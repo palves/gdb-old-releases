@@ -632,7 +632,9 @@ DEFUN(coff_swap_aouthdr_out,(abfd, in, out),
 #endif
 
 #ifdef ALPHAECOFF
-  bfd_h_put_32(abfd, 0, (bfd_byte *) aouthdr_out->padding);
+  /* FIXME: What does bldrev mean?  */
+  bfd_h_put_16(abfd, (bfd_vma) 2, (bfd_byte *) aouthdr_out->bldrev);
+  bfd_h_put_16(abfd, (bfd_vma) 0, (bfd_byte *) aouthdr_out->padding);
   bfd_h_put_64(abfd, aouthdr_in->bss_start, (bfd_byte *) aouthdr_out->bss_start);
   bfd_h_put_64(abfd, aouthdr_in->gp_value, (bfd_byte *) aouthdr_out->gp_value);
   bfd_h_put_32(abfd, aouthdr_in->gprmask, (bfd_byte *) aouthdr_out->gprmask);

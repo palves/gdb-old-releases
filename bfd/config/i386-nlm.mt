@@ -1,4 +1,11 @@
-# Target:  Intel i386 using Univel's NetWare Loadable Module (NLM) format.
+# Target:  Intel i386 using Novell's NetWare Loadable Module (NLM) format.
 
-DEFAULT_VECTOR=nlm32_i386_vec
+# Note that we produce elf output and only convert it at the last
+# moment to NLMs.  We could in principle generate NLMs directly, but I
+# don't think the format is really rich enough to do this, and anyway,
+# this can be more convenient for the user.  We can convert coff too.
+
+DEFAULT_VECTOR=bfd_elf32_i386_vec
+
+SELECT_VECS=nlm32_i386_vec i386coff_vec
 SELECT_ARCHITECTURES=bfd_i386_arch

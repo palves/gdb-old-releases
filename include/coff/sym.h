@@ -248,7 +248,7 @@ typedef struct {
  *	Same as the SYMR except it contains file context to determine where
  *	the index is.
  */
-typedef struct {
+typedef struct ecoff_extr {
 	unsigned jmptbl:1;	/* symbol is a jump table entry for shlibs */
 	unsigned cobol_main:1;	/* symbol is a cobol main procedure */
 	unsigned weakext:1;	/* symbol is weak external */

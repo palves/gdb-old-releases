@@ -21,9 +21,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #if !defined (GDBTYPES_H)
 #define GDBTYPES_H 1
 
-/* When gdb creates fundamental types, it uses one of the following
-   type identifiers.  The identifiers are used to index a vector of
-   pointers to any types that are created. */
+/* Codes for `fundamental types'.  This is a monstrosity based on the
+   bogus notion that there are certain compiler-independent
+   `fundamental types'.  None of these is well-defined (how big is
+   FT_SHORT?  Does it depend on the language?  How does the
+   language-specific code know which type to correlate to FT_SHORT?)  */
 
 #define FT_VOID			0
 #define FT_BOOLEAN		1
@@ -89,8 +91,16 @@ enum type_code
 
   TYPE_CODE_SET,		/* Pascal sets */
   TYPE_CODE_RANGE,		/* Range (integers within spec'd bounds) */
-  TYPE_CODE_STRING,		/* String types, distinct from array of char */
-  TYPE_CODE_BITSTRING,		/* String of bits, distinct from bool array */
+
+  /* A string type which is like an array of character but prints
+     differently (at least for CHILL).  It does not contain a length
+     field as Pascal strings (for many Pascals, anyway) do; if we want
+     to deal with such strings, we should use a new type code.  */
+  TYPE_CODE_STRING,
+
+  /* String of bits; like TYPE_CODE_SET but prints differently (at least
+     for CHILL).  */
+  TYPE_CODE_BITSTRING,
 
   /* Unknown type.  The length field is valid if we were able to
      deduce that much about the type, or 0 if we don't even know that.  */
@@ -114,13 +124,10 @@ enum type_code
 
 /* Some bits for the type's flags word. */
 
-/* Explicitly unsigned integer type */
+/* Unsigned integer type.  If this is not set for a TYPE_CODE_INT, the
+   type is signed.  */
 
 #define TYPE_FLAG_UNSIGNED	(1 << 0)
-
-/* Explicitly signed integer type */
-
-#define TYPE_FLAG_SIGNED	(1 << 1)
 
 /* This appears in a type's flags word if it is a stub type (e.g., if
    someone referenced a type that wasn't defined in a source file
@@ -128,6 +135,12 @@ enum type_code
 
 #define TYPE_FLAG_STUB		(1 << 2)
 
+/* The target type of this type is a stub type, and this type needs to
+   be updated if it gets un-stubbed in check_stub_type.  Currently only
+   used for arrays, in which TYPE_LENGTH of the array gets set based
+   on the TYPE_LENGTH of the target type.  */
+
+#define TYPE_FLAG_TARGET_STUB (1 << 3)
 
 struct type
 {
@@ -347,6 +360,11 @@ struct cplus_struct_type
 
   B_TYPE *protected_field_bits;
 
+  /* for classes with fields to be ignored, either this is optimized out
+     or this field has length 0 */
+
+  B_TYPE *ignore_field_bits;
+
   /* For classes, structures, and unions, a description of each field,
      which consists of an overloaded name, followed by the types of
      arguments that the method expects, and then the name after it
@@ -453,6 +471,12 @@ allocate_cplus_struct_type PARAMS ((struct type *));
 #define TYPE_NFIELDS(thistype) (thistype)->nfields
 #define TYPE_FIELDS(thistype) (thistype)->fields
 
+#define TYPE_LOW_BOUND(range_type) TYPE_FIELD_BITPOS (range_type, 0)
+#define TYPE_HIGH_BOUND(range_type) TYPE_FIELD_BITPOS (range_type, 1)
+/* If TYPE_DUMMY_RANGE is true for a range type, it was allocated
+   by force_to_range_type. */
+#define TYPE_DUMMY_RANGE(type) ((type)->vptr_fieldno)
+
 /* C++ */
 
 #define TYPE_VPTR_BASETYPE(thistype) (thistype)->vptr_basetype
@@ -484,12 +508,16 @@ allocate_cplus_struct_type PARAMS ((struct type *));
   TYPE_CPLUS_SPECIFIC(thistype)->private_field_bits
 #define TYPE_FIELD_PROTECTED_BITS(thistype) \
   TYPE_CPLUS_SPECIFIC(thistype)->protected_field_bits
+#define TYPE_FIELD_IGNORE_BITS(thistype) \
+  TYPE_CPLUS_SPECIFIC(thistype)->ignore_field_bits
 #define TYPE_FIELD_VIRTUAL_BITS(thistype) \
   TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits
 #define SET_TYPE_FIELD_PRIVATE(thistype, n) \
   B_SET (TYPE_CPLUS_SPECIFIC(thistype)->private_field_bits, (n))
 #define SET_TYPE_FIELD_PROTECTED(thistype, n) \
   B_SET (TYPE_CPLUS_SPECIFIC(thistype)->protected_field_bits, (n))
+#define SET_TYPE_FIELD_IGNORE(thistype, n) \
+  B_SET (TYPE_CPLUS_SPECIFIC(thistype)->ignore_field_bits, (n))
 #define SET_TYPE_FIELD_VIRTUAL(thistype, n) \
   B_SET (TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits, (n))
 #define TYPE_FIELD_PRIVATE(thistype, n) \
@@ -498,6 +526,9 @@ allocate_cplus_struct_type PARAMS ((struct type *));
 #define TYPE_FIELD_PROTECTED(thistype, n) \
   (TYPE_CPLUS_SPECIFIC(thistype)->protected_field_bits == NULL ? 0 \
     : B_TST(TYPE_CPLUS_SPECIFIC(thistype)->protected_field_bits, (n)))
+#define TYPE_FIELD_IGNORE(thistype, n) \
+  (TYPE_CPLUS_SPECIFIC(thistype)->ignore_field_bits == NULL ? 0 \
+    : B_TST(TYPE_CPLUS_SPECIFIC(thistype)->ignore_field_bits, (n)))
 #define TYPE_FIELD_VIRTUAL(thistype, n) \
        B_TST(TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits, (n))
 
@@ -656,6 +687,9 @@ extern struct type *
 create_string_type PARAMS ((struct type *, struct type *));
 
 extern struct type *
+create_set_type PARAMS ((struct type *, struct type *));
+
+extern struct type *
 lookup_unsigned_typename PARAMS ((char *));
 
 extern struct type *
@@ -695,7 +729,7 @@ extern void recursive_dump_type PARAMS ((struct type *, int));
 /* printcmd.c */
 
 extern void
-print_scalar_formatted PARAMS ((char *, struct type *, int, int, FILE *));
+print_scalar_formatted PARAMS ((char *, struct type *, int, int, GDB_FILE *));
 
 #if MAINTENANCE_CMDS
 extern void maintenance_print_type PARAMS ((char *, int));

@@ -36,21 +36,31 @@
 #define _RDATA	".rdata"
 #define _SDATA	".sdata"
 #define _SBSS	".sbss"
+#define _LITA	".lita"
 #define _LIT4	".lit4"
 #define _LIT8	".lit8"
 #define _LIB	".lib"
 #define _INIT	".init"
 #define _FINI	".fini"
+#define _PDATA	".pdata"
+#define _XDATA	".xdata"
 
 /* ECOFF uses some additional section flags.  */
-#define STYP_RDATA 0x100
-#define STYP_SDATA 0x200
-#define STYP_SBSS 0x400
-#define STYP_ECOFF_FINI 0x1000000
-#define STYP_LIT8 0x8000000
-#define STYP_LIT4 0x10000000
+#define STYP_RDATA	     0x100
+#define STYP_SDATA	     0x200
+#define STYP_SBSS	     0x400
+#define STYP_ECOFF_FINI	 0x1000000
+#define STYP_EXTENDESC	 0x2000000 /* 0x02FFF000 bits => scn type, rest clr */
+#define STYP_LITA	 0x4000000
+#define STYP_LIT8	 0x8000000
+#define STYP_LIT4	0x10000000
 #define STYP_ECOFF_INIT 0x80000000
 #define STYP_OTHER_LOAD (STYP_ECOFF_INIT | STYP_ECOFF_FINI)
+
+/* extended section types */
+#define STYP_COMMENT	 0x2100000
+#define STYP_XDATA	 0x2400000
+#define STYP_PDATA	 0x2800000
 
 /* The linker needs a section to hold small common variables while
    linking.  There is no convenient way to create it when the linker
@@ -104,6 +114,8 @@ struct ecoff_reginfo
 #define RELOC_SECTION_FINI     12
 #define RELOC_SECTION_LITA     13
 #define RELOC_SECTION_ABS      14
+
+#define NUM_RELOC_SECTIONS     15
 
 /********************** STABS **********************/
 
@@ -258,5 +270,104 @@ extern void ecoff_swap_rndx_in PARAMS ((int bigend, struct rndx_ext *,
 					RNDXR *));
 extern void ecoff_swap_rndx_out PARAMS ((int bigend, RNDXR *,
 					 struct rndx_ext *));
+
+/********************** SWAPPING **********************/
+
+/* The generic ECOFF code needs to be able to swap debugging
+   information in and out in the specific format used by a particular
+   ECOFF implementation.  This structure provides the information
+   needed to do this.  */
+
+struct ecoff_debug_swap
+{
+  /* Symbol table magic number.  */
+  int sym_magic;
+  /* Alignment of debugging information.  E.g., 4.  */
+  bfd_size_type debug_align;
+  /* Sizes of external symbolic information.  */
+  bfd_size_type external_hdr_size;
+  bfd_size_type external_dnr_size;
+  bfd_size_type external_pdr_size;
+  bfd_size_type external_sym_size;
+  bfd_size_type external_opt_size;
+  bfd_size_type external_fdr_size;
+  bfd_size_type external_rfd_size;
+  bfd_size_type external_ext_size;
+  /* Functions to swap in external symbolic data.  */
+  void (*swap_hdr_in) PARAMS ((bfd *, PTR, HDRR *));
+  void (*swap_dnr_in) PARAMS ((bfd *, PTR, DNR *));
+  void (*swap_pdr_in) PARAMS ((bfd *, PTR, PDR *));
+  void (*swap_sym_in) PARAMS ((bfd *, PTR, SYMR *));
+  void (*swap_opt_in) PARAMS ((bfd *, PTR, OPTR *));
+  void (*swap_fdr_in) PARAMS ((bfd *, PTR, FDR *));
+  void (*swap_rfd_in) PARAMS ((bfd *, PTR, RFDT *));
+  void (*swap_ext_in) PARAMS ((bfd *, PTR, EXTR *));
+  /* Functions to swap out external symbolic data.  */
+  void (*swap_hdr_out) PARAMS ((bfd *, const HDRR *, PTR));
+  void (*swap_dnr_out) PARAMS ((bfd *, const DNR *, PTR));
+  void (*swap_pdr_out) PARAMS ((bfd *, const PDR *, PTR));
+  void (*swap_sym_out) PARAMS ((bfd *, const SYMR *, PTR));
+  void (*swap_opt_out) PARAMS ((bfd *, const OPTR *, PTR));
+  void (*swap_fdr_out) PARAMS ((bfd *, const FDR *, PTR));
+  void (*swap_rfd_out) PARAMS ((bfd *, const RFDT *, PTR));
+  void (*swap_ext_out) PARAMS ((bfd *, const EXTR *, PTR));
+  /* As noted above, it so happens that the auxiliary type information
+   has the same type and format for all known ECOFF targets.  I don't
+   see any reason that that should change, so at least for now the
+   auxiliary swapping information is not in this table.  */
+};
+
+/********************** SYMBOLS **********************/
+
+/* For efficiency, gdb deals directly with the unswapped symbolic
+   information (that way it only takes the time to swap information
+   that it really needs to read).  gdb originally retrieved the
+   information directly from the BFD backend information, but that
+   strategy, besides being sort of ugly, does not work for MIPS ELF,
+   which also uses ECOFF debugging information.  This structure holds
+   pointers to the (mostly) unswapped symbolic information.  */
+
+struct ecoff_debug_info
+{
+  /* The swapped ECOFF symbolic header.  */
+  HDRR symbolic_header;
+
+  /* Pointers to the unswapped symbolic information.  Note that the
+     pointers to external structures point to different sorts of
+     information on different ECOFF targets.  The ecoff_debug_swap
+     structure provides the sizes of the structures and the functions
+     needed to swap the information in and out.  These pointers are
+     all pointers to arrays, not single structures.  They will be NULL
+     if there are no instances of the relevant structure.  These
+     fields are also used by the assembler to output ECOFF debugging
+     information.  */
+  unsigned char *line;
+  PTR external_dnr;	/* struct dnr_ext */
+  PTR external_pdr;	/* struct pdr_ext */
+  PTR external_sym;	/* struct sym_ext */
+  PTR external_opt;	/* struct opt_ext */
+  union aux_ext *external_aux;
+  char *ss;
+  char *ssext;
+  PTR external_fdr;	/* struct fdr_ext */
+  PTR external_rfd;	/* struct rfd_ext */
+  PTR external_ext;	/* struct ext_ext */
+
+  /* These fields are used when linking.  They may disappear at some
+     point.  */
+  char *ssext_end;
+  PTR external_ext_end;
+
+  /* When linking, this field holds a mapping from the input FDR
+     numbers to the output numbers, and is used when writing out the
+     external symbols.  It is NULL if no mapping is required.  */
+  RFDT *ifdmap;
+
+  /* The swapped FDR information.  Currently this is never NULL, but
+     code using this structure should probably double-check in case
+     this changes in the future.  This is a pointer to an array, not a
+     single structure.  */
+  FDR *fdr;
+};
 
 #endif /* ! defined (ECOFF_H) */

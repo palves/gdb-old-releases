@@ -42,32 +42,59 @@ static void put_abs();
 
 
 /* Print the i960 instruction at address 'memaddr' in debugged memory,
- * on stream 's'.  Returns length of the instruction, in bytes.
- */
+   on INFO->STREAM.  Returns length of the instruction, in bytes.  */
+
 int
 print_insn_i960 (memaddr, info_arg)
     bfd_vma memaddr;
     struct disassemble_info *info_arg;
 {
-  unsigned int word1, word2;
+  unsigned int word1, word2 = 0xdeadbeef;
   char buffer[8];
+  int status;
+
   info = info_arg;
   stream = info->stream;
 
-  /* FIXME, should only read as much of this as we actually need to
-     disassemble.  word1 might be the last word of a section.  */
-  {
-    int status =
-      (*info->read_memory_func) (memaddr, (bfd_byte *) buffer, 8, info);
-    if (status != 0)
-      {
-	(*info->memory_error_func) (status, memaddr, info);
-	return -1;
-      }
-  }
+  /* Read word1.  Only read word2 if the instruction
+     needs it, to prevent reading past the end of a section.  */
 
-  word1 =buffer [0] |( buffer[1]<< 8) | (buffer[2] << 16) | ( buffer[3] <<24);
-  word2 =buffer [4] |( buffer[5]<< 8) | (buffer[6] << 16) | ( buffer[7] <<24);
+  status = (*info->read_memory_func) (memaddr, (bfd_byte *) buffer, 4, info);
+  if (status != 0)
+    {
+      (*info->memory_error_func) (status, memaddr, info);
+      return -1;
+    }
+
+  word1 = buffer [0] |( buffer[1]<< 8) | (buffer[2] << 16) | ( buffer[3] <<24);
+
+  /* Divide instruction set into classes based on high 4 bits of opcode.  */
+  switch ( (word1 >> 28) & 0xf )
+    {
+    default:
+      break;
+    case 0x0:
+    case 0x1:
+    case 0x2:
+    case 0x3:
+    case 0x8:
+    case 0x9:
+    case 0xa:
+    case 0xb:
+    case 0xc:
+      /* Read word2.  */
+      status = (*info->read_memory_func)
+	(memaddr + 4, (bfd_byte *) (buffer + 4), 4, info);
+      if (status != 0)
+	{
+	  (*info->memory_error_func) (status, memaddr, info);
+	  return -1;
+	}
+      word2 =
+	buffer [4] |( buffer[5]<< 8) | (buffer[6] << 16) | ( buffer[7] <<24);
+      break;
+    }
+
   return pinsn( memaddr, word1, word2 );
 }
 

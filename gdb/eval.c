@@ -24,6 +24,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "expression.h"
 #include "target.h"
 #include "frame.h"
+#include "demangle.h"
 #include "language.h"	/* For CAST_IS_CONVERSION */
 
 /* Values of NOSIDE argument to eval_subexp.  */
@@ -416,16 +417,25 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	{
 	  int static_memfuncp;
 	  value temp = arg2;
+	  char tstr[64], mangle_tstr[15], *ptr, *mangle_ptr;
+	  char *pp;
 
 	  argvec[1] = arg2;
-	  argvec[0] =
-	    value_struct_elt (&temp, argvec+1, &exp->elts[pc2 + 2].string,
+	  argvec[0] = 0;
+	  strcpy(tstr, &exp->elts[pc2+2].string);
+          if (!argvec[0]) 
+	    {
+	      temp = arg2;
+	      argvec[0] =
+	      value_struct_elt (&temp, argvec+1, tstr,
 			      &static_memfuncp,
 			      op == STRUCTOP_STRUCT
 			      ? "structure" : "structure pointer");
-	  arg2 = value_from_longest (lookup_pointer_type (VALUE_TYPE (temp)),
-				     VALUE_ADDRESS (temp)+VALUE_OFFSET (temp));
+	    }
+	  arg2 = value_from_longest (lookup_pointer_type(VALUE_TYPE (temp)),
+			 VALUE_ADDRESS (temp)+VALUE_OFFSET (temp));
 	  argvec[1] = arg2;
+
 	  if (static_memfuncp)
 	    {
 	      argvec[1] = argvec[0];
@@ -623,6 +633,13 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	return value_x_binop (arg1, arg2, op, OP_NULL);
       else
 	return value_subscript (arg1, arg2);
+
+    case BINOP_IN:
+      arg1 = evaluate_subexp_with_coercion (exp, pos, noside);
+      arg2 = evaluate_subexp_with_coercion (exp, pos, noside);
+      if (noside == EVAL_SKIP)
+	goto nosideret;
+      return value_in (arg1, arg2);
       
     case MULTI_SUBSCRIPT:
       (*pos) += 2;

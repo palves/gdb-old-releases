@@ -69,7 +69,7 @@ DOCFILES = aoutx.texi  archive.texi archures.texi \
 	bfd.texi  cache.texi coffcode.texi \
 	core.texi elf.texi elfcode.texi  format.texi  libbfd.texi  \
 	opncls.texi  reloc.texi  section.texi  \
-	syms.texi  targets.texi init.texi ctor.texi
+	syms.texi  targets.texi init.texi ctor.texi hash.texi linker.texi
 
 PROTOS = archive.p archures.p bfd.p \
 	 core.p format.p \
@@ -90,21 +90,19 @@ SRCDOC = $(srcdir)/../aoutx.h  $(srcdir)/../archive.c \
 	$(srcdir)/../libbfd.c $(srcdir)/../opncls.c \
 	$(srcdir)/../reloc.c  $(srcdir)/../section.c \
 	$(srcdir)/../syms.c  $(srcdir)/../targets.c \
-	$(srcdir)/../init.c $(srcdir)/../seclet.c
+	$(srcdir)/../hash.c $(srcdir)/../linker.c
 
 SRCPROT = $(srcdir)/../archive.c $(srcdir)/../archures.c \
 	$(srcdir)/../bfd.c $(srcdir)/../coffcode.h $(srcdir)/../core.c \
 	$(srcdir)/../format.c $(srcdir)/../libbfd.c \
 	$(srcdir)/../opncls.c $(srcdir)/../reloc.c \
 	$(srcdir)/../section.c $(srcdir)/../syms.c \
-	$(srcdir)/../targets.c $(srcdir)/../init.c \
-	$(srcdir)/../seclet.c    
+	$(srcdir)/../targets.c $(srcdir)/../init.c
 
 SRCIPROT = $(srcdir)/../cache.c $(srcdir)/../libbfd.c \
 	$(srcdir)/../reloc.c $(srcdir)/../cpu-h8300.c \
 	$(srcdir)/../cpu-i960.c $(srcdir)/../archures.c \
-	$(srcdir)/../init.c $(srcdir)/../ctor.c \
-	$(srcdir)/../seclet.c
+	$(srcdir)/../init.c $(srcdir)/../ctor.c
 
 STAGESTUFF = $(DOCFILES) *.info*
 
@@ -141,7 +139,7 @@ aoutx.texi: $(MKDOC) $(srcdir)/../aoutx.h $(srcdir)/doc.str
 archive.texi: $(MKDOC) $(srcdir)/../archive.c $(srcdir)/doc.str
 	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../archive.c >archive.texi 
 
-archures.texi:  $(srcdir)/../archures.c $(srcdir)/doc.str
+archures.texi: $(MKDOC) $(srcdir)/../archures.c $(srcdir)/doc.str
 	$(MKDOC) -f $(srcdir)/doc.str < $(srcdir)/../archures.c >archures.texi 
 
 bfd.texi: $(MKDOC) $(srcdir)/../bfd.c $(srcdir)/doc.str
@@ -189,6 +187,11 @@ init.texi: $(MKDOC) $(srcdir)/../init.c $(srcdir)/doc.str
 ctor.texi: $(MKDOC) $(srcdir)/../ctor.c $(srcdir)/doc.str
 	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../ctor.c >ctor.texi
 
+hash.texi: $(MKDOC) $(srcdir)/../hash.c $(srcdir)/doc.str
+	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../hash.c >hash.texi
+
+linker.texi: $(MKDOC) $(srcdir)/../linker.c $(srcdir)/doc.str
+	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../linker.c >linker.texi
 
 libbfd.h: $(srcdir)/../libbfd-in.h	\
 	$(srcdir)/../init.c		\
@@ -196,7 +199,6 @@ libbfd.h: $(srcdir)/../libbfd-in.h	\
 	$(srcdir)/../cache.c		\
 	$(srcdir)/../ctor.c		\
 	$(srcdir)/../reloc.c		\
-	$(srcdir)/../seclet.c		\
 	$(srcdir)/../cpu-h8300.c	\
 	$(srcdir)/../cpu-i960.c		\
 	$(srcdir)/../archures.c		\
@@ -208,7 +210,6 @@ libbfd.h: $(srcdir)/../libbfd-in.h	\
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../cache.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../ctor.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../reloc.c >>libbfd.h
-	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../seclet.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../cpu-h8300.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../cpu-i960.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../archures.c >>libbfd.h
@@ -228,7 +229,6 @@ bfd.h: $(srcdir)/../bfd-in.h 		\
 	$(srcdir)/../section.c 		\
 	$(srcdir)/../archures.c		\
 	$(srcdir)/../reloc.c		\
-	$(srcdir)/../seclet.c		\
 	$(srcdir)/../syms.c		\
 	$(srcdir)/../bfd.c		\
 	$(srcdir)/../archive.c		\
@@ -243,7 +243,6 @@ bfd.h: $(srcdir)/../bfd-in.h 		\
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../section.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../archures.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../reloc.c >>bfd.h
-	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../seclet.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../syms.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../bfd.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../archive.c >>bfd.h

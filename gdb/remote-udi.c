@@ -50,10 +50,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* access the register store directly, without going through
    the normal handler functions. This avoids an extra data copy.  */
 
-extern int remote_debug;
 extern int stop_soon_quietly;           /* for wait_for_inferior */
 extern struct value *call_function_by_hand();
-static void udi_resume PARAMS ((int pid, int step, int sig));
+static void udi_resume PARAMS ((int pid, int step, enum target_signal sig));
 static void udi_fetch_registers PARAMS ((int regno));
 static void udi_load PARAMS ((char *args, int from_tty));
 static void fetch_register PARAMS ((int regno));
@@ -71,12 +70,6 @@ char   CoffFileName[100] = "";
 
 #define FREEZE_MODE     (read_register(CPS_REGNUM) & 0x400)
 #define USE_SHADOW_PC	((processor_type == a29k_freeze_mode) && FREEZE_MODE)
-
-/* FIXME: Replace with `set remotedebug'.  Also, seems not to be used.  */
-#define LLOG_FILE "udi.log"
-#if defined (LOG_FILE)
-FILE *log_file;
-#endif
 
 static int timeout = 5;
 extern struct target_ops udi_ops;             /* Forward declaration */
@@ -122,10 +115,6 @@ extern	char	dfe_errmsg[];		/* error string */
 /* malloc'd name of the program on the remote system.  */
 static char *prog_name = NULL;
 
-/* Number of SIGTRAPs we need to simulate.  That is, the next
-   NEED_ARTIFICIAL_TRAP calls to udi_wait should just return
-   SIGTRAP without actually waiting for anything.  */
-
 /* This is called not only when we first attach, but also when the
    user types "run" after having attached.  */
 
@@ -150,7 +139,7 @@ udi_create_inferior (execfile, args, env)
 
   if (udi_session_id < 0)
     {
-      printf("UDI connection not open yet.\n");
+      printf_unfiltered("UDI connection not open yet.\n");
       return;
     }
 
@@ -174,7 +163,7 @@ udi_create_inferior (execfile, args, env)
 
   init_wait_for_inferior ();
   clear_proceed_status ();
-  proceed(-1,-1,0);
+  proceed (-1, TARGET_SIGNAL_DEFAULT, 0);
 }
 
 static void
@@ -187,6 +176,9 @@ udi_mourn()
      to work between "target udi" and "run", so why not now?  */
   pop_target ();                /* Pop back to no-child state */
 #endif
+  /* But if we're going to want to run it again, we better remove the
+     breakpoints...  */
+  remove_breakpoints ();
   generic_mourn_inferior ();
 }
 
@@ -235,11 +227,6 @@ udi_open (name, from_tty)
 
   push_target (&udi_ops);
 
-#if defined (LOG_FILE)
-  log_file = fopen (LOG_FILE, "w");
-  if (log_file == NULL)
-    error ("udi_open: fopen(%s) %s", LOG_FILE, safe_strerror(errno));
-#endif
   /*
   ** Initialize target configuration structure (global)
   */
@@ -247,13 +234,13 @@ udi_open (name, from_tty)
 			  ChipVersions, &NumberOfChips))
     error ("UDIGetTargetConfig() failed");
   if (NumberOfChips > 2)
-    fprintf(stderr,"Target has more than one processor\n");
+    fprintf_unfiltered(gdb_stderr,"Target has more than one processor\n");
   for (cnt=0; cnt < NumberOfRanges; cnt++)
     {
       switch(KnownMemory[cnt].Space)
 	{
 	default:
-	  fprintf(stderr, "UDIGetTargetConfig() unknown memory space\n");
+	  fprintf_unfiltered(gdb_stderr, "UDIGetTargetConfig() unknown memory space\n");
 	  break;
 	case UDI29KCP_S:
 	  break;
@@ -275,7 +262,7 @@ udi_open (name, from_tty)
   a29k_get_processor_type ();
 
   if (UDICreateProcess (&PId))
-     fprintf(stderr, "UDICreateProcess() failed\n");
+     fprintf_unfiltered(gdb_stderr, "UDICreateProcess() failed\n");
 
   /* Print out some stuff, letting the user now what's going on */
   if (UDICapabilities (&TIPId, &TargetId, DFEId, DFE, &TIP, &DFEIPCId,
@@ -313,13 +300,6 @@ udi_close (quitting)	/*FIXME: how is quitting used */
   udi_session_id = -1;
   inferior_pid = 0;
 
-#if defined (LOG_FILE)
-  if (ferror (log_file))
-    printf ("Error writing log file.\n");
-  if (fclose (log_file) != 0)
-    printf ("Error closing log file.\n");
-#endif
-
   printf_filtered ("  Ending remote debugging\n");
 } 
 
@@ -344,14 +324,14 @@ udi_attach (args, from_tty)
       error ("UDI connection not opened yet, use the 'target udi' command.\n");
 	
   if (from_tty)
-      printf ("Attaching to remote program %s...\n", prog_name);
+      printf_unfiltered ("Attaching to remote program %s...\n", prog_name);
 
   UDIStop();
   From.Space = UDI29KSpecialRegs;
   From.Offset = 11;
   if (err = UDIRead(From, &PC_adds, Count, Size, &CountDone, HostEndian))
     error ("UDIRead failed in udi_attach");
-  printf ("Remote process is now halted, pc1 = 0x%x.\n", PC_adds);
+  printf_unfiltered ("Remote process is now halted, pc1 = 0x%x.\n", PC_adds);
 }
 /************************************************************* UDI_DETACH */
 /* Terminate the open connection to the TIP process.
@@ -371,7 +351,7 @@ udi_detach (args,from_tty)
   pop_target();         	/* calls udi_close to do the real work */
 
   if (from_tty)
-    printf ("Ending remote debugging\n");
+    printf_unfiltered ("Ending remote debugging\n");
 }
 
 
@@ -380,7 +360,8 @@ udi_detach (args,from_tty)
 
 static void
 udi_resume (pid, step, sig)
-     int pid, step, sig;
+     int pid, step;
+     enum target_signal sig;
 {
   UDIError tip_error;
   UDIUInt32 Steps = 1;
@@ -393,7 +374,7 @@ udi_resume (pid, step, sig)
       if (!tip_error)
 	return;
 
-      fprintf (stderr,  "UDIStep() error = %d\n", tip_error);
+      fprintf_unfiltered (gdb_stderr,  "UDIStep() error = %d\n", tip_error);
       error ("failed in udi_resume");
     }
 
@@ -408,7 +389,7 @@ udi_resume (pid, step, sig)
 static int
 udi_wait (pid, status)
      int pid;
-     WAITTYPE *status;
+     struct target_waitstatus *status;
 {
   UDIInt32	MaxTime;
   UDIPId	PId;
@@ -418,7 +399,8 @@ udi_wait (pid, status)
   int 		old_immediate_quit = immediate_quit;
   int		i;
 
-  WSETEXIT ((*status), 0);
+  status->kind = TARGET_WAITKIND_EXITED;
+  status->value.integer = 0;
 
 /* wait for message to arrive. It should be:
   If the target stops executing, udi_wait() should return.
@@ -441,13 +423,14 @@ udi_wait (pid, status)
 	       a whole bunch of output (more than SBUF_MAX, I would
 	       guess).  It doesn't seem to happen with the simulator.  */
 	    warning ("UDIGetStdout() failed in udi_wait");
-	  fwrite (sbuf, 1, CountDone, stdout);
-	  fflush(stdout);
+	  fwrite (sbuf, 1, CountDone, gdb_stdout);
+	  gdb_flush(gdb_stdout);
 	  continue;
+
 	case UDIStderrReady:
 	  UDIGetStderr (sbuf, (UDISizeT)SBUF_MAX, &CountDone);
-	  fwrite (sbuf, 1, CountDone, stderr);
-	  fflush(stderr);
+	  fwrite (sbuf, 1, CountDone, gdb_stderr);
+	  gdb_flush(gdb_stderr);
 	  continue;
 
 	case UDIStdinNeeded:
@@ -479,23 +462,28 @@ udi_wait (pid, status)
   switch (StopReason & UDIGrossState)
     {
     case UDITrapped:
-      printf("Am290*0 received vector number %d\n", StopReason >> 24);
+      printf_unfiltered("Am290*0 received vector number %d\n", StopReason >> 24);
 	  
       switch (StopReason >> 8)
 	{
 	case 0:			/* Illegal opcode */
-	  printf("	(break point)\n");
-	  WSETSTOP ((*status), SIGTRAP);
+	  printf_unfiltered("	(break point)\n");
+	  status->kind = TARGET_WAITKIND_STOPPED;
+	  status->value.sig = TARGET_SIGNAL_TRAP;
 	  break;
 	case 1:			/* Unaligned Access */
-	  WSETSTOP ((*status), SIGBUS);
+	  status->kind = TARGET_WAITKIND_STOPPED;
+	  status->value.sig = TARGET_SIGNAL_BUS;
 	  break;
 	case 3:
 	case 4:
-	  WSETSTOP ((*status), SIGFPE);
+	  status->kind = TARGET_WAITKIND_STOPPED;
+	  status->value.sig = TARGET_SIGNAL_FPE;
 	  break;
 	case 5:			/* Protection Violation */
-	  WSETSTOP ((*status), SIGILL);
+	  status->kind = TARGET_WAITKIND_STOPPED;
+	  /* Why not SEGV?  What is a Protection Violation?  */
+	  status->value.sig = TARGET_SIGNAL_ILL;
 	  break;
 	case 6:
 	case 7:
@@ -503,17 +491,21 @@ udi_wait (pid, status)
 	case 9:			/* User Data Mapping Miss */
 	case 10:		/* Supervisor Instruction Mapping Miss */
 	case 11:		/* Supervisor Data Mapping Miss */
-	  WSETSTOP ((*status), SIGSEGV);
+	  status->kind = TARGET_WAITKIND_STOPPED;
+	  status->value.sig = TARGET_SIGNAL_SEGV;
 	  break;
 	case 12:
 	case 13:
-	  WSETSTOP ((*status), SIGILL);
+	  status->kind = TARGET_WAITKIND_STOPPED;
+	  status->value.sig = TARGET_SIGNAL_ILL;
 	  break;
 	case 14:		/* Timer */
-	  WSETSTOP ((*status), SIGALRM);
+	  status->kind = TARGET_WAITKIND_STOPPED;
+	  status->value.sig = TARGET_SIGNAL_ALRM;
 	  break;
 	case 15:		/* Trace */
-	  WSETSTOP ((*status), SIGTRAP);
+	  status->kind = TARGET_WAITKIND_STOPPED;
+	  status->value.sig = TARGET_SIGNAL_TRAP;
 	  break;
 	case 16:		/* INTR0 */
 	case 17:		/* INTR1 */
@@ -521,40 +513,52 @@ udi_wait (pid, status)
 	case 19:		/* INTR3/Internal */
 	case 20:		/* TRAP0 */
 	case 21:		/* TRAP1 */
-	  WSETSTOP ((*status), SIGINT);
+	  status->kind = TARGET_WAITKIND_STOPPED;
+	  status->value.sig = TARGET_SIGNAL_INT;
 	  break;
 	case 22:		/* Floating-Point Exception */
-	  WSETSTOP ((*status), SIGILL);
+	  status->kind = TARGET_WAITKIND_STOPPED;
+	  /* Why not FPE?  */
+	  status->value.sig = TARGET_SIGNAL_ILL;
 	  break;
 	case 77:		/* assert 77 */
-	  WSETSTOP ((*status), SIGTRAP);
+	  status->kind = TARGET_WAITKIND_STOPPED;
+	  status->value.sig = TARGET_SIGNAL_TRAP;
 	  break;
 	default:
-	  WSETEXIT ((*status), 0);
+	  status->kind = TARGET_WAITKIND_EXITED;
+	  status->value.integer = 0;
 	}
       break;
     case UDINotExecuting:
-      WSETSTOP ((*status), SIGTERM);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_TERM;
       break;
     case UDIStopped:
-      WSETSTOP ((*status), SIGTSTP);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_TSTP;
       break;
     case UDIWarned:
-      WSETSTOP ((*status), SIGURG);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_URG;
       break;
     case UDIStepped:
     case UDIBreak:
-      WSETSTOP ((*status), SIGTRAP);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_TRAP;
       break;
     case UDIWaiting:
-      WSETSTOP ((*status), SIGSTOP);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_STOP;
       break;
     case UDIHalted:
-      WSETSTOP ((*status), SIGKILL);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_KILL;
       break;
     case UDIExited:
     default:
-      WSETEXIT ((*status), 0);
+      status->kind = TARGET_WAITKIND_EXITED;
+      status->value.integer = 0;
     }
 
   timeout = old_timeout;	/* Restore original timeout value */
@@ -584,12 +588,12 @@ udi_pc()
 
   err = UDIRead(From, To, Count, Size, &CountDone, HostEndian);
 
-  printf ("err = %d, CountDone = %d, pc[0] = 0x%x, pc[1] = 0x%x\n",
+  printf_unfiltered ("err = %d, CountDone = %d, pc[0] = 0x%x, pc[1] = 0x%x\n",
 	  err, CountDone, pc[0], pc[1]);
 
   udi_fetch_registers(-1);
 
-  printf("other pc1 = 0x%x, pc0 = 0x%x\n", *(int *)&registers[4 * PC_REGNUM],
+  printf_unfiltered("other pc1 = 0x%x, pc0 = 0x%x\n", *(int *)&registers[4 * PC_REGNUM],
 	  *(int *)&registers[4 * NPC_REGNUM]);
 
   /* Now, read all the registers globally */
@@ -716,8 +720,8 @@ int	regno;
 
   if (remote_debug)
     {
-      printf("Fetching all registers\n");
-      printf("Fetching PC0 = 0x%x, PC1 = 0x%x, PC2 = 0x%x\n",
+      printf_unfiltered("Fetching all registers\n");
+      printf_unfiltered("Fetching PC0 = 0x%x, PC1 = 0x%x, PC2 = 0x%x\n",
 	     read_register(NPC_REGNUM), read_register(PC_REGNUM),
 	     read_register(PC2_REGNUM));
     }
@@ -757,8 +761,8 @@ int regno;
 
   if (remote_debug)
     {
-      printf("Storing all registers\n");
-      printf("PC0 = 0x%x, PC1 = 0x%x, PC2 = 0x%x\n", read_register(NPC_REGNUM),
+      printf_unfiltered("Storing all registers\n");
+      printf_unfiltered("PC0 = 0x%x, PC1 = 0x%x, PC2 = 0x%x\n", read_register(NPC_REGNUM),
 	     read_register(PC_REGNUM), read_register(PC2_REGNUM));
     }
 
@@ -909,7 +913,7 @@ udi_xfer_inferior_memory (memaddr, myaddr, len, write)
 static void
 udi_files_info ()
 {
-  printf ("\tAttached to UDI socket to %s and running program %s.\n",
+  printf_unfiltered ("\tAttached to UDI socket to %s and running program %s.\n",
           udi_config_id, prog_name);
 }
 
@@ -987,11 +991,17 @@ just invoke udi_close, which seems to get things right.
   inferior_pid = 0;
 
   if (from_tty)
-    printf("Target has been stopped.");
-#else
+    printf_unfiltered("Target has been stopped.");
+#endif /* 0 */
+#if 0
   udi_close(0);
-#endif
   pop_target();
+#endif /* 0 */
+
+  /* Keep the target around, e.g. so "run" can do the right thing when
+     we are already debugging something.  */
+
+  inferior_pid = 0;
 }
 
 /* 
@@ -1128,7 +1138,7 @@ download(load_arg_string, from_tty)
 	       below starts writing before it even checks the size.  */
 	    continue;
 
-	  printf("[Loading section %s at %x (%d bytes)]\n",
+	  printf_unfiltered("[Loading section %s at %x (%d bytes)]\n",
 		 section_name,
 		 To.Offset,
 		 section_size);
@@ -1217,9 +1227,9 @@ download(load_arg_string, from_tty)
 
 		  xerr = UDIGetErrorMsg(err, 100, message, &Count);
 		  if (!xerr)
-		    fprintf (stderr, "Error is %s\n", message);
+		    fprintf_unfiltered (gdb_stderr, "Error is %s\n", message);
 		  else
-		    fprintf (stderr, "xerr is %d\n", xerr);
+		    fprintf_unfiltered (gdb_stderr, "xerr is %d\n", xerr);
 		  error ("UDICopy failed, error = %d", err);
 		}
 	    }
@@ -1390,7 +1400,7 @@ fetch_register (regno)
   supply_register(regno, (char *) &To);
 
   if (remote_debug)
-    printf("Fetching register %s = 0x%x\n", reg_names[regno], To);
+    printf_unfiltered("Fetching register %s = 0x%x\n", reg_names[regno], To);
 }
 /*****************************************************************************/ 
 /* Store a single register indicated by 'regno'. 
@@ -1411,7 +1421,7 @@ store_register (regno)
   From =  read_register (regno);	/* get data value */
 
   if (remote_debug)
-    printf("Storing register %s = 0x%x\n", reg_names[regno], From);
+    printf_unfiltered("Storing register %s = 0x%x\n", reg_names[regno], From);
 
   if (regno == GR1_REGNUM)
     {
@@ -1545,8 +1555,16 @@ CORE_ADDR	addr;
 
 void  convert16() {;}
 void  convert32() {;}
-FILE* EchoFile = 0;		/* used for debugging */
+GDB_FILE * EchoFile = 0;		/* used for debugging */
 int   QuietMode = 0;		/* used for debugging */
+
+#ifdef NO_HIF_SUPPORT
+service_HIF(msg)
+     union msg_t *msg;
+{
+  return(0);			/* Emulate a failure */
+}
+#endif
 
 /* Target_ops vector.  Not static because there does not seem to be
    any portable way to do a forward declaration of a static variable.
@@ -1612,15 +1630,8 @@ Arguments are\n\
 	OPS_MAGIC,		/* Always the last thing */
 };
 
-void _initialize_remote_udi()
+void
+_initialize_remote_udi ()
 {
   add_target (&udi_ops);
 }
-
-#ifdef NO_HIF_SUPPORT
-service_HIF(msg)
-union msg_t	*msg;
-{
-	return(0);	/* Emulate a failure */
-}
-#endif

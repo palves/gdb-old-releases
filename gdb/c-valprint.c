@@ -32,13 +32,13 @@ extern int vtblprint;		/* Controls printing of vtbl's */
 extern int demangle;		/* whether to print C++ syms raw or src-form */
 
 extern void
-cp_print_class_member PARAMS ((char *, struct type *, FILE *, char *));
+cp_print_class_member PARAMS ((char *, struct type *, GDB_FILE *, char *));
 
 extern void
-cp_print_class_method PARAMS ((char *, struct type *, FILE *));
+cp_print_class_method PARAMS ((char *, struct type *, GDB_FILE *));
 
 extern void
-cp_print_value_fields PARAMS ((struct type *, char *, FILE *, int, int,
+cp_print_value_fields PARAMS ((struct type *, char *, GDB_FILE *, int, int,
 			       enum val_prettyprint, struct type **));
 
 extern int
@@ -53,11 +53,11 @@ cp_is_vtbl_member PARAMS ((struct type *));
 /* BEGIN-FIXME:  Hooks into c-typeprint.c */
 
 extern void
-c_type_print_varspec_prefix PARAMS ((struct type *, FILE *, int, int));
+c_type_print_varspec_prefix PARAMS ((struct type *, GDB_FILE *, int, int));
 
 extern void
 cp_type_print_method_args PARAMS ((struct type **, char *, char *, int,
-				   FILE *));
+				   GDB_FILE *));
 /* END-FIXME */
 
 
@@ -83,7 +83,7 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
      struct type *type;
      char *valaddr;
      CORE_ADDR address;
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      int deref_ref;
      int recurse;
@@ -197,7 +197,7 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 		  fputs_filtered (SYMBOL_SOURCE_NAME (msymbol), stream);
 		  fputs_filtered (">", stream);
 		}
-	      if (vtblprint)
+	      if (vt_address && vtblprint)
 	        {
 		  value vt_val;
 	          struct symbol *wsym = (struct symbol *)NULL;
@@ -206,8 +206,8 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 		  struct block *block = (struct block *)NULL;
 		  int is_this_fld;
 
-
-              	  wsym = lookup_symbol (SYMBOL_NAME(msymbol), block, 
+		  if (msymbol != NULL)
+              	    wsym = lookup_symbol (SYMBOL_NAME(msymbol), block, 
 				VAR_NAMESPACE, &is_this_fld, &s);
  
 		  if (wsym)
@@ -340,6 +340,16 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
       /* Do something at least vaguely reasonable, for example if the
 	 language is set wrong.  */
 
+    case TYPE_CODE_RANGE:
+      /* FIXME: create_range_type does not set the unsigned bit in a
+	 range type (I think it probably should copy it from the target
+	 type), so we won't print values which are too large to
+	 fit in a signed integer correctly.  */
+      /* FIXME: Doesn't handle ranges of enums correctly.  (Can't just
+	 print with the target type, though, because the size of our type
+	 and the target type might differ).  */
+      /* FALLTHROUGH */
+
     case TYPE_CODE_INT:
       format = format ? format : output_format;
       if (format)
@@ -396,11 +406,6 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
       fprintf_filtered (stream, "<error type>");
       break;
 
-    case TYPE_CODE_RANGE:
-      /* FIXME, we should not ever have to print one of these yet.  */
-      fprintf_filtered (stream, "<range type>");
-      break;
-
     case TYPE_CODE_UNDEF:
       /* This happens (without TYPE_FLAG_STUB set) on systems which don't use
 	 dbx xrefs (NO_DBX_XREFS in gcc) if a file has a "struct foo *bar"
@@ -411,6 +416,6 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
     default:
       error ("Invalid C/C++ type code %d in symbol table.", TYPE_CODE (type));
     }
-  fflush (stream);
+  gdb_flush (stream);
   return (0);
 }

@@ -52,8 +52,14 @@ static void MY(choose_reloc_size) PARAMS ((bfd *abfd));
 #define MY_write_object_contents MY(write_object_contents)
 static boolean MY(write_object_contents) PARAMS ((bfd *abfd));
 
-#define MY_reloc_howto_type_lookup MY(reloc_howto_type_lookup)
-#define MY_canonicalize_reloc MY(canonicalize_reloc)
+/* We can't use MY(x) here because it leads to a recursive call to CAT
+   when expanded inside JUMP_TABLE.  */
+#define MY_bfd_reloc_type_lookup mipsbsd_reloc_howto_type_lookup
+#define MY_canonicalize_reloc mipsbsd_canonicalize_reloc
+
+#define MY_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
+#define MY_bfd_link_add_symbols _bfd_generic_link_add_symbols
+#define MY_bfd_final_link _bfd_generic_final_link
 
 #define MY_backend_data &MY(backend_data)
 #define MY_BFD_TARGET
@@ -223,11 +229,11 @@ static reloc_howto_type mips_howto_table_ext[] = {
   {MIPS_RELOC_HI16_S, 16, 1, 16, false, 0, complain_overflow_bitfield,
         mips_fix_hi16_s,
         "HI16_S",   false, 0, 0x0000ffff, false},
-  {MIPS_RELOC_LO16,    0, 1, 16, false, 0, complain_overflow_bitfield, 0,
+  {MIPS_RELOC_LO16,    0, 1, 16, false, 0, complain_overflow_dont, 0,
 	"LO16",     false, 0, 0x0000ffff, false},
 };
 
-static reloc_howto_type *
+static const reloc_howto_type *
 MY(reloc_howto_type_lookup) (abfd, code)
      bfd *abfd;
      bfd_reloc_code_real_type code;
@@ -316,13 +322,13 @@ static CONST struct aout_backend_data MY(backend_data) = {
 
 bfd_target aout_mips_little_vec =
 {
-  "aout-mips-little",		/* name */
+  "a.out-mips-little",		/* name */
   bfd_target_aout_flavour,
   false,			/* target byte order (little) */
   false,			/* target headers byte order (little) */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
+   HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
   MY_symbol_leading_char,
   ' ',				/* ar_pad_char */
@@ -340,51 +346,19 @@ bfd_target aout_mips_little_vec =
        _bfd_generic_mkarchive, bfd_false},
     {bfd_false, MY_write_object_contents, /* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
-
-  MY_core_file_failing_command,
-  MY_core_file_failing_signal,
-  MY_core_file_matches_executable_p,
-  MY_slurp_armap,
-  MY_slurp_extended_name_table,
-  MY_truncate_arname,
-  MY_write_armap,
-  MY_close_and_cleanup,
-  MY_set_section_contents,
-  MY_get_section_contents,
-  MY_new_section_hook,
-  MY_get_symtab_upper_bound,
-  MY_get_symtab,
-  MY_get_reloc_upper_bound,
-  MY_canonicalize_reloc,
-  MY_make_empty_symbol,
-  MY_print_symbol,
-  MY_get_symbol_info,
-  MY_get_lineno,
-  MY_set_arch_mach,
-  MY_openr_next_archived_file,
-  MY_find_nearest_line,
-  MY_generic_stat_arch_elt,
-  MY_sizeof_headers,
-  MY_bfd_debug_info_start,
-  MY_bfd_debug_info_end,
-  MY_bfd_debug_info_accumulate,
-  bfd_generic_get_relocated_section_contents,
-  bfd_generic_relax_section,
-  bfd_generic_seclet_link,
-  MY_reloc_howto_type_lookup,
-  MY_make_debug_symbol,
+  JUMP_TABLE (MY),
   (PTR) MY_backend_data,
 };
 
 bfd_target aout_mips_big_vec =
 {
-  "aout-mips-big",		/* name */
+  "a.out-mips-big",		/* name */
   bfd_target_aout_flavour,
   true,				/* target byte order (big) */
   true,				/* target headers byte order (big) */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
+   HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
   MY_symbol_leading_char,
   ' ',				/* ar_pad_char */
@@ -402,38 +376,6 @@ bfd_target aout_mips_big_vec =
        _bfd_generic_mkarchive, bfd_false},
     {bfd_false, MY_write_object_contents, /* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
-
-  MY_core_file_failing_command,
-  MY_core_file_failing_signal,
-  MY_core_file_matches_executable_p,
-  MY_slurp_armap,
-  MY_slurp_extended_name_table,
-  MY_truncate_arname,
-  MY_write_armap,
-  MY_close_and_cleanup,
-  MY_set_section_contents,
-  MY_get_section_contents,
-  MY_new_section_hook,
-  MY_get_symtab_upper_bound,
-  MY_get_symtab,
-  MY_get_reloc_upper_bound,
-  MY_canonicalize_reloc,
-  MY_make_empty_symbol,
-  MY_print_symbol,
-  MY_get_symbol_info,
-  MY_get_lineno,
-  MY_set_arch_mach,
-  MY_openr_next_archived_file,
-  MY_find_nearest_line,
-  MY_generic_stat_arch_elt,
-  MY_sizeof_headers,
-  MY_bfd_debug_info_start,
-  MY_bfd_debug_info_end,
-  MY_bfd_debug_info_accumulate,
-  bfd_generic_get_relocated_section_contents,
-  bfd_generic_relax_section,
-  bfd_generic_seclet_link,
-  MY_reloc_howto_type_lookup,
-  MY_make_debug_symbol,
+  JUMP_TABLE (MY),
   (PTR) MY_backend_data,
 };

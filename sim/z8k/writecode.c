@@ -511,7 +511,7 @@ void
 info_args (p)
      opcode_entry_type *p;
 {
-  unsigned short *s;
+  unsigned int *s;
 
   int done_one_imm8 = 0;
 
@@ -684,6 +684,7 @@ info_special (p, getdst, nostore, before, nosrc)
     case OPC_cp:
     case OPC_cpb:
     case OPC_cpl:
+    case OPC_bit:
       *nostore = 1;
       *before = 0;
       break;
@@ -742,7 +743,7 @@ info_lvals (p)
      opcode_entry_type *p;
 {
   /* emit code to work out lvalues, if any */
-  unsigned short *i = p->arg_info;
+  unsigned int *i = p->arg_info;
 
   while (*i)
     {
@@ -765,6 +766,7 @@ info_lvals (p)
 	case CLASS_REG_WORD:
 	case CLASS_REG_LONG:
 	case CLASS_REG_BYTE:
+	case CLASS_PR:
 	  break;
 	case CLASS_BA:
 	  emit ("register  int oplval_<name> = get_<ptr_mode>_reg(context,reg_<name>) + (short)(imm_src);\n");
@@ -785,7 +787,7 @@ info_fetch (p, getdst)
      opcode_entry_type *p;
      int getdst;
 {
-  unsigned short *i = p->arg_info;
+  unsigned int *i = p->arg_info;
   int had_src = 0;
 
   allregs = 1;
@@ -1110,6 +1112,13 @@ adiv (p)
 }
 
 static void
+dobit (p)
+opcode_entry_type *p;
+{
+  emit("context->zero = (op_dst & (1<<op_src))==0;\n");
+  emit("context->broken_flags = 0;\n");
+}
+static void
 doset (p, v)
 opcode_entry_type*p;
 int v;
@@ -1328,6 +1337,7 @@ info_docode (p)
       break;
     case OPC_lda:
       emit ("tmp = oplval_src; \n");
+      /*(((oplval_src) & 0xff0000) << 8) | (oplval_src & 0xffff); \n");*/
       break;
     case OPC_ldk:
     case OPC_ld:
@@ -1373,7 +1383,9 @@ info_docode (p)
     case OPC_res:
       doset (p,0);
       break;
-
+    case OPC_bit:
+      dobit(p);
+      break;
     default:
 
       emit ("tmp = fail(context,%d);\n", p->opcode);
@@ -1387,7 +1399,7 @@ void
 info_store (p)
      opcode_entry_type *p;
 {
-  unsigned short *i = p->arg_info;
+  unsigned int *i = p->arg_info;
 
   while (*i)
     {
@@ -1398,9 +1410,13 @@ info_store (p)
 	{
 	  switch (*i & CLASS_MASK)
 	    {
+	    case CLASS_PR:
+	      emit ("put_<ptr_mode>_reg(context,reg_<name>, tmp);\n");
+	      break;
 	    case CLASS_REG_LONG:
 	    case CLASS_REG_WORD:
 	    case CLASS_REG_BYTE:
+
 	      emit ("put_<size>_reg(context,reg_<name>,tmp);\n");
 	      break;
 	    case CLASS_X:
@@ -1408,6 +1424,7 @@ info_store (p)
 	    case CLASS_DA:
 	    case CLASS_BX:
 	    case CLASS_BA:
+
 	      emit ("put_<size>_<mem>_da(context,oplval_<name>, tmp);\n");
 	      break;
 	    case CLASS_IMM:
@@ -1831,7 +1848,7 @@ int
 info_len_in_words (o)
      opcode_entry_type *o;
 {
-  unsigned short int *p = o->byte_info;
+  unsigned  int *p = o->byte_info;
   int nibs = 0;
 
   while (*p)

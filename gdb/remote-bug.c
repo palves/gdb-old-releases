@@ -66,7 +66,8 @@ static int srec_max_retries = 3;
    record.  I call this download a "frame".  Srec_frame says how many
    bytes will be represented in each frame.  */
 
-static int srec_frame = 160;
+#define SREC_SIZE 160
+static int srec_frame = SREC_SIZE;
 
 /* This variable determines how many bytes will be represented in each
    S3 s-record.  */
@@ -138,6 +139,7 @@ bug_load (args, fromtty)
   s = abfd->sections;
   while (s != (asection *) NULL)
     {
+      srec_frame = SREC_SIZE;
       if (s->flags & SEC_LOAD)
 	{
 	  int i;
@@ -242,7 +244,8 @@ bug_open (args, from_tty)
 
 void
 bug_resume (pid, step, sig)
-     int pid, step, sig;
+     int pid, step;
+     enum target_signal sig;
 {
   dcache_flush (gr_get_dcache());
 
@@ -275,12 +278,13 @@ static char *wait_strings[] = {
 int
 bug_wait (pid, status)
      int pid;
-     WAITTYPE *status;
+     struct target_waitstatus *status;
 {
   int old_timeout = sr_get_timeout();
   int old_immediate_quit = immediate_quit;
 
-  WSETEXIT ((*status), 0);
+  status->kind = TARGET_WAITKIND_EXITED;
+  status->value.integer = 0;
 
   /* read off leftovers from resume so that the rest can be passed
      back out as stdout.  */
@@ -297,13 +301,15 @@ bug_wait (pid, status)
   switch (gr_multi_scan(wait_strings, need_artificial_trap == 0))
     {
     case 0: /* breakpoint case */
-      WSETSTOP ((*status), SIGTRAP);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_TRAP;
       /* user output from the target can be discarded here. (?) */
       gr_expect_prompt();
       break;
 
     case 1: /* bus error */
-      WSETSTOP ((*status), SIGBUS);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_BUS;
       /* user output from the target can be discarded here. (?) */
       gr_expect_prompt();
       break;
@@ -313,14 +319,16 @@ bug_wait (pid, status)
       if (need_artificial_trap != 0)
 	{
 	  /* stepping */
-	  WSETSTOP ((*status), SIGTRAP);
+	  status->kind = TARGET_WAITKIND_STOPPED;
+	  status->value.sig = TARGET_SIGNAL_TRAP;
 	  need_artificial_trap--;
 	  break;
 	}
       else
 	{
 	  /* exit case */
-	  WSETEXIT ((*status), 0);
+	  status->kind = TARGET_WAITKIND_EXITED;
+	  status->value.integer = 0;
 	  break;
 	}
 
@@ -425,8 +433,6 @@ static void
 bug_fetch_register(regno)
      int regno;
 {
-  REGISTER_TYPE regval;
-
   sr_check_open();
 
   if (regno == -1)
@@ -444,12 +450,15 @@ bug_fetch_register(regno)
     }
   else if (regno < XFP_REGNUM)
     {
-      sr_write("rs ", 3);
-      sr_write_cr(get_reg_name(regno));
-      sr_expect("=");
-      regval = sr_get_hex_word();
-      gr_expect_prompt();
-      supply_register(regno, (char *) &regval);
+      char buffer[MAX_REGISTER_RAW_SIZE];
+
+      sr_write ("rs ", 3);
+      sr_write_cr (get_reg_name(regno));
+      sr_expect ("=");
+      store_unsigned_integer (buffer, REGISTER_RAW_SIZE (regno),
+			      sr_get_hex_word());
+      gr_expect_prompt ();
+      supply_register (regno, buffer);
     }
   else
     {
@@ -1000,6 +1009,9 @@ This affects the communication protocol with the remote target.",
 		  &setlist),
      &showlist);
 
+#if 0
+  /* This needs to set SREC_SIZE, not srec_frame which gets changed at the
+     end of a download.  But do we need the option at all?  */
   add_show_from_set
     (add_set_cmd ("srec-frame", class_support, var_uinteger,
 		  (char *) &srec_frame,
@@ -1008,6 +1020,7 @@ Set the number of bytes in an S-record frame.\n\
 This affects the communication protocol with the remote target.",
 		  &setlist),
      &showlist);
+#endif /* 0 */
 
   add_show_from_set
     (add_set_cmd ("srec-noise", class_support, var_zinteger,

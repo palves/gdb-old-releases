@@ -26,7 +26,8 @@ typedef struct external_aouthdr
 {
   unsigned char magic[2];	/* type of file				*/
   unsigned char	vstamp[2];	/* version stamp			*/
-  unsigned char padding[4];	/* pad to quadword boundary		*/
+  unsigned char bldrev[2];	/* ?? */
+  unsigned char padding[2];	/* pad to quadword boundary		*/
   unsigned char	tsize[8];	/* text size in bytes			*/
   unsigned char	dsize[8];	/* initialized data "  "		*/
   unsigned char	bsize[8];	/* uninitialized data "   "		*/

@@ -12,10 +12,11 @@ s! \$(INCDIR)/fopen-[^ ]*\.h!!g
 s! \$(INCDIR)/ansidecl\.h!!g
 s! \$(INCDIR)/obstack\.h!!g
 
-s/\\\n *\\/\\/g
-s/\\\n *$/ /g
+s/\\\n */ /g
 
-/^ *\\$/d
 s/ *$//
 s/  */ /g
 /:$/d
+
+s/\(.\{50\}[^ ]*\) /\1 \\\
+  /g

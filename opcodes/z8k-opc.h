@@ -23,7 +23,7 @@
 #define ARG_DISP12 0x0b
 #define ARG_DISP8 0x0c
 #define ARG_IMM4M1 0x0d
-#define CLASS_MASK 0xfff0
+#define CLASS_MASK 0x1fff0
 #define CLASS_X 0x10
 #define CLASS_BA 0x20
 #define CLASS_DA 0x30
@@ -50,6 +50,7 @@
 #define CLASS_REG_QUAD 0x4000
 #define CLASS_REG_LONG 0x5000
 #define CLASS_REGN0 0x8000
+#define CLASS_PR 0x10000
 #define OPC_adc 0
 #define OPC_adcb 1
 #define OPC_add 2
@@ -244,8 +245,8 @@ int flags;
 char *name;
 unsigned char opcode;
 void (*func)();
-unsigned short arg_info[4];
-unsigned short byte_info[10];
+unsigned int arg_info[4];
+unsigned int byte_info[10];
 int noperands;
 int length;
 int idx;
@@ -1964,53 +1965,53 @@ opcode_entry_type z8k_table[] = {
 	{CLASS_BIT+7,CLASS_BIT+1,CLASS_REGN0+(ARG_RS),CLASS_REG+(ARG_RD),CLASS_BIT+0,CLASS_REG+(ARG_RX),CLASS_BIT+0,CLASS_BIT+0,0,},2,4,170},
 
 
-/* 0111 0110 0000 dddd address_src *** lda rd,address_src */
+/* 0111 0110 0000 dddd address_src *** lda prd,address_src */
 {
 #ifdef NICENAMES
-"lda rd,address_src",16,12,
+"lda prd,address_src",16,12,
 0x00,
 #endif
-"lda",OPC_lda,0,{CLASS_REG_WORD+(ARG_RD),CLASS_DA+(ARG_SRC),},
+"lda",OPC_lda,0,{CLASS_PR+(ARG_RD),CLASS_DA+(ARG_SRC),},
 	{CLASS_BIT+7,CLASS_BIT+6,CLASS_BIT+0,CLASS_REG+(ARG_RD),CLASS_ADDRESS+(ARG_SRC),0,0,0,0,},2,4,171},
 
 
-/* 0111 0110 ssN0 dddd address_src *** lda rd,address_src(rs) */
+/* 0111 0110 ssN0 dddd address_src *** lda prd,address_src(rs) */
 {
 #ifdef NICENAMES
-"lda rd,address_src(rs)",16,13,
+"lda prd,address_src(rs)",16,13,
 0x00,
 #endif
-"lda",OPC_lda,0,{CLASS_REG_WORD+(ARG_RD),CLASS_X+(ARG_RS),},
+"lda",OPC_lda,0,{CLASS_PR+(ARG_RD),CLASS_X+(ARG_RS),},
 	{CLASS_BIT+7,CLASS_BIT+6,CLASS_REGN0+(ARG_RS),CLASS_REG+(ARG_RD),CLASS_ADDRESS+(ARG_SRC),0,0,0,0,},2,4,172},
 
 
-/* 0011 0100 ssN0 dddd imm16 *** lda rd,rs(imm16) */
+/* 0011 0100 ssN0 dddd imm16 *** lda prd,rs(imm16) */
 {
 #ifdef NICENAMES
-"lda rd,rs(imm16)",16,15,
+"lda prd,rs(imm16)",16,15,
 0x00,
 #endif
-"lda",OPC_lda,0,{CLASS_REG_WORD+(ARG_RD),CLASS_BA+(ARG_RS),},
+"lda",OPC_lda,0,{CLASS_PR+(ARG_RD),CLASS_BA+(ARG_RS),},
 	{CLASS_BIT+3,CLASS_BIT+4,CLASS_REGN0+(ARG_RS),CLASS_REG+(ARG_RD),CLASS_IMM+(ARG_IMM16),0,0,0,0,},2,4,173},
 
 
-/* 0111 0100 ssN0 dddd 0000 xxxx 0000 0000 *** lda rd,rs(rx) */
+/* 0111 0100 ssN0 dddd 0000 xxxx 0000 0000 *** lda prd,rs(rx) */
 {
 #ifdef NICENAMES
-"lda rd,rs(rx)",16,15,
+"lda prd,rs(rx)",16,15,
 0x00,
 #endif
-"lda",OPC_lda,0,{CLASS_REG_WORD+(ARG_RD),CLASS_BX+(ARG_RS),},
+"lda",OPC_lda,0,{CLASS_PR+(ARG_RD),CLASS_BX+(ARG_RS),},
 	{CLASS_BIT+7,CLASS_BIT+4,CLASS_REGN0+(ARG_RS),CLASS_REG+(ARG_RD),CLASS_BIT+0,CLASS_REG+(ARG_RX),CLASS_BIT+0,CLASS_BIT+0,0,},2,4,174},
 
 
-/* 0011 0100 0000 dddd disp16 *** ldar rd,disp16 */
+/* 0011 0100 0000 dddd disp16 *** ldar prd,disp16 */
 {
 #ifdef NICENAMES
-"ldar rd,disp16",16,15,
+"ldar prd,disp16",16,15,
 0x00,
 #endif
-"ldar",OPC_ldar,0,{CLASS_REG_WORD+(ARG_RD),CLASS_DISP,},
+"ldar",OPC_ldar,0,{CLASS_PR+(ARG_RD),CLASS_DISP,},
 	{CLASS_BIT+3,CLASS_BIT+4,CLASS_BIT+0,CLASS_REG+(ARG_RD),CLASS_DISP+(ARG_DISP16),0,0,0,0,},2,4,175},
 
 

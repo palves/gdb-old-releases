@@ -12,9 +12,10 @@
    ? core_upage(abfd)->u_sysabort \
    : -1)
 
-/* In my tests on SCO I got 108 extra bytes (on two different core
-   dumps of different sizes).  I'm not sure what's in them.  Allow a
-   few more than that, in case someone increases it a bit in a future
-   release.  */
+/* According to the manpage, a version 2 SCO corefile can contain
+   various additional sections (it is cleverly arranged so the u area,
+   data, and stack are first where we can find them).  So without
+   writing lots of code to parse all their headers and stuff, we can't
+   know whether a corefile is bigger than it should be.  */
 
-#define TRAD_CORE_EXTRA_SIZE_ALLOWED 256
+#define TRAD_CORE_ALLOW_ANY_EXTRA_SIZE 1

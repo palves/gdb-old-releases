@@ -304,7 +304,7 @@ struct h8_opcode h8_opcodes[] =
   NEW_SOP(O(O_AND,SL),0,6,"and.l"),{IMM32,RD32,E },{0x7,0xA,0x6,B30|RD32,IMM32LIST,E} EOP,
   NEW_SOP(O(O_AND,SL),0,2,"and.l") ,{RS32,RD32,E },{0x0,0x1,0xF,0x0,0x6,0x6,B30|RS32,B30|RD32,E} EOP,
 
-  NEW_SOP(O(O_ANDC,SB),0,2,"andc"), {IMM8,CCR,E},{ 0x0,0x6,IMM8,IGNORE,E,0,0,0,0} EOP,
+  NEW_SOP(O(O_ANDC,SB),1,2,"andc"), {IMM8,CCR,E},{ 0x0,0x6,IMM8,IGNORE,E,0,0,0,0} EOP,
 
   BITOP(O(O_BAND,SB), IMM3,"band",0x7,0x6,0x7,0xC,0x7,0xE),
   BRANCH(O(O_BRA,SB),"bra",0x0),

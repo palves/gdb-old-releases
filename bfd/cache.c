@@ -20,7 +20,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /*
 SECTION
-	File Caching
+	File caching
 
 	The file caching mechanism is embedded within BFD and allows
 	the application to open as many BFDs as it wants without
@@ -28,7 +28,7 @@ SECTION
 	limit (often as low as 20 open files).  The module in
 	<<cache.c>> maintains a least recently used list of
 	<<BFD_CACHE_MAX_OPEN>> files, and exports the name
-	<<bfd_cache_lookup>> which runs around and makes sure that
+	<<bfd_cache_lookup>>, which runs around and makes sure that
 	the required BFD is open. If not, then it chooses a file to
 	close, closes it and opens the one wanted, returning its file
 	handle. 
@@ -79,21 +79,21 @@ DESCRIPTION
 bfd *bfd_last_cache;
 
 /*
- * INTERNAL_FUNCTION
- * 	bfd_cache_lookup
- *
- * DESCRIPTION
- *	Checks to see if the required BFD is the same as the last one
- *	looked up. If so then it can use the iostream in the BFD with
- *	impunity, since it can't have changed since the last lookup,
- *	otherwise it has to perform the complicated lookup function 
- *
- * .#define bfd_cache_lookup(x) \
- * .    ((x)==bfd_last_cache? \
- * .      (FILE*)(bfd_last_cache->iostream): \
- * .       bfd_cache_lookup_worker(x))
- *
- *
+  INTERNAL_FUNCTION
+  	bfd_cache_lookup
+ 
+  DESCRIPTION
+ 	Check to see if the required BFD is the same as the last one
+ 	looked up. If so, then it can use the stream in the BFD with
+ 	impunity, since it can't have changed since the last lookup;
+ 	otherwise, it has to perform the complicated lookup function.
+ 
+  .#define bfd_cache_lookup(x) \
+  .    ((x)==bfd_last_cache? \
+  .      (FILE*)(bfd_last_cache->iostream): \
+  .       bfd_cache_lookup_worker(x))
+ 
+ 
  */
 
 static void
@@ -181,12 +181,12 @@ DEFUN(bfd_cache_init,(abfd),
 INTERNAL_FUNCTION
 	bfd_cache_close
 
-DESCRIPTION
-	Remove the BFD from the cache. If the attached file is open,
-	then close it too.
-
 SYNOPSIS
-	boolean bfd_cache_close (bfd *);
+	boolean bfd_cache_close (bfd *abfd);
+
+DESCRIPTION
+	Remove the BFD @var{abfd} from the cache. If the attached file is open,
+	then close it too.
 
 RETURNS
 	<<false>> is returned if closing the file fails, <<true>> is
@@ -211,15 +211,15 @@ DEFUN(bfd_cache_close,(abfd),
 INTERNAL_FUNCTION
 	bfd_open_file
 
-DESCRIPTION
-	Call the OS to open a file for this BFD.  Returns the FILE *
-	(possibly null) that results from this operation.  Sets up the
-	BFD so that future accesses know the file is open. If the FILE
-	* returned is null, then there is won't have been put in the
-	cache, so it won't have to be removed from it.
-
 SYNOPSIS
-	FILE* bfd_open_file(bfd *);
+	FILE* bfd_open_file(bfd *abfd);
+
+DESCRIPTION
+	Call the OS to open a file for @var{abfd}.  Return the <<FILE *>>
+	(possibly <<NULL>>) that results from this operation.  Set up the
+	BFD so that future accesses know the file is open. If the <<FILE *>>
+	returned is <<NULL>>, then it won't have been put in the
+	cache, so it won't have to be removed from it.
 */
 
 FILE *
@@ -263,15 +263,15 @@ DEFUN(bfd_open_file, (abfd),
 INTERNAL_FUNCTION
 	bfd_cache_lookup_worker
 
+SYNOPSIS
+	FILE *bfd_cache_lookup_worker(bfd *abfd);
+
 DESCRIPTION
 	Called when the macro <<bfd_cache_lookup>> fails to find a
-	quick answer. Finds a file descriptor for this BFD.  If
-	necessary, it open it. If there are already more than
-	BFD_CACHE_MAX_OPEN files open, it trys to close one first, to
+	quick answer.  Find a file descriptor for @var{abfd}.  If
+	necessary, it open it.  If there are already more than
+	<<BFD_CACHE_MAX_OPEN>> files open, it tries to close one first, to
 	avoid running out of file descriptors.  
-
-SYNOPSIS
-	FILE *bfd_cache_lookup_worker(bfd *);
 
 */
 

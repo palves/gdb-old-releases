@@ -194,8 +194,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Return 1 if P points to an invalid floating point value.  */
 #define INVALID_FLOAT(p, len) 	((*(short *)p & 0xff80) == 0x8000)
 
-/* Say how long (ordinary) registers are.  */
-#define REGISTER_TYPE 		long
+/* Say how long (ordinary) registers are.  This is a piece of bogosity
+   used in push_word and a few other places; REGISTER_RAW_SIZE is the
+   real way to know how big a register is.  */
+
+#define REGISTER_SIZE 4
 
 /* Size of bytes of vector register (NP1 only), 32 elements * sizeof(int) */
 #define VR_SIZE			128
@@ -263,20 +266,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Largest value REGISTER_VIRTUAL_SIZE can have.  */
 #define MAX_REGISTER_VIRTUAL_SIZE	VR_SIZE
-
-/* Nonzero if register N requires conversion
-   from raw format to virtual format.  */
-#define REGISTER_CONVERTIBLE(N)		(0)
-
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)	\
-	memcpy ((TO), (FROM), REGISTER_RAW_SIZE(REGNUM));
-
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-	memcpy ((TO), (FROM), REGISTER_VIRTUAL_SIZE(REGNUM));
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -389,20 +378,21 @@ extern struct type *builtin_type_np1_vector;
 
 /* Discard from the stack the innermost frame, 
    restoring all saved registers.  */
+/* FIXME: Should be using {store,extract}_unsigned_integer.  */
 
 #define POP_FRAME  \
 { CORE_ADDR sp = read_register(SP_REGNUM);             \
-  REGISTER_TYPE reg;                                   \
+  unsigned LONGEST reg;                                   \
   int regnum;                                          \
   for(regnum = 0;regnum < FP_REGNUM;regnum++){         \
-    sp-=sizeof(REGISTER_TYPE);                         \
-    read_memory(sp,&reg,sizeof(REGISTER_TYPE));        \
+    sp-=REGISTER_SIZE;                         \
+    read_memory(sp,&reg,REGISTER_SIZE);        \
     write_register(regnum,reg);}                       \
-  sp-=sizeof(REGISTER_TYPE);                           \
-  read_memory(sp,&reg,sizeof(REGISTER_TYPE));          \
+  sp-=REGISTER_SIZE;                           \
+  read_memory(sp,&reg,REGISTER_SIZE);          \
   write_register(PS_REGNUM,reg);                       \
-  sp-=sizeof(REGISTER_TYPE);                           \
-  read_memory(sp,&reg,sizeof(REGISTER_TYPE));          \
+  sp-=REGISTER_SIZE;                           \
+  read_memory(sp,&reg,REGISTER_SIZE);          \
   write_register(PC_REGNUM,reg);}
 
 /* MJD - Size of dummy frame pushed onto stack by PUSH_DUMMY_FRAME */

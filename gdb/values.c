@@ -360,7 +360,7 @@ show_values (num_exp, from_tty)
     {
       val = access_value_history (i);
       printf_filtered ("$%d = ", i);
-      value_print (val, stdout, 0, Val_pretty_default);
+      value_print (val, gdb_stdout, 0, Val_pretty_default);
       printf_filtered ("\n");
     }
 
@@ -512,11 +512,11 @@ show_convenience (ignore, from_tty)
 	  varseen = 1;
 	}
       printf_filtered ("$%s = ", var->name);
-      value_print (var->value, stdout, 0, Val_pretty_default);
+      value_print (var->value, gdb_stdout, 0, Val_pretty_default);
       printf_filtered ("\n");
     }
   if (!varseen)
-    printf ("No debugger convenience variables now defined.\n\
+    printf_unfiltered ("No debugger convenience variables now defined.\n\
 Convenience variables have names starting with \"$\";\n\
 use \"set\" as in \"set $foo = 5\" to define them.\n");
 }
@@ -594,49 +594,33 @@ unpack_long (type, valaddr)
   register int len = TYPE_LENGTH (type);
   register int nosign = TYPE_UNSIGNED (type);
 
-  if (code == TYPE_CODE_ENUM || code == TYPE_CODE_BOOL)
-    code = TYPE_CODE_INT;
-  if (code == TYPE_CODE_FLT)
+  switch (code)
     {
-      if (len == sizeof (float))
-	{
-	  float retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-
-      if (len == sizeof (double))
-	{
-	  double retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
+    case TYPE_CODE_ENUM:
+    case TYPE_CODE_BOOL:
+    case TYPE_CODE_INT:
+    case TYPE_CODE_CHAR:
+      if (nosign)
+	return extract_unsigned_integer (valaddr, len);
       else
-	{
-	  error ("Unexpected type of floating point number.");
-	}
-    }
-  else if ((code == TYPE_CODE_INT || code == TYPE_CODE_CHAR) && nosign)
-    {
-      return extract_unsigned_integer (valaddr, len);
-    }
-  else if (code == TYPE_CODE_INT || code == TYPE_CODE_CHAR)
-    {
-      return extract_signed_integer (valaddr, len);
-    }
-  /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
-     whether we want this to be true eventually.  */
-  else if (code == TYPE_CODE_PTR || code == TYPE_CODE_REF)
-    {
-      return extract_address (valaddr, len);
-    }
-  else if (code == TYPE_CODE_MEMBER)
-    error ("not implemented: member types in unpack_long");
+	return extract_signed_integer (valaddr, len);
 
-  error ("Value not integer or pointer.");
-  return 0; 	/* For lint -- never reached */
+    case TYPE_CODE_FLT:
+      return extract_floating (valaddr, len);
+
+    case TYPE_CODE_PTR:
+    case TYPE_CODE_REF:
+      /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
+	 whether we want this to be true eventually.  */
+      return extract_address (valaddr, len);
+
+    case TYPE_CODE_MEMBER:
+      error ("not implemented: member types in unpack_long");
+
+    default:
+      error ("Value can't be converted to integer.");
+    }
+  return 0; /* Placate lint.  */
 }
 
 /* Return a double value from the specified type and address.
@@ -663,35 +647,18 @@ unpack_double (type, valaddr, invp)
 	  *invp = 1;
 	  return 1.234567891011121314;
 	}
-
-      if (len == sizeof (float))
-	{
-	  float retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-
-      if (len == sizeof (double))
-	{
-	  double retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-      else
-	{
-	  error ("Unexpected type of floating point number.");
-	  return 0; /* Placate lint.  */
-	}
+      return extract_floating (valaddr, len);
     }
-  else if (nosign) {
-   /* Unsigned -- be sure we compensate for signed LONGEST.  */
-   return (unsigned LONGEST) unpack_long (type, valaddr);
-  } else {
-    /* Signed -- we are OK with unpack_long.  */
-    return unpack_long (type, valaddr);
-  }
+  else if (nosign)
+    {
+      /* Unsigned -- be sure we compensate for signed LONGEST.  */
+      return (unsigned LONGEST) unpack_long (type, valaddr);
+    }
+  else
+    {
+      /* Signed -- we are OK with unpack_long.  */
+      return unpack_long (type, valaddr);
+    }
 }
 
 /* Unpack raw data (copied from debugee, target byte order) at VALADDR
@@ -798,8 +765,12 @@ value_fn_field (arg1p, f, j, type, offset)
 
   sym = lookup_symbol (TYPE_FN_FIELD_PHYSNAME (f, j),
 		       0, VAR_NAMESPACE, 0, NULL);
-  if (! sym) error ("Internal error: could not find physical method named %s",
+  if (! sym) 
+	return (value)NULL;
+/*
+	error ("Internal error: could not find physical method named %s",
 		    TYPE_FN_FIELD_PHYSNAME (f, j));
+*/
   
   v = allocate_value (ftype);
   VALUE_ADDRESS (v) = BLOCK_START (SYMBOL_BLOCK_VALUE (sym));
@@ -1341,19 +1312,10 @@ value_from_double (type, num)
 
   if (code == TYPE_CODE_FLT)
     {
-      if (len == sizeof (float))
-	* (float *) VALUE_CONTENTS_RAW (val) = num;
-      else if (len == sizeof (double))
-	* (double *) VALUE_CONTENTS_RAW (val) = num;
-      else
-	error ("Floating type encountered with unexpected data length.");
+      store_floating (VALUE_CONTENTS_RAW (val), len, num);
     }
   else
     error ("Unexpected type encountered for floating constant.");
-
-  /* num was in host byte order.  So now put the value's contents
-     into target byte order.  */
-  SWAP_TARGET_AND_HOST (VALUE_CONTENTS_RAW (val), len);
 
   return val;
 }

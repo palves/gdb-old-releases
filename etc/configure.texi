@@ -180,16 +180,17 @@ usual way to invoke @code{configure} is from the shell, as follows:
 
 @cindex Example session
 @example
-eg$ ./configure @var{host}
+eg$ ./configure @var{hosttype}
 @end example
 
 @noindent
-This prepares the source in the current directory (@file{.}) to be compiled for
-a @var{host} environment.  It assumes that you wish to build programs and files
-in the default @dfn{build directory} (also the current directory, @file{.}).
-If you neglect to specify a value for @var{host}, Cygnus @code{configure} will
-attempt to discover this information by itself (@pxref{config.guess, ,
-Determining system information}).  For information on @var{host} environments,
+This prepares the source in the current directory (@file{.}) to be
+compiled for a @var{hosttype} environment.  It assumes that you wish to
+build programs and files in the default @dfn{build directory} (also the
+current directory, @file{.}).  If you do not specify a value for
+@var{hosttype}, Cygnus @code{configure} will attempt to discover this
+information by itself (@pxref{config.guess, , Determining system
+information}).  For information on @var{hosttype} environments,
 @xref{Host, , Host}.
 
 All @sc{gnu} software is packaged with one or more @code{configure} script(s)
@@ -203,9 +204,9 @@ source.
 of the source configuration:
 
 @smallexample
-  configure @var{host}  [--target=@var{target}] [--srcdir=@var{dir}] [--rm]
-            [--site=@var{site}] [--prefix=@var{dir}] [--exec_prefix=@var{dir}]
-            [--program_prefix=@var{string}] [--tmpdir=@var{dir}]
+  configure @var{hosttype}  [--target=@var{target}] [--srcdir=@var{dir}] [--rm]
+            [--site=@var{site}] [--prefix=@var{dir}] [--exec-prefix=@var{dir}]
+            [--program-prefix=@var{string}] [--tmpdir=@var{dir}]
             [--with-@var{package}[=@var{yes/no}]] [--norecursion]
             [--nfp] [-s] [-v] [-V | --version] [--help]
 @end smallexample
@@ -240,8 +241,15 @@ the @emph{build} directory.
 @cindex @code{--rm}
 @cindex @code{rm} option
 @vindex rm
-@emph{Remove} the configuration specified by @var{host} and the other
+@emph{Remove} the configuration specified by @var{hosttype} and the other
 command-line options, rather than create it.
+
+@c FIXME: check @ref
+@quotation
+@emph{Note:} We recommend that you use @samp{make distclean} rather than
+use this option; see @ref{Invoking make,,Invoking @code{make},make,GNU
+Make}, for details on @samp{make distclean}.
+@end quotation
 
 @item --site=@var{site}
 @cindex @code{--site}
@@ -261,20 +269,20 @@ This option sets the variable @samp{prefix}.  Each generated @file{Makefile}
 will have its @samp{prefix} variables set to this value.  (@xref{What configure
 really does, , What @code{configure} really does}.)
 
-@item --exec_prefix=@var{dir}
-@cindex @code{--exec_prefix}
-@cindex @code{exec_prefix} option
-@vindex exec_prefix
+@item --exec-prefix=@var{dir}
+@cindex @code{--exec-prefix}
+@cindex @code{exec-prefix} option
+@vindex exec-prefix
 Configure the source to install @dfn{host dependent} files in @var{dir}.
 
 This option sets the variable @samp{exec_prefix}.  Each generated
 @file{Makefile} will have its @samp{exec_prefix} variables set to this value.
 (@xref{What configure really does, , What @code{configure} really does}.)
 
-@item --program_prefix=@var{string}
-@cindex @code{--program_prefix}
-@cindex @code{program_prefix} option
-@vindex program_prefix
+@item --program-prefix=@var{string}
+@cindex @code{--program-prefix}
+@cindex @code{program-prefix} option
+@vindex program-prefix
 Configure the source to install certain programs using @var{string} as a
 prefix.  This applies to programs which might be used for cross-compilation,
 such as the compiler and the binary utilities, and also to programs which have
@@ -297,13 +305,13 @@ default is the value of the environment variable @w{@code{TMPDIR}}, or
 @cindex @code{--with-@var{package}}
 @cindex @code{with-@var{package}} option
 @vindex with-@var{package}
-Set a flag for the compiler to recognize that @var{package} is explicitly
-present, or not present, depending on @var{yes/no}.  If @var{yes/no} is
-nonexistent, its value is assumed to be @dfn{yes}.
+Indicate that @var{package} is present, or not present, depending on
+@var{yes/no}.  If @var{yes/no} is nonexistent, its value is assumed to
+be @code{yes}.
 
 For example, if you wish to configure the program @code{gcc} for a Sun
-SPARCstation running SunOS 4.x, and you want to make sure @code{gcc} is built
-using the @sc{gnu} linker @code{ld}, you can configure using
+SPARCstation running SunOS 4.x, and you want @code{gcc} to use the
+@sc{gnu} linker @code{ld}, you can configure @code{gcc} using
 
 @cindex Example session
 @smallexample
@@ -313,7 +321,7 @@ eg$ configure --with-gnu-ld sun4
 @noindent
 @xref{What configure really does, , What @code{configure} really does}, for
 details.  See the installation or release notes for your particular package for
-details on which other @var{package} flags are useful.
+details on which other @var{package} options are recognized.
 @c FIXME - need to include info about --with-* in other dox!
 
 @item --norecursion
@@ -329,18 +337,21 @@ invoked.  (@xref{config.status, , @code{config.status}}.)
 @cindex @code{--nfp}
 @cindex @code{nfp} option
 @vindex nfp
-Explicitly assume that the intended @var{host} has no floating point unit.
+Assume that the intended @var{hosttype} has no floating point unit.
 
 @item -s
 @cindex @code{-s}
 @cindex @code{s} option
-This option is used internally by @code{configure} when calling itself
-recursively in subdirectories.  Its sole purpose is to suppress status output.
-You can override this effect with the @code{--verbose} option.
+Suppress status output.  This option is used internally by
+@code{configure} when calling itself recursively in subdirectories.  You
+can override this option with the @code{--verbose} option.
 
 @item -v
+@itemx --verbose
 @cindex @code{-v}
+@cindex @code{--verbose}
 @cindex @code{v} option
+@cindex @code{verbose} option
 @cindex Verbose Output
 @vindex verbose
 Print status lines for each directory configured.  Normally, only the
@@ -351,13 +362,13 @@ status lines for the initial working directory are printed.
 @cindex version
 @cindex @code{--version}
 @cindex version
-Print @code{configure} version number.
+Print the @code{configure} version number.
 
 @item --help
 @cindex Usage
 @cindex @code{--help}
 @cindex @code{help} option
-Display a quick summary of how to invoke @code{configure}.
+Print a short summary of how to invoke @code{configure}.
 @end table
 
 @cindex Abbreviating option names
@@ -368,18 +379,16 @@ than two dashes, @samp{--}.  However, you may not be able to truncate long
 option names when using a single dash.  When using two dashes, options may be
 abbreviated as long as each option can be uniquely identified.  For example,
 @smallexample
-eg$ configure --s=/u/me/src myhost
+eg$ configure --s=/u/me/src @var{hosttype}
 @end smallexample
 @noindent
 is ambiguous, as @w{@samp{--s}} could refer to either @w{@samp{--site}} or
 @w{@samp{--srcdir}}.  However,
 @smallexample
-eg$ configure --src=/u/me/src myhost
+eg$ configure --src=/u/me/src @var{hosttype}
 @end smallexample
 @noindent
-is a perfectly legal abbreviation.  (Note that the above will probably not work
-unless there exists a valid host called @samp{myhost} and you have source code
-in the directory @file{/u/me/src} that you wish to configure.)
+is a valid abbreviation.
 @end cartouche
 
 
@@ -390,10 +399,9 @@ in the directory @file{/u/me/src} that you wish to configure.)
 @cindex Detailed usage
 @cindex Usage: detailed
 
-@code{configure} prepares source directories for the process of building
-working programs.  ``Configuring'' is the process of preparing software to
-compile correctly on a given @dfn{host}, optionally for a given @dfn{target}.
-A program cannot be built until its source has been configured.
+@code{configure} prepares source directories for building programs in
+them.  ``Configuring'' is the process of preparing software to compile
+correctly on a given @dfn{host}, for a given @dfn{target}.
 
 @code{configure} subsequently writes a configured @file{Makefile} from a
 pre-built template; @code{configure} uses variables that have been set in the
@@ -421,32 +429,39 @@ determine where the variable should be set initially, in either
 @cindex @code{configure} back end
 @cindex @code{configure} details
 
-Cygnus @code{configure} is a complex shell script you use to set up a certain
-environment in which your programs will compile correctly for your machine and
-operating system, and will install themselves in proper places.
-@code{configure} accomplishes this task in a variety of ways:
+Cygnus @code{configure} is a shell script that sets up an environment in
+which your programs will compile correctly for your machine and
+operating system, and will install in proper places.  @code{configure}
+accomplishes this task by doing the following:
 
 @itemize @bullet
-@item it generates a @file{Makefile} from a custom template called
+@item 
+it generates a @file{Makefile} from a custom template called
 @file{Makefile.in} in each relevant source directory;
 
-@item you set certain variables for @code{configure}, either on the command
-line or in the file @file{configure.in}, which subsequently sets variables in
-each generated @file{Makefile} to be used by @code{make} when actually building
-the software;
+@item 
+it customizes the build process to your specifications; you set certain
+variables for @code{configure}, either on the command line or in the
+file @file{configure.in}, which subsequently sets variables in each
+generated @file{Makefile} to be used by @code{make} when actually
+building the software;
 
-@item it establishes and populates @dfn{build directories},
-places for your compiled code to reside before being installed;
+@item 
+it creates @dfn{build directories}, places for your code to be compiled
+in before being installed;
 
-@item it generates a @file{.gdbinit} in the build directory, if
-needed, to communicate information to @code{gdb};
+@item 
+it generates a @file{.gdbinit} in the build directory, if needed, to
+communicate to @code{gdb} where to find the program's source code;
 
-@item it generates a shell script called @file{config.status}
-which is used most often by the @file{Makefile} to reconfigure itself.
+@item 
+it generates a shell script called @file{config.status}
+which is used most often by the @file{Makefile} to reconfigure itself;
 
-@item it recurs in subdirectories, setting up entire trees so
-that they build correctly; if @code{configure} finds another @code{configure}
-script further down in a given source tree, it knows to use this script and not
+@item 
+it recurses in subdirectories, setting up entire trees so that they build
+correctly; if @code{configure} finds another @code{configure} script
+further down in a given source tree, it knows to use this script and not
 recur.
 @end itemize
 
@@ -467,25 +482,32 @@ For further background on this topic, see @cite{On Configuring Development
 Tools} by K. Richard Pixley.
 @end iftex
 
-Use @code{configure} to effectively communicate with the build process:  
+Use @code{configure} to set for the build process:
 
 @itemize @bullet
-@item correct terms for certain variables;
+@item 
+correct values for certain variables;
 
-@item what host you wish to configure a given package for (@pxref{Host, , Host});
+@item 
+which type of host you wish to configure a given package for
+(@pxref{Host, , Host});
 
-@item to tell the build tools where you want this package installed (by using
-@samp{prefix}, @samp{exec_prefix} and @samp{program_prefix}; @pxref{Install
-details, , Full descriptions of all installation directories});
+@item 
+where you want to install this package (by using @samp{prefix},
+@samp{exec-prefix} and @samp{program-prefix}; @pxref{Install details, ,
+Full descriptions of all installation directories});
 
-@item optionally, what machine you wish to @dfn{target} this package's output 
-to (@pxref{Target, , Target});
+@item 
+optionally, which type of machine you wish to @dfn{target} this
+package's output to (@pxref{Target, , Target});
 
-@item what other @sc{gnu} packages are already installed and available to this
-particular build (by using the @samp{--with-@var{package}} option;
+@item 
+which other @sc{gnu} packages are already installed and available to
+this particular build (by using the @samp{--with-@var{package}} option;
 @pxref{Invoking configure, , Invoking @code{configure}});
 
-@item where to build temporary files (by using the @samp{--tmpdir=@var{dir}}
+@item 
+where to place temporary files (by using the @samp{--tmpdir=@var{dir}}
 option; @pxref{Invoking configure, , Invoking @code{configure}});
 
 @item whether to recur in subdirectories (changeable through the
@@ -511,9 +533,10 @@ generation}.
 
 @item config.sub
 @cindex @code{config.sub} definition
-Shell script used by @code{configure} to expand referents to the @var{host}
-argument into a single specification of the form @w{@var{cpu-vendor-os}}.
-For instance, on the command line you would specify
+Shell script used by @code{configure} to expand referents to the
+@var{hosttype} argument into a single specification of the form
+@w{@var{cpu-vendor-os}}.  For instance, on the command line you can
+specify
 
 @cindex Example session
 @example
@@ -536,18 +559,18 @@ the SunOS 4.1.1 release.  @xref{configure variables, , Variables available to @c
 
 @item config.guess
 @cindex @code{config.guess} definition
-If you neglect to put the @var{host} argument on the command line,
-@code{configure} uses @code{config.guess} to make an analysis of your machine
-(and, incidentally, assumes that you wish to configure your software for the
-machine you happen to be running on).  The output of @code{config.guess} is the
-same three-part identifier as described above.
+If you do not put the @var{hosttype} argument on the command line,
+@code{configure} uses the @code{config.guess} shell script to make an
+analysis of your machine (it assumes that you wish to configure your
+software for the type of machine on which you are running).  The output
+of @code{config.guess} is a three-part identifier as described above.
 
 @item config.status
 @cindex @code{config.status} definition
-The final step in configuring a directory is to create an executable shell
-script, @code{config.status}.  The main purpose of this file is to allow the
-@file{Makefile} for the current directory to rebuild itself, if necessary.
-@xref{config.status, , @code{config.status}}.
+The final step in configuring a directory is to create a shell script,
+@code{config.status}.  The main purpose of this file is to allow the
+@file{Makefile} for the current directory to rebuild itself, if
+necessary.  @xref{config.status, , @code{config.status}}.
 
 @item config/*
 @cindex @code{config/} subdirectory
@@ -575,30 +598,32 @@ There are several variables in the build process which you can control through
 build programs such as @code{make}.  These include machine definitions, local
 conventions, installation locations, locations for temporary files, etc.  This
 data is accessible through certain variables which are configurable in the
-build process; we can refer to them as @dfn{build variables}.
+build process; we refer to them as @dfn{build variables}.
 
 For lists of build variables which you can affect by using @code{configure},
 see @ref{configure variables, , Variables available to @code{configure.in}},
 and @ref{Install details, , Full descriptions of all installation directories}.
 
-Generally, build variables, which are used by the @file{Makefile} to determine
-various aspects of the build and installation processes, are changeable by
-command-line options to @code{configure}.  The sense in this is especially seen
-when building large suites of programs, like the Cygnus Support Developer's
-Kit, whose individual programs reside in several subdirectories of a single
-source code ``tree''.  All of these subdirectories need to be configured with
-information relative to the @dfn{build directory}, which is not known until
-@code{configure} is run.  Unless specified otherwise, @code{configure}
-recursively configures every subdirectory in the source tree with correct
-information (i.e., supplied information that is correct, as well as correctly
-supplied information).
+Generally, build variables, which are used by the @file{Makefile} to
+determine various aspects of the build and installation processes, are
+changeable with command-line options to @code{configure}.  In most large
+suites of programs, like the Cygnus Support Developer's Kit, the
+individual programs reside in several subdirectories of a single source
+code ``tree''.  All of these subdirectories need to be configured with
+information relative to the @dfn{build directory}, which is not known
+until @code{configure} is run.  Unless specified otherwise,
+@code{configure} recursively configures every subdirectory in the source
+tree.
 
 Build variables are passed from @code{configure} directly into the
-@file{Makefile}, and use the same names.  In other words, if you specify
+@file{Makefile}, and use the same names (except that dashes are
+transformed into underbars; for example, when you specify the option
+@samp{--exec-prefix} on the command line, the @file{Makefile} variable
+@samp{exec_prefix} is set).  In other words, if you specify
 
 @cindex Example session
 @example
-eg$ ./configure --prefix=/usr/gnu/local @dots{} @var{host}
+eg$ ./configure --prefix=/usr/gnu/local @dots{} @var{hosttype}
 @end example
 
 @noindent
@@ -691,12 +716,13 @@ eg$ make all info install install-info clean
 @end group
 @end smallexample
 
-We can repeat this for other configurations of the same software simply by
-making a new build directory and reconfiguring from inside it.  If you neglect
-to specify the @dfn{host} argument, @code{configure} will attempt to figure out
-what kind of machine and operating system you happen to be using.
-@xref{config.guess, , Determining system information}.  Of course, this may not
-always be the configuration you wish to build.
+We can repeat this for other configurations of the same software simply
+by making a new build directory and reconfiguring from inside it.  If
+you do not specify the @var{hosttype} argument, @code{configure}
+will attempt to figure out what kind of machine and operating system you
+happen to be using.  @xref{config.guess, , Determining system
+information}.  Of course, this may not always be the configuration you
+wish to build.
 
 @emph{Caution:} If you build more than one configuration for a single program,
 remember that you must also specify a different @samp{--prefix} for each
@@ -749,14 +775,14 @@ standards, GNU Coding Standards}.
 @cindex @code{config.guess}
 
 The shell script @code{config.guess} is called when you do not specify a
-@var{host} on the command line to @code{configure}.  @code{config.guess}
+@var{hosttype} on the command line to @code{configure}.  @code{config.guess}
 acquires available system information from your local machine through the shell
 command @code{uname}.  It compares this information to a database and attempts
 to determine a usable three-part system identifier (known as a @dfn{triple}) to
-use as your @var{host}.  @xref{What configure really does, , What
+use as your @var{hosttype}.  @xref{What configure really does, , What
 @code{configure} really does}, to see how this information is used.
 
-@emph{Note:}  If you do not specify a @var{host} on the command line,
+@emph{Note:}  If you do not specify a @var{hosttype} on the command line,
 @code{configure} will attempt to configure your software to run on the machine
 you happen to be using.  This may not be the configuration you desire.
 
@@ -962,7 +988,7 @@ floating point units available.
 @vindex gas
 Set to @samp{true} if you invoked @code{configure} with the
 @w{@samp{--with-gnu-as}} command line option, otherwise it is empty.  This is a
-request to assume that the specified @var{host} machine has @sc{gnu} @code{as}
+request to assume that the specified @var{hosttype} machine has @sc{gnu} @code{as}
 available even if it ordinarily does not.
 
 @item srcdir
@@ -1384,10 +1410,10 @@ through @samp{prefix}.  The default value for @samp{includedir} is
 @section Host
 @cindex Host
 
-The arguments to @code{configure} are @dfn{hosts}.  By @dfn{host} we mean the
-@dfn{environment} in which the source will be compiled.  This need not
-necessarily be the same as the physical machine involved, although it usually
-is.
+The arguments to @code{configure} are @dfn{hosttypes}.  By
+@dfn{hosttype} we mean the @dfn{environment} in which the source will be
+compiled.  This need not necessarily be the same as the physical machine
+involved, although it usually is.
 
 For example, if some obscure machine had the @sc{gnu} @code{POSIX} emulation
 libraries available, it would be possible to configure most @sc{gnu} source for
@@ -1432,7 +1458,7 @@ generated @file{Makefile} they appear in the order: @dfn{target fragment},
 override target fragments, and site fragments to override both.
 
 Host-specific @file{Makefile} fragments conventionally reside in the
-@file{./config/} subdirectory with names of the form @file{mh-@var{host}}.
+@file{./config/} subdirectory with names of the form @file{mh-@var{hosttype}}.
 They are used for hosts that require odd options to the standard compiler and
 for compile time options based on the host configuration.
 
@@ -1633,8 +1659,8 @@ into the final @file{Makefile} before the target-specific fragment.
 
 @item Move host support from @file{Makefile} to fragments
 This usually involves finding sections of the @file{Makefile} that say things
-like ``uncomment these lines for host @var{host}'' and moving them to a new
-file called @file{./config/mh-@var{host}}. For more information, see @ref{Hosts
+like ``uncomment these lines for host @var{hosttype}'' and moving them to a new
+file called @file{./config/mh-@var{hosttype}}. For more information, see @ref{Hosts
 and targets, , Adding hosts and targets}.
 
 @item Choose defaults
@@ -1775,3 +1801,4 @@ configure @dots{} --site=@var{site}
 @c outline-regexp: "@chap"
 @c End:
 @c (setq outline-regexp "@chapt\\\|@unnum\\\|@setf\\\|@conte\\\|@sectio\\\|@subsect\\\|@itemize\\\|@defvar{")
+

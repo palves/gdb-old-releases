@@ -19,7 +19,7 @@ enum dis_insn_type {
   dis_jsr,			/* Jump to subroutine */
   dis_condjsr,			/* Conditional jump to subroutine */
   dis_dref,			/* Data reference instruction */
-  dis_dref2,			/* Two data references in instruction */
+  dis_dref2			/* Two data references in instruction */
 };
 
 /* This struct is passed into the instruction decoding routine, 

@@ -1523,6 +1523,9 @@ procfs_init_inferior (pid)
 
   create_procinfo (pid);
   add_thread (pid);		/* Setup initial thread */
+
+  /* One trap to exec the shell, one to exec the program being debugged.  */
+  startup_inferior (2);
 }
 
 /*
@@ -1561,9 +1564,9 @@ procfs_notice_signals (pid)
 
   for (signo = 0; signo < NSIG; signo++)
     {
-      if (signal_stop_state (signo) == 0 &&
-	  signal_print_state (signo) == 0 &&
-	  signal_pass_state (signo) == 1)
+      if (signal_stop_state (target_signal_from_host (signo)) == 0 &&
+	  signal_print_state (target_signal_from_host (signo)) == 0 &&
+	  signal_pass_state (target_signal_from_host (signo)) == 1)
 	{
 	  prdelset (&pi->prrun.pr_trace, signo);
 	}
@@ -1621,7 +1624,7 @@ proc_set_exec_trap ()
   if ((fd = open (procname, O_RDWR)) < 0)
     {
       perror (procname);
-      fflush (stderr);
+      gdb_flush (gdb_stderr);
       _exit (127);
     }
   premptyset (&exitset);
@@ -1645,7 +1648,7 @@ proc_set_exec_trap ()
   if (ioctl (fd, PIOCSEXIT, &exitset) < 0)
     {
       perror (procname);
-      fflush (stderr);
+      gdb_flush (gdb_stderr);
       _exit (127);
     }
 
@@ -1654,7 +1657,7 @@ proc_set_exec_trap ()
   if (ioctl (fd, PIOCSENTRY, &entryset) < 0)
     {
       perror (procname);
-      fflush (stderr);
+      gdb_flush (gdb_stderr);
       _exit (126);
     }
 
@@ -1856,11 +1859,11 @@ procfs_attach (args, from_tty)
       exec_file = (char *) get_exec_file (0);
 
       if (exec_file)
-	printf ("Attaching to program `%s', %s\n", exec_file, target_pid_to_str (pid));
+	printf_unfiltered ("Attaching to program `%s', %s\n", exec_file, target_pid_to_str (pid));
       else
-	printf ("Attaching to %s\n", target_pid_to_str (pid));
+	printf_unfiltered ("Attaching to %s\n", target_pid_to_str (pid));
 
-      fflush (stdout);
+      gdb_flush (gdb_stdout);
     }
 
   do_attach (pid);
@@ -1889,9 +1892,9 @@ procfs_detach (args, from_tty)
       char *exec_file = get_exec_file (0);
       if (exec_file == 0)
 	exec_file = "";
-      printf ("Detaching from program: %s %s\n",
+      printf_unfiltered ("Detaching from program: %s %s\n",
 	      exec_file, target_pid_to_str (inferior_pid));
-      fflush (stdout);
+      gdb_flush (gdb_stdout);
     }
   if (args)
     siggnal = atoi (args);
@@ -1921,7 +1924,7 @@ static void
 procfs_files_info (ignore)
      struct target_ops *ignore;
 {
-  printf ("\tUsing the running image of %s %s via /proc.\n",
+  printf_unfiltered ("\tUsing the running image of %s %s via /proc.\n",
 	  attach_flag? "attached": "child", target_pid_to_str (inferior_pid));
 }
 
@@ -2029,7 +2032,7 @@ do_attach (pid)
 	}
       else
 	{
-	  printf ("Ok, gdb will wait for %s to stop.\n", target_pid_to_str (pid));
+	  printf_unfiltered ("Ok, gdb will wait for %s to stop.\n", target_pid_to_str (pid));
 	}
     }
 
@@ -2106,32 +2109,32 @@ do_detach (signal)
   if (ioctl (pi->fd, PIOCSEXIT, &pi->saved_exitset) < 0)
     {
       print_sys_errmsg (pi->pathname, errno);
-      printf ("PIOCSEXIT failed.\n");
+      printf_unfiltered ("PIOCSEXIT failed.\n");
     }
   if (ioctl (pi->fd, PIOCSENTRY, &pi->saved_entryset) < 0)
     {
       print_sys_errmsg (pi->pathname, errno);
-      printf ("PIOCSENTRY failed.\n");
+      printf_unfiltered ("PIOCSENTRY failed.\n");
     }
   if (ioctl (pi->fd, PIOCSTRACE, &pi->saved_trace) < 0)
     {
       print_sys_errmsg (pi->pathname, errno);
-      printf ("PIOCSTRACE failed.\n");
+      printf_unfiltered ("PIOCSTRACE failed.\n");
     }
   if (ioctl (pi->fd, PIOCSHOLD, &pi->saved_sighold) < 0)
     {
       print_sys_errmsg (pi->pathname, errno);
-      printf ("PIOSCHOLD failed.\n");
+      printf_unfiltered ("PIOSCHOLD failed.\n");
     }
   if (ioctl (pi->fd, PIOCSFAULT, &pi->saved_fltset) < 0)
     {
       print_sys_errmsg (pi->pathname, errno);
-      printf ("PIOCSFAULT failed.\n");
+      printf_unfiltered ("PIOCSFAULT failed.\n");
     }
   if (ioctl (pi->fd, PIOCSTATUS, &pi->prstatus) < 0)
     {
       print_sys_errmsg (pi->pathname, errno);
-      printf ("PIOCSTATUS failed.\n");
+      printf_unfiltered ("PIOCSTATUS failed.\n");
     }
   else
     {
@@ -2144,7 +2147,7 @@ do_detach (signal)
 	      if (ioctl (pi->fd, PIOCCFAULT, 0))
   		{
   		  print_sys_errmsg (pi->pathname, errno);
-		  printf ("PIOCCFAULT failed.\n");
+		  printf_unfiltered ("PIOCCFAULT failed.\n");
   		}
 
 	      /* Make it run again when we close it.  */
@@ -2162,7 +2165,7 @@ do_detach (signal)
 	      if (result)
 		{
 		  print_sys_errmsg (pi->pathname, errno);
-		  printf ("PIOCSRLC or PIOCSET failed.\n");
+		  printf_unfiltered ("PIOCSRLC or PIOCSET failed.\n");
 		}
 	    }
 	}
@@ -2171,50 +2174,35 @@ do_detach (signal)
   attach_flag = 0;
 }
 
-/*
+/*  emulate wait() as much as possible.
+    Wait for child to do something.  Return pid of child, or -1 in case
+    of error; store status in *OURSTATUS.
 
-LOCAL FUNCTION
+    Not sure why we can't
+    just use wait(), but it seems to have problems when applied to a
+    process being controlled with the /proc interface.
 
-	procfs_wait -- emulate wait() as much as possible
-	Wait for child to do something.  Return pid of child, or -1 in case
-	of error; store status through argument pointer STATUS.
+    We have a race problem here with no obvious solution.  We need to let
+    the inferior run until it stops on an event of interest, which means
+    that we need to use the PIOCWSTOP ioctl.  However, we cannot use this
+    ioctl if the process is already stopped on something that is not an
+    event of interest, or the call will hang indefinitely.  Thus we first
+    use PIOCSTATUS to see if the process is not stopped.  If not, then we
+    use PIOCWSTOP.  But during the window between the two, if the process
+    stops for any reason that is not an event of interest (such as a job
+    control signal) then gdb will hang.  One possible workaround is to set
+    an alarm to wake up every minute of so and check to see if the process
+    is still running, and if so, then reissue the PIOCWSTOP.  But this is
+    a real kludge, so has not been implemented.  FIXME: investigate
+    alternatives.
 
-
-SYNOPSIS
-
-	int procfs_wait (int pid, int *statloc)
-
-DESCRIPTION
-
-	Try to emulate wait() as much as possible.  Not sure why we can't
-	just use wait(), but it seems to have problems when applied to a
-	process being controlled with the /proc interface.
-
-NOTES
-
-	We have a race problem here with no obvious solution.  We need to let
-	the inferior run until it stops on an event of interest, which means
-	that we need to use the PIOCWSTOP ioctl.  However, we cannot use this
-	ioctl if the process is already stopped on something that is not an
-	event of interest, or the call will hang indefinitely.  Thus we first
-	use PIOCSTATUS to see if the process is not stopped.  If not, then we
-	use PIOCWSTOP.  But during the window between the two, if the process
-	stops for any reason that is not an event of interest (such as a job
-	control signal) then gdb will hang.  One possible workaround is to set
-	an alarm to wake up every minute of so and check to see if the process
-	is still running, and if so, then reissue the PIOCWSTOP.  But this is
-	a real kludge, so has not been implemented.  FIXME: investigate
-	alternatives.
-
-	FIXME:  Investigate why wait() seems to have problems with programs
-	being control by /proc routines.
-
- */
+    FIXME:  Investigate why wait() seems to have problems with programs
+    being control by /proc routines.  */
 
 static int
-procfs_wait (pid, statloc)
+procfs_wait (pid, ourstatus)
      int pid;
-     int *statloc;
+     struct target_waitstatus *ourstatus;
 {
   short what;
   short why;
@@ -2399,15 +2387,14 @@ wait_again:
 	     pi->prstatus.pr_flags);
     }
 
-  if (statloc)
-    {
-      *statloc = statval;
-    }
+  store_waitstatus (ourstatus, statval);
 
   if (rtnval == -1)		/* No more children to wait for */
     {
-      fprintf (stderr, "Child process unexpectedly missing.\n");
-      *statloc = 42;	/* Claim it exited with signal 42 */
+      fprintf_unfiltered (gdb_stderr, "Child process unexpectedly missing.\n");
+      /* Claim it exited with unknown signal.  */
+      ourstatus->kind = TARGET_WAITKIND_SIGNALLED;
+      ourstatus->value.sig = TARGET_SIGNAL_UNKNOWN;
       return rtnval;
     }
 
@@ -2490,7 +2477,7 @@ static void
 procfs_resume (pid, step, signo)
      int pid;
      int step;
-     int signo;
+     enum target_signal signo;
 {
   int signal_to_pass;
   struct procinfo *pi, *procinfo;
@@ -2520,7 +2507,7 @@ procfs_resume (pid, step, signo)
 #endif
 #endif
 
-  if (signo == SIGSTOP && pi->nopass_next_sigstop)
+  if (signo == TARGET_SIGNAL_STOP && pi->nopass_next_sigstop)
     /* When attaching to a child process, if we forced it to stop with
        a PIOCSTOP, then we will have set the nopass_next_sigstop flag.
        Upon resuming the first time after such a stop, we explicitly
@@ -2532,7 +2519,7 @@ procfs_resume (pid, step, signo)
        deal with the inferior a little smarter, and possibly even allow
        an inferior to continue running at the same time as gdb.  (FIXME?)  */
     signal_to_pass = 0;
-  else if (signo == SIGTSTP
+  else if (signo == TARGET_SIGNAL_TSTP
 	   && pi->prstatus.pr_cursig == SIGTSTP
 	   && pi->prstatus.pr_action.sa_handler == SIG_DFL)
 
@@ -2552,7 +2539,7 @@ procfs_resume (pid, step, signo)
        because the handler needs to get executed.  */
     signal_to_pass = 0;
   else
-    signal_to_pass = signo;
+    signal_to_pass = target_signal_to_host (signo);
 
   if (signal_to_pass)
     {
@@ -2590,7 +2577,7 @@ procfs_resume (pid, step, signo)
 	      {
 		if (ioctl (procinfo->fd, PIOCSTATUS, &procinfo->prstatus) < 0)
 		  {
-		    fprintf(stderr, "PIOCSTATUS failed, errno=%d\n", errno);
+		    fprintf_unfiltered(gdb_stderr, "PIOCSTATUS failed, errno=%d\n", errno);
 		  }
 		print_sys_errmsg (procinfo->pathname, errno);
 		error ("PIOCRUN failed");
@@ -3472,7 +3459,7 @@ procfs_create_inferior (exec_file, allargs, env)
   procfs_set_sproc_trap (current_procinfo);
 #endif
 
-  proceed ((CORE_ADDR) -1, 0, 0);
+  proceed ((CORE_ADDR) -1, TARGET_SIGNAL_0, 0);
 }
 
 /* Clean up after the inferior dies.  */
@@ -3536,23 +3523,6 @@ struct target_ops procfs_ops = {
   0,				/* sections_end */
   OPS_MAGIC			/* to_magic */
 };
-
-/*
-
-GLOBAL FUNCTION
-
-	_initialize_procfs -- initialize the process file system stuff
-
-SYNOPSIS
-
-	void _initialize_procfs (void)
-
-DESCRIPTION
-
-	Do required initializations during gdb startup for using the
-	/proc file system interface.
-
-*/
 
 void
 _initialize_procfs ()

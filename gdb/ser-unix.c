@@ -150,6 +150,12 @@ set_tty_state(scb, state)
 #ifdef HAVE_SGTTY
   if (ioctl (scb->fd, TIOCSETN, &state->sgttyb) < 0)
     return -1;
+  if (ioctl (scb->fd, TIOCSETC, &state->tc) < 0)
+    return -1;
+  if (ioctl (scb->fd, TIOCSLTC, &state->ltc) < 0)
+    return -1;
+  if (ioctl (scb->fd, TIOCLSET, &state->lmode) < 0)
+    return -1;
 
   return 0;
 #endif
@@ -354,7 +360,7 @@ hardwire_raw(scb)
   struct hardwire_ttystate state;
 
   if (get_tty_state(scb, &state))
-    fprintf(stderr, "get_tty_state failed: %s\n", safe_strerror(errno));
+    fprintf_unfiltered(gdb_stderr, "get_tty_state failed: %s\n", safe_strerror(errno));
 
 #ifdef HAVE_TERMIOS
   state.termios.c_iflag = 0;
@@ -384,7 +390,7 @@ hardwire_raw(scb)
   scb->current_timeout = 0;
 
   if (set_tty_state (scb, &state))
-    fprintf(stderr, "set_tty_state failed: %s\n", safe_strerror(errno));
+    fprintf_unfiltered(gdb_stderr, "set_tty_state failed: %s\n", safe_strerror(errno));
 }
 
 /* Wait for input on scb, with timeout seconds.  Returns 0 on success,
@@ -440,7 +446,7 @@ wait_for(scb, timeout)
     struct hardwire_ttystate state;
 
     if (get_tty_state(scb, &state))
-      fprintf(stderr, "get_tty_state failed: %s\n", safe_strerror(errno));
+      fprintf_unfiltered(gdb_stderr, "get_tty_state failed: %s\n", safe_strerror(errno));
 
 #ifdef HAVE_TERMIOS
     state.termios.c_cc[VTIME] = timeout * 10;
@@ -453,7 +459,7 @@ wait_for(scb, timeout)
     scb->current_timeout = timeout;
 
     if (set_tty_state (scb, &state))
-      fprintf(stderr, "set_tty_state failed: %s\n", safe_strerror(errno));
+      fprintf_unfiltered(gdb_stderr, "set_tty_state failed: %s\n", safe_strerror(errno));
 
     return 0;
   }

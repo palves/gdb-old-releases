@@ -106,11 +106,17 @@ extern boolean coff_find_nearest_line PARAMS ((bfd *,
 extern int coff_sizeof_headers PARAMS ((bfd *, boolean reloc));
 extern boolean bfd_coff_reloc16_relax_section PARAMS ((bfd *,
 						       asection *,
+						       struct bfd_link_info *,
 						       asymbol **));
 extern bfd_byte *bfd_coff_reloc16_get_relocated_section_contents
-  PARAMS ((bfd *, struct bfd_seclet *, bfd_byte *, boolean relocateable));
+  PARAMS ((bfd *, struct bfd_link_info *, struct bfd_link_order *,
+	   bfd_byte *, boolean relocateable, asymbol **));
 extern bfd_vma bfd_coff_reloc16_get_value PARAMS ((arelent *,
-						   struct bfd_seclet *));
+						   struct bfd_link_info *,
+						   asection *));
+extern void bfd_perform_slip PARAMS ((asymbol **s, unsigned int slip,
+				      asection *input_section,
+				      bfd_vma value));
 
 /* And more taken from the source .. */
 
@@ -257,7 +263,8 @@ typedef struct
        struct internal_syment *sym));
  void (*_bfd_coff_reloc16_extra_cases) PARAMS ((
        bfd     *abfd,
-       struct bfd_seclet *seclet,
+       struct bfd_link_info *link_info,
+       struct bfd_link_order *link_order,
        arelent *reloc,
        bfd_byte *data,
        unsigned int *src_ptr,
@@ -266,7 +273,8 @@ typedef struct
        asection *input_section,
        asymbol **symbols,
        arelent *r,
-       unsigned int shrink));	
+       unsigned int shrink,
+       struct bfd_link_info *link_info));
 
 } bfd_coff_backend_data;
 
@@ -341,12 +349,11 @@ typedef struct
 #define bfd_coff_symname_in_debug(abfd, sym)\
         ((coff_backend_info (abfd)->_bfd_coff_symname_in_debug) (abfd, sym))
 
-#define bfd_coff_reloc16_extra_cases(abfd, seclet, reloc, data, src_ptr, dst_ptr)\
+#define bfd_coff_reloc16_extra_cases(abfd, link_info, link_order, reloc, data, src_ptr, dst_ptr)\
         ((coff_backend_info (abfd)->_bfd_coff_reloc16_extra_cases)\
-         (abfd, seclet, reloc, data, src_ptr, dst_ptr))
+         (abfd, link_info, link_order, reloc, data, src_ptr, dst_ptr))
 
-#define bfd_coff_reloc16_estimate(abfd, section, symbols, reloc, shrink)\
+#define bfd_coff_reloc16_estimate(abfd, section, symbols, reloc, shrink, link_info)\
         ((coff_backend_info (abfd)->_bfd_coff_reloc16_estimate)\
-         (section, symbols, reloc, shrink))
- 
+         (section, symbols, reloc, shrink, link_info))
  

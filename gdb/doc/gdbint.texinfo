@@ -1,6 +1,6 @@
 \input texinfo
 @setfilename gdbint.info
-@c $Id: gdbint.texinfo,v 1.72 1993/08/11 00:01:55 shebs Exp $
+@c $Id: gdbint.texinfo,v 1.73 1993/12/04 03:13:46 gnu Exp $
 
 @ifinfo
 @format
@@ -42,7 +42,7 @@ regarded as a program in the language TeX).
 @page
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.72 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.73 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill \manvers\par
@@ -347,7 +347,7 @@ Then edit @file{bfd/configure.host}.  Add a line to recognize your
 @code{my_host} to @var{xxx} when you recognize it.  This will cause your
 file @file{h-@var{xxx}.h} to be linked to @file{sysdep.h} at configuration
 time.  When creating the line that recognizes your configuration,
-only match the fields that you really need to match; e.g. don't match
+only match the fields that you really need to match; e.g. don't
 match the architecture or manufacturer if the OS is sufficient
 to distinguish the configuration that your @file{h-@var{xxx}.h} file supports.
 Don't match the manufacturer name unless you really need to.
@@ -452,7 +452,7 @@ Now, you are now ready to try configuring GDB to compile using your system
 as its host.  From the top level (above @file{bfd}, @file{gdb}, etc), do:
 
 @example
-./configure @var{xxx} +target=vxworks960
+./configure @var{xxx} --target=vxworks960
 @end example
 
 This will configure your system to cross-compile for VxWorks on

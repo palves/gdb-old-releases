@@ -26,7 +26,6 @@ extern int   fflush ();
 extern int   write ();
 extern void  abort ();
 extern int   close ();
-extern int   qsort ();
 extern void  exit ();
 extern int   fseek ();
 extern int   fclose ();
@@ -70,13 +69,12 @@ extern char *strrchr();
 extern int chmod();
 extern int fstat();
 extern int stat();
-extern int strtol();
 
 extern char *strrchr();
 extern char *ctime();
 extern int _flsbuf();
 extern int fclose();
-extern int time();
+/*extern int time(); this causes error with time.h on mach3 */
 extern int utimes();
 extern int vfprintf();
 extern long atol();

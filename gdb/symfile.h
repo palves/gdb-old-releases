@@ -33,18 +33,10 @@ struct psymbol_allocation_list {
 
 struct sym_fns {
 
-  /* is the name, or name prefix, of the BFD "target type" that this
-     set of functions handles.  E.g. "a.out" or "sunOs" or "coff" or "elf".  */
+  /* BFD flavour that we handle, or (as a special kludge, see xcoffread.c,
+     (enum bfd_flavour)-1 for xcoff).  */
 
-  char *sym_name;
-
-  /* counts how many bytes of sym_name should be checked against the
-     BFD target type of the file being read.  If an exact match is
-     desired, specify the number of characters in sym_name plus 1 for
-     the '\0'.  If a prefix match is desired, specify the number of
-     characters in sym_name.  */
-
-  int sym_namelen;
+  enum bfd_flavour sym_flavour;
 
   /* Initializes anything that is global to the entire symbol table.  It is
      called during symbol_file_add, when we begin debugging an entirely new
@@ -187,9 +179,6 @@ sort_block_syms PARAMS ((struct block *));
 extern void
 sort_symtab_syms PARAMS ((struct symtab *));
 
-extern void
-sort_all_symtab_syms PARAMS ((void));
-
 /* Make a copy of the string at PTR with SIZE characters in the symbol obstack
    (and add a null character at the end in the copy).
    Returns the address of the copy.  */
@@ -219,6 +208,26 @@ extern void generic_load PARAMS ((char *name, int from_tty));
 extern void
 dwarf_build_psymtabs PARAMS ((struct objfile *, struct section_offsets *, int,
 			      file_ptr, unsigned int, file_ptr, unsigned int));
+
+/* From mdebugread.c */
+
+/* Hack to force structures to exist before use in parameter list.  */
+struct ecoff_debug_hack
+{
+  struct ecoff_debug_swap *a;
+  struct ecoff_debug_info *b;
+};
+extern void
+mdebug_build_psymtabs PARAMS ((struct objfile *,
+			       const struct ecoff_debug_swap *,
+			       struct ecoff_debug_info *,
+			       struct section_offsets *));
+
+extern void
+elfmdebug_build_psymtabs PARAMS ((struct objfile *,
+				  const struct ecoff_debug_swap *,
+				  asection *,
+				  struct section_offsets *));
 
 /* From demangle.c */
 

@@ -1,6 +1,179 @@
+Mon Jan 31 06:43:45 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* configure.in (hppa*-*-*): Enable stabs tests for these configs. 
+
+Mon Jan 31 06:43:45 1994  Fred Fish  (fnf@cygnus.com)
+
+	* gdb.t06/break.exp:  Remove setup_xfails for
+	sparc-sun-solaris2.*, these tests now pass with latest gcc and gdb.
+	* gdb.t20/inherit.exp (test_ptype_si):  Update warning message
+	about known bug in gcc to include up through 2.5.8.
+	* gdb.t20/inherit.exp (test_ptype_vi):  Accept "_vb." as well as
+	well as "_vb$".
+	* gdb.t21/cplusfuncs.exp (test_lookup_operator_functions):
+	Remove setup_xfails for sparc-sun-solaris2.*, these tests now pass
+	with latest gcc and gdb.
+	* gdb.t22/virtfunc.exp (test_ptype_of_classes):  Accept "_vb." as
+	well as "_vb$".
+
+Tue Jan 18 20:10:50 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t00/default.exp (show prompt): In FAIL case, only match if
+	the prompt is at the start of a line.
+
+Mon Jan 17 02:40:52 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.disasm/hppa.s: Add new tests for sfu and copr instructions.
+	Enable "diag" instruction.  Delete copr from fpu_misc_tests, it's
+	in the copr tests now.
+	* gdb.disasm/hppa.exp: Run new sfu and copr tests.  Do not expect
+	copr in the fpu_misc tests anymore.  fpu_misc tests are no longer
+	expected to fail.
+
+Fri Jan 14 14:24:21 1994  Rob Savoye  (rob@darkstar.cygnus.com)
+
+	* Most .exp files: Tweak to run under either version of expect.
+
+Thu Jan 13 17:16:09 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* Makefile.in: Pass LDFLAGS and LIBS to sub-makes.
+	* gdb.t06/configure.in: Don't try to compile signals test program
+	if doing mips-idt-ecoff.	
+
+Thu Jan 13 08:25:55 1994  Rob Savoye  (rob@darkstar.cygnus.com)
+
+	* Most .exp files: Tweak to run under either version of expect.
+
+Tue Jan 11 15:21:13 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t12/scope.exp: Add xfails for rs6000.  Remove 1806 from existing
+	xfails; I'm not sure why they are failing, but not because of PR 1806.
+
+Mon Jan 10 22:14:20 1994  Rob Savoye  (rob@darkstar.cygnus.com)
+
+	* config/unix-gdb.exp: Remove gdb_unload cause it's already
+	defined in lib/gdb.exp.
+
+Fri Jan  7 12:42:45 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.t07/watchpoint.exp:  Clear xfail for calling function with
+	watchpoint enabled on mips, CALL_DUMMY_BREAKPOINT_OFFSET got defined.
+	* gdb.t20/gdbme.cc, gdb.t21/gdbme.cc:  Conversion operator functions
+	have to be typeless.
+
+Tue Jan  4 09:32:22 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* TODO: Add suggestion for copyright year test.
+
+Mon Jan  3 11:35:26 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* configure.in (*-*-lynxos*): Add stabs tests.
+
+Wed Dec  1 21:54:05 1993  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.stabs/hppa.sed: Only lables should ever start in column zero,
+	so insert a tab before any assembler directive in column zero.
+
+	* gdb.disasm/hppa.exp (all_fpu_memory_tests): Test FP quadword
+	stores.
+	* gdb.disasm/hppa.s (fpu_memory_indexing_tests): Add FP quadword
+	stores.
+	(fpu_short_memory_tests): Likewise.
+
+Mon Nov 22 13:23:22 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.stabs/ecoff.mt:  Delete alpha specific if block, fix typo.
+	* gdb.stabs/ecoff.sed:  Escape inserted blanks with backslashes, embed
+	.stabs directives in comments.
+
+Fri Nov 19 14:09:02 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* TODO: New file, describing tests we could write.
+	* gdb.t09/corefile.exp: Move description of tests to write to TODO.
+
+Tue Nov 16 21:07:44 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t06/signals.exp: Add kludge to force re-sync.
+
+	* gdb.t00/teststrategy.exp: If we accidently send the "maint dump-me"
+	to xgdb instead of gdb, get out of gdb.
+
+Tue Nov 16 10:21:57 1993  Rob Savoye  (rob@cygnus.com)
+
+	* lib/gdb.exp: Make GDB and GDBFLAGS global so the scoping work
+	for info.
+
+Sat Nov 13 23:17:48 1993  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.stabs/hppa.mt: A makefile fragment for the PA.
+	* gdb.stabs/configure.in (hppa*-*-*): Use it.
+	* gdb.stabs/hppa.sed: New sed script for the PA.
+
+Sat Nov 13 22:50:29 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.stabs: Re-write weird.def and configuration to use sed
+	instead of cpp.  sed is portable and POSIX; cpp is neither.
+
+Fri Nov 12 15:26:36 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t06/signals.exp: Remove one sun3 XFAIL which has been fixed.
+
+Mon Nov  8 16:55:28 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t20/gdbme.cc: Add comment about pmi being optimized out.
+
+Thu Nov  4 23:07:59 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.stabs/weird.exp, gdb.t22/virtfunc.exp: Accept "_vb." as well as
+	"_vb$".
+	* gdb.t00/teststrategy.exp: Add xfail for RS/6000.
+	* gdb.t03/ptype.exp: Add comments and messages about FAILs with xlc.
+
+Wed Nov  3 13:53:34 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* lib/gdb.exp: Comment out code which depends on non-existent
+	`transform' procedure.
+
+Wed Nov  3 11:23:11 1993  Rob Savoye  (rob@darkstar.cygnus.com)
+
+	* lib/gdb.exp (default_gdb_exit): Remove `catch "close"'.
+	* lib/gdb.exp: Transform tool name.
+	* gdb.t*/*.exp: Change error to perror so it works with DejaGnu
+	1.1's new error handling system.
+
+Mon Nov  1 10:36:29 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in, gdb.t2*/Makefile.in: Add -O to CXXFLAGS.
+
+Fri Oct 29 17:58:14 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t00/default.exp: Avoid tests with a lot of .* in them.
+	They made pattern matching so slow that timeouts happened on
+	heavily loaded systems.  Now any output from "show print" which
+	gets us back to the GDB prompt is a PASS.
+
 Mon Oct 25 14:36:50 1993  Stu Grossman  (grossman at cygnus.com)
 
 	* gdb.disasm/hppa.mt:  Use $(srcdir) in hppa.o make rule.
+
+Mon Oct 25 13:35:29 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t06/signals.exp: Skip whole file with xfail for HPPA.
+
+	* gdb.t24/demangle.exp: Remove "3220" from the one remaining xfail.
+	It is not from PR 3220.
+
+Sun Oct 24 18:49:58 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t00/{help.exp,default.exp}: Loosen up a few more tests which
+	just started failing because they depended on the order the
+	subcommands are presented, or exact docstring text.  This kind of
+	test is a pain and has minimal benefit.
+
+Thu Oct 21 08:26:48 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t09/corefile.exp: At end of test, use "core" command with
+	no arguments.
 
 Wed Oct 20 08:56:02 1993  Stu Grossman  (grossman at cygnus.com)
 
@@ -8,6 +181,15 @@ Wed Oct 20 08:56:02 1993  Stu Grossman  (grossman at cygnus.com)
 	17}/Makefile.in:  Make it possible to run the testsuite with Sun
 	make and CC = cross gcc by adding explicit build rules for .o
 	files.
+
+Tue Oct 19 14:57:38 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t15/funcargs.exp: Don't put comments on same line as
+	setup_xfail (@#$*%& tcl braindamage!).
+  
+Mon Oct 18 21:50:08 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.disasm/hppa.exp: Use $objdir/$subdir/$binfile not just $binfile.
 
 Fri Oct 15 15:39:54 1993  Kung Hsu  (kung@cirdan.cygnus.com)
 

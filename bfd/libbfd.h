@@ -19,6 +19,12 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+/* Use builtin alloca for gcc.  */
+#ifdef __GNUC__
+#ifndef alloca
+#define alloca __builtin_alloca
+#endif
+#endif
 
 /* Align an address upward to a boundary, expressed as a number of bytes.
    E.g. align to an 8-byte boundary with argument of 8.  */
@@ -44,7 +50,8 @@ struct artdata {
   carsym *symdefs;		/* the symdef entries */
   symindex symdef_count;             /* how many there are */
   char *extended_names;		/* clever intel extension */
-  time_t armap_timestamp;	/* Timestamp value written into armap.
+  /* when more compilers are standard C, this can be a time_t */
+  long  armap_timestamp;	/* Timestamp value written into armap.
 				   This is used for BSD archives to check
 				   that the timestamp is recent enough
 				   for the BSD linker to not complain,
@@ -52,6 +59,7 @@ struct artdata {
 				   archive.  */
   file_ptr armap_datepos;	/* Position within archive to seek to
 				   rewrite the date field.  */
+  PTR tdata;			/* Backend specific information.  */
 };
 
 #define bfd_ardata(bfd) ((bfd)->tdata.aout_ar_data)
@@ -93,8 +101,9 @@ int		bfd_stat  PARAMS ((bfd *abfd, struct stat *));
 
 bfd *	_bfd_create_empty_archive_element_shell PARAMS ((bfd *obfd));
 bfd *	look_for_bfd_in_cache PARAMS ((bfd *arch_bfd, file_ptr index));
+boolean _bfd_add_bfd_to_archive_cache PARAMS ((bfd *, file_ptr, bfd *));
 boolean	_bfd_generic_mkarchive PARAMS ((bfd *abfd));
-struct areltdata *	snarf_ar_hdr PARAMS ((bfd *abfd));
+struct areltdata *	_bfd_snarf_ar_hdr PARAMS ((bfd *abfd));
 bfd_target *		bfd_generic_archive_p PARAMS ((bfd *abfd));
 boolean	bfd_slurp_armap PARAMS ((bfd *abfd));
 boolean bfd_slurp_bsd_armap_f2 PARAMS ((bfd *abfd));
@@ -102,7 +111,8 @@ boolean bfd_slurp_bsd_armap_f2 PARAMS ((bfd *abfd));
 #define bfd_slurp_coff_armap bfd_slurp_armap
 boolean	_bfd_slurp_extended_name_table PARAMS ((bfd *abfd));
 boolean	_bfd_write_archive_contents PARAMS ((bfd *abfd));
-bfd *	new_bfd PARAMS (());
+bfd *_bfd_get_elt_at_filepos PARAMS ((bfd *archive, file_ptr filepos));
+bfd *	new_bfd PARAMS ((void));
 
 #define DEFAULT_STRING_SPACE_SIZE 0x2000
 boolean	bfd_add_to_string_table PARAMS ((char **table, char *new_string,
@@ -149,7 +159,61 @@ boolean	bfd_generic_get_section_contents PARAMS ((bfd *abfd, sec_ptr section,
 boolean	bfd_generic_set_section_contents PARAMS ((bfd *abfd, sec_ptr section,
 						  PTR location, file_ptr offset,
 						  bfd_size_type count));
+
+/* A routine to create entries for a bfd_link_hash_table.  */
+extern struct bfd_hash_entry *_bfd_link_hash_newfunc
+  PARAMS ((struct bfd_hash_entry *entry,
+	   struct bfd_hash_table *table,
+	   const char *string));
 
+/* Initialize a bfd_link_hash_table.  */
+extern boolean _bfd_link_hash_table_init
+  PARAMS ((struct bfd_link_hash_table *, bfd *,
+	   struct bfd_hash_entry *(*) (struct bfd_hash_entry *,
+				       struct bfd_hash_table *,
+				       const char *)));
+
+/* Generic link hash table creation routine.  */
+extern struct bfd_link_hash_table *_bfd_generic_link_hash_table_create
+  PARAMS ((bfd *));
+
+/* Generic add symbol routine.  */
+extern boolean _bfd_generic_link_add_symbols
+  PARAMS ((bfd *, struct bfd_link_info *));
+
+/* Generic archive add symbol routine.  */
+extern boolean _bfd_generic_link_add_archive_symbols
+  PARAMS ((bfd *, struct bfd_link_info *,
+	   boolean (*checkfn) (bfd *, struct bfd_link_info *, boolean *)));
+
+/* Forward declaration to avoid prototype errors.  */
+typedef struct bfd_link_hash_entry _bfd_link_hash_entry;
+
+/* Generic routine to add a single symbol.  */
+extern boolean _bfd_generic_link_add_one_symbol
+  PARAMS ((struct bfd_link_info *, bfd *, const char *name, flagword,
+	   asection *, bfd_vma, const char *, boolean copy,
+	   boolean constructor, unsigned int bitsize,
+	   struct bfd_link_hash_entry **));
+
+/* Generic link routine.  */
+extern boolean _bfd_generic_final_link
+  PARAMS ((bfd *, struct bfd_link_info *));
+
+/* Default link order processing routine.  */
+extern boolean _bfd_default_link_order
+  PARAMS ((bfd *, struct bfd_link_info *, asection *,
+	   struct bfd_link_order *));
+
+/* Final link relocation routine.  */
+extern bfd_reloc_status_type _bfd_final_link_relocate
+  PARAMS ((const reloc_howto_type *, bfd *, asection *, bfd_byte *,
+	   bfd_vma address, bfd_vma value, bfd_vma addend));
+
+/* Relocate a particular location by a howto and a value.  */
+extern bfd_reloc_status_type _bfd_relocate_contents
+  PARAMS ((const reloc_howto_type *, bfd *, bfd_vma, bfd_byte *));
+
 /* Macros to tell if bfds are read or write enabled.
 
    Note that bfds open for read may be scribbled into if the fd passed
@@ -186,16 +250,21 @@ extern bfd *bfd_last_cache;
 /* Generic routine for close_and_cleanup is really just bfd_true.  */
 #define	bfd_generic_close_and_cleanup	bfd_true
 
+/* List of supported target vectors, and the default vector (if
+   default_vector[0] is NULL, there is no default).  */
+extern bfd_target *target_vector[];
+extern bfd_target *default_vector[];
+
 /* And more follows */
 
 void 
 bfd_check_init PARAMS ((void));
 
 PTR  
-bfd_xmalloc PARAMS (( bfd_size_type size));
+bfd_xmalloc  PARAMS ((bfd_size_type size));
 
 PTR 
-bfd_xmalloc_by_size_t  PARAMS (( size_t size));
+bfd_xmalloc_by_size_t  PARAMS ((size_t size));
 
 void 
 bfd_write_bigendian_4byte_int PARAMS ((bfd *abfd,  int i));
@@ -211,20 +280,20 @@ extern bfd *bfd_last_cache;
       (FILE*)(bfd_last_cache->iostream): \
        bfd_cache_lookup_worker(x))
 boolean 
-bfd_cache_close  PARAMS ((bfd *));
+bfd_cache_close  PARAMS ((bfd *abfd));
 
 FILE* 
-bfd_open_file PARAMS ((bfd *));
+bfd_open_file PARAMS ((bfd *abfd));
 
 FILE *
-bfd_cache_lookup_worker PARAMS ((bfd *));
+bfd_cache_lookup_worker PARAMS ((bfd *abfd));
 
 void 
 bfd_constructor_entry PARAMS ((bfd *abfd, 
     asymbol **symbol_ptr_ptr,
     CONST char*type));
 
-CONST struct reloc_howto_struct *
+const struct reloc_howto_struct *
 bfd_default_reloc_type_lookup
  PARAMS ((bfd *abfd AND
     bfd_reloc_code_real_type  code));
@@ -233,20 +302,17 @@ boolean
 bfd_generic_relax_section
  PARAMS ((bfd *abfd,
     asection *section,
+    struct bfd_link_info *,
     asymbol **symbols));
 
 bfd_byte *
 
 bfd_generic_get_relocated_section_contents  PARAMS ((bfd *abfd,
-    struct bfd_seclet *seclet,
+    struct bfd_link_info *link_info,
+    struct bfd_link_order *link_order,
     bfd_byte *data,
-    boolean relocateable));
-
-boolean 
-bfd_generic_seclet_link
- PARAMS ((bfd *abfd,
-    PTR data,
-    boolean relocateable));
+    boolean relocateable,
+    asymbol **symbols));
 
 extern bfd_arch_info_type bfd_default_arch_struct;
 boolean 
@@ -254,11 +320,11 @@ bfd_default_set_arch_mach PARAMS ((bfd *abfd,
     enum bfd_architecture arch,
     unsigned long mach));
 
-void  
+void 
 bfd_arch_init PARAMS ((void));
 
 void 
-bfd_arch_linkin PARAMS ((bfd_arch_info_type *));
+bfd_arch_linkin PARAMS ((bfd_arch_info_type *ptr));
 
 CONST bfd_arch_info_type *
 bfd_default_compatible
@@ -266,7 +332,7 @@ bfd_default_compatible
     CONST bfd_arch_info_type *b));
 
 boolean 
-bfd_default_scan PARAMS ((CONST struct bfd_arch_info *, CONST char *));
+bfd_default_scan PARAMS ((CONST struct bfd_arch_info *info, CONST char *string));
 
 struct elf_internal_shdr *
 bfd_elf_find_section  PARAMS ((bfd *abfd, char *name));

@@ -30,6 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcmd.h"
 #include "gdbcore.h"
 #include "target.h"
+#include "language.h"
 
 static void
 continue_command PARAMS ((char *, int));
@@ -127,7 +128,7 @@ int inferior_pid;
 
 /* Last signal that the inferior received (why it stopped).  */
 
-int stop_signal;
+enum target_signal stop_signal;
 
 /* Address at which inferior stopped.  */
 
@@ -227,6 +228,14 @@ Start it from the beginning? "))
      we just have to worry about the symbol file.  */
   reread_symbols ();
 
+  /* We keep symbols from add-symbol-file, on the grounds that the
+     user might want to add some symbols before running the program
+     (right?).  But sometimes (dynamic loading where the user manually
+     introduces the new symbols with add-symbol-file), the code which
+     the symbols describe does not persist between runs.  Currently
+     the user has to manually nuke all symbols between runs if they
+     want them to go away (PR 2207).  This is probably reasonable.  */
+
   if (args)
     {
       char *cmd;
@@ -243,7 +252,7 @@ Start it from the beginning? "))
       puts_filtered(" ");
       puts_filtered(inferior_args);
       puts_filtered("\n");
-      fflush (stdout);
+      gdb_flush (gdb_stdout);
     }
 
   target_create_inferior (exec_file, inferior_args,
@@ -286,7 +295,7 @@ continue_command (proc_count_exp, from_tty)
 
   clear_proceed_status ();
 
-  proceed ((CORE_ADDR) -1, -1, 0);
+  proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 0);
 }
 
 /* Step until outside of current statement.  */
@@ -373,7 +382,7 @@ step_1 (skip_subroutines, single_inst, count_string)
 	      printf_filtered ("\
 Single stepping until exit from function %s, \n\
 which has no line number information.\n", name);
-	      fflush (stdout);
+	      gdb_flush (gdb_stdout);
 	    }
 	}
       else
@@ -391,7 +400,7 @@ which has no line number information.\n", name);
 	step_over_calls = 1;
 
       step_multi = (count > 1);
-      proceed ((CORE_ADDR) -1, -1, 1);
+      proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 1);
       if (! stop_step)
 	break;
 
@@ -459,7 +468,7 @@ jump_command (arg, from_tty)
 		     local_hex_string((unsigned long) addr));
 
   clear_proceed_status ();
-  proceed (addr, 0, 0);
+  proceed (addr, TARGET_SIGNAL_0, 0);
 }
 
 /* Continue program giving it specified signal.  */
@@ -469,7 +478,7 @@ signal_command (signum_exp, from_tty)
      char *signum_exp;
      int from_tty;
 {
-  register int signum;
+  enum target_signal oursig;
 
   dont_repeat ();		/* Too dangerous.  */
   ERROR_NO_INFERIOR;
@@ -480,25 +489,36 @@ signal_command (signum_exp, from_tty)
   /* It would be even slicker to make signal names be valid expressions,
      (the type could be "enum $signal" or some such), then the user could
      assign them to convenience variables.  */
-  signum = strtosigno (signum_exp);
+  oursig = target_signal_from_name (signum_exp);
 
-  if (signum == 0)
-    /* Not found as a name, try it as an expression.  */
-    signum = parse_and_eval_address (signum_exp);
+  if (oursig == TARGET_SIGNAL_UNKNOWN)
+    {
+      /* Not found as a name, try it as an expression.  */
+      /* The numeric signal refers to our own internal signal numbering
+	 from target.h, not to host/target signal number.  This is a
+	 feature; users really should be using symbolic names anyway,
+	 and the common ones like SIGHUP, SIGINT, SIGALRM, etc.  will
+	 work right anyway.  */
+      int signum = parse_and_eval_address (signum_exp);
+      if (signum < 0
+	  || signum >= (int)TARGET_SIGNAL_LAST
+	  || signum == (int)TARGET_SIGNAL_UNKNOWN
+	  || signum == (int)TARGET_SIGNAL_DEFAULT)
+	error ("Invalid signal number %d.", signum);
+      oursig = signum;
+    }
 
   if (from_tty)
     {
-      char *signame = strsigno (signum);
-      printf_filtered ("Continuing with signal ");
-      if (signame == NULL || signum == 0)
-	printf_filtered ("%d.\n", signum);
+      if (oursig == TARGET_SIGNAL_0)
+	printf_filtered ("Continuing with no signal.\n");
       else
-	/* Do we need to print the number as well as the name?  */
-	printf_filtered ("%s (%d).\n", signame, signum);
+	printf_filtered ("Continuing with signal %s.\n",
+			 target_signal_to_name (oursig));
     }
 
   clear_proceed_status ();
-  proceed (stop_pc, signum, 0);
+  proceed (stop_pc, oursig, 0);
 }
 
 /* Call breakpoint_auto_delete on the current contents of the bpstat
@@ -583,7 +603,7 @@ run_stack_dummy (addr, buffer)
 #endif /* CALL_DUMMY_BREAKPOINT_OFFSET.  */
 
   proceed_to_finish = 1;	/* We want stop_registers, please... */
-  proceed (addr, 0, 0);
+  proceed (addr, TARGET_SIGNAL_0, 0);
 
   discard_cleanups (old_cleanups);
 
@@ -601,8 +621,8 @@ run_stack_dummy (addr, buffer)
 
    Note that eventually this command should probably be changed so
    that only source lines are printed out when we hit the breakpoint
-   we set.  I'm going to postpone this until after a hopeful rewrite
-   of wait_for_inferior and the proceed status code. -- randy */
+   we set.  This may involve changes to wait_for_inferior and the
+   proceed status code.  */
 
 /* ARGSUSED */
 static void
@@ -648,7 +668,7 @@ until_next_command (from_tty)
   
   step_multi = 0;		/* Only one call to proceed */
   
-  proceed ((CORE_ADDR) -1, -1, 1);
+  proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 1);
 }
 
 static void 
@@ -714,7 +734,7 @@ finish_command (arg, from_tty)
     }
 
   proceed_to_finish = 1;		/* We want stop_registers, please... */
-  proceed ((CORE_ADDR) -1, -1, 0);
+  proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 0);
 
   /* Did we stop at our breakpoint? */
   if (bpstat_find_breakpoint(stop_bpstat, breakpoint) != NULL
@@ -740,7 +760,7 @@ finish_command (arg, from_tty)
 		BLOCK_GCC_COMPILED (SYMBOL_BLOCK_VALUE (function))));
 
       printf_filtered ("Value returned is $%d = ", record_latest_value (val));
-      value_print (val, stdout, 0, Val_no_prettyprint);
+      value_print (val, gdb_stdout, 0, Val_no_prettyprint);
       printf_filtered ("\n");
     }
   do_cleanups(old_chain);
@@ -779,21 +799,12 @@ program_info (args, from_tty)
 	  num = bpstat_num (&bs);
 	}
     }
-  else if (stop_signal)
+  else if (stop_signal != TARGET_SIGNAL_0)
     {
-#ifdef PRINT_RANDOM_SIGNAL
-      PRINT_RANDOM_SIGNAL (stop_signal);
-#else
-      char *signame = strsigno (stop_signal);
-      printf_filtered ("It stopped with signal ");
-      if (signame == NULL)
-	printf_filtered ("%d", stop_signal);
-      else
-	/* Do we need to print the number as well as the name?  */
-	printf_filtered ("%s (%d)", signame, stop_signal);
-      printf_filtered (", %s.\n", safe_strsignal (stop_signal));
-#endif
-  }
+      printf_filtered ("It stopped with signal %s, %s.\n",
+		       target_signal_to_name (stop_signal),
+		       target_signal_to_string (stop_signal));
+    }
 
   if (!from_tty)
     printf_filtered ("Type \"info stack\" or \"info registers\" for more information.\n");
@@ -1058,17 +1069,27 @@ do_registers_info (regnum, fpregs)
 	  continue;
       }
 
-      fputs_filtered (reg_names[i], stdout);
-      print_spaces_filtered (15 - strlen (reg_names[i]), stdout);
+      fputs_filtered (reg_names[i], gdb_stdout);
+      print_spaces_filtered (15 - strlen (reg_names[i]), gdb_stdout);
 
-      /* Get the data in raw format, then convert also to virtual format.  */
+      /* Get the data in raw format.  */
       if (read_relative_register_raw_bytes (i, raw_buffer))
 	{
 	  printf_filtered ("Invalid register contents\n");
 	  continue;
 	}
-      
-      REGISTER_CONVERT_TO_VIRTUAL (i, raw_buffer, virtual_buffer);
+
+      /* Convert raw data to virtual format if necessary.  */
+#ifdef REGISTER_CONVERTIBLE
+      if (REGISTER_CONVERTIBLE (i))
+	{
+	  REGISTER_CONVERT_TO_VIRTUAL (i, REGISTER_VIRTUAL_TYPE (i),
+				       raw_buffer, virtual_buffer);
+	}
+      else
+#endif
+	memcpy (virtual_buffer, raw_buffer,
+		REGISTER_VIRTUAL_SIZE (i));
 
       /* If virtual format is floating, print it that way, and in raw hex.  */
       if (TYPE_CODE (REGISTER_VIRTUAL_TYPE (i)) == TYPE_CODE_FLT
@@ -1077,7 +1098,7 @@ do_registers_info (regnum, fpregs)
 	  register int j;
 
 	  val_print (REGISTER_VIRTUAL_TYPE (i), virtual_buffer, 0,
-		     stdout, 0, 1, 0, Val_pretty_default);
+		     gdb_stdout, 0, 1, 0, Val_pretty_default);
 
 	  printf_filtered ("\t(raw 0x");
 	  for (j = 0; j < REGISTER_RAW_SIZE (i); j++)
@@ -1100,10 +1121,10 @@ do_registers_info (regnum, fpregs)
       else
 	{
 	  val_print (REGISTER_VIRTUAL_TYPE (i), raw_buffer, 0,
-		     stdout, 'x', 1, 0, Val_pretty_default);
+		     gdb_stdout, 'x', 1, 0, Val_pretty_default);
 	  printf_filtered ("\t");
 	  val_print (REGISTER_VIRTUAL_TYPE (i), raw_buffer, 0,
-		     stdout,   0, 1, 0, Val_pretty_default);
+		     gdb_stdout,   0, 1, 0, Val_pretty_default);
 	}
 
       /* The SPARC wants to print even-numbered float regs as doubles
@@ -1271,7 +1292,7 @@ unset_command (args, from_tty)
      int from_tty;
 {
   printf_filtered ("\"unset\" must be followed by the name of an unset subcommand.\n");
-  help_list (unsetlist, "unset ", -1, stdout);
+  help_list (unsetlist, "unset ", -1, gdb_stdout);
 }
 
 void

@@ -274,11 +274,11 @@ struct op opt[] =
   "------", 17, 32, "0011 0101 ssN0 dddd imm16", "ldl rrd,rs(imm16)", 0,
   "------", 17, 32, "0111 0101 ssN0 dddd 0000 xxxx 0000 0000", "ldl rrd,rs(rx)", 0,
 
-"------", 12, 16, "0111 0110 0000 dddd address_src", "lda rd,address_src", 0,
-  "------", 13, 16, "0111 0110 ssN0 dddd address_src", "lda rd,address_src(rs)", 0,
-  "------", 15, 16, "0011 0100 ssN0 dddd imm16", "lda rd,rs(imm16)", 0,
-  "------", 15, 16, "0111 0100 ssN0 dddd 0000 xxxx 0000 0000", "lda rd,rs(rx)", 0,
-  "------", 15, 16, "0011 0100 0000 dddd disp16", "ldar rd,disp16", 0,
+  "------", 12, 16, "0111 0110 0000 dddd address_src", "lda prd,address_src", 0,
+  "------", 13, 16, "0111 0110 ssN0 dddd address_src", "lda prd,address_src(rs)", 0,
+  "------", 15, 16, "0011 0100 ssN0 dddd imm16", "lda prd,rs(imm16)", 0,
+  "------", 15, 16, "0111 0100 ssN0 dddd 0000 xxxx 0000 0000", "lda prd,rs(rx)", 0,
+  "------", 15, 16, "0011 0100 0000 dddd disp16", "ldar prd,disp16", 0,
   "------", 7, 32, "0111 1101 ssss 1ccc", "ldctl ctrl,rs", 0,
   "------", 7, 32, "0111 1101 dddd 0ccc", "ldctl rd,ctrl", 0,
 
@@ -571,11 +571,12 @@ struct tok_struct args[] =
 
   {"rs(imm16)", "CLASS_BA+(ARG_RS)",},
   {"rd(imm16)", "CLASS_BA+(ARG_RD)",},
-
+  {"prd",       "CLASS_PR+(ARG_RD)",},
   {"address_src", "CLASS_DA+(ARG_SRC)",},
   {"address_dst", "CLASS_DA+(ARG_DST)",},
   {"rd(rx)", "CLASS_BX+(ARG_RD)",},
   {"rs(rx)", "CLASS_BX+(ARG_RS)",},
+
   {"disp16", "CLASS_DISP",},
   {"disp12", "CLASS_DISP",},
   {"disp7", "CLASS_DISP",},
@@ -988,7 +989,7 @@ gas ()
   printf ("#define ARG_DISP12 0x0b\n");
   printf ("#define ARG_DISP8 0x0c\n");
   printf ("#define ARG_IMM4M1 0x0d\n");
-  printf ("#define CLASS_MASK 0xfff0\n");
+  printf ("#define CLASS_MASK 0x1fff0\n");
   printf ("#define CLASS_X 0x10\n");
   printf ("#define CLASS_BA 0x20\n");
   printf ("#define CLASS_DA 0x30\n");
@@ -1016,6 +1017,7 @@ gas ()
   printf ("#define CLASS_REG_QUAD 0x4000\n");
   printf ("#define CLASS_REG_LONG 0x5000\n");
   printf ("#define CLASS_REGN0 0x8000\n");
+  printf ("#define CLASS_PR 0x10000\n");
 
   printf ("#define OPC_adc 0\n");
   printf ("#define OPC_adcb 1\n");
@@ -1217,8 +1219,8 @@ gas ()
   printf ("char *name;\n");
   printf ("unsigned char opcode;\n");
   printf ("void (*func)();\n");
-  printf ("unsigned short arg_info[4];\n");
-  printf ("unsigned short byte_info[%d];\n", BYTE_INFO_LEN);
+  printf ("unsigned int arg_info[4];\n");
+  printf ("unsigned int byte_info[%d];\n", BYTE_INFO_LEN);
   printf ("int noperands;\n");
   printf ("int length;\n");
   printf ("int idx;\n");
@@ -1226,7 +1228,7 @@ gas ()
   printf ("#ifdef DEFINE_TABLE\n");
   printf ("opcode_entry_type z8k_table[] = {\n");
 
-  while (new->flags[0])
+  while (new->flags && new->flags[0])
     {
       int nargs;
       int length;

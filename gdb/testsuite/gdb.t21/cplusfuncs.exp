@@ -131,78 +131,76 @@ proc test_lookup_operator_functions {} {
 	return
     }
 
-    info_func "operator&&("  "void foo::operator&&\(foo &\);"
-    info_func "operator&=("  "void foo::operator&=\(foo &\);"
-    info_func "operator&("  "void foo::operator&\(foo &\);"
-    info_func "operator/=("  "void foo::operator/=\(foo &\);"
-    info_func "operator^=("  "void foo::operator\^=\(foo &\);"
-    info_func "operator<<=("  "void foo::operator<<=\(foo &\);"
-    info_func "operator%=("  "void foo::operator%=\(foo &\);"
-    info_func "operator-=("  "void foo::operator-=\(foo &\);"
+    info_func "operator&&("  "void foo::operator&&\[(\]+foo &\[)\]+;"
+    info_func "operator&=("  "void foo::operator&=\[(\]+foo &\[)\]+;"
+    info_func "operator&("  "void foo::operator&\[(\]+foo &\[)\]+;"
+    info_func "operator/=("  "void foo::operator/=\[(\]+foo &\[)\]+;"
+    info_func "operator^=("  "void foo::operator.=\[(\]+foo &\[)\]+;"
+    info_func "operator<<=("  "void foo::operator<<=\[(\]+foo &\[)\]+;"
+    info_func "operator%=("  "void foo::operator%=\[(\]+foo &\[)\]+;"
+    info_func "operator-=("  "void foo::operator-=\[(\]+foo &\[)\]+;"
 
     # There doesn't appear to be anyway to get '*' treated as a character
     # to match, rather than as a regex special character.
     setup_xfail "*-*-*"
-    info_func "operator\*=("  "void foo::operator\*=\(foo &\);"
+    info_func "operator\*=("  "void foo::operator\[*\]=\[(\]+foo &\[)\]+;"
 
-    info_func "operator|=("  "void foo::operator\|=\(foo &\);"
-    setup_xfail "sparc-sun-solaris2.*"
-    info_func "operator+=("  "void foo::operator\+=\(foo &\);"
-    info_func "operator>>=("  "void foo::operator>>=\(foo &\);"
-    info_func "operator=("  "void foo::operator=\(foo &\);"
-    info_func "operator()("  "void foo::operator\(\)\(foo &\);"
+    info_func "operator|=("  "void foo::operator\[|\]+=\[(\]+foo &\[)\]+;"
+    info_func "operator+=("  "void foo::operator.=\[(\]+foo &\[)\]+;"
+    info_func "operator>>=("  "void foo::operator\>\>=\[(\]+foo &\[)\]+;"
+    info_func "operator=("  "void foo::operator=\[(\]+foo &\[)\]+;"
+    info_func "operator()("  "void foo::operator\[(\]+\[)\]+\[(\]+foo &\[)\]+;"
 
     # The function should be "operator," not "operator, ".  (note space)
     # This test will work; I've commented it out because it should not
     # count as a pass, since it is incorrect.  Ian Taylor.
-    # info_func "operator, ("  "void foo::operator, \(foo &\);"
+    # info_func "operator, ("  "void foo::operator, \[(\]+foo &\[)\]+;"
     setup_xfail "*-*-*"
-    info_func "operator,("  "void foo::operator,\(foo &\);"
+    info_func "operator,("  "void foo::operator,\[(\]+foo &\[)\]+;"
 
-    info_func "operator~("  "void foo::operator~\(void\);"
-    info_func "operator delete("  "void foo::operator delete\(void \*\);"
-    info_func "operator/("  "void foo::operator/\(foo &\);"
-    info_func "operator==("  "void foo::operator==\(foo &\);"
-    info_func "operator^("  "void foo::operator\^\(foo &\);"
+    info_func "operator~("  "void foo::operator~\[(\]+void\[)\]+;"
+    info_func "operator delete("  "void foo::operator delete\[(\]+void \[*\]+\[)\]+;"
+    info_func "operator/("  "void foo::operator/\[(\]+foo &\[)\]+;"
+    info_func "operator==("  "void foo::operator==\[(\]+foo &\[)\]+;"
+    # FIXME: there seems to be no way to match a "^" anymore. rob
+    info_func "operator^("  "void foo::operator.\[(\]+foo &\[)\]+;"
 
     if $dem_failcount>$max_dem_failcount then {
 	fail "remaining tests suppressed after $dem_failcount failures..."
 	return
     }
 
-    info_func "operator>=("  "void foo::operator>=\(foo &\);"
-    info_func "operator>("  "void foo::operator>\(foo &\);"
-    info_func "operator<=("  "void foo::operator<=\(foo &\);"
-    info_func "operator<<("  "void foo::operator<<\(foo &\);"
-    info_func "operator<("  "void foo::operator<\(foo &\);"
-    info_func "operator%("  "void foo::operator%\(foo &\);"
-    info_func "operator-("  "void foo::operator-\(foo &\);"
+    info_func "operator>=("  "void foo::operator>=\[(\]+foo &\[)\]+;"
+    info_func "operator>("  "void foo::operator>\[(\]+foo &\[)\]+;"
+    info_func "operator<=("  "void foo::operator<=\[(\]+foo &\[)\]+;"
+    info_func "operator<<("  "void foo::operator<<\[(\]+foo &\[)\]+;"
+    info_func "operator<("  "void foo::operator<\[(\]+foo &\[)\]+;"
+    info_func "operator%("  "void foo::operator%\[(\]+foo &\[)\]+;"
+    info_func "operator-("  "void foo::operator-\[(\]+foo &\[)\]+;"
 
     # There doesn't appear to be anyway to get '*' treated as a character
     # to match, rather than as a regex special character.
     setup_xfail "*-*-*"
-    info_func "operator\*("  "void foo::operator\*\(foo &\);"
+    info_func "operator\*("  "void foo::operator\[*\]+\[(\]+foo &\[)\]+;"
 
-    info_func "operator--("  "void foo::operator--\(int\);"
-    info_func "operator!=("  "void foo::operator!=\(foo &\);"
-    info_func "operator!("  "void foo::operator!\(void\);"
-    info_func "operator new("  "void \*foo::operator new\(.*\);"
-    info_func "operator||("  "void foo::operator\|\|\(foo &\);"
-    info_func "operator char \*("  "char \*foo::operator char \*\(void\);"
-    info_func "operator int("  "int foo::operator int\(void\);"
-    info_func "operator|("  "void foo::operator\|\(foo &\);"
-    setup_xfail "sparc-sun-solaris2.*"
-    info_func "operator+("  "void foo::operator\+\(foo &\);"
-    setup_xfail "sparc-sun-solaris2.*"
-    info_func "operator++("  "void foo::operator\+\+\(int\);"
-    info_func "operator->("  "void foo::operator->\(void\);"
-    info_func "operator->\*("  "void foo::operator->\*\(foo &\);"
-    info_func "operator>>("  "void foo::operator>>\(foo &\);"
+    info_func "operator--("  "void foo::operator--\[(\]+int\[)\]+;"
+    info_func "operator!=("  "void foo::operator!=\[(\]+foo &\[)\]+;"
+    info_func "operator!("  "void foo::operator!\[(\]+void\[)\]+;"
+    info_func "operator new("  "void \[*\]+foo::operator new\[(\]+.*\[)\]+;"
+    info_func "operator||("  "void foo::operator\[|\]+\[(\]+foo &\[)\]+;"
+    info_func "operator char \\*("  "char \[*\]+foo::operator char \[*(\]+void\[)\]+;"
+    info_func "operator int("  "int foo::operator int\[(\]+void\[)\]+;"
+    info_func "operator|("  "void foo::operator\[|\]+\[(\]+foo &\[)\]+;"
+    info_func "operator+("  "void foo::operator\[+\]+\[(\]+foo &\[)\]+;"
+    info_func "operator++("  "void foo::operator\[+\]+\[(\]+int\[)\]+;"
+    info_func "operator->("  "void foo::operator->\[(\]+void\[)\]+;"
+    info_func "operator->\\*("  "void foo::operator\[->*(\]+foo &\[)\]+;"
+    info_func "operator>>("  "void foo::operator\>\>\[(\]+foo &\[)\]+;"
 
     # There doesn't appear to be anyway to get '[' and ']' treated as
     # characters to match, rather than as regex special characters.
     setup_xfail "*-*-*"
-    info_func "operator\\\[\\\]("  "void foo::operator\\\[\\\]\(foo &\);"
+    info_func "operator\[\]("  "void foo::operator\[\]\[\]\[(\]+foo &\[)\]+;"
 
     if $dem_passcount then {
 	pass "$dem_passcount correct rootname operator function lookups"

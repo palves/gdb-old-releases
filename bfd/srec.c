@@ -195,6 +195,7 @@ typedef struct  srec_data_struct
 
 static bfd_vma low,high;
 
+/*ARGSUSED*/
 static void
 size_symbols(abfd, buf, len, val)
 bfd *abfd;
@@ -235,6 +236,7 @@ int val;
     p->udata = 0;
   }
 }
+/*ARGSUSED*/
 static void
 DEFUN(size_srec,(abfd, section, address, raw, length),
       bfd *abfd AND
@@ -254,6 +256,7 @@ DEFUN(size_srec,(abfd, section, address, raw, length),
  called once per input S-Record, copies data from input into bfd_alloc'd area
  */
 
+/*ARGSUSED*/
 static void
 DEFUN(fillup,(abfd, section, address, raw, length),
 bfd *abfd AND
@@ -279,7 +282,7 @@ unsigned int length)
 static int white(x)
 char x;
 {
-return (x== ' ' || x == '\t' || x == '\n' || x == '\r');
+  return (x== ' ' || x == '\t' || x == '\n' || x == '\r');
 }
 static int
 skipwhite(src,abfd)
@@ -309,12 +312,11 @@ DEFUN(srec_mkobject, (abfd),
     
 }
 
-static void
-DEFUN(pass_over,(abfd, func, symbolfunc, section),
-      bfd *abfd AND
-      void (*func)() AND
-      void (*symbolfunc)() AND
-      asection *section)
+static void pass_over(abfd, func, symbolfunc, section)
+     bfd *abfd;
+     void (*func)();
+     void (*symbolfunc)();
+     asection *section;
 {
   unsigned int bytes_on_line;
   boolean eof = false;
@@ -348,45 +350,46 @@ DEFUN(pass_over,(abfd, func, symbolfunc, section),
 
      case ' ':
       /* spaces - maybe just before a symbol */
-      while (*src != '\n' && white(*src)) {
-      eof = skipwhite(src, abfd);
-
-{
-	int val = 0;
-	int slen = 0;
-	char symbol[MAXCHUNK];
-
-	/* get the symbol part */
-	while (!eof && !white(*src) && slen < MAXCHUNK)
+      while (*src != '\n' && *src != '\r' && white(*src)) 
 	{
-	  symbol[slen++] = *src;
-	  eof =  (boolean)(bfd_read(src, 1, 1, abfd) != 1);	  
-	}
-	symbol[slen] = 0;
-	eof = skipwhite(src, abfd);
-	/* skip the $ for the hex value */
-	if (*src == '$') 
-	{
-	  eof =  (boolean)(bfd_read(src, 1, 1, abfd) != 1);
-	}
+	  eof = skipwhite(src, abfd);
 
-	/* Scan off the hex number */
-	while (isxdigit(*src ))
-	{
-	  val *= 16;
-	  if (isdigit(*src))
-	   val += *src - '0';
-	  else if (isupper(*src)) {
-	    val += *src - 'A' + 10;
+	  {
+	    int val = 0;
+	    int slen = 0;
+	    char symbol[MAXCHUNK];
+
+	    /* get the symbol part */
+	    while (!eof && !white(*src) && slen < MAXCHUNK)
+	      {
+		symbol[slen++] = *src;
+		eof =  (boolean)(bfd_read(src, 1, 1, abfd) != 1);	  
+	      }
+	    symbol[slen] = 0;
+	    eof = skipwhite(src, abfd);
+	    /* skip the $ for the hex value */
+	    if (*src == '$') 
+	      {
+		eof =  (boolean)(bfd_read(src, 1, 1, abfd) != 1);
+	      }
+
+	    /* Scan off the hex number */
+	    while (isxdigit(*src ))
+	      {
+		val *= 16;
+		if (isdigit(*src))
+		  val += *src - '0';
+		else if (isupper(*src)) {
+		  val += *src - 'A' + 10;
+		}
+		else {
+		  val += *src - 'a' + 10;
+		}
+		eof =  (boolean)(bfd_read(src, 1, 1, abfd) != 1);
+	      }
+	    symbolfunc(abfd, symbol, slen, val);
 	  }
-	  else {
-	    val += *src - 'a' + 10;
-	  }
-	  eof =  (boolean)(bfd_read(src, 1, 1, abfd) != 1);
 	}
-	symbolfunc(abfd, symbol, slen, val);
-      }
-}
       break;
      case 'S':
       src++;
@@ -749,7 +752,9 @@ srec_write_symbols(abfd)
 	int l;
 	char buf2[40], *p;
 
-	sprintf_vma (buf2, s->value + s->section->lma);
+	sprintf_vma (buf2,
+		     s->value + s->section->output_section->lma 
+		     + s->section->output_offset);
 	p = buf2;
 	while (p[0] == '0' && p[1] != 0)
 	  p++;
@@ -768,13 +773,9 @@ internal_srec_write_object_contents(abfd, symbols)
      bfd *abfd;
      int symbols;
 {
-    int bytes_written;
     tdata_type *tdata = abfd->tdata.srec_data;
     srec_data_list_type *list;
 
-    bytes_written = 0;
-    
-    
     if (symbols)
      srec_write_symbols(abfd);
 
@@ -806,6 +807,7 @@ symbolsrec_write_object_contents(abfd)
   return internal_srec_write_object_contents(abfd, 1);
 }
 
+/*ARGSUSED*/
 static int 
 DEFUN(srec_sizeof_headers,(abfd, exec),
       bfd *abfd AND
@@ -846,6 +848,7 @@ DEFUN(srec_get_symtab, (abfd, alocation),
   return lim;
 }
 
+/*ARGSUSED*/
 void 
 DEFUN(srec_get_symbol_info,(ignore_abfd, symbol, ret),
       bfd *ignore_abfd AND
@@ -855,6 +858,7 @@ DEFUN(srec_get_symbol_info,(ignore_abfd, symbol, ret),
   bfd_symbol_info (symbol, ret);
 }
 
+/*ARGSUSED*/
 void 
 DEFUN(srec_print_symbol,(ignore_abfd, afile, symbol, how),
       bfd *ignore_abfd AND
@@ -904,11 +908,13 @@ DEFUN(srec_print_symbol,(ignore_abfd, afile, symbol, how),
 #define srec_bfd_debug_info_accumulate  (FOO(void, (*), (bfd *,	 asection *))) bfd_void
 #define srec_bfd_get_relocated_section_contents bfd_generic_get_relocated_section_contents
 #define srec_bfd_relax_section bfd_generic_relax_section
-#define srec_bfd_seclet_link bfd_generic_seclet_link
 #define srec_bfd_reloc_type_lookup \
   ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
 #define srec_bfd_make_debug_symbol \
   ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
+#define srec_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
+#define srec_bfd_link_add_symbols _bfd_generic_link_add_symbols
+#define srec_bfd_final_link _bfd_generic_final_link
 
 bfd_target srec_vec =
 {
@@ -918,7 +924,7 @@ bfd_target srec_vec =
     true,			/* target headers byte order */
     (HAS_RELOC | EXEC_P |	/* object flags */
      HAS_LINENO | HAS_DEBUG |
-     HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
+     HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
     (SEC_CODE|SEC_DATA|SEC_ROM|SEC_HAS_CONTENTS
      |SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
      0,				/* leading underscore */
@@ -963,7 +969,7 @@ bfd_target symbolsrec_vec =
     true,			/* target headers byte order */
     (HAS_RELOC | EXEC_P |	/* object flags */
      HAS_LINENO | HAS_DEBUG |
-     HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
+     HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
     (SEC_CODE|SEC_DATA|SEC_ROM|SEC_HAS_CONTENTS
      |SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
      0,				/* leading underscore */

@@ -23,12 +23,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    from i386aout or i386bsd.  So this target is only useful if it is the
    default target.  */
 
-#define	PAGE_SIZE	4096
-#define	SEGMENT_SIZE	PAGE_SIZE
+#define	PAGE_SIZE	1
+#define	SEGMENT_SIZE	0x1000
 #define TEXT_START_ADDR	0x10000
 #define ARCH 32
 #define BYTES_IN_WORD 4
-#define N_HEADER_IN_TEXT(x)	1 		/* (N_MAGIG(x) == ZMAGIC) */
+/* This macro is only relevant when N_MAGIC(x) == ZMAGIC.  */
+#define N_HEADER_IN_TEXT(x)	1
 
 #define N_TXTSIZE(x)	((x).a_text)
 
@@ -43,5 +44,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define DEFAULT_ARCH bfd_arch_i386
 #define MY(OP) CAT(i386mach3_,OP)
 #define TARGETNAME "a.out-mach3"
+
+static boolean MY(set_sizes)();
+#define MY_backend_data &MY(backend_data)
+static CONST struct aout_backend_data MY(backend_data) = {
+  0,				/* zmagic contiguous */
+  1,				/* text incl header */
+  0,				/* text vma? */
+  MY(set_sizes),
+  1,				/* exec header not counted */
+};
 
 #include "aout-target.h"

@@ -20,20 +20,20 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /*
 SECTION
-	File Formats
+	File formats
 
-	A format is a BFD concept of high level file contents. The
+	A format is a BFD concept of high level file contents type. The
 	formats supported by BFD are: 
 
-	o bfd_object
+	o <<bfd_object>>
 
 	The BFD may contain data, symbols, relocations and debug info.
 
-	o bfd_archive
+	o <<bfd_archive>>
 
 	The BFD contains other BFDs and an optional index.
 
-	o bfd_core
+	o <<bfd_core>>
 
 	The BFD contains the result of an executable core dump.
 
@@ -44,10 +44,6 @@ SECTION
 #include "sysdep.h"
 #include "libbfd.h"
 
-extern bfd_target *target_vector[];
-extern bfd_target *default_vector[];
-
-
 /*
 FUNCTION
 	bfd_check_format
@@ -56,15 +52,14 @@ SYNOPSIS
 	boolean bfd_check_format(bfd *abfd, bfd_format format);
 
 DESCRIPTION
-	This routine is supplied a BFD and a format. It attempts to
-	verify if the file attached to the BFD is indeed compatible
-	with the format specified (ie, one of <<bfd_object>>,
+	Verify if the file attached to the BFD @var{abfd} is compatible
+	with the format @var{format} (i.e., one of <<bfd_object>>,
 	<<bfd_archive>> or <<bfd_core>>).
 
-	If the BFD has been set to a specific @var{target} before the
-	call, only the named target and format combination will be
+	If the BFD has been set to a specific target before the
+	call, only the named target and format combination is
 	checked. If the target has not been set, or has been set to
-	<<default>> then all the known target backends will be
+	<<default>>, then all the known target backends is
 	interrogated to determine a match.  If the default target
 	matches, it is used.  If not, exactly one target must recognize
 	the file, or an error results.
@@ -72,18 +67,18 @@ DESCRIPTION
 	The function returns <<true>> on success, otherwise <<false>>
 	with one of the following error codes:  
 
-	o invalid_operation -
+	o <<invalid_operation>> -
 	if <<format>> is not one of <<bfd_object>>, <<bfd_archive>> or
 	<<bfd_core>>.
 
-	o system_call_error -
+	o <<system_call_error>> -
 	if an error occured during a read - even some file mismatches
-	can cause system_call_errors
+	can cause system_call_errors.
 
-	o file_not_recognised -
-	none of the backends recognised the file format
+	o <<file_not_recognised>> -
+	none of the backends recognised the file format.
 
-	o file_ambiguously_recognized -
+	o <<file_ambiguously_recognized>> -
 	more than one backend recognised the file format.
 
 */
@@ -185,13 +180,13 @@ FUNCTION
 	bfd_set_format
 
 SYNOPSIS
-	boolean bfd_set_format(bfd *, bfd_format);
+	boolean bfd_set_format(bfd *abfd, bfd_format format);
 
 DESCRIPTION
-	This function sets the file format of the supplied BFD to the
-	format requested. If the target set in the BFD does not
-	support the format requested, the format is illegal or the BFD
-	is not open for writing than an error occurs.
+	This function sets the file format of the BFD @var{abfd} to the
+	format @var{format}. If the target set in the BFD does not
+	support the format requested, the format is invalid, or the BFD
+	is not open for writing, then an error occurs.
 
 */
 
@@ -228,13 +223,12 @@ FUNCTION
 	bfd_format_string
 
 SYNOPSIS
-	CONST char *bfd_format_string(bfd_format);
+	CONST char *bfd_format_string(bfd_format format);
 
 DESCRIPTION
-	This function takes one argument, and enumerated type
-	(bfd_format) and returns a pointer to a const string
-	<<invalid>>, <<object>>, <<archive>>, <<core>> or <<unknown>>
-	depending upon the value of the enumeration.
+	Return a pointer to a const string
+	<<invalid>>, <<object>>, <<archive>>, <<core>>, or <<unknown>>,
+	depending upon the value of @var{format}.
 */
 
 CONST char *

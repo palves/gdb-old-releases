@@ -38,10 +38,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
 #include "expression.h"
-#include "parser-defs.h"
 #include "value.h"
+#include "parser-defs.h"
 #include "language.h"
 #include "c-lang.h"
+#include "bfd.h" /* Required by objfiles.h.  */
+#include "symfile.h" /* Required by objfiles.h.  */
+#include "objfiles.h" /* For have_full_symbols and have_partial_symbols */
 
 /* Remap normal yacc parser interface names (yyparse, yylex, yyerror, etc),
    as well as gratuitiously global symbol names, so we can have multiple
@@ -632,19 +635,9 @@ variable:	qualified_name
 				      (struct objfile *) NULL);
 			  if (msymbol != NULL)
 			    {
-			      write_exp_elt_opcode (OP_LONG);
-			      write_exp_elt_type (builtin_type_long);
-			      write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
-			      write_exp_elt_opcode (OP_LONG);
-			      write_exp_elt_opcode (UNOP_MEMVAL);
-			      if (msymbol -> type == mst_data ||
-				  msymbol -> type == mst_bss)
-				write_exp_elt_type (builtin_type_int);
-			      else if (msymbol -> type == mst_text)
-				write_exp_elt_type (lookup_function_type (builtin_type_int));
-			      else
-				write_exp_elt_type (builtin_type_char);
-			      write_exp_elt_opcode (UNOP_MEMVAL);
+			      write_exp_msymbol (msymbol,
+						 lookup_function_type (builtin_type_int),
+						 builtin_type_int);
 			    }
 			  else
 			    if (!have_full_symbols () && !have_partial_symbols ())
@@ -698,19 +691,9 @@ variable:	name_not_typename
 					  (struct objfile *) NULL);
 			      if (msymbol != NULL)
 				{
-				  write_exp_elt_opcode (OP_LONG);
-				  write_exp_elt_type (builtin_type_long);
-				  write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
-				  write_exp_elt_opcode (OP_LONG);
-				  write_exp_elt_opcode (UNOP_MEMVAL);
-				  if (msymbol -> type == mst_data ||
-				      msymbol -> type == mst_bss)
-				    write_exp_elt_type (builtin_type_int);
-				  else if (msymbol -> type == mst_text)
-				    write_exp_elt_type (lookup_function_type (builtin_type_int));
-				  else
-				    write_exp_elt_type (builtin_type_char);
-				  write_exp_elt_opcode (UNOP_MEMVAL);
+				  write_exp_msymbol (msymbol,
+						     lookup_function_type (builtin_type_int),
+						     builtin_type_int);
 				}
 			      else if (!have_full_symbols () && !have_partial_symbols ())
 				error ("No symbol table is loaded.  Use the \"file\" command.");
@@ -722,15 +705,12 @@ variable:	name_not_typename
 	;
 
 
-/* shift/reduce conflict: "typebase ." and the token is '('.  (Shows up
-   twice, once where qualified_name is a possibility and once where
-   it is not).  */
-/* shift/reduce conflict: "typebase CONST_KEYWORD ." and the token is '('.  */
-/* shift/reduce conflict: "typebase VOLATILE_KEYWORD ." and the token is
-   '('.  */
 ptype	:	typebase
 	/* "const" and "volatile" are curently ignored.  A type qualifier
-	   before the type is currently handled in the typebase rule.  */
+	   before the type is currently handled in the typebase rule.
+	   The reason for recognizing these here (shift/reduce conflicts)
+	   might be obsolete now that some pointer to member rules have
+	   been deleted.  */
 	|	typebase CONST_KEYWORD
 	|	typebase VOLATILE_KEYWORD
 	|	typebase abs_decl
@@ -766,9 +746,6 @@ direct_abs_decl: '(' abs_decl ')'
 			  $$ = 0;
 			}
 
-     /* shift/reduce conflict.  "direct_abs_decl . func_mod", and the token
-	is '('.  */
-
 	| 	direct_abs_decl func_mod
 			{ push_type (tp_function); }
 	|	func_mod
@@ -787,20 +764,17 @@ func_mod:	'(' ')'
 			{ free ((PTR)$2); $$ = 0; }
 	;
 
-/* shift/reduce conflict: "type '(' typebase COLONCOLON '*' ')' ." and the
-   token is '('.  */
+/* We used to try to recognize more pointer to member types here, but
+   that didn't work (shift/reduce conflicts meant that these rules never
+   got executed).  The problem is that
+     int (foo::bar::baz::bizzle)
+   is a function type but
+     int (foo::bar::baz::bizzle::*)
+   is a pointer to member type.  Stroustrup loses again!  */
+
 type	:	ptype
 	|	typebase COLONCOLON '*'
 			{ $$ = lookup_member_type (builtin_type_int, $1); }
-	|	type '(' typebase COLONCOLON '*' ')'
-			{ $$ = lookup_member_type ($1, $3); }
-	|	type '(' typebase COLONCOLON '*' ')' '(' ')'
-			{ $$ = lookup_member_type
-			    (lookup_function_type ($1), $3); }
-	|	type '(' typebase COLONCOLON '*' ')' '(' nonempty_typelist ')'
-			{ $$ = lookup_member_type
-			    (lookup_function_type ($1), $3);
-			  free ((PTR)$8); }
 	;
 
 typebase  /* Implements (approximately): (type-qualifier)* type-specifier */
@@ -1488,8 +1462,11 @@ yylex ()
 			 current_language->la_language == language_cplus
 			 ? &is_a_field_of_this : (int *) NULL,
 			 (struct symtab **) NULL);
+    /* Call lookup_symtab, not lookup_partial_symtab, in case there are
+       no psymtabs (coff, xcoff, or some future change to blow away the
+       psymtabs once once symbols are read).  */
     if ((sym && SYMBOL_CLASS (sym) == LOC_BLOCK) ||
-        lookup_partial_symtab (tmp))
+        lookup_symtab (tmp))
       {
 	yylval.ssym.sym = sym;
 	yylval.ssym.is_a_field_of_this = is_a_field_of_this;
@@ -1497,6 +1474,12 @@ yylex ()
       }
     if (sym && SYMBOL_CLASS (sym) == LOC_TYPEDEF)
         {
+#if 0
+	  /* In "A::x", if x is a member function of A and there happens
+	     to be a type (nested or not, since the stabs don't make that
+	     distinction) named x, then this code incorrectly thinks we
+	     are dealing with nested types rather than a member function.  */
+
 	  char *p;
 	  char *namestart;
 	  struct symbol *best_sym;
@@ -1564,6 +1547,9 @@ yylex ()
 	    }
 
 	  yylval.tsym.type = SYMBOL_TYPE (best_sym);
+#else /* not 0 */
+	  yylval.tsym.type = SYMBOL_TYPE (sym);
+#endif /* not 0 */
 	  return TYPENAME;
         }
     if ((yylval.tsym.type = lookup_primitive_typename (tmp)) != 0)

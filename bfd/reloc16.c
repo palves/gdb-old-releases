@@ -28,17 +28,17 @@ Most of this hacked by  Steve Chamberlain,
 
 #include "bfd.h"
 #include "sysdep.h"
-#include "libbfd.h"
-#include "seclet.h"
 #include "obstack.h"
+#include "libbfd.h"
+#include "bfdlink.h"
 #include "coff/internal.h"
 #include "libcoff.h"
 
-extern bfd_error_vector_type bfd_error_vector;
-
-bfd_vma bfd_coff_reloc16_get_value(reloc, seclet)
-     arelent  *reloc;
-     bfd_seclet_type *seclet;
+bfd_vma
+bfd_coff_reloc16_get_value (reloc, link_info, input_section)
+     arelent *reloc;
+     struct bfd_link_info *link_info;
+     asection *input_section;
 {
   bfd_vma value;
   asymbol *symbol = *(reloc->sym_ptr_ptr);
@@ -49,7 +49,10 @@ bfd_vma bfd_coff_reloc16_get_value(reloc, seclet)
   if (symbol->section == &bfd_und_section)
     {
       /* Ouch, this is an undefined symbol.. */
-      bfd_error_vector.undefined_symbol(reloc, seclet);
+      if (! ((*link_info->callbacks->undefined_symbol)
+	     (link_info, bfd_asymbol_name (symbol),
+	      input_section->owner, input_section, reloc->address)))
+	abort ();
       value = symbol->value;
     }
   else 
@@ -65,7 +68,8 @@ bfd_vma bfd_coff_reloc16_get_value(reloc, seclet)
   return value;
 }
 
-void bfd_perform_slip(s, slip, input_section, value)
+void
+bfd_perform_slip(s, slip, input_section, value)
      asymbol **s;
      unsigned int slip;
      asection *input_section;
@@ -89,9 +93,10 @@ void bfd_perform_slip(s, slip, input_section, value)
 }
 
 boolean 
-bfd_coff_reloc16_relax_section (abfd, i, symbols)
+bfd_coff_reloc16_relax_section (abfd, i, link_info, symbols)
      bfd *abfd;
      asection *i;
+     struct bfd_link_info *link_info;
      asymbol **symbols;
 {
   /* Get enough memory to hold the stuff */
@@ -113,7 +118,8 @@ bfd_coff_reloc16_relax_section (abfd, i, symbols)
       arelent **parent;
       for (parent = reloc_vector; *parent; parent++) 
 	{
-	  shrink = bfd_coff_reloc16_estimate (abfd, input_section, symbols, *parent, shrink);
+	  shrink = bfd_coff_reloc16_estimate (abfd, input_section, symbols,
+					      *parent, shrink, link_info);
 	}
     }
 
@@ -124,25 +130,31 @@ bfd_coff_reloc16_relax_section (abfd, i, symbols)
 
 bfd_byte *
 bfd_coff_reloc16_get_relocated_section_contents(in_abfd,
-						  seclet,
-						  data,
-						  relocateable)
+						link_info,
+						link_order,
+						data,
+						relocateable,
+						symbols)
      bfd *in_abfd;
-     bfd_seclet_type *seclet;
+     struct bfd_link_info *link_info;
+     struct bfd_link_order *link_order;
      bfd_byte *data;
      boolean relocateable;
+     asymbol **symbols;
 {
   /* Get enough memory to hold the stuff */
-  bfd *input_bfd = seclet->u.indirect.section->owner;
-  asection *input_section = seclet->u.indirect.section;
+  bfd *input_bfd = link_order->u.indirect.section->owner;
+  asection *input_section = link_order->u.indirect.section;
   bfd_size_type reloc_size = bfd_get_reloc_upper_bound(input_bfd,
 						       input_section);
   arelent **reloc_vector = (arelent **)bfd_xmalloc(reloc_size);
   
   /* If producing relocateable output, don't bother to relax.  */
   if (relocateable)
-    return bfd_generic_get_relocated_section_contents (in_abfd, seclet,
-						       data, relocateable);
+    return bfd_generic_get_relocated_section_contents (in_abfd, link_info,
+						       link_order,
+						       data, relocateable,
+						       symbols);
 
   /* read in the section */
   bfd_get_section_contents(input_bfd,
@@ -155,7 +167,7 @@ bfd_coff_reloc16_get_relocated_section_contents(in_abfd,
   if (bfd_canonicalize_reloc(input_bfd, 
 			     input_section,
 			     reloc_vector,
-			     seclet->u.indirect.symbols) )
+			     symbols) )
     {
       arelent **parent = reloc_vector;
       arelent *reloc ;
@@ -168,7 +180,7 @@ bfd_coff_reloc16_get_relocated_section_contents(in_abfd,
       unsigned int idx;
     
       /* Find how long a run we can do */
-      while (dst_address < seclet->size) 
+      while (dst_address < link_order->size) 
 	{
       
 	  reloc = *parent;
@@ -183,7 +195,7 @@ bfd_coff_reloc16_get_relocated_section_contents(in_abfd,
 	    }
 	  else 
 	    {
-	      run = seclet->size - dst_address;
+	      run = link_order->size - dst_address;
 	    }
 	  /* Copy the bytes */
 	  for (idx = 0; idx < run; idx++)
@@ -195,8 +207,9 @@ bfd_coff_reloc16_get_relocated_section_contents(in_abfd,
     
 	  if (reloc) 
 	    {
-	      bfd_coff_reloc16_extra_cases (in_abfd, seclet, reloc, data,
-					    &src_address, &dst_address);
+	      bfd_coff_reloc16_extra_cases (in_abfd, link_info, link_order,
+					    reloc, data, &src_address,
+					    &dst_address);
 	    }    
 	}
     }

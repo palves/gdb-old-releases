@@ -34,7 +34,11 @@
  *  or error conditions to be properly intercepted and reported to gdb.
  *  Two, a breakpoint needs to be generated to begin communication.  This
  *  is most easily accomplished by a call to breakpoint().  Breakpoint()
- *  simulates a breakpoint by executing a trap #1.
+ *  simulates a breakpoint by executing a trap #1.  The breakpoint instruction
+ *  is hardwired to trap #1 because not to do so is a compatibility problem--
+ *  there either should be a standard breakpoint instruction, or the protocol
+ *  should be extended to provide some means to communicate which breakpoint
+ *  instruction is in use (or have the stub insert the breakpoint).
  *  
  *  Some explanation is probably necessary to explain how exceptions are
  *  handled.  When an exception is encountered the 68000 pushes the current
@@ -545,7 +549,7 @@ char * buffer;
       xmitcsum = hex(getDebugChar()) << 4;
       xmitcsum += hex(getDebugChar());
       if ((remote_debug ) && (checksum != xmitcsum)) {
-        fprintf(stderr,"bad checksum.  My count = 0x%x, sent=0x%x. buf=%s\n",
+        fprintf (stderr,"bad checksum.  My count = 0x%x, sent=0x%x. buf=%s\n",
 						     checksum,xmitcsum,buffer);
       }
       
@@ -606,7 +610,7 @@ void debug_error(format, parm)
 char * format;
 char * parm;
 {
-  if (remote_debug) fprintf(stderr,format,parm);
+  if (remote_debug) fprintf (stderr,format,parm);
 }
 
 /* convert the memory pointed to by mem into hex, placing result in buf */
@@ -669,10 +673,20 @@ int exceptionVector;
     case 9 : sigval = 5;  break; /* trace trap          */
     case 10: sigval = 4;  break; /* line 1010 emulator  */
     case 11: sigval = 4;  break; /* line 1111 emulator  */
-    case 13: sigval = 8;  break; /* floating point err  */
+
+      /* Coprocessor protocol violation.  Using a standard MMU or FPU
+	 this cannot be triggered by software.  Call it a SIGBUS.  */
+    case 13: sigval = 10;  break;
+
     case 31: sigval = 2;  break; /* interrupt           */
     case 33: sigval = 5;  break; /* breakpoint          */
+
+      /* This is a trap #8 instruction.  Apparently it is someone's software
+	 convention for some sort of SIGFPE condition.  Whose?  How many
+	 people are being screwed by having this code the way it is?
+	 Is there a clean solution?  */
     case 40: sigval = 8;  break; /* floating point err  */
+
     case 48: sigval = 8;  break; /* floating point err  */
     case 49: sigval = 8;  break; /* floating point err  */
     case 50: sigval = 8;  break; /* zero divide         */
@@ -946,9 +960,9 @@ initializeRemcomErrorFrame()
    breakpoints */
 void set_debug_traps()
 {
-extern void _debug_level7();
-extern void remcomHandler();
-int exception;
+  extern void _debug_level7();
+  extern void remcomHandler();
+  int exception;
 
   initializeRemcomErrorFrame();
   stackPtr  = &remcomStack[STACKSIZE/sizeof(int) - 1];
@@ -962,7 +976,10 @@ int exception;
   /* breakpoint exception (trap #1) */
   exceptionHandler(33,_catchException);
   
-  /* floating point error (trap #8) */
+  /* This is a trap #8 instruction.  Apparently it is someone's software
+     convention for some sort of SIGFPE condition.  Whose?  How many
+     people are being screwed by having this code the way it is?
+     Is there a clean solution?  */
   exceptionHandler(40,_catchException);
   
   /* 48 to 54 are floating point coprocessor errors */

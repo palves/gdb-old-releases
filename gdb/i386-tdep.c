@@ -571,21 +571,7 @@ i386_extract_return_value(type, regbuf, valbuf)
       ieee_extended_to_double (&ext_format_i387,
 			       &regbuf[REGISTER_BYTE(FP0_REGNUM)],
 			       &d);
-      switch (TYPE_LENGTH(type))
-	{
-	case 4:			/* float */
-	  {
-	    float f = (float) d;
-	    memcpy (valbuf, &f, 4); 
-	    break;
-	  }
-	case 8:			/* double */
-	  memcpy (valbuf, &d, 8);
-	  break;
-	default:
-	  error("Unknown floating point size");
-	  break;
-	}
+      store_floating (valbuf, len, d);
     }
   else
     { 

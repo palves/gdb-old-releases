@@ -32,7 +32,7 @@ if ![file exists $binfile] then {
 	# Wait until the program is in the read system call again.
 	exec sleep 2
 
-	send "\Cc"
+	send "\003"
 	expect {
 	    -re "Program received signal SIGINT.*$prompt $" {
 		pass "send control C"
@@ -93,7 +93,7 @@ if ![file exists $binfile] then {
 	    eof { fail "echo data (eof)" }
 	}
 
-	send "\Cd"
+	send "\004"
 	expect {
 	    -re "end of file.*Program exited normally.*$prompt $" {
 		pass "send end of file"

@@ -22,7 +22,6 @@ c[12])			gdb_host_cpu=convex ;;
 hppa*)			gdb_host_cpu=pa ;;
 i[34]86)		gdb_host_cpu=i386 ;;
 m68*)			gdb_host_cpu=m68k ;;
-mips*)			gdb_host_cpu=mips ;;
 np1)			gdb_host_cpu=gould ;;
 pyramid)		gdb_host_cpu=pyr ;;
 *)			gdb_host_cpu=$target_cpu ;;
@@ -46,7 +45,7 @@ i[34]86-ncr-*)		gdb_host=ncr3000 ;;
 i[34]86-sequent-*)	gdb_host=symmetry ;;
 
 i[34]86-*-bsd*)		gdb_host=i386bsd ;;
-i[34]86-*-lynx*)	gdb_host=i386lynx ;;
+i[34]86-*-lynxos*)	gdb_host=i386lynx ;;
 i[34]86-*-go32)		gdb_host=go32
 			gdb_serial_driver=ser-go32.c
 			;;
@@ -72,6 +71,7 @@ m68*-cbm-sysv4*)	gdb_host=amix ;;
 m68*-hp-bsd*)		gdb_host=hp300bsd ;;
 m68*-hp-hpux*)		gdb_host=hp300hpux ;;
 m68*-isi-*)		gdb_host=isi ;;
+m68*-*-lynxos*)		gdb_host=m68klynx ;;
 m68*-sony-*)		gdb_host=news ;;
 m68*-sun-sunos3*)	gdb_host=sun3os3 ;;
 m68*-sun-sunos4*)	gdb_host=sun3os4 ;;
@@ -80,11 +80,11 @@ m68*-sun-*)		gdb_host=sun3os4 ;;
 m88k-motorola-*)	gdb_host=delta88 ;;
 m88k-*-*)		gdb_host=m88k ;;
 
-mips*el-*-*)		gdb_host=littlemips ;;
-mips*-dec-*)		gdb_host=decstation ;;
-mips*-sgi-irix3)	gdb_host=irix3 ;;
-mips*-sgi-irix4*)	gdb_host=irix4 ;;
-mips*-sony-*)		gdb_host=bigmips ;;
+mips-dec-*)		gdb_host=decstation ;;
+mips-little-*)		gdb_host=littlemips ;;
+mips-sgi-irix3)		gdb_host=irix3 ;;
+mips-sgi-irix4*)	gdb_host=irix4 ;;
+mips-sony-*)		gdb_host=bigmips ;;
 
 none-*-*)		gdb_host=none ;;
 
@@ -101,6 +101,7 @@ romp-*-*)		gdb_host=rtbsd ;;
 
 rs6000-*-*)		gdb_host=rs6000 ;;
 
+sparc-*-lynxos*)	gdb_host=sparclynx ;;
 sparc-*-solaris2*)	gdb_host=sun4sol2 ;;
 sparc-*-sunos4*)	gdb_host=sun4os4 ;;
 sparc-*-*)		gdb_host=sun4os4 ;;
@@ -132,7 +133,6 @@ c[12])			gdb_target_cpu=convex ;;
 hppa*)			gdb_target_cpu=pa ;;
 i[34]86)		gdb_target_cpu=i386 ;;
 m68*)			gdb_target_cpu=m68k ;;
-mips*)			gdb_target_cpu=mips ;;
 np1)			gdb_target_cpu=gould ;;
 pn)			gdb_target_cpu=gould ;;
 pyramid)		gdb_target_cpu=pyr ;;
@@ -175,7 +175,7 @@ i[34]86-*-coff)		gdb_target=i386v ;;
 i[34]86-*-elf)		gdb_target=i386v ;;
 
 i[34]86-*-bsd*)		gdb_target=i386bsd ;;
-i[34]86-*-lynx*)	gdb_target=i386lynx ;;
+i[34]86-*-lynxos*)	gdb_target=i386lynx ;;
 i[34]86-*-go32)		gdb_target=i386aout ;;
 i[34]86-*-solaris*)	gdb_target=i386sol2 ;;
 i[34]86-*-sunos*)	gdb_target=sun386 ;;
@@ -212,6 +212,7 @@ m68*-tandem-*)		gdb_target=st2000 ;;
 m68*-*-aout)		gdb_target=m68k-fp ;;
 m68*-*-coff)		gdb_target=m68k-fp ;;
 m68*-*-elf)		gdb_target=m68k-fp ;;
+m68*-*-lynxos*)		gdb_target=m68klynx ;;
 m68*-*-os68k)		gdb_target=os68k ;;
 m68*-*-sunos3*)		gdb_target=sun3os3 ;;
 m68*-*-sunos4*)		gdb_target=sun3os4 ;;
@@ -220,13 +221,12 @@ m68*-*-vxworks*)	gdb_target=vxworks68 ;;
 m88k-motorola-*)	gdb_target=delta88 ;;
 m88k-*-*)		gdb_target=m88k ;;
 
-mips*-big-*)		gdb_target=bigmips ;;
-mips*-dec-*)		gdb_target=decstation ;;
-mips*-idt-ecoff)	gdb_target=idt ;;
-mips*-little-*)		gdb_target=littlemips ;;
-mips*-sgi-*)		gdb_target=irix3 ;;
-mips*-sony-*)		gdb_target=bigmips ;;
-mips*el-*-*)		gdb_target=littlemips ;;
+mips-big-*)		gdb_target=bigmips ;;
+mips-dec-*)		gdb_target=decstation ;;
+mips-idt-ecoff)		gdb_target=idt ;;
+mips-little-*)		gdb_target=littlemips ;;
+mips-sgi-*)		gdb_target=irix3 ;;
+mips-sony-*)		gdb_target=bigmips ;;
 
 none-*-*)		gdb_target=none ;;
 
@@ -244,6 +244,7 @@ rs6000-*-*)		gdb_target=rs6000 ;;
 sparc-*-aout)		gdb_target=sparc-em ;;
 sparc-*-coff)		gdb_target=sparc-em ;;
 sparc-*-elf)		gdb_target=sparc-em ;;
+sparc-*-lynxos*)	gdb_target=sparclynx ;;
 sparc-*-solaris2*)	gdb_target=sun4sol2 ;;
 sparc-*-sunos4*)	gdb_target=sun4os4 ;;
 sparc-*-vxworks*)	gdb_target=sparc-em ;;

@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <varargs.h>
+#include <ansidecl.h>
 #undef vfprintf
 
 int
 vfprintf (file, format, ap)
      FILE *file;
-     char *format;
+     const char *format;
      va_list ap;
 {
    return _doprnt (format, ap, file);

@@ -107,7 +107,7 @@ static int opcodes_sorted = 0;
 /* extern void qsort (); */
 static int compare_opcodes ();
 
-/* Print one instruction from MEMADDR on STREAM.
+/* Print one instruction from MEMADDR on INFO->STREAM.
 
    We suffix the instruction with a comment that gives the absolute
    address involved, as well as its symbolic form, if the instruction

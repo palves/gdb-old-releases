@@ -1,6 +1,79 @@
+Tue Jan 11 11:27:44 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* strtod.c: Declare atof.  From edler@jan.ultra.nyu.edu (Jan
+	Edler).
+
+Tue Dec 28 14:17:30 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* Makefile.in (errors): Use CFLAGS as well as LDFLAGS when
+	linking.
+
+Fri Dec 17 12:26:07 1993  Kung Hsu  (kung@cirdan.cygnus.com)
+
+	* cplus-dem.c (demangle_arm_pt): New function.  Common code
+	for ARM template demangling.
+	* cplus-dem.c (demangle_class_name): Use demangle_arm_pt.
+	* cplus-dem.c (demangle_prefix): Likewise.
+
+Tue Nov 30 15:47:48 1993  Jason Merrill  (jason@deneb.cygnus.com)
+
+	* cplus-dem.c (cplus_demangle_opname): Add CONST to please gcc.
+
+Sat Nov 27 11:05:50 1993  Fred Fish  (fnf@cygnus.com)
+
+	Merge changes from tom@basil.icce.rug.nl (Tom R.Hageman)
+	* strerror.c, strsignal.c:  As a small space optimization, don't
+	include messages when they aren't actually used.
+
+	Merge changes from takefive.co.at!joe (Josef Leherbauer)
+	* cplus-dem.c (demangle_prefix, demangle_function_name,
+	cplus_demangle_opname):  Fixes for systems where cplus_marker
+	is something other than '$'.
+
+Fri Nov 26 13:51:11 1993  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	* waitpid.c:  Simple-minded approcimation to waitpid
+	using vanilla wait.
+	* functions.def, Makefile.in:  Update accordingly,
+
+Thu Nov 18 18:01:15 1993  Kung Hsu  (kung@cirdan.cygnus.com)
+
+	* cplus-dem.c(demangle_template): fix bug template instantiation
+	with value of user defined type.
+
+Wed Nov 17 18:30:21 1993  Kung Hsu  (kung@cirdan.cygnus.com)
+
+	* cplus-dem.c(cplus_demangle_opname): add the subject new function
+	to support unified search of operator in class.
+
+Wed Nov 10 09:47:22 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	gcc -Wall lint:
+	* strtoul.c (strtoul): use "(digit = *s) != '\0'" not just
+	"digit = *s" as condition in while loop.
+
+Tue Nov  9 15:52:22 1993  Mark Eichin  (eichin@cygnus.com)
+
+	* Makefile.in: pass SHELL to recursive make
+
+Thu Nov  4 12:09:26 1993  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	* vfprintf.c, vprintf.c, vsprintf.c:  Make format arg
+	be (const char*), for ANSI (and gcc w/fixproto) consistency.
+
+Thu Nov  4 08:29:04 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* config.table: Make *-*-hiux* use mh-hpux.
+
 Fri Oct 22 07:53:15 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
 	* config.table: Add * to end of all OS names.
+
+Tue Oct 19 17:12:01 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
+
+	* Makefile.in (lneeded-list): ensure that object file names are
+	  not duplicated, as multiple instances of the same object file in
+	  a library causes problems on some machines
 
 Mon Oct 18 21:59:28 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
@@ -94,6 +167,10 @@ Sat Aug 14 14:21:49 1993  david d `zoo' zuhn  (zoo@rtl.cygnus.com)
 	* Makefile.in, functions.def: handle xmalloc.c
 
 	* xmalloc.c: provide xmalloc and xrealloc functions
+
+Thu Aug 12 17:38:57 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* cplus-dem.c: Fix a comment.
 
 Sat Aug  7 13:56:35 1993  David J. Mackenzie  (djm@thepub.cygnus.com)
 

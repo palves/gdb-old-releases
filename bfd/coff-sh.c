@@ -21,14 +21,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
-#include "libbfd.h"
 #include "obstack.h"
+#include "libbfd.h"
+#include "bfdlink.h"
 #include "coff/sh.h"
 #include "coff/internal.h"
 #include "libcoff.h"
-#include "seclet.h"
-
-extern bfd_error_vector_type bfd_error_vector;
 
 static reloc_howto_type r_imm32 =
 HOWTO (R_SH_IMM32, 0,2, 32, false, 0,
@@ -118,9 +116,10 @@ DEFUN (reloc_processing, (relent, reloc, symbols, abfd, section),
 }
 
 static void
-extra_case (in_abfd, seclet, reloc, data, src_ptr, dst_ptr)
+extra_case (in_abfd, link_info, link_order, reloc, data, src_ptr, dst_ptr)
      bfd *in_abfd;
-     bfd_seclet_type *seclet;
+     struct bfd_link_info *link_info;
+     struct bfd_link_order *link_order;
      arelent *reloc;
      bfd_byte *data;
      unsigned int *src_ptr;
@@ -130,7 +129,8 @@ extra_case (in_abfd, seclet, reloc, data, src_ptr, dst_ptr)
     {
     case R_SH_IMM32:
       {
-	int v = bfd_coff_reloc16_get_value(reloc, seclet);
+	int v = bfd_coff_reloc16_get_value(reloc, link_info,
+					   link_order->u.indirect.section);
 	bfd_put_32 (in_abfd, v, data  + *dst_ptr);
 	(*dst_ptr) +=4;
 	(*src_ptr)+=4;;
@@ -149,7 +149,8 @@ extra_case (in_abfd, seclet, reloc, data, src_ptr, dst_ptr)
 
 #undef  coff_bfd_get_relocated_section_contents
 #undef coff_bfd_relax_section
-#define  coff_bfd_get_relocated_section_contents bfd_coff_reloc16_get_relocated_section_contents
+#define coff_bfd_get_relocated_section_contents \
+  bfd_coff_reloc16_get_relocated_section_contents
 #define coff_bfd_relax_section bfd_coff_reloc16_relax_section
 
 bfd_target shcoff_vec =
@@ -161,7 +162,7 @@ bfd_target shcoff_vec =
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT),
+   HAS_SYMS | HAS_LOCALS | WP_TEXT | BFD_IS_RELAXABLE ),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC),	/* section flags */
   '_',				/* leading symbol underscore */

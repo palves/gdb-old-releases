@@ -34,18 +34,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    register (i.e. it's the 7th or later argument).  */
 #define REG_STRUCT_HAS_ADDR(gcc_p) (gcc_p != 1)
 
-/* If Pcc says that a parameter is a short, it's a short.  This is
-   because the parameter does get passed in in a register as an int,
-   but pcc puts it onto the stack frame as a short (not nailing
-   whatever else might be there.  I'm not sure that I consider this
-   swift.  Sigh.)
+/* Sun /bin/cc gets this right as of SunOS 4.1.x.  We need to define
+   BELIEVE_PCC_PROMOTION to get this right now that the code which
+   detects gcc2_compiled. is broken.  This loses for SunOS 4.0.x and
+   earlier.  */
 
-   No, don't do this.  The problem here is that pcc says that the
-   argument is in the upper half of the word reserved on the stack,
-   but puts it in the lower half.  */
-/* #define BELIEVE_PCC_PROMOTION 1 */
-/* OK, I've added code to dbxread.c to deal with this case.  */
-#define BELIEVE_PCC_PROMOTION_TYPE
+#define BELIEVE_PCC_PROMOTION 1
 
 /* For acc, there's no need to correct LBRAC entries by guessing how
    they should work.  In fact, this is harmful because the LBRAC
@@ -132,9 +126,11 @@ extern CORE_ADDR sparc_pc_adjust();
 
 #define INVALID_FLOAT(p, len) 0   /* Just a first guess; not checked */
 
-/* Say how long (ordinary) registers are.  */
+/* Say how long (ordinary) registers are.  This is a piece of bogosity
+   used in push_word and a few other places; REGISTER_RAW_SIZE is the
+   real way to know how big a register is.  */
 
-#define REGISTER_TYPE long
+#define REGISTER_SIZE 4
 
 /* Number of machine registers */
 
@@ -237,23 +233,6 @@ extern CORE_ADDR sparc_pc_adjust();
 /* Largest value REGISTER_VIRTUAL_SIZE can have.  */
 
 #define MAX_REGISTER_VIRTUAL_SIZE 8
-
-/* Nonzero if register N requires conversion
-   from raw format to virtual format.  */
-
-#define REGISTER_CONVERTIBLE(N) (0)
-
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
-
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO) \
-{ memcpy ((TO), (FROM), REGISTER_RAW_SIZE (REGNUM)); }
-
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
-
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-{ memcpy ((TO), (FROM), REGISTER_RAW_SIZE (REGNUM)); }
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */

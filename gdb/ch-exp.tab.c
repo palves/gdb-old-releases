@@ -8,6 +8,9 @@
 #include "value.h"
 #include "parser-defs.h"
 #include "ch-lang.h"
+#include "bfd.h" /* Required by objfiles.h.  */
+#include "symfile.h" /* Required by objfiles.h.  */
+#include "objfiles.h" /* For have_full_symbols and have_partial_symbols */
 
 /* Remap normal yacc parser interface names (yyparse, yylex, yyerror, etc),
    as well as gratuitiously global symbol names, so we can have multiple
@@ -60,7 +63,7 @@ void
 yyerror PARAMS ((char *));
 
 
-# line 120 "./ch-exp.y"
+# line 123 "./ch-exp.y"
 typedef union 
   {
     LONGEST lval;
@@ -174,7 +177,7 @@ extern int yyerrflag;
 YYSTYPE yylval, yyval;
 # define YYERRCODE 256
 
-# line 993 "./ch-exp.y"
+# line 996 "./ch-exp.y"
 
 
 /* Implementation of a dynamically expandable buffer for processing input
@@ -839,7 +842,7 @@ match_dollar_tokens ()
 	      && !isalnum (tokptr[namelength]))
 	    {
 	      yylval.lval = regno;
-	      lexptr += namelength + 1;
+	      lexptr += namelength;
 	      return (GDB_REGNAME);
 	    }
 	}
@@ -1170,7 +1173,7 @@ void
 yyerror (msg)
      char *msg;	/* unused */
 {
-  printf ("Parsing:  %s\n", lexptr);
+  printf_unfiltered ("Parsing:  %s\n", lexptr);
   if (yychar < 256)
     {
       error ("Invalid syntax in expression near character '%c'.", yychar);
@@ -2094,35 +2097,35 @@ yyparse()
 	{
 		
 case 1:
-# line 312 "./ch-exp.y"
+# line 315 "./ch-exp.y"
 { } break;
 case 2:
-# line 314 "./ch-exp.y"
+# line 317 "./ch-exp.y"
 { write_exp_elt_opcode(OP_TYPE);
 			  write_exp_elt_type(yypvt[-0].tsym.type);
 			  write_exp_elt_opcode(OP_TYPE);} break;
 case 3:
-# line 320 "./ch-exp.y"
+# line 323 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 4:
-# line 324 "./ch-exp.y"
+# line 327 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 5:
-# line 330 "./ch-exp.y"
+# line 333 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 7:
-# line 339 "./ch-exp.y"
+# line 342 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (UNOP_IND);
 			} break;
 case 8:
-# line 347 "./ch-exp.y"
+# line 350 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (OP_VAR_VALUE);
 			  write_exp_elt_block (NULL);
@@ -2130,143 +2133,143 @@ case 8:
 			  write_exp_elt_opcode (OP_VAR_VALUE);
 			} break;
 case 9:
-# line 354 "./ch-exp.y"
+# line 357 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (OP_LAST);
 			  write_exp_elt_longcst (yypvt[-0].lval);
 			  write_exp_elt_opcode (OP_LAST); 
 			} break;
 case 10:
-# line 360 "./ch-exp.y"
+# line 363 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (OP_REGISTER);
 			  write_exp_elt_longcst (yypvt[-0].lval);
 			  write_exp_elt_opcode (OP_REGISTER); 
 			} break;
 case 11:
-# line 366 "./ch-exp.y"
+# line 369 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (OP_INTERNALVAR);
 			  write_exp_elt_intern (yypvt[-0].ivar);
 			  write_exp_elt_opcode (OP_INTERNALVAR); 
 			} break;
 case 12:
-# line 372 "./ch-exp.y"
+# line 375 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 13:
-# line 380 "./ch-exp.y"
+# line 383 "./ch-exp.y"
 {
 			  arglist_len = 1;
 			} break;
 case 14:
-# line 384 "./ch-exp.y"
+# line 387 "./ch-exp.y"
 {
 			  arglist_len++;
 			} break;
 case 15:
-# line 391 "./ch-exp.y"
+# line 394 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 16:
-# line 395 "./ch-exp.y"
+# line 398 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 17:
-# line 399 "./ch-exp.y"
+# line 402 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 18:
-# line 403 "./ch-exp.y"
+# line 406 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 19:
-# line 407 "./ch-exp.y"
+# line 410 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 20:
-# line 411 "./ch-exp.y"
+# line 414 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 21:
-# line 415 "./ch-exp.y"
+# line 418 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 22:
-# line 419 "./ch-exp.y"
+# line 422 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 23:
-# line 423 "./ch-exp.y"
+# line 426 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 24:
-# line 427 "./ch-exp.y"
+# line 430 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 25:
-# line 431 "./ch-exp.y"
+# line 434 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 26:
-# line 435 "./ch-exp.y"
+# line 438 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 27:
-# line 439 "./ch-exp.y"
+# line 442 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 28:
-# line 443 "./ch-exp.y"
+# line 446 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 29:
-# line 447 "./ch-exp.y"
+# line 450 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 30:
-# line 455 "./ch-exp.y"
+# line 458 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 31:
-# line 463 "./ch-exp.y"
+# line 466 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 32:
-# line 467 "./ch-exp.y"
+# line 470 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 33:
-# line 471 "./ch-exp.y"
+# line 474 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 34:
-# line 475 "./ch-exp.y"
+# line 478 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 35:
-# line 479 "./ch-exp.y"
+# line 482 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (OP_VAR_VALUE);
 			  write_exp_elt_block (NULL);
@@ -2274,7 +2277,7 @@ case 35:
 			  write_exp_elt_opcode (OP_VAR_VALUE);
 			} break;
 case 36:
-# line 490 "./ch-exp.y"
+# line 493 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (OP_LONG);
 			  write_exp_elt_type (yypvt[-0].typed_val.type);
@@ -2282,14 +2285,14 @@ case 36:
 			  write_exp_elt_opcode (OP_LONG);
 			} break;
 case 37:
-# line 497 "./ch-exp.y"
+# line 500 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (OP_BOOL);
 			  write_exp_elt_longcst ((LONGEST) yypvt[-0].ulval);
 			  write_exp_elt_opcode (OP_BOOL);
 			} break;
 case 38:
-# line 503 "./ch-exp.y"
+# line 506 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (OP_LONG);
 			  write_exp_elt_type (yypvt[-0].typed_val.type);
@@ -2297,7 +2300,7 @@ case 38:
 			  write_exp_elt_opcode (OP_LONG);
 			} break;
 case 39:
-# line 510 "./ch-exp.y"
+# line 513 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (OP_DOUBLE);
 			  write_exp_elt_type (builtin_type_double);
@@ -2305,476 +2308,476 @@ case 39:
 			  write_exp_elt_opcode (OP_DOUBLE);
 			} break;
 case 40:
-# line 517 "./ch-exp.y"
+# line 520 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 41:
-# line 521 "./ch-exp.y"
+# line 524 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 42:
-# line 525 "./ch-exp.y"
+# line 528 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (OP_STRING);
 			  write_exp_string (yypvt[-0].sval);
 			  write_exp_elt_opcode (OP_STRING);
 			} break;
 case 43:
-# line 531 "./ch-exp.y"
+# line 534 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (OP_BITSTRING);
 			  write_exp_bitstring (yypvt[-0].sval);
 			  write_exp_elt_opcode (OP_BITSTRING);
 			} break;
 case 44:
-# line 541 "./ch-exp.y"
+# line 544 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 45:
-# line 550 "./ch-exp.y"
+# line 553 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 46:
-# line 558 "./ch-exp.y"
+# line 561 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 47:
-# line 562 "./ch-exp.y"
+# line 565 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 48:
-# line 572 "./ch-exp.y"
+# line 575 "./ch-exp.y"
 { start_arglist (); } break;
 case 49:
-# line 574 "./ch-exp.y"
+# line 577 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (MULTI_SUBSCRIPT);
 			  write_exp_elt_longcst ((LONGEST) end_arglist ());
 			  write_exp_elt_opcode (MULTI_SUBSCRIPT);
 			} break;
 case 50:
-# line 584 "./ch-exp.y"
+# line 587 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 51:
-# line 588 "./ch-exp.y"
+# line 591 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 52:
-# line 596 "./ch-exp.y"
+# line 599 "./ch-exp.y"
 { write_exp_elt_opcode (STRUCTOP_STRUCT);
 			  write_exp_string (yypvt[-0].sval);
 			  write_exp_elt_opcode (STRUCTOP_STRUCT);
 			} break;
 case 53:
-# line 605 "./ch-exp.y"
+# line 608 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (UNOP_CAST);
 			  write_exp_elt_type (yypvt[-1].tsym.type);
 			  write_exp_elt_opcode (UNOP_CAST);
 			} break;
 case 54:
-# line 615 "./ch-exp.y"
+# line 618 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 55:
-# line 623 "./ch-exp.y"
+# line 626 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 56:
-# line 631 "./ch-exp.y"
+# line 634 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 57:
-# line 639 "./ch-exp.y"
+# line 642 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 58:
-# line 647 "./ch-exp.y"
+# line 650 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 59:
-# line 655 "./ch-exp.y"
+# line 658 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 60:
-# line 659 "./ch-exp.y"
+# line 662 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 61:
-# line 663 "./ch-exp.y"
+# line 666 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 62:
-# line 669 "./ch-exp.y"
+# line 672 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 63:
-# line 673 "./ch-exp.y"
+# line 676 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 64:
-# line 679 "./ch-exp.y"
+# line 682 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 65:
-# line 685 "./ch-exp.y"
+# line 688 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 66:
-# line 689 "./ch-exp.y"
+# line 692 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 67:
-# line 695 "./ch-exp.y"
+# line 698 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 68:
-# line 701 "./ch-exp.y"
+# line 704 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 69:
-# line 709 "./ch-exp.y"
+# line 712 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 70:
-# line 713 "./ch-exp.y"
+# line 716 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_BITWISE_IOR);
 			} break;
 case 71:
-# line 717 "./ch-exp.y"
+# line 720 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 72:
-# line 721 "./ch-exp.y"
+# line 724 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_BITWISE_XOR);
 			} break;
 case 73:
-# line 729 "./ch-exp.y"
+# line 732 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 74:
-# line 733 "./ch-exp.y"
+# line 736 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_BITWISE_AND);
 			} break;
 case 75:
-# line 737 "./ch-exp.y"
+# line 740 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 76:
-# line 745 "./ch-exp.y"
+# line 748 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 77:
-# line 749 "./ch-exp.y"
+# line 752 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_EQUAL);
 			} break;
 case 78:
-# line 753 "./ch-exp.y"
+# line 756 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_NOTEQUAL);
 			} break;
 case 79:
-# line 757 "./ch-exp.y"
+# line 760 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_GTR);
 			} break;
 case 80:
-# line 761 "./ch-exp.y"
+# line 764 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_GEQ);
 			} break;
 case 81:
-# line 765 "./ch-exp.y"
+# line 768 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_LESS);
 			} break;
 case 82:
-# line 769 "./ch-exp.y"
+# line 772 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_LEQ);
 			} break;
 case 83:
-# line 773 "./ch-exp.y"
+# line 776 "./ch-exp.y"
 {
-			  yyval.voidval = 0;	/* FIXME */
+			  write_exp_elt_opcode (BINOP_IN);
 			} break;
 case 84:
-# line 782 "./ch-exp.y"
+# line 785 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 85:
-# line 786 "./ch-exp.y"
+# line 789 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_ADD);
 			} break;
 case 86:
-# line 790 "./ch-exp.y"
+# line 793 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_SUB);
 			} break;
 case 87:
-# line 794 "./ch-exp.y"
+# line 797 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_CONCAT);
 			} break;
 case 88:
-# line 802 "./ch-exp.y"
+# line 805 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 89:
-# line 806 "./ch-exp.y"
+# line 809 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_MUL);
 			} break;
 case 90:
-# line 810 "./ch-exp.y"
+# line 813 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_DIV);
 			} break;
 case 91:
-# line 814 "./ch-exp.y"
+# line 817 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_MOD);
 			} break;
 case 92:
-# line 818 "./ch-exp.y"
+# line 821 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_REM);
 			} break;
 case 93:
-# line 826 "./ch-exp.y"
+# line 829 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 94:
-# line 830 "./ch-exp.y"
+# line 833 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (UNOP_NEG);
 			} break;
 case 95:
-# line 834 "./ch-exp.y"
+# line 837 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (UNOP_LOGICAL_NOT);
 			} break;
 case 96:
-# line 840 "./ch-exp.y"
+# line 843 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_CONCAT);
 			} break;
 case 97:
-# line 848 "./ch-exp.y"
+# line 851 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (UNOP_ADDR);
 			} break;
 case 98:
-# line 852 "./ch-exp.y"
+# line 855 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 99:
-# line 856 "./ch-exp.y"
+# line 859 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 100:
-# line 866 "./ch-exp.y"
+# line 869 "./ch-exp.y"
 {
 			  write_exp_elt_opcode (BINOP_ASSIGN);
 			} break;
 case 101:
-# line 875 "./ch-exp.y"
+# line 878 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 102:
-# line 879 "./ch-exp.y"
+# line 882 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 103:
-# line 883 "./ch-exp.y"
+# line 886 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 104:
-# line 887 "./ch-exp.y"
+# line 890 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 105:
-# line 891 "./ch-exp.y"
+# line 894 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 106:
-# line 895 "./ch-exp.y"
+# line 898 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 107:
-# line 899 "./ch-exp.y"
+# line 902 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 108:
-# line 903 "./ch-exp.y"
+# line 906 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 109:
-# line 907 "./ch-exp.y"
+# line 910 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 110:
-# line 911 "./ch-exp.y"
+# line 914 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 111:
-# line 915 "./ch-exp.y"
+# line 918 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 112:
-# line 919 "./ch-exp.y"
+# line 922 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 113:
-# line 925 "./ch-exp.y"
+# line 928 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 114:
-# line 929 "./ch-exp.y"
+# line 932 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 115:
-# line 933 "./ch-exp.y"
+# line 936 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 116:
-# line 937 "./ch-exp.y"
+# line 940 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 118:
-# line 946 "./ch-exp.y"
+# line 949 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 119:
-# line 950 "./ch-exp.y"
+# line 953 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 120:
-# line 956 "./ch-exp.y"
+# line 959 "./ch-exp.y"
 {
 			  yyval.voidval = 0;	/* FIXME */
 			} break;
 case 121:
-# line 964 "./ch-exp.y"
+# line 967 "./ch-exp.y"
 {
 			  yyval.voidval = 0;
 			} break;
 case 122:
-# line 972 "./ch-exp.y"
-{ yyval.voidval = 0; } break;
-case 123:
-# line 973 "./ch-exp.y"
-{ yyval.voidval = 0; } break;
-case 124:
-# line 974 "./ch-exp.y"
-{ yyval.voidval = 0; } break;
-case 125:
 # line 975 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 126:
+case 123:
 # line 976 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 127:
+case 124:
 # line 977 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 128:
+case 125:
 # line 978 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 129:
+case 126:
 # line 979 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 130:
+case 127:
 # line 980 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 131:
+case 128:
 # line 981 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 132:
+case 129:
 # line 982 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 133:
+case 130:
 # line 983 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 134:
+case 131:
 # line 984 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 135:
+case 132:
 # line 985 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 136:
+case 133:
 # line 986 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 137:
+case 134:
 # line 987 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 138:
+case 135:
 # line 988 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 139:
+case 136:
 # line 989 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 140:
+case 137:
 # line 990 "./ch-exp.y"
 { yyval.voidval = 0; } break;
-case 141:
+case 138:
 # line 991 "./ch-exp.y"
+{ yyval.voidval = 0; } break;
+case 139:
+# line 992 "./ch-exp.y"
+{ yyval.voidval = 0; } break;
+case 140:
+# line 993 "./ch-exp.y"
+{ yyval.voidval = 0; } break;
+case 141:
+# line 994 "./ch-exp.y"
 { yyval.voidval = 0; } break;
 	}
 	goto yystack;		/* reset registers in driver code */

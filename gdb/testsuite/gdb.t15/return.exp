@@ -34,14 +34,14 @@ if ![file exists $objdir/$subdir/$binfile] then {
     return 0
 }
 
-proc return_tests {} {
+proc return_tests { } {
     global prompt
 
 
     if { ! [ runto func1 ] } then { return 0 }
     send "return\n"
     expect {
-	-re "Make .* return now\? \(y or n\) $" {
+	-re "Make .* return now.*y or n. $" {
 	    send "y\n"
 	    continue -expect
 	}
@@ -57,7 +57,7 @@ proc return_tests {} {
     gdb_test "continue" "return -5"
     send "return 5\n"
     expect {
-	-re "Make .* return now\? \(y or n\) $" {
+	-re "Make .* return now.*y or n. $" {
 	    send "y\n"
 	    continue -expect
 	}
@@ -70,7 +70,7 @@ proc return_tests {} {
     gdb_test "continue" "return -5.0"
     send "return 5.0\n"
     expect {
-	-re "Make .* return now\? \(y or n\) $" {
+	-re "Make .* return now.*y or n. $" {
 	    send "y\n"
 	    continue -expect
 	}
@@ -94,6 +94,4 @@ set timeout 120
 
 return_tests
 
-# FIXME: What is the "catch" for??  We probably don't want to be ignoring 
-# all errors.
-catch "set timeout $oldtimeout"
+set timeout $oldtimeout

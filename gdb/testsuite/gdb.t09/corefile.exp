@@ -36,7 +36,7 @@ set binfile "gdbme"
 set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    error "$objdir/$subdir/$binfile does not exist."
+    perror "$objdir/$subdir/$binfile does not exist."
     return 0
 }
 
@@ -114,3 +114,4 @@ $prompt $"			{ pass "core-file command" }
 	timeout 		{ fail "(timeout) core-file command" }
 }
 
+gdb_test "core" "No core file now."

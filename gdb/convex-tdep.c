@@ -611,6 +611,8 @@ thread_info ()
       ioctl (inferior_fd, PIXRDCREGS, &ps);
     }
 
+  /* FIXME: stop_signal is from target.h but stop_sigcode is a
+     convex-specific thing.  */
   printf_filtered ("Current thread %d stopped with signal %d.%d (%s).\n",
 		   inferior_thread, stop_signal, stop_sigcode,
 		   subsig_name (stop_signal, stop_sigcode));
@@ -858,6 +860,7 @@ psw_info (arg)
     }
 }
 
+void
 _initialize_convex_dep ()
 {
   add_com ("alias", class_support, alias_command,

@@ -6,8 +6,8 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.09, August 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.11.
+   This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.12.
 
    Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
@@ -24,6 +24,268 @@ of a permission notice identical to this one.
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
 versions.
+
+
+File: gdb.info,  Node: Installing GDB,  Next: Index,  Prev: Formatting Documentation,  Up: Top
+
+Installing GDB
+**************
+
+   GDB comes with a `configure' script that automates the process of
+preparing GDB for installation; you can then use `make' to build the
+`gdb' program.
+
+   The GDB distribution includes all the source code you need for GDB in
+a single directory, whose name is usually composed by appending the
+version number to `gdb'.
+
+   For example, the GDB version 4.12 distribution is in the `gdb-4.12'
+directory.  That directory contains:
+
+`gdb-4.12/configure (and supporting files)'
+     script for configuring GDB and all its supporting libraries.
+
+`gdb-4.12/gdb'
+     the source specific to GDB itself
+
+`gdb-4.12/bfd'
+     source for the Binary File Descriptor library
+
+`gdb-4.12/include'
+     GNU include files
+
+`gdb-4.12/libiberty'
+     source for the `-liberty' free software library
+
+`gdb-4.12/opcodes'
+     source for the library of opcode tables and disassemblers
+
+`gdb-4.12/readline'
+     source for the GNU command-line interface
+
+`gdb-4.12/glob'
+     source for the GNU filename pattern-matching subroutine
+
+`gdb-4.12/mmalloc'
+     source for the GNU memory-mapped malloc package
+
+   The simplest way to configure and build GDB is to run `configure'
+from the `gdb-VERSION-NUMBER' source directory, which in this example
+is the `gdb-4.12' directory.
+
+   First switch to the `gdb-VERSION-NUMBER' source directory if you are
+not already in it; then run `configure'.  Pass the identifier for the
+platform on which GDB will run as an argument.
+
+   For example:
+
+     cd gdb-4.12
+     ./configure HOST
+     make
+
+where HOST is an identifier such as `sun4' or `decstation', that
+identifies the platform where GDB will run.  (You can often leave off
+HOST; `configure' tries to guess the correct value by examining your
+system.)
+
+   Running `configure HOST' and then running `make' builds the `bfd',
+`readline', `mmalloc', and `libiberty' libraries, then `gdb' itself.
+The configured source files, and the binaries, are left in the
+corresponding source directories.
+
+   `configure' is a Bourne-shell (`/bin/sh') script; if your system
+does not recognize this automatically when you run a different shell,
+you may need to run `sh' on it explicitly:
+
+     sh configure HOST
+
+   If you run `configure' from a directory that contains source
+directories for multiple libraries or programs, such as the `gdb-4.12'
+source directory for version 4.12, `configure' creates configuration
+files for every directory level underneath (unless you tell it not to,
+with the `--norecursion' option).
+
+   You can run the `configure' script from any of the subordinate
+directories in the GDB distribution if you only want to configure that
+subdirectory, but be sure to specify a path to it.
+
+   For example, with version 4.12, type the following to configure only
+the `bfd' subdirectory:
+
+     cd gdb-4.12/bfd
+     ../configure HOST
+
+   You can install `gdb' anywhere; it has no hardwired paths.  However,
+you should make sure that the shell on your path (named by the `SHELL'
+environment variable) is publicly readable.  Remember that GDB uses the
+shell to start your program--some systems refuse to let GDB debug child
+processes whose programs are not readable.
+
+* Menu:
+
+* Separate Objdir::             Compiling GDB in another directory
+* Config Names::                Specifying names for hosts and targets
+* configure Options::           Summary of options for configure
+
+
+File: gdb.info,  Node: Separate Objdir,  Next: Config Names,  Up: Installing GDB
+
+Compiling GDB in another directory
+==================================
+
+   If you want to run GDB versions for several host or target machines,
+you need a different `gdb' compiled for each combination of host and
+target.  `configure' is designed to make this easy by allowing you to
+generate each configuration in a separate subdirectory, rather than in
+the source directory.  If your `make' program handles the `VPATH'
+feature (GNU `make' does), running `make' in each of these directories
+builds the `gdb' program specified there.
+
+   To build `gdb' in a separate directory, run `configure' with the
+`--srcdir' option to specify where to find the source.  (You also need
+to specify a path to find `configure' itself from your working
+directory.  If the path to `configure' would be the same as the
+argument to `--srcdir', you can leave out the `--srcdir' option; it is
+assumed.)
+
+   For example, with version 4.12, you can build GDB in a separate
+directory for a Sun 4 like this:
+
+     cd gdb-4.12
+     mkdir ../gdb-sun4
+     cd ../gdb-sun4
+     ../gdb-4.12/configure sun4
+     make
+
+   When `configure' builds a configuration using a remote source
+directory, it creates a tree for the binaries with the same structure
+(and using the same names) as the tree under the source directory.  In
+the example, you'd find the Sun 4 library `libiberty.a' in the
+directory `gdb-sun4/libiberty', and GDB itself in `gdb-sun4/gdb'.
+
+   One popular reason to build several GDB configurations in separate
+directories is to configure GDB for cross-compiling (where GDB runs on
+one machine--the host--while debugging programs that run on another
+machine--the target).  You specify a cross-debugging target by giving
+the `--target=TARGET' option to `configure'.
+
+   When you run `make' to build a program or library, you must run it
+in a configured directory--whatever directory you were in when you
+called `configure' (or one of its subdirectories).
+
+   The `Makefile' that `configure' generates in each source directory
+also runs recursively.  If you type `make' in a source directory such
+as `gdb-4.12' (or in a separate configured directory configured with
+`--srcdir=PATH/gdb-4.12'), you will build all the required libraries,
+and then build GDB.
+
+   When you have multiple hosts or targets configured in separate
+directories, you can run `make' on them in parallel (for example, if
+they are NFS-mounted on each of the hosts); they will not interfere
+with each other.
+
+
+File: gdb.info,  Node: Config Names,  Next: configure Options,  Prev: Separate Objdir,  Up: Installing GDB
+
+Specifying names for hosts and targets
+======================================
+
+   The specifications used for hosts and targets in the `configure'
+script are based on a three-part naming scheme, but some short
+predefined aliases are also supported.  The full naming scheme encodes
+three pieces of information in the following pattern:
+
+     ARCHITECTURE-VENDOR-OS
+
+   For example, you can use the alias `sun4' as a HOST argument, or as
+the value for TARGET in a `--target=TARGET' option.  The equivalent
+full name is `sparc-sun-sunos4'.
+
+   The `configure' script accompanying GDB does not provide any query
+facility to list all supported host and target names or aliases.
+`configure' calls the Bourne shell script `config.sub' to map
+abbreviations to full names; you can read the script, if you wish, or
+you can use it to test your guesses on abbreviations--for example:
+
+     % sh config.sub sun4
+     sparc-sun-sunos4.1.1
+     % sh config.sub sun3
+     m68k-sun-sunos4.1.1
+     % sh config.sub decstation
+     mips-dec-ultrix4.2
+     % sh config.sub hp300bsd
+     m68k-hp-bsd
+     % sh config.sub i386v
+     i386-unknown-sysv
+     % sh config.sub i786v
+     Invalid configuration `i786v': machine `i786v' not recognized
+
+`config.sub' is also distributed in the GDB source directory
+(`gdb-4.12', for version 4.12).
+
+
+File: gdb.info,  Node: configure Options,  Prev: Config Names,  Up: Installing GDB
+
+`configure' options
+===================
+
+   Here is a summary of the `configure' options and arguments that are
+most often useful for building GDB.  `configure' also has several other
+options not listed here.  *note : (configure.info)What Configure Does,
+for a full explanation of `configure'.
+
+     configure [--help]
+               [--prefix=DIR]
+               [--srcdir=PATH]
+               [--norecursion] [--rm]
+               [--target=TARGET] HOST
+
+You may introduce options with a single `-' rather than `--' if you
+prefer; but you may abbreviate option names if you use `--'.
+
+`--help'
+     Display a quick summary of how to invoke `configure'.
+
+`-prefix=DIR'
+     Configure the source to install programs and files under directory
+     `DIR'.
+
+`--srcdir=PATH'
+     *Warning: using this option requires GNU `make', or another `make'
+     that implements the `VPATH' feature.*
+     Use this option to make configurations in directories separate
+     from the GDB source directories.  Among other things, you can use
+     this to build (or maintain) several configurations simultaneously,
+     in separate directories.  `configure' writes configuration
+     specific files in the current directory, but arranges for them to
+     use the source in the directory PATH.  `configure' creates
+     directories under the working directory in parallel to the source
+     directories below PATH.
+
+`--norecursion'
+     Configure only the directory level where `configure' is executed;
+     do not propagate configuration to subdirectories.
+
+`--rm'
+     *Remove* files otherwise built during configuration.
+
+`--target=TARGET'
+     Configure GDB for cross-debugging programs running on the specified
+     TARGET.  Without this option, GDB is configured to debug programs
+     that run on the same machine (HOST) as GDB itself.
+
+     There is no convenient way to generate a list of all available
+     targets.
+
+`HOST ...'
+     Configure GDB to run on the specified HOST.
+
+     There is no convenient way to generate a list of all available
+     hosts.
+
+`configure' accepts other options, for compatibility with configuring
+other GNU tools recursively; but these are the only options that affect
+GDB or its supporting libraries.
 
 
 File: gdb.info,  Node: Index,  Prev: Installing GDB,  Up: Top
@@ -44,8 +306,6 @@ Index
 * .os68gdbinit:                         Command Files.
 * .vxgdbinit:                           Command Files.
 * /proc:                                Process Information.
-* 386:                                  Remote Serial.
-* 680x0:                                Remote Serial.
 * @:                                    Arrays.
 * # in Modula-2:                        GDB/M2.
 * $$:                                   Value History.
@@ -82,9 +342,11 @@ Index
 * attach:                               Attach.
 * attach:                               Attach.
 * automatic display:                    Auto Display.
+* automatic thread selection:           Threads.
 * b:                                    Set Breaks.
 * backtrace:                            Backtrace.
 * break:                                Set Breaks.
+* break ... thread THREADNO:            Thread Stops.
 * break in overloaded functions:        Debugging C plus plus.
 * breakpoint commands:                  Break Commands.
 * breakpoint conditions:                Conditions.
@@ -92,6 +354,7 @@ Index
 * breakpoint on memory address:         Breakpoints.
 * breakpoint on variable modification:  Breakpoints.
 * breakpoints:                          Breakpoints.
+* breakpoints and threads:              Thread Stops.
 * bt:                                   Backtrace.
 * bug criteria:                         Bug Criteria.
 * bug reports:                          Bug Reporting.
@@ -127,8 +390,8 @@ Index
 * colon, doubled as scope operator:     M2 Scope.
 * colon-colon:                          M2 Scope.
 * colon-colon:                          Variables.
-* command files:                        Hooks.
 * command files:                        Command Files.
+* command files:                        Hooks.
 * command line editing:                 Editing.
 * commands:                             Break Commands.
 * commands for C++:                     Debugging C plus plus.
@@ -144,6 +407,8 @@ Index
 * connect (to STDBUG):                  ST2000 Remote.
 * continue:                             Continuing and Stepping.
 * continuing:                           Continuing and Stepping.
+* continuing threads:                   Thread Stops.
+* control C, and remote debugging:      Bootstrapping.
 * controlling terminal:                 Input/Output.
 * convenience variables:                Convenience Vars.
 * core:                                 Files.
@@ -152,6 +417,7 @@ Index
 * CPU simulator:                        Simulator.
 * crash of debugger:                    Bug Criteria.
 * current directory:                    Source Path.
+* current thread:                       Threads.
 * cwd:                                  Source Path.
 * d:                                    Delete Breaks.
 * debugger crash:                       Bug Criteria.
@@ -206,8 +472,8 @@ Index
 * event designators:                    Event Designators.
 * examining data:                       Data.
 * examining memory:                     Memory.
-* exception handlers:                   Exception Handling.
 * exception handlers:                   Frame Info.
+* exception handlers:                   Exception Handling.
 * exceptionHandler:                     Bootstrapping.
 * exec-file:                            Files.
 * executable file:                      Files.
@@ -228,18 +494,20 @@ Index
 * floating point registers:             Registers.
 * floating point, MIPS remote:          MIPS Remote.
 * flush_i_cache:                        Bootstrapping.
+* focus of debugging:                   Threads.
 * foo:                                  Symbol Errors.
 * format options:                       Print Settings.
 * formatted output:                     Output Formats.
 * Fortran:                              Summary.
 * forward-search:                       Search.
-* frame:                                Selection.
 * frame:                                Frames.
+* frame:                                Selection.
 * frame number:                         Frames.
 * frame pointer:                        Frames.
 * frameless execution:                  Frames.
 * g++:                                  C.
 * GDB reference card:                   Formatting Documentation.
+* GDBHISTFILE:                          History.
 * gdbserver:                            Server.
 * getDebugChar:                         Bootstrapping.
 * GNU C++:                              C.
@@ -263,6 +531,7 @@ Index
 * horizontal-scroll-mode:               Readline Init Syntax.
 * i:                                    Help.
 * i/o:                                  Input/Output.
+* i386:                                 Remote Serial.
 * i386-stub.c:                          Remote Serial.
 * i960:                                 i960-Nindy Remote.
 * ignore:                               Conditions.
@@ -282,8 +551,8 @@ Index
 * info f:                               Frame Info.
 * info files:                           Files.
 * info float:                           Floating Point Hardware.
-* info frame:                           Frame Info.
 * info frame:                           Show.
+* info frame:                           Frame Info.
 * info functions:                       Symbols.
 * info history:                         Renamed Commands.
 * info line:                            Machine Code.
@@ -300,13 +569,14 @@ Index
 * info share:                           Files.
 * info sharedlibrary:                   Files.
 * info signals:                         Signals.
-* info source:                          Symbols.
 * info source:                          Show.
+* info source:                          Symbols.
 * info sources:                         Symbols.
 * info stack:                           Backtrace.
 * info target:                          Files.
 * info targets:                         Renamed Commands.
 * info terminal:                        Input/Output.
+* info threads:                         Threads.
 * info types:                           Symbols.
 * info values:                          Renamed Commands.
 * info variables:                       Symbols.
@@ -326,6 +596,7 @@ Index
 * internal GDB breakpoints:             Set Breaks.
 * interrupt:                            Quitting GDB.
 * interrupting remote programs:         Debug Session.
+* interrupting remote targets:          Bootstrapping.
 * invalid input:                        Bug Criteria.
 * jump:                                 Jumping.
 * kill:                                 Kill Process.
@@ -338,6 +609,7 @@ Index
 * listing machine instructions:         Machine Code.
 * load:                                 Files.
 * log file for EB29K:                   Remote Log.
+* m680x0:                               Remote Serial.
 * m68k-stub.c:                          Remote Serial.
 * machine instructions:                 Machine Code.
 * maint info breakpoints:               Set Breaks.
@@ -351,6 +623,7 @@ Index
 * memory, viewing as typed object:      Expressions.
 * memory-mapped symbol file:            Files.
 * memset:                               Bootstrapping.
+* MIPS remotedebug protocol:            MIPS Remote.
 * MIPS boards:                          MIPS Remote.
 * MIPS remote floating point:           MIPS Remote.
 * MIPS stack:                           MIPS Stack.
@@ -363,10 +636,12 @@ Index
 * Modula-2, deviations from:            Deviations.
 * Motorola 680x0:                       Remote Serial.
 * multiple targets:                     Active Targets.
+* multiple threads:                     Threads.
 * n:                                    Continuing and Stepping.
 * names of symbols:                     Symbols.
 * namespace in C++:                     Cplus expressions.
 * negative breakpoint numbers:          Set Breaks.
+* New SYSTAG:                           Threads.
 * next:                                 Continuing and Stepping.
 * nexti:                                Continuing and Stepping.
 * ni:                                   Continuing and Stepping.
@@ -387,6 +662,7 @@ Index
 * path:                                 Environment.
 * pauses in output:                     Screen Size.
 * pipes:                                Starting.
+* pointer, finding referent:            Print Settings.
 * prefer-visible-bell:                  Readline Init Syntax.
 * print:                                Data.
 * print settings:                       Print Settings.
@@ -457,8 +733,8 @@ Index
 * set arrayprint:                       Renamed Commands.
 * set asm-demangle:                     Renamed Commands.
 * set caution:                          Renamed Commands.
-* set check:                            Range Checking.
 * set check:                            Type Checking.
+* set check:                            Range Checking.
 * set check range:                      Range Checking.
 * set check type:                       Type Checking.
 * set complaints:                       Messages/Warnings.
@@ -482,6 +758,7 @@ Index
 * set print asm-demangle:               Print Settings.
 * set print demangle:                   Print Settings.
 * set print elements:                   Print Settings.
+* set print fast-symbolic-addr:         Print Settings.
 * set print max-symbolic-offset:        Print Settings.
 * set print object:                     Print Settings.
 * set print pretty:                     Print Settings.
@@ -492,6 +769,7 @@ Index
 * set prompt:                           Prompt.
 * set radix:                            Numbers.
 * set remotedebug:                      Protocol.
+* set remotedebug:                      MIPS Remote.
 * set retransmit-timeout:               MIPS Remote.
 * set rstack_high_address:              Registers.
 * set screen-height:                    Renamed Commands.
@@ -537,6 +815,7 @@ Index
 * show history write:                   Renamed Commands.
 * show language:                        Show.
 * show listsize:                        List.
+* show mipsfpu:                         MIPS Remote.
 * show paths:                           Environment.
 * show prettyprint:                     Renamed Commands.
 * show print address:                   Print Settings.
@@ -544,6 +823,7 @@ Index
 * show print asm-demangle:              Print Settings.
 * show print demangle:                  Print Settings.
 * show print elements:                  Print Settings.
+* show print fast-symbolic-addr:        Print Settings.
 * show print max-symbolic-offset:       Print Settings.
 * show print object:                    Print Settings.
 * show print pretty:                    Print Settings.
@@ -554,6 +834,7 @@ Index
 * show prompt:                          Prompt.
 * show radix:                           Numbers.
 * show remotedebug:                     Protocol.
+* show remotedebug:                     MIPS Remote.
 * show retransmit-timeout:              MIPS Remote.
 * show rstack_high_address:             Registers.
 * show screen-height:                   Renamed Commands.
@@ -593,8 +874,11 @@ Index
 * step:                                 Continuing and Stepping.
 * stepi:                                Continuing and Stepping.
 * stepping:                             Continuing and Stepping.
+* stopped threads:                      Thread Stops.
 * stub example, remote debugging:       Protocol.
 * stupid questions:                     Messages/Warnings.
+* switching threads:                    Threads.
+* switching threads automatically:      Threads.
 * symbol decoding style, C++:           Print Settings.
 * symbol dump:                          Symbols.
 * symbol names:                         Symbols.
@@ -610,8 +894,8 @@ Index
 * target mips PORT:                     MIPS Remote.
 * target nindy:                         Target Commands.
 * target remote:                        Target Commands.
-* target sim:                           Target Commands.
 * target sim:                           Simulator.
+* target sim:                           Target Commands.
 * target st2000:                        Target Commands.
 * target udi:                           Target Commands.
 * target vxworks:                       Target Commands.
@@ -619,15 +903,26 @@ Index
 * TCP port, target remote:              Debug Session.
 * terminal:                             Input/Output.
 * this:                                 Cplus expressions.
+* thread THREADNO:                      Threads.
+* thread breakpoints:                   Thread Stops.
+* thread identifier (GDB):              Threads.
+* thread identifier (system):           Threads.
+* thread number:                        Threads.
+* threads and watchpoints:              Set Watchpoints.
+* threads of execution:                 Threads.
+* threads, automatic switching:         Threads.
+* threads, continuing:                  Thread Stops.
+* threads, stopped:                     Thread Stops.
 * toggle-editing-mode:                  Readline Vi Mode.
 * tty:                                  Input/Output.
 * type casting memory:                  Expressions.
 * type checking:                        Checks.
 * type conversions in C++:              Cplus expressions.
 * u:                                    Continuing and Stepping.
-* udi:                                  UDI29K Remote.
 * UDI:                                  UDI29K Remote.
+* udi:                                  UDI29K Remote.
 * undisplay:                            Auto Display.
+* unknown address, locating:            Output Formats.
 * unset:                                Renamed Commands.
 * unset environment:                    Environment.
 * until:                                Continuing and Stepping.
@@ -642,8 +937,10 @@ Index
 * VxWorks:                              VxWorks Remote.
 * watch:                                Set Watchpoints.
 * watchpoints:                          Breakpoints.
+* watchpoints and threads:              Set Watchpoints.
 * whatis:                               Symbols.
 * where:                                Backtrace.
+* wild pointer, interpreting:           Print Settings.
 * word completion:                      Completion.
 * working directory:                    Source Path.
 * working directory (of your program):  Working Directory.

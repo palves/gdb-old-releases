@@ -146,7 +146,7 @@ store_inferior_registers (regno)
 	ptrace (6, inferior_pid,
 		(PTRACE_ARG3_TYPE) SFIP_OFFSET, read_register(regno));
       else
-	printf ("Bad register number for store_inferior routine\n");
+	printf_unfiltered ("Bad register number for store_inferior routine\n");
     }
   else
     { 
@@ -211,14 +211,21 @@ m88k_register_u_addr (blockend, regnum)
     case 28:
     case 29:
     case 30:
-    case 31:          return (ustart + ((int) &u.pt_r0 - (int) &u) + sizeof(REGISTER_TYPE) * regnum);
+    case 31:
+      return (ustart + ((int) &u.pt_r0 - (int) &u) + REGISTER_SIZE * regnum);
     case PSR_REGNUM:  return (ustart + ((int) &u.pt_psr - (int) &u));
     case FPSR_REGNUM: return (ustart + ((int) &u.pt_fpsr - (int) &u));
     case FPCR_REGNUM: return (ustart + ((int) &u.pt_fpcr - (int) &u));
     case SXIP_REGNUM: return (ustart + SXIP_OFFSET); 
     case SNIP_REGNUM: return (ustart + SNIP_OFFSET);
     case SFIP_REGNUM: return (ustart + SFIP_OFFSET); 
-    default: return (blockend + sizeof (REGISTER_TYPE) * regnum);
+    default: 
+	if (regnum < NUM_REGS)
+	    /* The register is one of those which is not defined...
+	       give it zero */
+	    return (ustart + ((int) &u.pt_r0 - (int) &u));
+	else
+	    return (blockend + REGISTER_SIZE * regnum);
     }
 }
 

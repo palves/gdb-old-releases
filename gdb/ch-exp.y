@@ -60,6 +60,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "value.h"
 #include "parser-defs.h"
 #include "ch-lang.h"
+#include "bfd.h" /* Required by objfiles.h.  */
+#include "symfile.h" /* Required by objfiles.h.  */
+#include "objfiles.h" /* For have_full_symbols and have_partial_symbols */
 
 /* Remap normal yacc parser interface names (yyparse, yylex, yyerror, etc),
    as well as gratuitiously global symbol names, so we can have multiple
@@ -771,7 +774,7 @@ operand_2	:	operand_3
 			}
 		|	operand_2 IN operand_3
 			{
-			  $$ = 0;	/* FIXME */
+			  write_exp_elt_opcode (BINOP_IN);
 			}
 		;
 
@@ -1654,7 +1657,7 @@ match_dollar_tokens ()
 	      && !isalnum (tokptr[namelength]))
 	    {
 	      yylval.lval = regno;
-	      lexptr += namelength + 1;
+	      lexptr += namelength;
 	      return (GDB_REGNAME);
 	    }
 	}
@@ -1985,7 +1988,7 @@ void
 yyerror (msg)
      char *msg;	/* unused */
 {
-  printf ("Parsing:  %s\n", lexptr);
+  printf_unfiltered ("Parsing:  %s\n", lexptr);
   if (yychar < 256)
     {
       error ("Invalid syntax in expression near character '%c'.", yychar);

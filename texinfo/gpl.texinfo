@@ -1,8 +1,6 @@
 @c This GPL is meant to be included from other files.
 @c To format a standalone GPL, use license.texi.
 
-@unnumbered GNU GENERAL PUBLIC LICENSE
-
 @center Version 2, June 1991
 
 @display

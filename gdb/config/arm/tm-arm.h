@@ -83,9 +83,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
  */
 #define FLOAT_INFO { arm_float_info (); }
 
-/* Say how long (ordinary) registers are.  */
+/* Say how long (ordinary) registers are.  This is a piece of bogosity
+   used in push_word and a few other places; REGISTER_RAW_SIZE is the
+   real way to know how big a register is.  */
 
-#define REGISTER_TYPE long
+#define REGISTER_SIZE 4
 
 /* Number of machine registers */
 
@@ -154,23 +156,24 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define REGISTER_CONVERTIBLE(N) ((unsigned)(N) - F0_REGNUM < 8)
 
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
+/* Convert data from raw format for register REGNUM in buffer FROM
+   to virtual format with type TYPE in buffer TO.  */
 
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)	\
-  if (REGISTER_CONVERTIBLE(REGNUM))					\
-      convert_from_extended((FROM), (TO));				\
-  else									\
-      memcpy ((TO), (FROM), 4);
+#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,TYPE,FROM,TO) \
+{ \
+  double val; \
+  convert_from_extended ((FROM), &val); \
+  store_floating ((TO), TYPE_LENGTH (TYPE), val); \
+}
 
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
+/* Convert data from virtual format with type TYPE in buffer FROM
+   to raw format for register REGNUM in buffer TO.  */
 
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-  if (REGISTER_CONVERTIBLE(REGNUM)) 			\
-    convert_to_extended((FROM), (TO)); 		\
-  else							\
-    memcpy ((TO), (FROM), 4);
+#define REGISTER_CONVERT_TO_RAW(TYPE,REGNUM,FROM,TO)	\
+{ \
+  double val = extract_floating ((FROM), TYPE_LENGTH (TYPE)); \
+  convert_to_extended (&val, (TO)); \
+}
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */

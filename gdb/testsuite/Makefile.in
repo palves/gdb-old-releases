@@ -33,7 +33,10 @@ INSTALL_DATA = $(INSTALL)
 CFLAGS = -g
 CHILLFLAGS = $(CFLAGS)
 CHILL_LIB = -lchill
-CXXFLAGS = -g
+# This should probably be consistent with the top-level Makefile.in,
+# gdb/Makefile.in, and gdb/testsuite/gdb.t2*/Makefile.in, so that "make check"
+# has the same effect no matter where it is run.
+CXXFLAGS = -g -O
 
 LINK=		ln -s
 SUBDIRS=
@@ -41,7 +44,7 @@ RUNTEST = runtest
 RUNTESTFLAGS = 
 
 RUNTEST_FOR_TARGET = ` \
-  if [ -f $${rootme}/../..dejagnu/site.exp ] ; then \
+  if [ -f $${rootme}/../../dejagnu/site.exp ] ; then \
     echo $${rootme}/../../dejagnu/runtest ; \
   else \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
@@ -134,6 +137,8 @@ TARGET_FLAGS_TO_PASS = \
         "INSTALL=$(INSTALL)" \
         "INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
         "INSTALL_DATA=$(INSTALL_DATA)" \
+        "LDFLAGS=$(LDFLAGS)" \
+        "LIBS=$(LIBS)" \
         "RUNTEST=$(RUNTEST)" \
         "RUNTESTFLAGS=$(RUNTESTFLAGS)" \
         "BISON=$(BISON)"

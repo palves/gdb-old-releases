@@ -98,9 +98,9 @@ fetch_inferior_registers (regno)
 	    perror("ptrace_getfpregs");
       memcpy (&registers[REGISTER_BYTE (FP0_REGNUM)], &inferior_fp_registers,
 	      sizeof inferior_fp_registers.fpu_fr);
-      /* memcpy (&registers[REGISTER_BYTE (FPS_REGNUM)],
+      memcpy (&registers[REGISTER_BYTE (FPS_REGNUM)],
 	     &inferior_fp_registers.Fpu_fsr,
-	     sizeof (FPU_FSR_TYPE));  FIXME???  -- gnu@cyg */
+	     sizeof (FPU_FSR_TYPE));
       for (i = FP0_REGNUM; i <= FP0_REGNUM+31; i++)
 	register_valid[i] = 1;
       register_valid[FPS_REGNUM] = 1;
@@ -121,7 +121,7 @@ fetch_inferior_registers (regno)
       CORE_ADDR sp = *(CORE_ADDR*)&registers[REGISTER_BYTE (SP_REGNUM)];
       i = REGISTER_BYTE (regno);
       if (register_valid[regno])
-	printf("register %d valid and read\n", regno);
+	printf_unfiltered("register %d valid and read\n", regno);
       target_xfer_memory (sp + i - REGISTER_BYTE (L0_REGNUM),
 			  &registers[i], REGISTER_RAW_SIZE (regno), 0);
       register_valid[regno] = 1;
@@ -222,18 +222,10 @@ store_inferior_registers (regno)
   if (wanna_store & FP_REGS)
     {
       if (!register_valid[FP0_REGNUM+9]) abort();
-      /* Initialize inferior_fp_registers members that gdb doesn't set
-	 by reading them from the inferior.  */
-      if (0 !=
-	 ptrace (PTRACE_GETFPREGS, inferior_pid,
-		 (PTRACE_ARG3_TYPE) &inferior_fp_registers, 0))
-	 perror("ptrace_getfpregs");
       memcpy (&inferior_fp_registers, &registers[REGISTER_BYTE (FP0_REGNUM)],
 	      sizeof inferior_fp_registers.fpu_fr);
-
-/*    memcpy (&inferior_fp_registers.Fpu_fsr, 
+      memcpy (&inferior_fp_registers.Fpu_fsr, 
 	      &registers[REGISTER_BYTE (FPS_REGNUM)], sizeof (FPU_FSR_TYPE));
-****/
       if (0 !=
 	 ptrace (PTRACE_SETFPREGS, inferior_pid,
 		 (PTRACE_ARG3_TYPE) &inferior_fp_registers, 0))
@@ -278,8 +270,8 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, ignore)
       if (0 != target_read_memory (sp, &registers[REGISTER_BYTE (L0_REGNUM)], 
 			  16 * REGISTER_RAW_SIZE (L0_REGNUM)))
 	{
-	  /* fprintf so user can still use gdb */
-	  fprintf (stderr,
+	  /* fprintf_unfiltered so user can still use gdb */
+	  fprintf_unfiltered (gdb_stderr,
 		   "Couldn't read input and local registers from core file\n");
 	}
     }
@@ -296,7 +288,7 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, ignore)
 		sizeof (FPU_FSR_TYPE));
       }
     else
-      fprintf (stderr, "Couldn't read float regs from core file\n");
+      fprintf_unfiltered (gdb_stderr, "Couldn't read float regs from core file\n");
   }
 }
 

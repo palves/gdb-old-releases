@@ -128,7 +128,7 @@ extern char *mktemp();
 extern void generic_mourn_inferior ();
 
 extern struct target_ops nindy_ops;
-extern FILE *instream;
+extern GDB_FILE *instream;
 extern struct ext_format ext_format_i960;	/* i960-tdep.c */
 
 extern char ninStopWhy ();
@@ -174,9 +174,9 @@ nindy_close (quitting)
 }
 
 /* Open a connection to a remote debugger.   
-   FIXME, there should be a way to specify the various options that are
-   now specified with gdb command-line options.  (baud_rate, old_protocol,
-   and initial_brk)  */
+   FIXME, there should be "set" commands for the options that are
+   now specified with gdb command-line options (old_protocol,
+   and initial_brk).  */
 void
 nindy_open (name, from_tty)
     char *name;		/* "/dev/ttyXX", "ttyXX", or "XX": tty to be opened */
@@ -188,7 +188,7 @@ nindy_open (name, from_tty)
     error_no_arg ("serial port device name");
 
   target_preopen (from_tty);
-  
+
   nindy_close (0);
 
   have_regs = regs_changed = 0;
@@ -227,7 +227,7 @@ nindy_detach (name, from_tty)
 static void
 nindy_files_info ()
 {
-  printf("\tAttached to %s at %d bps%s%s.\n", savename,
+  printf_unfiltered("\tAttached to %s at %d bps%s%s.\n", savename,
 	 sr_get_baud_rate(),
 	 nindy_old_protocol? " in old protocol": "",
          nindy_initial_brk? " with initial break": "");
@@ -256,10 +256,11 @@ non_dle( buf, n )
 
 void
 nindy_resume (pid, step, siggnal)
-     int pid, step, siggnal;
+     int pid, step;
+     enum target_signal siggnal;
 {
-	if (siggnal != 0 && siggnal != stop_signal)
-	  error ("Can't send signals to remote NINDY targets.");
+  if (siggnal != TARGET_SIGNAL_0 && siggnal != stop_signal)
+    warning ("Can't send signals to remote NINDY targets.");
 
 	dcache_flush(nindy_dcache);
 	if ( regs_changed ){
@@ -292,7 +293,7 @@ You may need to reset the 80960 and/or reload your program.\n");
 }
 
 /* Wait until the remote machine stops. While waiting, operate in passthrough
- * mode; i.e., pass everything NINDY sends to stdout, and everything from
+ * mode; i.e., pass everything NINDY sends to gdb_stdout, and everything from
  * stdin to NINDY.
  *
  * Return to caller, storing status in 'status' just as `wait' would.
@@ -301,7 +302,7 @@ You may need to reset the 80960 and/or reload your program.\n");
 static int
 nindy_wait( pid, status )
     int pid;
-    WAITTYPE *status;
+    struct target_waitstatus *status;
 {
   fd_set fds;
   char buf[500];	/* FIXME, what is "500" here? */
@@ -312,7 +313,8 @@ nindy_wait( pid, status )
   struct cleanup *old_cleanups;
   long ip_value, fp_value, sp_value;	/* Reg values from stop */
 
-  WSETEXIT( (*status), 0 );
+  status->kind = TARGET_WAITKIND_EXITED;
+  status->value.integer = 0;
 
   /* OPERATE IN PASSTHROUGH MODE UNTIL NINDY SENDS A DLE CHARACTER */
 
@@ -391,30 +393,13 @@ nindy_wait( pid, status )
 
   if (stop_exit)
     {
-      /* User program exited */
-      WSETEXIT ((*status), stop_code);
+      status->kind = TARGET_WAITKIND_EXITED;
+      status->value.integer = stop_code;
     }
   else
     {
-      /* Fault or trace */
-      switch (stop_code)
-	{
-	case STOP_GDB_BPT:
-	case TRACE_STEP:
-	  /* Breakpoint or single stepping.  */
-	  stop_code = SIGTRAP;
-	  break;
-	default:
-	  /* The target is not running Unix, and its faults/traces do
-	     not map nicely into Unix signals.  Make sure they do not
-	     get confused with Unix signals by numbering them with
-	     values higher than the highest legal Unix signal.  code
-	     in i960_print_fault(), called via PRINT_RANDOM_SIGNAL,
-	     will interpret the value.  */
-	  stop_code += NSIG;
-	  break;
-	}
-      WSETSTOP ((*status), stop_code);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = i960_fault_to_signal (stop_code);
     }
   return inferior_pid;
 }
@@ -472,7 +457,7 @@ nindy_store_registers(regno)
      int regno;
 {
   struct nindy_regs nindy_regs;
-  int regnum, inv;
+  int regnum;
   double dub;
 
   memcpy (nindy_regs.local_regs, &registers[REGISTER_BYTE (R0_REGNUM)], 16*4);
@@ -480,18 +465,14 @@ nindy_store_registers(regno)
   memcpy (nindy_regs.pcw_acw, &registers[REGISTER_BYTE (PCW_REGNUM)], 2*4);
   memcpy (nindy_regs.ip, &registers[REGISTER_BYTE (IP_REGNUM)], 1*4);
   memcpy (nindy_regs.tcw, &registers[REGISTER_BYTE (TCW_REGNUM)], 1*4);
-  /* Float regs.  Only works on IEEE_FLOAT hosts.  FIXME!  */
-  for (regnum = FP0_REGNUM; regnum < FP0_REGNUM + 4; regnum++) {
-    ieee_extended_to_double (&ext_format_i960,
-			     &registers[REGISTER_BYTE (regnum)], &dub);
-    /* dub now in host byte order */
-    /* FIXME-someday, the arguments to unpack_double are backward.
-       It expects a target double and returns a host; we pass the opposite.
-       This mostly works but not quite.  */
-    dub = unpack_double (builtin_type_double, (char *)&dub, &inv);
-    /* dub now in target byte order */
-    memcpy (&nindy_regs.fp_as_double[8 * (regnum - FP0_REGNUM)], &dub, 8);
-  }
+  for (regnum = FP0_REGNUM; regnum < FP0_REGNUM + 4; regnum++)
+    {
+      ieee_extended_to_double (&ext_format_i960,
+			       &registers[REGISTER_BYTE (regnum)], &dub);
+      store_floating (&nindy_regs.fp_as_double[8 * (regnum - FP0_REGNUM)],
+		      REGISTER_VIRTUAL_SIZE (regnum),
+		      dub);
+    }
 
   immediate_quit++;
   ninRegsPut( (char *) &nindy_regs );
@@ -628,7 +609,8 @@ nindy_create_inferior (execfile, args, env)
   target_terminal_inferior ();
 
   /* insert_step_breakpoint ();  FIXME, do we need this?  */
-  proceed ((CORE_ADDR)entry_pt, -1, 0);		/* Let 'er rip... */
+  /* Let 'er rip... */
+  proceed ((CORE_ADDR)entry_pt, TARGET_SIGNAL_DEFAULT, 0);
 }
 
 static void
@@ -702,8 +684,8 @@ nindy_before_main_loop ()
 
   while (current_target != &nindy_ops) { /* remote tty not specified yet */
 	if ( instream == stdin ){
-		printf("\nAttach /dev/ttyNN -- specify NN, or \"quit\" to quit:  ");
-		fflush( stdout );
+		printf_unfiltered("\nAttach /dev/ttyNN -- specify NN, or \"quit\" to quit:  ");
+		gdb_flush( gdb_stdout );
 	}
 	fgets( ttyname, sizeof(ttyname)-1, stdin );
 

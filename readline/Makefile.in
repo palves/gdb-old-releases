@@ -94,6 +94,17 @@ SUPPORT = COPYING Makefile $(DOCUMENTATION) ChangeLog
 
 THINGS_TO_TAR = $(SOURCES) $(SUPPORT)
 
+FLAGS_TO_PASS = \
+	"prefix=$(prefix)" \
+	"exec_prefix=$(exec_prefix)" \
+	"against=$(against)" \
+	"MAKEINFO=$(MAKEINFO)" \
+	"INSTALL=$(INSTALL)" \
+	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
+	"INSTALL_DATA=$(INSTALL_DATA)"
+
+SUBDIRS = doc
+
 #### Host, target, and site specific Makefile fragments come in here.
 ###
 
@@ -106,11 +117,18 @@ all: libreadline.a
 
 check:
 installcheck:
-info:
-dvi:
 
-clean-info: force
-	-rm -f *.info*
+info dvi install-info clean-info clean-dvi: force
+	@$(MAKE) $(FLAGS_TO_PASS) DO=$@ "DODIRS=$(SUBDIRS)" subdir_do
+
+subdir_do: force
+	@for i in $(DODIRS); do \
+		if [ -f ./$$i/Makefile ] ; then \
+			if (cd ./$$i; \
+				$(MAKE) $(FLAGS_TO_PASS) $(DO)) ; then true ; \
+			else exit 1 ; fi ; \
+		else true ; fi ; \
+	done
 
 history.info: $(srcdir)/history.texi
 	$(MAKEINFO) -o history.info $(srcdir)/history.texi
@@ -152,21 +170,27 @@ install:
 		$(INSTALL_DATA) $(srcdir)/keymaps.h $(includedir)/readline/keymaps.h
 		$(INSTALL_DATA) $(srcdir)/chardefs.h $(includedir)/readline/chardefs.h
 
-install-info: info
-#		for i in *.info* ; do \
-#			$(INSTALL_DATA) $$i $(infodir)/$$i ; \
-#		done
-
 includes:
 		$(INSTALL_FILE) $(srcdir)/readline.h $(includedir)/readline/readline.h
 		$(INSTALL_FILE) $(srcdir)/keymaps.h $(includedir)/readline/keymaps.h
 		$(INSTALL_FILE) $(srcdir)/chardefs.h $(includedir)/readline/chardefs.h
 
-clean mostlyclean:
-		rm -f $(STAGESTUFF) *.a *.log *.cp *.tp *.vr *.fn
-		rm -f *.aux *.pg *.toc
+local-clean:
+	rm -f $(STAGESTUFF) *.a *.log *.cp *.tp *.vr *.fn
+	rm -f *.aux *.pg *.toc
 
-distclean realclean: clean
+mostlyclean: local-clean
+	@$(MAKE) $(FLAGS_TO_PASS) DO=$@ "DODIRS=$(SUBDIRS)" subdir_do
+
+clean: local-clean
+	@$(MAKE) $(FLAGS_TO_PASS) DO=$@ "DODIRS=$(SUBDIRS)" subdir_do
+
+distclean: local-clean
+	@$(MAKE) $(FLAGS_TO_PASS) DO=$@ "DODIRS=$(SUBDIRS)" subdir_do
+	rm -f Makefile config.status sysdep.h
+
+realclean: local-clean
+	@$(MAKE) $(FLAGS_TO_PASS) DO=$@ "DODIRS=$(SUBDIRS)" subdir_do
 	rm -f Makefile config.status sysdep.h
 
 $(DESTDIR)/libreadline.a: libreadline.a

@@ -9,3 +9,18 @@ srcname="gdb.t06"
 # per-host:
 
 # per-target:
+
+case "${target}" in
+
+mips-idt-ecoff)		signals=no ;;
+*)			signals=yes ;;
+esac
+
+# post-target:
+
+if [ "${signals}" = "no" ]; then
+	sed -e '/^EXECUTABLES =/s/signals //' \
+		< Makefile > Makefile.tem
+	mv -f Makefile.tem Makefile
+fi
+

@@ -1,6 +1,6 @@
 \input texinfo.tex
 @setfilename bfd.info
-@c $Id: bfd.texinfo,v 1.22 1993/08/10 18:26:23 raeburn Exp $
+@c $Id: bfd.texinfo,v 1.25 1994/01/12 23:41:26 ian Exp $
 @tex
 % NOTE LOCAL KLUGE TO AVOID TOO MUCH WHITESPACE
 \global\long\def\example{%
@@ -67,7 +67,7 @@ into another language, under the above conditions for modified versions.
 
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.22 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.25 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill sac\@cygnus.com\par
@@ -103,7 +103,7 @@ This file documents the binary file descriptor library libbfd.
 @menu
 * Overview::			Overview of BFD
 * BFD front end::		BFD front end
-* BFD back end::		BFD back end
+* BFD back ends::		BFD back ends
 * Index::			Index
 @end menu
 
@@ -211,7 +211,7 @@ IEEE-695.
 @section What BFD Version 2 Can Do
 @include bfdsumm.texi
 
-@node BFD front end, BFD back end, Overview, Top
+@node BFD front end, BFD back ends, Overview, Top
 @chapter BFD front end
 @include bfd.texi
 
@@ -230,23 +230,25 @@ IEEE-695.
 * Constructors::
 * Internal::
 * File Caching::
+* Linker Functions::
+* Hash Tables::
 @end menu
 
 @node Memory Usage, Initialization, BFD front end, BFD front end
-@section Memory Usage
-BFD keeps all its internal structures in obstacks. There is one obstack
+@section Memory usage
+BFD keeps all of its internal structures in obstacks. There is one obstack
 per open BFD file, into which the current state is stored. When a BFD is
 closed, the obstack is deleted, and so everything which has been
-allocated by @code{libbfd} for the closing file will be thrown away.
+allocated by BFD for the closing file is thrown away.
 
-BFD will not free anything created by an application, but pointers into
-@code{bfd} structures will be invalidated on a @code{bfd_close}; for example,
+BFD does not free anything created by an application, but pointers into
+@code{bfd} structures become invalid on a @code{bfd_close}; for example,
 after a @code{bfd_close} the vector passed to
-@code{bfd_canonicalize_symtab} will still be around, since it has been
-allocated by the application, but the data that it pointed to will be
+@code{bfd_canonicalize_symtab} is still around, since it has been
+allocated by the application, but the data that it pointed to are
 lost.
 
-The general rule is not to close a BFD until all operations dependent
+The general rule is to not close a BFD until all operations dependent
 upon data from the BFD have been completed, or all the data from within
 the file has been copied. To help with the management of memory, there
 is a function (@code{bfd_alloc_size}) which returns the number of bytes
@@ -291,11 +293,17 @@ structures.
 @node Internal, File Caching, Constructors, BFD front end
 @include  libbfd.texi
 
-@node File Caching,  , Internal, BFD front end
+@node File Caching, Linker Functions, Internal, BFD front end
 @include  cache.texi
 
-@node BFD back end, Index, BFD front end, Top
-@chapter BFD back end
+@node Linker Functions, Hash Tables, File Caching, BFD front end
+@include  linker.texi
+
+@node Hash Tables, , Linker Functions, BFD front end
+@include  hash.texi
+
+@node BFD back ends, Index, BFD front end, Top
+@chapter BFD back ends
 @menu
 * What to Put Where::
 * aout ::	a.out backends
@@ -307,21 +315,21 @@ structures.
 * srecord ::	s-record backend
 @end ignore
 @end menu
-@node What to Put Where, aout, BFD back end, BFD back end
+@node What to Put Where, aout, BFD back ends, BFD back ends
 All of BFD lives in one directory.
 
-@node aout, coff, What to Put Where, BFD back end
+@node aout, coff, What to Put Where, BFD back ends
 @include  aoutx.texi
 
-@node coff, elf, aout, BFD back end
+@node coff, elf, aout, BFD back ends
 @include  coffcode.texi
 
-@node elf,  , coff, BFD back end
+@node elf,  , coff, BFD back ends
 @include  elf.texi
 @c Leave this out until the file has some actual contents...
 @c @include  elfcode.texi
 
-@node Index,  , BFD back end, Top
+@node Index,  , BFD back ends , Top
 @unnumbered Index
 @printindex cp
 

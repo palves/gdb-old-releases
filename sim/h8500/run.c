@@ -21,6 +21,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Steve Chamberlain
    sac@cygnus.com */
 
+#include <stdio.h>
 #include "../../bfd/bfd.h"
 #include "sysdep.h"
 
@@ -95,7 +96,7 @@ main (ac, av)
 	      sim_resume (0, 0);
 	    }
 	  if (verbose)
-	    sim_info ();
+	    sim_info (printf, 0);
 
 	  return 0;
 	}

@@ -348,6 +348,53 @@ create_range_type (result_type, index_type, low_bound, high_bound)
   return (result_type);
 }
 
+/* A lot of code assumes that the "index type" of an array/string/
+   set/bitstring is specifically a range type, though in some languages
+   it can be any discrete type. */
+
+struct type *
+force_to_range_type (type)
+     struct type *type;
+{
+  switch (TYPE_CODE (type))
+    {
+    case TYPE_CODE_RANGE:
+      return type;
+
+    case TYPE_CODE_ENUM:
+      {
+	int low_bound = TYPE_FIELD_BITPOS (type, 0);
+	int high_bound = TYPE_FIELD_BITPOS (type, TYPE_NFIELDS (type) - 1);
+	struct type *range_type =
+	  create_range_type (NULL, type, low_bound, high_bound);
+	TYPE_NAME (range_type) = TYPE_NAME (range_type);
+	TYPE_DUMMY_RANGE (range_type) = 1;
+	return range_type;
+      }
+    case TYPE_CODE_BOOL:
+      {
+	struct type *range_type = create_range_type (NULL, type, 0, 1);
+	TYPE_NAME (range_type) = TYPE_NAME (range_type);
+	TYPE_DUMMY_RANGE (range_type) = 1;
+	return range_type;
+      }
+    case TYPE_CODE_CHAR:
+      {
+	struct type *range_type = create_range_type (NULL, type, 0, 255);
+	TYPE_NAME (range_type) = TYPE_NAME (range_type);
+	TYPE_DUMMY_RANGE (range_type) = 1;
+	return range_type;
+      }
+    default:
+      {
+	static struct complaint msg =
+	  { "array index type must be a discrete type", 0, 0};
+	complain (&msg);
+
+	return create_range_type (NULL, builtin_type_int, 0, 0);
+      }
+    }
+}
 
 /* Create an array type using either a blank type supplied in RESULT_TYPE,
    or creating a new type, inheriting the objfile from RANGE_TYPE.
@@ -367,23 +414,15 @@ create_array_type (result_type, element_type, range_type)
   int low_bound;
   int high_bound;
 
-  if (TYPE_CODE (range_type) != TYPE_CODE_RANGE)
-    {
-      /* FIXME:  We only handle range types at the moment.  Complain and
-	 create a dummy range type to use. */
-      warning ("internal error:  array index type must be a range type");
-      range_type = lookup_fundamental_type (TYPE_OBJFILE (range_type),
-					    FT_INTEGER);
-      range_type = create_range_type ((struct type *) NULL, range_type, 0, 0);
-    }
+  range_type = force_to_range_type (range_type);
   if (result_type == NULL)
     {
       result_type = alloc_type (TYPE_OBJFILE (range_type));
     }
   TYPE_CODE (result_type) = TYPE_CODE_ARRAY;
   TYPE_TARGET_TYPE (result_type) = element_type;
-  low_bound = TYPE_FIELD_BITPOS (range_type, 0);
-  high_bound = TYPE_FIELD_BITPOS (range_type, 1);
+  low_bound = TYPE_LOW_BOUND (range_type);
+  high_bound = TYPE_HIGH_BOUND (range_type);
   TYPE_LENGTH (result_type) =
     TYPE_LENGTH (element_type) * (high_bound - low_bound + 1);
   TYPE_NFIELDS (result_type) = 1;
@@ -414,6 +453,37 @@ create_string_type (result_type, range_type)
 {
   result_type = create_array_type (result_type, builtin_type_char, range_type);
   TYPE_CODE (result_type) = TYPE_CODE_STRING;
+  return (result_type);
+}
+
+struct type *
+create_set_type (result_type, domain_type)
+     struct type *result_type;
+     struct type *domain_type;
+{
+  int low_bound, high_bound, bit_length;
+  if (result_type == NULL)
+    {
+      result_type = alloc_type (TYPE_OBJFILE (domain_type));
+    }
+  domain_type = force_to_range_type (domain_type);
+  TYPE_CODE (result_type) = TYPE_CODE_SET;
+  TYPE_NFIELDS (result_type) = 1;
+  TYPE_FIELDS (result_type) = (struct field *)
+    TYPE_ALLOC (result_type, 1 * sizeof (struct field));
+  memset (TYPE_FIELDS (result_type), 0, sizeof (struct field));
+  TYPE_FIELD_TYPE (result_type, 0) = domain_type;
+  low_bound = TYPE_LOW_BOUND (domain_type);
+  high_bound = TYPE_HIGH_BOUND (domain_type);
+  bit_length = high_bound - low_bound + 1;
+  if (bit_length <= TARGET_CHAR_BIT)
+    TYPE_LENGTH (result_type) = 1;
+  else if (bit_length <= TARGET_SHORT_BIT)
+    TYPE_LENGTH (result_type) = TARGET_SHORT_BIT / TARGET_CHAR_BIT;
+  else
+    TYPE_LENGTH (result_type)
+      = ((bit_length + TARGET_INT_BIT - 1) / TARGET_INT_BIT)
+	* TARGET_CHAR_BIT;
   return (result_type);
 }
 
@@ -685,7 +755,7 @@ lookup_struct_elt_type (type, name, noerr)
 {
   int i;
 
-  if (TYPE_CODE (type) == TYPE_CODE_PTR ||
+  while (TYPE_CODE (type) == TYPE_CODE_PTR ||
       TYPE_CODE (type) == TYPE_CODE_REF)
       type = TYPE_TARGET_TYPE (type);
 
@@ -693,9 +763,9 @@ lookup_struct_elt_type (type, name, noerr)
       TYPE_CODE (type) != TYPE_CODE_UNION)
     {
       target_terminal_ours ();
-      fflush (stdout);
-      fprintf (stderr, "Type ");
-      type_print (type, "", stderr, -1);
+      gdb_flush (gdb_stdout);
+      fprintf_unfiltered (gdb_stderr, "Type ");
+      type_print (type, "", gdb_stderr, -1);
       error (" is not a structure or union type.");
     }
 
@@ -743,11 +813,11 @@ lookup_struct_elt_type (type, name, noerr)
     }
   
   target_terminal_ours ();
-  fflush (stdout);
-  fprintf (stderr, "Type ");
-  type_print (type, "", stderr, -1);
-  fprintf (stderr, " has no component named ");
-  fputs_filtered (name, stderr);
+  gdb_flush (gdb_stdout);
+  fprintf_unfiltered (gdb_stderr, "Type ");
+  type_print (type, "", gdb_stderr, -1);
+  fprintf_unfiltered (gdb_stderr, " has no component named ");
+  fputs_filtered (name, gdb_stderr);
   error (".");
   return (struct type *)-1;	/* For lint */
 }
@@ -790,13 +860,14 @@ fill_in_vptr_fieldno (type)
 
    If this is a stubbed struct (i.e. declared as struct foo *), see if
    we can find a full definition in some other file. If so, copy this
-   definition, so we can use it in future.  If not, set a flag so we 
-   don't waste too much time in future.  (FIXME, this doesn't seem
-   to be happening...)
+   definition, so we can use it in future.  There used to be a comment (but
+   not any code) that if we don't find a full definition, we'd set a flag
+   so we don't spend time in the future checking the same type.  That would
+   be a mistake, though--we might load in more symbols which contain a
+   full definition for the type.
 
    This used to be coded as a macro, but I don't think it is called 
-   often enough to merit such treatment.
-*/
+   often enough to merit such treatment.  */
 
 struct complaint stub_noname_complaint =
   {"stub type has NULL name", 0, 0};
@@ -822,7 +893,31 @@ check_stub_type (type)
 			   (struct symtab **) NULL);
       if (sym)
 	{
-	  memcpy ((char *)type, (char *)SYMBOL_TYPE(sym), sizeof (struct type));
+	  memcpy ((char *)type,
+		  (char *)SYMBOL_TYPE(sym),
+		  sizeof (struct type));
+	}
+    }
+
+  if (TYPE_FLAGS (type) & TYPE_FLAG_TARGET_STUB)
+    {
+      struct type *range_type;
+
+      check_stub_type (TYPE_TARGET_TYPE (type));
+      if (!(TYPE_FLAGS (TYPE_TARGET_TYPE (type)) & TYPE_FLAG_STUB)
+	  && TYPE_CODE (type) == TYPE_CODE_ARRAY
+	  && TYPE_NFIELDS (type) == 1
+	  && (TYPE_CODE (range_type = TYPE_FIELD_TYPE (type, 0))
+	      == TYPE_CODE_RANGE))
+	{
+	  /* Now recompute the length of the array type, based on its
+	     number of elements and the target type's length.  */
+	  TYPE_LENGTH (type) =
+	    ((TYPE_FIELD_BITPOS (range_type, 1)
+	      - TYPE_FIELD_BITPOS (range_type, 0)
+	      + 1)
+	     * TYPE_LENGTH (TYPE_TARGET_TYPE (type)));
+	  TYPE_FLAGS (type) &= ~TYPE_FLAG_TARGET_STUB;
 	}
     }
 }
@@ -894,9 +989,13 @@ check_stub_method (type, i, j)
 	{
 	  if (depth <= 0 && (*p == ',' || *p == ')'))
 	    {
-	      argtypes[argcount] =
-		  parse_and_eval_type (argtypetext, p - argtypetext);
-	      argcount += 1;
+	      /* Avoid parsing of ellipsis, they will be handled below.  */
+	      if (strncmp (argtypetext, "...", p - argtypetext) != 0)
+		{
+		  argtypes[argcount] =
+		      parse_and_eval_type (argtypetext, p - argtypetext);
+		  argcount += 1;
+		}
 	      argtypetext = p + 1;
 	    }
 
@@ -1295,10 +1394,6 @@ recursive_dump_type (type, spaces)
     {
       puts_filtered (" TYPE_FLAG_UNSIGNED");
     }
-  if (TYPE_FLAGS (type) & TYPE_FLAG_SIGNED)
-    {
-      puts_filtered (" TYPE_FLAG_SIGNED");
-    }
   if (TYPE_FLAGS (type) & TYPE_FLAG_STUB)
     {
       puts_filtered (" TYPE_FLAG_STUB");
@@ -1375,7 +1470,7 @@ _initialize_gdbtypes ()
 	       "char", (struct objfile *) NULL);
   builtin_type_signed_char =
     init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_SIGNED,
+	       0,
 	       "signed char", (struct objfile *) NULL);
   builtin_type_unsigned_char =
     init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,

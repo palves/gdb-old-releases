@@ -21,10 +21,19 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    including Utah, Mt. Xinu or Berkeley variants.  This is NOT for HP-UX.
    Problems to hpbsd-bugs@cs.utah.edu.  */
 
+/* GCC is the only compiler used on this OS.  So get this right even if
+   the code which detects gcc2_compiled. is still broken.  */
+
+#define BELIEVE_PCC_PROMOTION 1
+
 /* Define BPT_VECTOR if it is different than the default.
-   This is the vector number used by traps to indicate a breakpoint. */
+   This is the vector number used by traps to indicate a breakpoint.
+
+   For hp300bsd the normal breakpoint vector is 0x2 (for debugging via
+   ptrace); for remote kernel debugging the breakpoint vector is 0xf.  */
 
 #define BPT_VECTOR 0x2
+#define REMOTE_BPT_VECTOR 0xf
 
 #define TARGET_NBPG 4096
 

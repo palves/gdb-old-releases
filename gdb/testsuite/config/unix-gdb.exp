@@ -24,7 +24,7 @@ load_lib gdb.exp
 # variables that need to set up
 #
 if ![info exists prompt] then {
-    set prompt "\(gdb\)"
+    set prompt "\[(\]gdb\[)\]"
 }
 # some convenience abbreviations
 #
@@ -45,33 +45,6 @@ proc gdb_version {} {
 #
 # gdb_unload -- unload a file if one is loaded
 #
-
-proc gdb_unload {} {
-    global verbose
-    global GDB
-    global prompt
-    send "file\n"
-    expect {
-	-re "No exec file now\.\r" { continue -expect }
-	-re "No symbol file now\.\r" { continue -expect }
-	-re "A program is being debugged already..*Kill it\? \(y or n\) $"\
-	    { send "y\n"
-		if $verbose>1 then {
-		    send_user "\t\tKilling previous program being debugged\n"
-		}
-	    continue -expect
-	}
-	-re "Discard symbol table from .*\? \(y or n\) $" {
-	    send "y\n"
-	    continue -expect
-	}
-	-re "$prompt $" {}
-	timeout {
-	    error "Couldn't unload file in $GDB (timed out)."
-	    return -1
-	}
-    }
-}
 
 #
 # gdb_load -- load a file into the debugger.
@@ -98,9 +71,7 @@ proc gdb_start {} {
     global prompt
     global spawn_id
     global timeout
-    if $verbose>1 then {
-	send_user "Spawning $GDB $GDBFLAGS\n"
-    }
+    verbose "Spawning $GDB $GDBFLAGS"
     
     set oldtimeout $timeout
     set timeout [expr "$timeout + 60"]
@@ -108,29 +79,27 @@ proc gdb_start {} {
 	if {[which $GDB] != 0} then {
 	    spawn $GDB $GDBFLAGS
 	} else {
-	    error "$GDB does not exist."
+	    perror "$GDB does not exist."
 	    exit 1
 	}
     } else {
 	if {[which $GDB] != 0} then {
 	    spawn $GDB
 	} else {
-	    error "$GDB does not exist."
+	    perror "$GDB does not exist."
 	    exit 1
 	}
     }
     expect {
-	-re ".*$prompt $"	{
-	    if $verbose>1 then {
-		send_user "GDB initialized for native mode\n"
-	    }
+	-re ".*\r\n$prompt $" {
+	    verbose "GDB initialized for native mode"
 	}
 	-re "$prompt $"	{
-	    error "GDB never initialized."
+	    perror "GDB never initialized."
 	    return -1
 	}
 	timeout		{
-	    error "(timeout) GDB never initialized."
+	    perror "(timeout) GDB never initialized."
 	    return -1
 	}
     }
@@ -139,9 +108,7 @@ proc gdb_start {} {
     send "set height 0\n"
     expect {
 	-re ".*$prompt $" { 
-	    if $verbose>2 then {
-		send_user "Seting height to 0.\n"
-	    }
+	    verbose "Setting height to 0." 2
 	}
 	timeout {
 	    warning "Couldn't set the height to 0."
@@ -151,9 +118,7 @@ proc gdb_start {} {
     send "set width 0\n"
     expect {
 	-re ".*$prompt $" {
-	    if $verbose>2 then {
-		send_user "Seting width to 0.\n"
-	    }
+	    verbose "Seting width to 0." 2
 	}
 	timeout {
 	    warning "Couldn't set the width to 0."
@@ -164,19 +129,6 @@ proc gdb_start {} {
 proc gdb_exit { } {
     catch default_gdb_exit
 }
-
-# These only need to be uncommented for debugging test cases. They exist
-# mainly to catch programming errors
-#expect_after {
-#    "<return>"		   { send "\n"; error "Window too small." }
-#    -re "\(y or n\) " 	   { send "n\n"; error "Got interactive prompt." }
-#    buffer_full		   { error "internal buffer is full." }
-#    eof			   { error "eof -- there is no child process" ; cleanup ; exit $exit_status}
-#    timeout			   { error "timeout." }
-#    "virtual memory exhausted" { error "virtual memory exhausted." }
-#    "Undefined command"	   { error "send string probably wrong." }
-#}
-
 
 set binpath /s1/users/rob/vxworks/bin/somewhere-bogus-that-needs-configuring
 set bin $GDB

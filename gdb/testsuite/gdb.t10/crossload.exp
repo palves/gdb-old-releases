@@ -31,6 +31,7 @@ set bug_id 0
 # and deal accordingly.  Until that has been done, skip the whole thing.
 # With a minimal bfd (the default), few if any of these tests work.
 
+verbose "FIXME: all the crossload tests ignored"
 continue
 
 # FIXME: These tests don't work for the i960, because
@@ -71,14 +72,14 @@ proc bfddefault {} {
     set file_loaded 0
     send "file $objdir/$subdir/$binfile\n"
     expect {
-	-re "A program is being debugged already.  Kill it\? \(y or n\)" {
+	-re "A program is being debugged already.  Kill it.*y or n." {
 	    send "y\n"
-	    continue -expect
+	    exp_continue
 	}
-	-re "Reading symbols from $objdir/$subdir/$binfile\.\.\.done\..*$prompt $" {
+	-re "Reading symbols from $objdir/$subdir/$binfile\[.\]+done\..*$prompt $" {
 	    pass "$binfile ($bfdformat) auto format"
 	}
-	-re "Reading symbols from $objdir/$subdir/$binfile\.\.\.\(no debugging symbols found\)\.\.\.done\..*$prompt $" {
+	-re "Reading symbols from $objdir/$subdir/$binfile\[.\]+.no debugging symbols found.\[.\]+done\..*$prompt $" {
 	    pass "$binfile ($bfdformat) auto format (but no symbols found)"
 	}
 	-re "File format not recognized.*$prompt $" {
@@ -132,11 +133,11 @@ proc bfdexplicit {} {
 
     send "file $objdir/$subdir/$binfile\n"
     expect {
-	-re "A program is being debugged already.  Kill it\? \(y or n\)" {
+	-re "A program is being debugged already.  Kill it.*y or n." {
 	    send "y\n"
-	    continue -expect
+	    exp_continue
 	}
-	-re "Reading symbols from $objdir/$subdir/$binfile\.\.\.done\..*$prompt $" {
+	-re "Reading symbols from $objdir/$subdir/$binfile\[.\]+done\..*$prompt $" {
 	    pass "$binfile ($bfdformat) explicit format"
 	}
 	-re "Invalid target.*$prompt $" {
@@ -163,17 +164,17 @@ proc test_ptype_functions {} {
     global det_file
     send "ptype main\n"
     expect {
-	-re "type = int \(\)\r\n$prompt $" {}
+	-re "type = int \[)(\]+\r\n$prompt $" {}
 	timeout { fail "$binfile ($bfdformat) function main" ; return }
     }
 
     # set up a list of lists of command and patterns
-    set command [list { "ptype v_char_func" "type =(\ unsigned\ |\ signed\ |\ )char \(\)" }\
-	        { "ptype v_short_func" "type = (short|short int) \(\)" } \
-                { "ptype v_int_func" "type = int \(\)" } \
-                { "ptype v_long_func" "type = (long|long int|int) \(\)" } \
-                { "ptype v_float_func" "type = float \(\)" } \
-                { "ptype v_double_func" "type = double \(\)" } ]
+    set command [list { "ptype v_char_func" "type =(\ unsigned\ |\ signed\ |\ )char \[)(\]+" }\
+	        { "ptype v_short_func" "type = (short|short int) \[)(\]+" } \
+                { "ptype v_int_func" "type = int \[)(\]+" } \
+                { "ptype v_long_func" "type = (long|long int|int) \[)(\]+" } \
+                { "ptype v_float_func" "type = float \[)(\]+" } \
+                { "ptype v_double_func" "type = double \[)(\]+" } ]
 
     foreach i $command {
 	if [gdb_test [lindex $i 0] [lindex $i 1] ""] then {
@@ -323,7 +324,7 @@ proc loadandtest { args } {
     set fixme [ lindex $args 2 ]
 
     if ![file exists $objdir/$subdir/$binfile] then {
-        send_user "ERROR: $objdir/$subdir/$binfile does not exist\n"
+        perror "$objdir/$subdir/$binfile does not exist"
 	return 0
     }
     gdb_exit

@@ -30,6 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define TARGET_BIG_SYM			bfd_elf32_big_generic_vec
 #define TARGET_BIG_NAME			"elf32-big"
 #define ELF_ARCH			bfd_arch_unknown
+#define ELF_MACHINE_CODE		EM_NONE
 #define bfd_elf32_bfd_reloc_type_lookup bfd_default_reloc_type_lookup
 #define elf_info_to_howto		bfd_elf32_no_info_to_howto
 

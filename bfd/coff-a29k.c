@@ -28,6 +28,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "coff/internal.h"
 #include "libcoff.h"
 
+static long get_symbol_value PARAMS ((asymbol *));
+static bfd_reloc_status_type a29k_reloc
+  PARAMS ((bfd *, arelent *, asymbol *, PTR, asection *, bfd *, char **));
+
 #define INSERT_HWORD(WORD,HWORD)	\
     (((WORD) & 0xff00ff00) | (((HWORD) & 0xff00) << 8) | ((HWORD)& 0xff))
 #define EXTRACT_HWORD(WORD) \
@@ -36,9 +40,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
     ((HWORD) & 0x8000 ? (HWORD)|0xffff0000 : (HWORD))
 
 /* Provided the symbol, returns the value reffed */
-static  long
-get_symbol_value(symbol)       
-asymbol *symbol;
+static long
+get_symbol_value (symbol)       
+     asymbol *symbol;
 {                                             
   long relocation = 0;
 
@@ -59,13 +63,15 @@ asymbol *symbol;
 /* this function is in charge of performing all the 29k relocations */
 
 static bfd_reloc_status_type
-DEFUN(a29k_reloc,(abfd, reloc_entry, symbol_in, data, input_section, output_bfd),
-      bfd *abfd AND
-      arelent *reloc_entry AND
-      asymbol *symbol_in AND
-      PTR data AND
-      asection *input_section AND
-      bfd *output_bfd)
+a29k_reloc (abfd, reloc_entry, symbol_in, data, input_section, output_bfd,
+	    error_message)
+     bfd *abfd;
+     arelent *reloc_entry;
+     asymbol *symbol_in;
+     PTR data;
+     asection *input_section;
+     bfd *output_bfd;
+     char **error_message;
 {
   /* the consth relocation comes in two parts, we have to remember
      the state between calls, in these variables */
@@ -103,9 +109,8 @@ DEFUN(a29k_reloc,(abfd, reloc_entry, symbol_in, data, input_section, output_bfd)
 
   if ((part1_consth_active) && (r_type != R_IHCONST)) 
   {
-    fprintf(stderr,"Relocation problem : ");
-    fprintf(stderr,"Missing IHCONST in module %s\n",abfd->filename);
     part1_consth_active = false;
+    *error_message = (char *) "Missing IHCONST";
     return(bfd_reloc_dangerous);
   }
 
@@ -117,8 +122,9 @@ DEFUN(a29k_reloc,(abfd, reloc_entry, symbol_in, data, input_section, output_bfd)
    case R_IREL: 	
     insn = bfd_get_32(abfd, hit_data); 
     /* Take the value in the field and sign extend it */
-    signed_value = EXTRACT_HWORD(insn) << 2;
+    signed_value = EXTRACT_HWORD(insn);
     signed_value = SIGN_EXTEND_HWORD(signed_value);
+    signed_value <<= 2;
     signed_value +=  sym_value + reloc_entry->addend;
     if ((signed_value&~0x3ffff) == 0) 
     {				/* Absolute jmp/call */
@@ -129,11 +135,10 @@ DEFUN(a29k_reloc,(abfd, reloc_entry, symbol_in, data, input_section, output_bfd)
     {
       /* Relative jmp/call, so subtract from the value the
 	 address of the place we're coming from */
-      signed_value -= reloc_entry->address + 
-       input_section->output_section->vma + 
-	input_section->output_offset;
+      signed_value -= (input_section->output_section->vma
+		       + input_section->output_offset);
       if (signed_value>0x1ffff || signed_value<-0x20000) 
-       return(bfd_reloc_outofrange);
+       return(bfd_reloc_overflow);
     }
     signed_value >>= 2;
     insn = INSERT_HWORD(insn, signed_value);
@@ -159,9 +164,7 @@ DEFUN(a29k_reloc,(abfd, reloc_entry, symbol_in, data, input_section, output_bfd)
     /* consth, part 2 
        Now relocate the reference */
     if (part1_consth_active == false) {
-      fprintf(stderr,"Relocation problem : ");
-      fprintf(stderr,"IHIHALF missing in module %s\n",
-	      abfd->filename); 
+      *error_message = (char *) "Missing IHIHALF";
       return(bfd_reloc_dangerous);
     }
     /* sym_ptr_ptr = r_symndx, in coff_slurp_reloc_table() */
@@ -202,9 +205,7 @@ DEFUN(a29k_reloc,(abfd, reloc_entry, symbol_in, data, input_section, output_bfd)
     bfd_put_32(abfd, insn, hit_data);
     break;
    default:
-    fprintf(stderr,"Relocation problem : ");
-    fprintf(stderr,"Unrecognized reloc type %d, in module %s\n",
-	    r_type,abfd->filename); 
+    *error_message = "Unrecognized reloc";
     return (bfd_reloc_dangerous);
   }
 
@@ -294,7 +295,7 @@ bfd_target a29kcoff_big_vec =
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT),
+   HAS_SYMS | HAS_LOCALS | WP_TEXT),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC /* section flags */
    | SEC_LOAD | SEC_RELOC  

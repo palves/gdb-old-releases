@@ -486,8 +486,8 @@ char * buffer;
       xmitcsum = hex(getDebugChar()) << 4;
       xmitcsum += hex(getDebugChar());
       if ((remote_debug ) && (checksum != xmitcsum)) {
-        fprintf(stderr,"bad checksum.  My count = 0x%x, sent=0x%x. buf=%s\n",
-						     checksum,xmitcsum,buffer);
+        fprintf (gdb ,"bad checksum.  My count = 0x%x, sent=0x%x. buf=%s\n",
+		 checksum,xmitcsum,buffer);
       }
 
       if (checksum != xmitcsum) putDebugChar('-');  /* failed checksum */
@@ -546,7 +546,7 @@ void debug_error(format, parm)
 char * format;
 char * parm;
 {
-  if (remote_debug) fprintf(stderr,format,parm);
+  if (remote_debug) fprintf (stderr,format,parm);
 }
 
 /* Address of a routine to RTE to if we get a memory fault.  */

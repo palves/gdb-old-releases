@@ -17,9 +17,11 @@ You should have received a copy of the GNU General Public License
 along with Z8KSIM; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include <stdio.h>
 #include "bfd.h"
 #include "tm.h"
 #include "sysdep.h"
+
 main(ac,av)
 int ac;
 char **av;
@@ -57,7 +59,6 @@ char **av;
       
     if (bfd_check_format(abfd, bfd_object)) 
     {
-      sim_state_type info;
       if (abfd->arch_info->mach == bfd_mach_z8001)
       {
 	extern int sim_z8001_mode;
@@ -86,8 +87,7 @@ char **av;
       }
       if (verbose) 
       {
-	sim_info(&info);
-	sim_info_print(&info);
+	sim_info(printf, 0);
       }
       return 0;
     }

@@ -80,7 +80,45 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define NLM_OTHER_DATA_LENGTH 			400		/* FIXME */
 #define NLM_OLD_THREAD_NAME_LENGTH		5
 #define NLM_SIGNATURE_SIZE			24
-#define NLM_SIGNATURE				"NetWare Loadable Module\032"
 #define NLM_HEADER_VERSION			4
 #define NLM_MODULE_NAME_SIZE			14
 #define NLM_DEFAULT_STACKSIZE			(8 * 1024)
+
+/* Alpha information.  This should probably be in a separate Alpha
+   header file, but it can't go in alpha-ext.h because some of it is
+   needed by nlmconv.c.  */
+
+/* Magic number in Alpha prefix header.  */
+#define NLM32_ALPHA_MAGIC (0x83561840)
+
+/* The r_type field in an Alpha reloc is one of the following values.  */
+#define ALPHA_R_IGNORE		0
+#define ALPHA_R_REFLONG		1
+#define ALPHA_R_REFQUAD		2
+#define ALPHA_R_GPREL32		3
+#define ALPHA_R_LITERAL		4
+#define ALPHA_R_LITUSE		5
+#define ALPHA_R_GPDISP		6
+#define ALPHA_R_BRADDR		7
+#define ALPHA_R_HINT		8
+#define ALPHA_R_SREL16		9
+#define ALPHA_R_SREL32	       10
+#define ALPHA_R_SREL64	       11
+#define ALPHA_R_OP_PUSH	       12
+#define ALPHA_R_OP_STORE       13
+#define ALPHA_R_OP_PSUB	       14
+#define ALPHA_R_OP_PRSHIFT     15
+#define ALPHA_R_GPVALUE	       16
+#define ALPHA_R_NW_RELOC      250
+
+/* A local reloc, other than ALPHA_R_GPDISP or ALPHA_R_IGNORE, must be
+   against one of these symbol indices.  */
+#define ALPHA_RELOC_SECTION_TEXT	1
+#define ALPHA_RELOC_SECTION_DATA	3
+
+/* An ALPHA_R_NW_RELOC has one of these values in the size field.  If
+   it is SETGP, the r_vaddr field holds the GP value to use.  If it is
+   LITA, the r_vaddr field holds the address of the .lita section and
+   the r_symndx field holds the size of the .lita section.  */
+#define ALPHA_R_NW_RELOC_SETGP	1
+#define ALPHA_R_NW_RELOC_LITA	2

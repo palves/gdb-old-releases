@@ -30,7 +30,7 @@ set binfile "gdbme"
 set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    error "$objdir/$subdir/$binfile does not exist"
+    perror "$objdir/$subdir/$binfile does not exist"
     continue
 }
 

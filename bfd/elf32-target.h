@@ -47,9 +47,18 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define bfd_elf32_bfd_get_relocated_section_contents \
  bfd_generic_get_relocated_section_contents
 #define bfd_elf32_bfd_relax_section bfd_generic_relax_section
-#define bfd_elf32_bfd_seclet_link bfd_generic_seclet_link
 #define bfd_elf32_bfd_make_debug_symbol \
   ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
+#ifndef bfd_elf32_bfd_link_hash_table_create
+#define bfd_elf32_bfd_link_hash_table_create \
+  _bfd_generic_link_hash_table_create
+#endif
+#ifndef bfd_elf32_bfd_link_add_symbols
+#define bfd_elf32_bfd_link_add_symbols	_bfd_generic_link_add_symbols
+#endif
+#ifndef bfd_elf32_bfd_final_link
+#define bfd_elf32_bfd_final_link	_bfd_generic_final_link
+#endif
 
 #ifndef elf_info_to_howto_rel
 #define elf_info_to_howto_rel 0
@@ -59,23 +68,35 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define ELF_MAXPAGESIZE 1
 #endif
 
+#ifndef elf_backend_sym_is_global
+#define elf_backend_sym_is_global	0
+#endif
+#ifndef elf_backend_object_p
+#define elf_backend_object_p		0
+#endif
 #ifndef elf_backend_symbol_processing
-#define elf_backend_symbol_processing	0	/* elf_backend_symbol_processing */
+#define elf_backend_symbol_processing	0
 #endif
 #ifndef elf_backend_symbol_table_processing
-#define elf_backend_symbol_table_processing	0	/* elf_backend_symbol_table_processing */
+#define elf_backend_symbol_table_processing	0
 #endif
 #ifndef elf_backend_section_processing
-#define elf_backend_section_processing	0	/* elf_backend_section_processing */
+#define elf_backend_section_processing	0
 #endif
 #ifndef elf_backend_section_from_shdr
-#define elf_backend_section_from_shdr	0	/* elf_backend_section_from_shdr */
+#define elf_backend_section_from_shdr	0
 #endif
 #ifndef elf_backend_fake_sections
-#define elf_backend_fake_sections	0	/* elf_backend_fake_sections */
+#define elf_backend_fake_sections	0
 #endif
 #ifndef elf_backend_section_from_bfd_section
-#define elf_backend_section_from_bfd_section	0	/* elf_backend_section_from_bfd_section */
+#define elf_backend_section_from_bfd_section	0
+#endif
+#ifndef elf_backend_final_write_processing
+#define elf_backend_final_write_processing	0
+#endif
+#ifndef elf_backend_ecoff_debug_swap
+#define elf_backend_ecoff_debug_swap	0
 #endif
 
 static CONST struct elf_backend_data elf32_bed =
@@ -87,16 +108,20 @@ static CONST struct elf_backend_data elf32_bed =
 #endif
   0,				/* elf_64_p */
   ELF_ARCH,			/* arch */
-  elf_info_to_howto,		/* elf_info_to_howto */
-  elf_info_to_howto_rel,	/* elf_info_to_howto_rel */
+  ELF_MACHINE_CODE,		/* elf_machine_code */
   ELF_MAXPAGESIZE,		/* maxpagesize */
-  bfd_elf32__write_relocs,	/* write_relocs */
-  elf_backend_symbol_processing,	/* elf_backend_symbol_processing */
-  elf_backend_symbol_table_processing,	/* elf_backend_symbol_table_processing */
-  elf_backend_section_processing,	/* elf_backend_section_processing */
-  elf_backend_section_from_shdr,	/* elf_backend_section_from_shdr */
-  elf_backend_fake_sections,		/* elf_backend_fake_sections */
-  elf_backend_section_from_bfd_section,	/* elf_backend_section_from_bfd_section */
+  elf_info_to_howto,
+  elf_info_to_howto_rel,
+  elf_backend_sym_is_global,
+  elf_backend_object_p,
+  elf_backend_symbol_processing,
+  elf_backend_symbol_table_processing,
+  elf_backend_section_processing,
+  elf_backend_section_from_shdr,
+  elf_backend_fake_sections,
+  elf_backend_section_from_bfd_section,
+  elf_backend_final_write_processing,
+  elf_backend_ecoff_debug_swap
 };
 
 #ifdef TARGET_BIG_SYM

@@ -40,10 +40,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    executable which correspond to the "startup file", I.E. crt0.o in most
    cases.  This file is assumed to be a startup file and frames with pc's
    inside it are treated as nonexistent.  Setting these variables is necessary
-   so that backtraces do not fly off the bottom of the stack (or top, depending
-   upon your stack orientation).
+   so that backtraces do not fly off the bottom of the stack.
 
-   Gdb also supports an alternate method to avoid running off the top/bottom
+   Gdb also supports an alternate method to avoid running off the bottom
    of the stack.
 
    There are two frames that are "special", the frame for the function
@@ -149,10 +148,13 @@ struct obj_section {
   struct objfile *objfile;
 };
 
-/* Master structure for keeping track of each input file from which
-   gdb reads symbols.  One of these is allocated for each such file we
-   access, e.g. the exec_file, symbol_file, and any shared library object
-   files. */
+/* Master structure for keeping track of each file from which
+   gdb reads symbols.  There are several ways these get allocated: 1.
+   The main symbol file, symfile_objfile, set by the symbol-file command,
+   2.  Additional symbol files added by the add-symbol-file command,
+   3.  Shared library objfiles, added by ADD_SOLIB,  4.  symbol files
+   for modules that were loaded when GDB attached to a remote system
+   (see remote-vx.c).  */
 
 struct objfile
 {
@@ -357,14 +359,13 @@ extern struct objfile *object_files;
 
 /* Declarations for functions defined in objfiles.c */
 
-extern struct objfile *
-allocate_objfile PARAMS ((bfd *, int));
+extern struct objfile *allocate_objfile PARAMS ((bfd *, int));
 
-extern void
-unlink_objfile PARAMS ((struct objfile *));
+int build_objfile_section_table PARAMS ((struct objfile *));
 
-extern void
-free_objfile PARAMS ((struct objfile *));
+extern void unlink_objfile PARAMS ((struct objfile *));
+
+extern void free_objfile PARAMS ((struct objfile *));
 
 extern void
 free_all_objfiles PARAMS ((void));

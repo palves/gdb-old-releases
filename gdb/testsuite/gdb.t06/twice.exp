@@ -24,7 +24,7 @@ if ![file exists $binfile] then {
 	#	find_pc_symtab to check whether there is line number
 	#	information.
 
-	gdb_test "step" "nothing \(\) at"
+	gdb_test "step" "nothing \[)(\]+ at"
     }
 }
 return 0

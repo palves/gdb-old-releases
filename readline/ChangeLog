@@ -1,3 +1,26 @@
+Fri Jan 21 14:40:43 1994  Fred Fish  (fnf@cygnus.com)
+
+	* Makefile.in (distclean, realclean):  Expand local-distclean
+	inline after doing recursion.  You can't recurse after removing
+	Makefile.  Make them depend on local-clean.
+	* Makefile.in (local-distclean):  Remove now superfluous target.
+
+Sun Jan 16 12:33:11 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in (clean mostlyclean distclean realclean): Recurse
+	into subdirectories as well as doing this directory.  Add clean-dvi
+	target.
+
+Sat Dec 11 16:29:17 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* readline.c (rl_getc): If GO32, trim high bit from getkey,
+	otherwise fancy PC keys cause grief.
+
+Fri Nov  5 11:49:47 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* configure.in: Add doc to configdirs.
+	* Makefile.in (info dvi install-info clean-info): Recurse into doc.
+
 Fri Oct 22 07:55:08 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
 	* configure.in: Add * to end of all OS names.

@@ -56,7 +56,7 @@ static void
 args_info PARAMS ((char *, int));
 
 static void
-print_frame_arg_vars PARAMS ((FRAME, FILE *));
+print_frame_arg_vars PARAMS ((FRAME, GDB_FILE *));
 
 static void
 catch_info PARAMS ((char *, int));
@@ -65,16 +65,16 @@ static void
 locals_info PARAMS ((char *, int));
 
 static void
-print_frame_label_vars PARAMS ((FRAME, int, FILE *));
+print_frame_label_vars PARAMS ((FRAME, int, GDB_FILE *));
 
 static void
-print_frame_local_vars PARAMS ((FRAME, FILE *));
+print_frame_local_vars PARAMS ((FRAME, GDB_FILE *));
 
 static int
-print_block_frame_labels PARAMS ((struct block *, int *, FILE *));
+print_block_frame_labels PARAMS ((struct block *, int *, GDB_FILE *));
 
 static int
-print_block_frame_locals PARAMS ((struct block *, FRAME, FILE *));
+print_block_frame_locals PARAMS ((struct block *, FRAME, GDB_FILE *));
 
 static void
 backtrace_command PARAMS ((char *, int));
@@ -167,7 +167,7 @@ print_args_stub (args)
   int numargs;
   struct print_args_args *p = (struct print_args_args *)args;
   FRAME_NUM_ARGS (numargs, (p->fi));
-  print_frame_args (p->func, p->fi, numargs, stdout);
+  print_frame_args (p->func, p->fi, numargs, gdb_stdout);
   return 0;
 }
 
@@ -185,6 +185,9 @@ print_frame_info (fi, level, source, args)
   char buf[MAX_REGISTER_RAW_SIZE];
   CORE_ADDR sp;
 
+#if 0
+  /* On the 68k, this spends too much time in m68k_find_saved_regs.  */
+
   /* Get the value of SP_REGNUM relative to the frame.  */
   get_saved_register (buf, (int *)NULL, (CORE_ADDR *)NULL,
 		      FRAME_INFO_ID (fi), SP_REGNUM, (enum lval_type *)NULL);
@@ -195,6 +198,9 @@ print_frame_info (fi, level, source, args)
      will succeed even though there is no call dummy.  Probably best is
      to check for a bp_call_dummy breakpoint.  */
   if (PC_IN_CALL_DUMMY (fi->pc, sp, fi->frame))
+#else
+  if (frame_in_dummy (fi))
+#endif
     {
       /* Do this regardless of SOURCE because we don't have any source
 	 to list for this frame.  */
@@ -279,10 +285,10 @@ print_frame_info (fi, level, source, args)
       if (addressprint)
 	if (fi->pc != sal.pc || !sal.symtab)
 	  printf_filtered ("%s in ", local_hex_string((unsigned long) fi->pc));
-      fprintf_symbol_filtered (stdout, funname ? funname : "??", funlang,
-			       DMGL_NO_OPTS);
+      fprintf_symbol_filtered (gdb_stdout, funname ? funname : "??", funlang,
+			       DMGL_ANSI);
       wrap_here ("   ");
-      fputs_filtered (" (", stdout);
+      fputs_filtered (" (", gdb_stdout);
       if (args)
 	{
 	  struct print_args_args args;
@@ -327,7 +333,7 @@ print_frame_info (fi, level, source, args)
   if (source != 0)
     set_default_breakpoint (1, fi->pc, sal.symtab, sal.line);
 
-  fflush (stdout);
+  gdb_flush (gdb_stdout);
 }
 
 /*
@@ -495,7 +501,7 @@ frame_info (addr_exp, from_tty)
   if (funname)
     {
       printf_filtered (" in ");
-      fprintf_symbol_filtered (stdout, funname, funlang,
+      fprintf_symbol_filtered (gdb_stdout, funname, funlang,
 			       DMGL_ANSI | DMGL_PARAMS);
     }
   wrap_here ("   ");
@@ -555,7 +561,7 @@ frame_info (addr_exp, from_tty)
 	  puts_filtered (" 1 arg: ");
 	else
 	  printf_filtered (" %d args: ", numargs);
-	print_frame_args (func, fi, numargs, stdout);
+	print_frame_args (func, fi, numargs, gdb_stdout);
 	puts_filtered ("\n");
       }
   }
@@ -591,6 +597,8 @@ frame_info (addr_exp, from_tty)
       }
   if (count)
     puts_filtered ("\n");
+#else  /* Have FRAME_FIND_SAVED_REGS.  */
+  puts_filtered ("\n");
 #endif /* Have FRAME_FIND_SAVED_REGS.  */
 }
 
@@ -621,7 +629,7 @@ backtrace_limit_info (arg, from_tty)
   if (arg)
     error ("\"Info backtrace-limit\" takes no arguments.");
 
-  printf ("Backtrace limit: %d.\n", backtrace_limit);
+  printf_unfiltered ("Backtrace limit: %d.\n", backtrace_limit);
 }
 #endif
 
@@ -728,7 +736,7 @@ static int
 print_block_frame_locals (b, frame, stream)
      struct block *b;
      register FRAME frame;
-     register FILE *stream;
+     register GDB_FILE *stream;
 {
   int nsyms;
   register int i;
@@ -740,15 +748,22 @@ print_block_frame_locals (b, frame, stream)
   for (i = 0; i < nsyms; i++)
     {
       sym = BLOCK_SYM (b, i);
-      if (SYMBOL_CLASS (sym) == LOC_LOCAL
-	  || SYMBOL_CLASS (sym) == LOC_REGISTER
-	  || SYMBOL_CLASS (sym) == LOC_STATIC)
+      switch (SYMBOL_CLASS (sym))
 	{
+	case LOC_LOCAL:
+	case LOC_REGISTER:
+	case LOC_STATIC:
+	case LOC_BASEREG:
 	  values_printed = 1;
 	  fputs_filtered (SYMBOL_SOURCE_NAME (sym), stream);
 	  fputs_filtered (" = ", stream);
 	  print_variable_value (sym, frame, stream);
 	  fprintf_filtered (stream, "\n");
+	  break;
+
+	default:
+	  /* Ignore symbols which are not locals.  */
+	  break;
 	}
     }
   return values_printed;
@@ -760,7 +775,7 @@ static int
 print_block_frame_labels (b, have_default, stream)
      struct block *b;
      int *have_default;
-     register FILE *stream;
+     register GDB_FILE *stream;
 {
   int nsyms;
   register int i;
@@ -805,7 +820,7 @@ print_block_frame_labels (b, have_default, stream)
 static void
 print_frame_local_vars (frame, stream)
      register FRAME frame;
-     register FILE *stream;
+     register GDB_FILE *stream;
 {
   register struct block *block = get_frame_block (frame);
   register int values_printed = 0;
@@ -840,7 +855,7 @@ static void
 print_frame_label_vars (frame, this_level_only, stream)
      register FRAME frame;
      int this_level_only;
-     register FILE *stream;
+     register GDB_FILE *stream;
 {
   register struct blockvector *bl;
   register struct block *block = get_frame_block (frame);
@@ -915,7 +930,7 @@ locals_info (args, from_tty)
 {
   if (!selected_frame)
     error ("No frame selected.");
-  print_frame_local_vars (selected_frame, stdout);
+  print_frame_local_vars (selected_frame, gdb_stdout);
 }
 
 static void
@@ -925,13 +940,13 @@ catch_info (ignore, from_tty)
 {
   if (!selected_frame)
     error ("No frame selected.");
-  print_frame_label_vars (selected_frame, 0, stdout);
+  print_frame_label_vars (selected_frame, 0, gdb_stdout);
 }
 
 static void
 print_frame_arg_vars (frame, stream)
      register FRAME frame;
-     register FILE *stream;
+     register GDB_FILE *stream;
 {
   struct symbol *func = get_frame_function (frame);
   register struct block *b;
@@ -1000,7 +1015,7 @@ args_info (ignore, from_tty)
 {
   if (!selected_frame)
     error ("No frame selected.");
-  print_frame_arg_vars (selected_frame, stdout);
+  print_frame_arg_vars (selected_frame, gdb_stdout);
 }
 
 /* Select frame FRAME, and note that its stack level is LEVEL.
@@ -1199,7 +1214,16 @@ down_silently_command (count_exp, from_tty)
 
   frame = find_relative_frame (selected_frame, &count1);
   if (count1 != 0 && count_exp == 0)
-    error ("Bottom (i.e., innermost) frame selected; you cannot go down.");
+    {
+
+      /* We only do this if count_exp is not specified.  That way "down"
+	 means to really go down (and let me know if that is
+	 impossible), but "down 9999" can be used to mean go all the way
+	 down without getting an error.  */
+
+      error ("Bottom (i.e., innermost) frame selected; you cannot go down.");
+    }
+
   select_frame (frame, selected_frame_level + count - count1);
 }
 

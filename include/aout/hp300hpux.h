@@ -114,3 +114,6 @@ struct hp300hpux_header_extension
 #define PAGE_SIZE 0x1000
 #define SEGMENT_SIZE 0x1000
 #define TEXT_START_ADDR 0
+
+#undef N_SHARED_LIB
+#define N_SHARED_LIB(x)  ( 0 /* no shared libraries */ )

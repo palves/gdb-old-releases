@@ -35,7 +35,7 @@ proc deduce_language_of_main {} {
     setup_xfail "a29k-*-udi"
     send "show language\n"
     expect {
-	-re ".* source language is \"auto; currently c\+\+\".*$prompt $" {
+	-re ".* source language is \"auto; currently c\[+\]+\".*$prompt $" {
 	    pass "deduced language is C++, before full symbols"
 	}
 	-re ".*$prompt $" {
@@ -80,7 +80,7 @@ proc deduce_language_of_main {} {
 
     send "show language\n"
     expect {
-	-re ".* source language is \"auto; currently c\+\+\".*$prompt $" {
+	-re ".* source language is \"auto; currently c\[+\]+\".*$prompt $" {
 	    pass "deduced language is C++, after full symbols"
 	}
 	-re ".*$prompt $" {

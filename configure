@@ -49,6 +49,7 @@ symbolic_link='ln -s'
 Makefile=Makefile
 Makefile_in=Makefile.in
 arguments=$*
+build_alias=
 configdirs=
 exec_prefix=
 exec_prefixoption=
@@ -58,6 +59,7 @@ gas=default
 host_alias=
 host_makefile_frag=
 moveifchange=
+next_build=
 next_host=
 next_prefix=
 next_site=
@@ -85,7 +87,7 @@ subdirs=
 target_alias=
 target_makefile_frag=
 undefinedargs=
-version="$Revision: 1.170 $"
+version="$Revision: 1.173 $"
 x11=default
 
 ### we might need to use some other shell than /bin/sh for running subshells
@@ -141,6 +143,17 @@ do
 		fi
                 program_transform_nameoption="${program_transform_nameoption} --program-transform-name='${arg}'"
                 next_program_transform_name=
+        elif [ -n "${next_build}" ] ; then
+                next_build=
+                case "${build_alias}" in
+                "")
+                        build_alias="${arg}"
+                        ;;
+                *)
+                        echo '***' Can only configure for one build machine at a time.  1>&2
+                        fatal=yes
+                        ;;
+                esac
         elif [ -n "${next_target}" ] ; then
                 next_target=
                 case "${target_alias}" in
@@ -170,6 +183,18 @@ do
 
         else
                 case ${arg} in
+                -build=* | --build=* | --buil=* | --bui=* | --bu=* | --b=*)
+                        case "${build_alias}" in
+                        "") build_alias="`echo ${arg} | sed 's/^[-a-z]*=//'`" ;;
+                        *)
+                                echo '***' Can only configure for one build machine at a time.  1>&2
+                                fatal=yes
+                                ;;
+                        esac
+                        ;;
+                -build | --build | --buil | --bui | --bu | --b)
+                        next_build=yes
+                        ;;
                 -exec_prefix=* | --exec_prefix=* | --exec_prefi=* | --exec_pref=* | --exec_pre=* | --exec_pr=* | --exec_p=* | --exec_=* | --exec=* | --exe=* | --ex=* | --e=* | -exec-prefix=* | --exec-prefix=* | --exec-prefi=* | --exec-pref=* | --exec-pre=* | --exec-pr=* | --exec-p=* | --exec-=* )
                         exec_prefix=`echo ${arg} | sed 's/^[-a-z_]*=//'`
                         exec_prefixoption=${arg}
@@ -194,7 +219,7 @@ do
                                 ;;
                         esac
                         ;;
-                -host=* | --host | --hos | --ho)
+                -host | --host | --hos | --ho)
                         case "${host_alias}" in
                         "")
                                 next_host=yes
@@ -339,16 +364,18 @@ case "${fatal}" in
 
 ### This is a bit twisted.
 ### * if all three are specified, this is an error.
-### * if we have neither hosts, nor unadorned args, this is an error.
+### * if we have neither hosts, nor unadorned args, guess with config.guess.
 ### * if no hosts are specified, then the unadorned args are hosts, but if
 ### there were none, this is an error.
 ### * if no targets are specified, then the unadorned args are targets, but if
 ### there were no unadorned args, then the hosts are also targets.
 
-        if [ -n "${host_alias}" -a -n "${target_alias}" -a -n "${undefs}" ] ; then
+        if [ -n "${host_alias}" -a -n "${target_alias}" -a -n "${undefs}" ]
+	then
                 echo '***' Can only configure for one host and one target at a time.  1>&2
                 fatal=yes
-        elif [ -z "${host_alias}" -a -z "${undefs}" ] ; then
+        elif [ -z "${host_alias}" -a -z "${undefs}" ]
+	then
                 guesssys=`echo ${progname} | sed 's/configure$/config.guess/'`
                 if tmp_alias=`${guesssys}` ; then
                         echo "Configuring for a ${tmp_alias} host." 1>&2
@@ -364,7 +391,7 @@ case "${fatal}" in
                 fi
         else
                 case "${host_alias}" in
-                "") host_alias=${undefs} ;;
+		"") host_alias=${undefs} ;;
                 *) ;;
                 esac
 
@@ -389,6 +416,8 @@ if [ -n "${fatal}" -o "${host_alias}" = "help" ] ; then
         echo " --prefix=MYDIR            configure for installation of host dependent files into MYDIR. [\"/usr/local\"]" ;
         echo " --exec-prefix=MYDIR       configure for installation of host dependent files into MYDIR. [\"/usr/local\"]" ;
         echo " --help                    print this message. [normal config]" ;
+        echo " --build=BUILD             configure for building on BUILD.  [BUILD=HOST]" ;
+        echo " --host=HOST               configure for HOST.  [determined via config.guess]" ;
         echo " --norecursion             configure this directory only. [recurse]" ;
         echo " --program-prefix=FOO      install programs with FOO prepended to their names. [ \"\" ]" ;
         echo " --program-suffix=FOO      install programs with FOO appended to their names. [ \"\" ]" ;
@@ -467,7 +496,7 @@ esac
 ### break up ${srcdir}/configure.in.
 case "`grep '^# per\-host:' ${srcdir}/configure.in`" in
 "")
-        echo '***' ${srcdir}/configure.in has no "per-host:" line. 1>&2
+        echo '***' ${srcdir}/configure.in has no \"per-host:\" line. 1>&2
         exit 1
         ;;
 *) ;;
@@ -475,7 +504,7 @@ esac
 
 case "`grep '^# per\-target:' ${srcdir}/configure.in`" in
 "")
-        echo '***' ${srcdir}/configure.in has no "per-target:" line. 1>&2
+        echo '***' ${srcdir}/configure.in has no \"per-target:\" line. 1>&2
         exit 1
         ;;
 *) ;;
@@ -513,6 +542,18 @@ case "${srctrigger}" in
         exit 1
         ;;
 *) ;;
+esac
+
+case "${build_alias}" in
+"")	;;
+*)
+	result=`${configsub} ${build_alias}`
+        buildopt="--build=${build_alias}"
+	build_cpu=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\1/'`
+	build_vendor=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\2/'`
+	build_os=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\3/'`
+	build=${build_cpu}-${build_vendor}-${build_os}
+	;;
 esac
 
 result=`${configsub} ${host_alias}`
@@ -570,11 +611,11 @@ fi
 # Merge program_prefix and program_suffix onto program_transform_name
 # Use a double $ so that make ignores it
 if [ "${program_suffix}" != "" ] ; then
-    program_transform_name="-e s/\$\$/${program_suffix}/ ${program_transform_name}"
+    program_transform_name="-e s,\$\$,${program_suffix}, ${program_transform_name}"
 fi
 
 if [ "${program_prefix}" != "" ] ; then
-    program_transform_name="-e s/^/${program_prefix}/ ${program_transform_name}"
+    program_transform_name="-e s,^,${program_prefix}, ${program_transform_name}"
 fi
 
 for subdir in . ${subdirs} ; do
@@ -774,6 +815,17 @@ target_vendor = ${target_vendor}
 target_os = ${target_os}
 target_canonical = ${target_cpu}-${target_vendor}-${target_os}
 EOF
+	    case "${build}" in
+	      "") ;;
+	      *)  cat >> ${Makefile} << EOF
+build_alias = ${build_alias}
+build_cpu = ${build_cpu}
+build_vendor = ${build_vendor}
+build_os = ${build_os}
+build_canonical = ${build_cpu}-${build_vendor}-${build_os}
+EOF
+	    esac
+
             case "${package_makefile_frag}" in
               "") ;;
               /*) echo package_makefile_frag = ${package_makefile_frag} >>${Makefile} ;;
@@ -936,7 +988,7 @@ if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then
 
 ### The recursion line is here.
 			if [ ! -z "${recprog}" ] ; then
-	                        if eval ${config_shell} ${recprog} ${verbose} --host=${host_alias} --target=${target_alias} \
+	                        if eval ${config_shell} ${recprog} ${verbose} ${buildopt} --host=${host_alias} --target=${target_alias} \
         	                        ${prefixoption} ${tmpdiroption} ${exec_prefixoption} \
                 	                ${srcdiroption} ${program_prefixoption} ${program_suffixoption} ${program_transform_nameoption} ${site_option} ${withoptions} ${withoutoptions} ${removing} ${redirect} ; then
 	                                true

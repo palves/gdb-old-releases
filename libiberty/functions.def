@@ -43,6 +43,7 @@ DEF(vprintf, int, (), NOTHING)
 DEF(vsprintf, int, (), NOTHING)
 DEF(sigsetmask, int, (), NOTHING)
 DEF(alloca, PTR, (size), size_t size)
+DEF(waitpid, int, (pid, statp, opts), int pid AND int* statp AND int opts )
 
 /* List of global variables that we want to look for in the host
    environment, and to generate an entry NEED_<variable> in config.h

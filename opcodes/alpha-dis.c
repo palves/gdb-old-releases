@@ -27,10 +27,9 @@ This program; if not, write to the Free Software Foundation, Inc., 675
 #include "alpha-opc.h"
 
 
-/*
- * Print one instruction from MEMADDR on STREAM. Return the size of the
- * instruction (always 4 on a29k).  
- */
+/* Print one instruction from PC on INFO->STREAM.
+   Return the size of the instruction (always 4 on alpha). */
+
 int
 print_insn_alpha(pc, info)
 	bfd_vma         pc;
@@ -133,10 +132,10 @@ print_insn_alpha(pc, info)
 	  if ((insn->i & OPERATE_FORMAT_MASK)
 	      == (given & OPERATE_FORMAT_MASK)) 
 	    {
-	      func (stream, "%s\t%s, %s, %s", insn->name,
-		      alpha_regs[RA(given)],
-		      alpha_regs[RB(given)],
-		      alpha_regs[RC(given)]);
+	      func (stream, "%s\tf%d, f%d, f%d", insn->name,
+		      RA(given),
+		      RB(given),
+		      RC(given));
 	      found = 1;
 	    }
 
@@ -148,6 +147,29 @@ print_insn_alpha(pc, info)
 	      found = 1;
 	    }
 
+	  break;
+	case FLOAT_MEMORY_FORMAT_CODE:
+	  if ((insn->i & MEMORY_FORMAT_MASK) 
+	      ==(given & MEMORY_FORMAT_MASK))
+	    {
+	      func (stream, "%s\tf%d, %d(%s)",
+		      insn->name,
+		      RA(given),
+		      OPCODE (given) == 9 ? DISP(given) * 65536 : DISP(given),
+		      alpha_regs[RB(given)]);
+	      found = 1;
+	    }
+	  break;
+	case FLOAT_BRANCH_FORMAT_CODE:
+	  if ((insn->i & BRANCH_FORMAT_MASK)
+	      == (given & BRANCH_FORMAT_MASK))
+	    {
+	      func (stream, "%s\tf%d, ",
+		      insn->name,
+		      RA(given));
+	      (*info->print_address_func) (BDISP(given) * 4 + pc + 4, info);
+	      found = 1;
+	    }
 	  break;
 	}
     }

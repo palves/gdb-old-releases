@@ -1,8 +1,7 @@
 %%%%%%%%%%%%%%%% gdb-refcard.tex %%%%%%%%%%%%%%%%
 
 %This file is TeX source for a reference card describing GDB, the GNU debugger.
-%$Id: refcard.tex,v 1.99.8.1 1993/10/19 21:35:56 pesch Exp $
-%Copyright (C) 1991, 1992 Free Software Foundation, Inc.
+%Copyright (C) 1991, 1992, 1993 Free Software Foundation, Inc.
 %Permission is granted to make and distribute verbatim copies of
 %this reference provided the copyright notices and permission notices
 %are preserved on all copies.
@@ -288,7 +287,7 @@ set args {\it arglist}&specify {\it arglist} for next
 set args&specify empty argument list\cr
 show args&display argument list\cr
 \cr
-show environment&show all environment variables\cr
+show env&show all environment variables\cr
 show env {\it var}&show value of environment variable {\it var}\cr
 set env {\it var} {\it string}&set environment variable {\it var}\cr
 unset env {\it var}&remove {\it var} from environment\cr
@@ -305,7 +304,7 @@ shell {\it cmd}&execute arbitrary shell command string\cr
 \line{\smrm \opt{ } surround optional arguments \hfill $\ldots$ show
 one or more arguments}
 \vskip\baselineskip
-\centerline{\smrm \copyright 1991, 1992 Free Software Foundation, Inc.\qquad Permissions on back}
+\centerline{\smrm \copyright 1991, 1992, 1993 Free Software Foundation, Inc.\qquad Permissions on back}
 \eject
 \sec Breakpoints and Watchpoints;
 break \opt{\it file\tt:}{\it line}\par
@@ -468,7 +467,7 @@ $\tt\{${\it type}$\tt\}${\it addr}&read memory at {\it addr} as specified
 \cr
 show values \opt{{\it n}}&show last 10 values \opt{or surrounding
 \${\it n}}\cr
-show convenience&display all convenience variables\cr
+show conv&display all convenience variables\cr
 \endsec
 
 \sec Symbol Table;
@@ -520,7 +519,7 @@ detach&release target from GDB control\cr
 set {\it param} {\it value}&set one of GDB's internal parameters\cr
 show {\it param}&display current setting of parameter\cr
 \xtra{\rm Parameters understood by {\tt set} and {\tt show}:}
-\quad complaints {\it limit}&number of messages on unusual symbols\cr
+\quad complaint {\it limit}&number of messages on unusual symbols\cr
 \quad confirm {\it on/off}&enable or disable cautionary queries\cr
 \quad editing {\it on/off}&control {\tt readline} command-line editing\cr
 \quad height {\it lpp}&number of lines before pause in display\cr

@@ -55,6 +55,7 @@
 #include <stdio.h>
 #include "defs.h"
 #include "serial.h"
+#include <varargs.h>
 
 #if !defined (HAVE_TERMIOS) && !defined (HAVE_TERMIO) && !defined (HAVE_SGTTY)
 #define HAVE_SGTTY
@@ -101,16 +102,22 @@ static ninStrGet();
  *	format string) and that outputs nothing if verbose output has been
  *	suppressed.
  *****************************************************************************/
-/* FIXME: use varargs for this.  */
-static
-say( fmt, arg1, arg2 )
-    char *fmt;
-    int arg1, arg2;
+
+static void
+say (va_alist)
+     va_dcl
 {
-	if ( !quiet ){
-		printf( fmt, arg1, arg2 );
-		fflush( stdout );
-	}
+  va_list args;
+  char *fmt;
+
+  va_start (args);
+  fmt = va_arg (args, char *);
+  if (!quiet)
+    {
+      vfprintf_unfiltered (gdb_stdout, fmt, args);
+      gdb_flush (gdb_stdout);
+    }
+  va_end (args);
 }
 
 /******************************************************************************
@@ -628,7 +635,7 @@ ninBptDel( addr, type )
 	if ( addr == -1 ){
 		send( buf, 2, NULL );
 	} else {
-		store_unsigned_integer (&buf[2], addr, 4);
+		store_unsigned_integer (&buf[2], 4, addr);
 		send( buf, 6, NULL );
 	}
 }
@@ -653,7 +660,7 @@ ninBptSet( addr, type )
 
 	buf[0] = 'B';
 	buf[1] = type;
-	store_unsigned_integer (&buf[2], addr, 4);
+	store_unsigned_integer (&buf[2], 4, addr);
 	send( buf, 6, NULL );
 }
 
@@ -782,7 +789,7 @@ ninMemGet(ninaddr, hostaddr, len)
 		cnt = len > BUFSIZE ? BUFSIZE : len;
 
 		buf[0] = 'm';
-		store_unsigned_integer (&buf[1], ninaddr, 4);
+		store_unsigned_integer (&buf[1], 4, ninaddr);
 		buf[5] = cnt & 0xff;
 		buf[6] = (cnt>>8) & 0xff;
 
@@ -814,7 +821,7 @@ ninMemPut( ninaddr, hostaddr, len )
 		cnt = len > BUFSIZE ? BUFSIZE : len;
 
 		buf[0] = 'M';
-		store_unsigned_integer (&buf[1], ninaddr, 4);
+		store_unsigned_integer (&buf[1], 4, ninaddr);
 		memcpy(buf + 5, hostaddr, cnt);
 		send( buf, cnt+5, NULL );
 
@@ -874,7 +881,7 @@ ninRegPut( regname, val )
 
 	sprintf( buf, "U%s:", regname );
 	len = strlen(buf);
-	store_unsigned_integer (&buf[len], val, 4);
+	store_unsigned_integer (&buf[len], 4, val);
 	send( buf, len+4, NULL );
 }
 
@@ -1041,7 +1048,7 @@ ninSrq()
 	/* Send request termination status to NINDY
 	 */
 	buf[0] = 'e';
-	store_unsigned_integer (&buf[1], retcode, 4);
+	store_unsigned_integer (&buf[1], 4, retcode);
 	send( buf, 5, NULL );
 }
 
@@ -1097,7 +1104,7 @@ ninStrGet( ninaddr, hostaddr )
 	unsigned char cmd[5];
 
 	cmd[0] = '"';
-	store_unsigned_integer (&cmd[1], ninaddr, 4);
+	store_unsigned_integer (&cmd[1], 4, ninaddr);
 	send( cmd, 5, hostaddr );
 }
 

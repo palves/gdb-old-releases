@@ -1,3 +1,15 @@
+Wed Nov 17 17:14:26 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips.h (SHT_MIPS_OPTIONS): Define.
+
+Mon Nov  8 17:57:00 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips.h: Added some more MIPS ABI macro definitions.
+
+Wed Nov  3 22:07:17 1993  Ken Raeburn  (raeburn@rtl.cygnus.com)
+
+	* common.h (EM_MIPS_RS4_BE): New macro.
+
 Tue Oct 12 07:28:18 1993  Ian Lance Taylor  (ian@cygnus.com)
 
 	* mips.h: New file.  MIPS ABI specific information.

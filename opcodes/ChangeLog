@@ -1,3 +1,51 @@
+Mon Jan 17 02:40:52 1994  Jeffrey A Law  (law@cs.utah.edu)
+
+	* hppa-dis.c (print_insn_hppa): Handle 'N' in assembler template.
+	No space before 'u', 'f', or 'N'.
+
+Thu Jan  6 12:38:05 1994  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* sparc-dis.c m68k-dis.c alpha-dis.c a29k-dis.c: Fix comments.
+
+Wed Jan  5 11:56:21 1994  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* i960-dis.c (print_insn_i960): Only read word2 if the instruction
+	needs it, to prevent reading past the end of a section.
+
+Wed Nov 17 17:20:12 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.h: Use macro for j instruction, to support SVR4 PIC.
+	Removed t,A case for la; always use t,A(b) case.
+
+Mon Nov  8 12:37:36 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	From Ted Lemen <mellon@pepper.ncd.com>
+	* mips-dis.c (print_insn_arg): Handle 'k'.
+	* mips-opc.c: Make cache use k, not t.
+
+Sun Nov  7 23:52:34 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* alpha-opc.h, alpha-dis.c (print_insn_alpha):  Add
+	FLOAT_MEMORY_FORMAT_CODE, FLOAT_BRANCH_FORMAT_CODE, correct 
+	FLOAT_FORMAT_CODE to put out floating point register names.
+
+Mon Nov  1 18:17:51 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: Use macros for jal variants, to support SVR4 PIC.
+
+Thu Oct 28 17:42:23 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* a29k-dis.c (print_insn): Use 0x%08x, not 0x%8x.
+
+Wed Oct 27 11:48:01 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c (dsll, dsra, dsrl): Added '>' cases for shift counts
+	larger than 32.  Moved dsxx32 variants first for disassembler.
+
+Mon Oct 25 11:33:14 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
+
+	* z8kgen.c, z8k-opc.h: Add full lda information.
+
 Tue Oct 19 12:39:25 1993  Jeffrey A Law  (law@cs.utah.edu)
 
 	* hppa-dis.c (print_insn_hppa): Do not emit a space after

@@ -1143,6 +1143,9 @@ m3_trace_him (pid)
   setup_exception_port ();
 
   xx_debug ("Now the debugged task is created\n");
+
+  /* One trap to exec the shell, one to exec the program being debugged.  */
+  intercept_exec_calls (2);
 }
 
 setup_exception_port ()
@@ -1206,14 +1209,14 @@ int mach_really_waiting;
    There is no other way to exit this loop.
 
    Returns the inferior_pid for rest of gdb.
-   Side effects: Set unix exit value to *w.
- */
+   Side effects: Set *OURSTATUS.  */
 int
 mach_really_wait (w)
-     WAITTYPE *w;
+     struct target_waitstatus *ourstatus;
 {
   int pid;
   kern_return_t ret;
+  int w;
 
   struct msg {
     mach_msg_header_t    header;
@@ -1255,7 +1258,7 @@ mach_really_wait (w)
 	    {
 	      /* Collect Unix exit status for gdb */
 
-	      wait3(w, WNOHANG, 0);
+	      wait3(&w, WNOHANG, 0);
 
 	      /* This mess is here to check that the rest of
 	       * gdb knows that the inferior died. It also
@@ -1264,25 +1267,26 @@ mach_really_wait (w)
 	       * has happened to it's children when mach-magic
 	       * is applied on them.
 	       */
-	      if ((!WIFEXITED(*w) && WIFSTOPPED(*w))         ||
-		  (WIFEXITED(*w)  && WEXITSTATUS(*w) > 0377))
+	      if ((!WIFEXITED(w) && WIFSTOPPED(w))         ||
+		  (WIFEXITED(w)  && WEXITSTATUS(w) > 0377))
 		{
-		  WSETEXIT(*w, 0);
+		  WSETEXIT(w, 0);
 		  warning ("Using exit value 0 for terminated task");
 		}
-	      else if (!WIFEXITED(*w))
+	      else if (!WIFEXITED(w))
 		{
-		  int sig = WTERMSIG(*w);
+		  int sig = WTERMSIG(w);
 
 		  /* Signals cause problems. Warn the user. */
 		  if (sig != SIGKILL) /* Bad luck if garbage matches this */
 		    warning ("The terminating signal stuff may be nonsense");
 		  else if (sig > NSIG)
 		    {
-		      WSETEXIT(*w, 0);
+		      WSETEXIT(w, 0);
 		      warning ("Using exit value 0 for terminated task");
 		    }
 		}
+	      store_waitstatus (ourstatus, w);
 	      return inferior_pid;
 	    }
 	}
@@ -1313,10 +1317,11 @@ mach_really_wait (w)
       if (stopped_in_exception)
 	{
 	  /* Get unix state. May be changed in mach3_exception_actions() */
-	  wait3(w, WNOHANG, 0);
+	  wait3(&w, WNOHANG, 0);
 
-	  mach3_exception_actions (w, FALSE, "Task");
+	  mach3_exception_actions (&w, FALSE, "Task");
 
+	  store_waitstatus (ourstatus, w);
 	  return inferior_pid;
 	}
     }
@@ -1798,7 +1803,7 @@ mach3_read_inferior (addr, myaddr, length)
 	}
     }
 
-  bcopy ((char *)addr - low_address + copied_memory, myaddr, length);
+  memcpy (myaddr, (char *)addr - low_address + copied_memory, length);
 
   ret = vm_deallocate (mach_task_self (),
 		       copied_memory,
@@ -1858,7 +1863,7 @@ mach3_write_inferior (addr, myaddr, length)
 
   deallocate++;
 
-  bcopy (myaddr, (char *)addr - low_address + copied_memory, length);
+  memcpy ((char *)addr - low_address + copied_memory, myaddr, length);
 
   obstack_init (&region_obstack);
 
@@ -2374,7 +2379,7 @@ map_cprocs_to_kernel_threads (cprocs, mthreads, thread_count)
 
 void
 print_tl_address (stream, pc)
-     FILE *stream;
+     GDB_FILE *stream;
      CORE_ADDR pc;
 {
   if (! lookup_minimal_symbol_by_pc (pc))
@@ -2684,7 +2689,7 @@ thread_list_command()
 			   buf,
 			   translate_cstate (scan->state),
 			   wired);
-	  print_tl_address (stdout, kthread->pc);
+	  print_tl_address (gdb_stdout, kthread->pc);
 	}
       else
 	{
@@ -2717,7 +2722,7 @@ thread_list_command()
 	  if (FETCH_CPROC_STATE (&state) == -1)
 	    puts_filtered ("???");
 	  else
-	    print_tl_address (stdout, state.pc);
+	    print_tl_address (gdb_stdout, state.pc);
 
 	  neworder++;
 	}
@@ -2784,7 +2789,7 @@ thread_list_command()
 			   buf,
 			   "",   /* No cproc state */
 			   "");	/* Can't be wired */
-	  print_tl_address (stdout, their_threads[index].pc);
+	  print_tl_address (gdb_stdout, their_threads[index].pc);
 	  puts_filtered ("\n");
 	}
     }
@@ -3620,8 +3625,8 @@ thread_command (arg, from_tty)
      char *arg;
      int from_tty;
 {
-  printf ("\"thread\" must be followed by the name of a thread command.\n");
-  help_list (cmd_thread_list, "thread ", -1, stdout);
+  printf_unfiltered ("\"thread\" must be followed by the name of a thread command.\n");
+  help_list (cmd_thread_list, "thread ", -1, gdb_stdout);
 }
 
 /*ARGSUSED*/
@@ -3630,8 +3635,8 @@ task_command (arg, from_tty)
      char *arg;
      int from_tty;
 {
-  printf ("\"task\" must be followed by the name of a task command.\n");
-  help_list (cmd_task_list, "task ", -1, stdout);
+  printf_unfiltered ("\"task\" must be followed by the name of a task command.\n");
+  help_list (cmd_task_list, "task ", -1, gdb_stdout);
 }
 
 add_mach_specific_commands ()
@@ -3905,7 +3910,7 @@ void
 m3_resume (pid, step, signal)
      int pid;
      int step;
-     int signal;
+     enum target_signal signal;
 {
   kern_return_t	ret;
 
@@ -3935,7 +3940,7 @@ m3_resume (pid, step, signal)
   vm_read_cache_valid = FALSE;
 
   if (signal && inferior_pid > 0) /* Do not signal, if attached by MID */
-    kill (inferior_pid, signal);
+    kill (inferior_pid, target_signal_to_host (signal));
 
   if (step)
     {
@@ -4079,11 +4084,11 @@ m3_attach (args, from_tty)
       exec_file = (char *) get_exec_file (0);
 
       if (exec_file)
-	printf ("Attaching to program `%s', %s\n", exec_file, target_pid_to_str (pid));
+	printf_unfiltered ("Attaching to program `%s', %s\n", exec_file, target_pid_to_str (pid));
       else
-	printf ("Attaching to %s\n", target_pid_to_str (pid));
+	printf_unfiltered ("Attaching to %s\n", target_pid_to_str (pid));
 
-      fflush (stdout);
+      gdb_flush (gdb_stdout);
     }
 
   m3_do_attach (pid);
@@ -4207,9 +4212,9 @@ m3_detach (args, from_tty)
       char *exec_file = get_exec_file (0);
       if (exec_file == 0)
 	exec_file = "";
-      printf ("Detaching from program: %s %s\n",
+      printf_unfiltered ("Detaching from program: %s %s\n",
 	      exec_file, target_pid_to_str (inferior_pid));
-      fflush (stdout);
+      gdb_flush (gdb_stdout);
     }
   if (args)
     siggnal = atoi (args);

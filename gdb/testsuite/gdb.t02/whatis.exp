@@ -32,7 +32,7 @@ set bug_id 0
 set binfile "gdbme"
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    error "$objdir/$subdir/$binfile does not exist."
+    perror "$objdir/$subdir/$binfile does not exist."
     return 0
 }
 

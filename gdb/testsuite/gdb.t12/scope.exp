@@ -30,7 +30,7 @@ set binfile "gdbme"
 set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    error "$objdir/$subdir/$binfile does not exist."
+    perror "$objdir/$subdir/$binfile does not exist."
     return 0
 }
 
@@ -51,9 +51,9 @@ proc test_at_main {} {
     # main, so the first next may only get us to the init call.
     send "next\n"
     expect {
-	-re "$decimal.*foo \(\);\r\n$prompt $" {}
-	-re "$decimal.*init \(\);\r\n$prompt $"\
-		{ send "next\n" ; continue -expect }
+	-re "$decimal.*foo \[)(\]+;\r\n$prompt $" {}
+	-re "$decimal.*init \[)(\]+;\r\n$prompt $"\
+		{ send "next\n" ; exp_continue }
 	-re "$prompt $" { fail "next over init() in main" ; return }
 	timeout { fail "(timeout) next over init() in main" ; return }
     }
@@ -78,7 +78,7 @@ proc test_at_main {} {
 	-re "\\\$$decimal = 1\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme0.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme0.c'::filelocal\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme0.c'::filelocal" ; return }
 	timeout {
@@ -103,7 +103,7 @@ proc test_at_main {} {
 	-re "\\\$$decimal = 101\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme0.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme0.c'::filelocal_bss\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme0.c'::filelocal_bss" ; return }
 	timeout {
@@ -128,7 +128,7 @@ proc test_at_main {} {
 	-re "\\\$$decimal = 201\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme0.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme0.c'::filelocal_ro\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme0.c'::filelocal_ro" ; return }
 	timeout {
@@ -144,7 +144,7 @@ proc test_at_main {} {
 	-re "\\\$$decimal = 2\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::filelocal\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::filelocal" ; return }
 	timeout {
@@ -160,7 +160,7 @@ proc test_at_main {} {
 	-re "\\\$$decimal = 102\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::filelocal_bss\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::filelocal_bss" ; return }
 	timeout {
@@ -176,7 +176,7 @@ proc test_at_main {} {
 	-re "\\\$$decimal = 202\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::filelocal_ro\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt " {fail "print 'gdbme1.c'::filelocal_ro" ; return }
 	timeout {
@@ -202,7 +202,7 @@ proc test_at_main {} {
 	-re "\\\$$decimal = 3\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::foo::funclocal\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::foo::funclocal" ; return }
 	timeout {
@@ -227,7 +227,7 @@ proc test_at_main {} {
 	-re "\\\$$decimal = 203\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::foo::funclocal_ro\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::foo::funclocal_ro" ; return }
 	timeout {
@@ -252,7 +252,7 @@ proc test_at_main {} {
 	-re "\\\$$decimal = 4\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::bar::funclocal\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::bar::funclocal" ; return }
 	timeout {
@@ -275,7 +275,7 @@ proc test_at_foo {} {
 
     send "next\n"
     expect {
-	-re ".*bar \(\);\r\n$prompt $" {}
+	-re ".*bar \[)(\]+;\r\n$prompt $" {}
 	-re "$prompt $" { fail "continue to foo()" ; return }
 	timeout { fail "(timeout) continue to foo()" ; return }
     }
@@ -290,7 +290,7 @@ proc test_at_foo {} {
 	-re "\\\$$decimal = 1\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme0.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme0.c'::filelocal\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme0.c'::filelocal" ; return }
 	timeout {
@@ -306,7 +306,7 @@ proc test_at_foo {} {
 	-re "\\\$$decimal = 101\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme0.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme0.c'::filelocal_bss\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme0.c'::filelocal_bss" ; return }
 	timeout {
@@ -322,7 +322,7 @@ proc test_at_foo {} {
 	-re "\\\$$decimal = 201\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme0.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme0.c'::filelocal_ro\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme0.c'::filelocal_ro" ; return }
 	timeout {
@@ -347,7 +347,7 @@ proc test_at_foo {} {
 	-re "\\\$$decimal = 2\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::filelocal\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::filelocal" ; return }
 	timeout {
@@ -372,7 +372,7 @@ proc test_at_foo {} {
 	-re "\\\$$decimal = 102\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::filelocal_bss\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::filelocal_bss" ; return }
 	timeout {
@@ -397,7 +397,7 @@ proc test_at_foo {} {
 	-re "\\\$$decimal = 202\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::filelocal_ro\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::filelocal_ro" ; return }
 	timeout {
@@ -432,7 +432,7 @@ proc test_at_foo {} {
 	-re "\\\$$decimal = 3\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::foo::funclocal\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::foo::funclocal" ; return }
 	timeout {
@@ -466,7 +466,7 @@ proc test_at_foo {} {
 	-re "\\\$$decimal = 103\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::foo::funclocal_bss\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::foo::funclocal_bss" ; return }
 	timeout {
@@ -500,7 +500,7 @@ proc test_at_foo {} {
 	-re "\\\$$decimal = 203\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::foo::funclocal_ro\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::foo::funclocal_ro" ; return }
 	timeout {
@@ -525,7 +525,7 @@ proc test_at_foo {} {
 	-re "\\\$$decimal = 4\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::bar::funclocal\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::bar::funclocal" ; return }
 	timeout {
@@ -562,7 +562,7 @@ proc test_at_bar {} {
 	-re "\\\$$decimal = 1\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme0.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme0.c'::filelocal\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme0.c'::filelocal" ; return }
 	timeout {
@@ -578,7 +578,7 @@ proc test_at_bar {} {
 	-re "\\\$$decimal = 101\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme0.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme0.c'::filelocal_bss\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme0.c'::filelocal_bss" ; return }
 	timeout {
@@ -594,7 +594,7 @@ proc test_at_bar {} {
 	-re "\\\$$decimal = 201\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme0.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme0.c'::filelocal_ro\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme0.c'::filelocal_ro" ; return }
 	timeout {
@@ -619,7 +619,7 @@ proc test_at_bar {} {
 	-re "\\\$$decimal = 2\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::filelocal\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::filelocal" ; return }
 	timeout {
@@ -644,7 +644,7 @@ proc test_at_bar {} {
 	-re "\\\$$decimal = 102\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::filelocal_bss\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::filelocal_bss" ; return }
 	timeout {
@@ -669,7 +669,7 @@ proc test_at_bar {} {
 	-re "\\\$$decimal = 202\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::filelocal_ro\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::filelocal_ro" ; return }
 	timeout {
@@ -695,7 +695,7 @@ proc test_at_bar {} {
 	-re "\\\$$decimal = 3\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::foo::funclocal\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::foo::funclocal" ; return }
 	timeout {
@@ -720,7 +720,7 @@ proc test_at_bar {} {
 	-re "\\\$$decimal = 103\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::foo::funclocal_bss\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::foo::funclocal_bss" ; return }
 	timeout {
@@ -745,7 +745,7 @@ proc test_at_bar {} {
 	-re "\\\$$decimal = 203\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::foo::funclocal_ro\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::foo::funclocal_ro" ; return }
 	timeout {
@@ -779,7 +779,7 @@ proc test_at_bar {} {
 	-re "\\\$$decimal = 4\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::bar::funclocal\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::bar::funclocal" ; return }
 	timeout {
@@ -813,7 +813,7 @@ proc test_at_bar {} {
 	-re "\\\$$decimal = 104\r\n$prompt $" { incr passcount }
 	-re "No symbol \"gdbme1.c\" in current context.*$prompt $" {
 	    send "print '$srcdir/$subdir/gdbme1.c'::bar::funclocal_bss\n"
-	    continue -expect
+	    exp_continue
 	}
 	-re "$prompt $" { fail "print 'gdbme1.c'::bar::funclocal_bss" ; return }
 	timeout {
@@ -840,7 +840,7 @@ proc test_at_autovars {} {
 
     send "cont\n"
     expect {
-	-re "Break.* marker1 \(\) at .*:$decimal.*$prompt $" {
+	-re "Break.* marker1 \[)(\]+ at .*:$decimal.*$prompt $" {
 	    send "up\n"
 	    expect {
 		-re ".*$prompt $" {}
@@ -869,7 +869,7 @@ proc test_at_autovars {} {
     pass "$count auto variables correctly initialized"
 
     # Test that block variable sorting is not screwing us.
-    gdb_test "frame" "#.*autovars \(bcd=5, abc=6\)" "args in correct order"
+    gdb_test "frame" "#.*autovars \[(\]+bcd=5, abc=6\[)\]+" "args in correct order"
 }
 
 proc test_at_localscopes {} {
@@ -886,7 +886,7 @@ proc test_at_localscopes {} {
 
     send "cont\n"
     expect {
-	-re "Break.* marker2 \(\) at .*:$decimal.*$prompt $" {
+	-re "Break.* marker2 \[)(\]+ at .*:$decimal.*$prompt $" {
 	    send "up\n"
 	    expect {
 		-re ".*$prompt $" {}
@@ -932,7 +932,7 @@ proc test_at_localscopes {} {
 
     send "cont\n"
     expect {
-	-re "Break.* marker3 \(\) at .*:$decimal.*$prompt $" {
+	-re "Break.* marker3 \[)(\]+ at .*:$decimal.*$prompt $" {
 	    send "up\n"
 	    expect {
 		-re ".*$prompt $" {}
@@ -983,7 +983,7 @@ proc test_at_localscopes {} {
     setup_xfail "a29k-*-udi" 2423
     send "cont\n"
     expect {
-	-re "Break.* marker4 \(\) at .*:$decimal.*$prompt $" {
+	-re "Break.* marker4.*at .*:$decimal.*$prompt $" {
 	    send "up\n"
 	    expect {
 		-re ".*$prompt $" {}

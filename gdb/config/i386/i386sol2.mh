@@ -16,7 +16,9 @@ XDEPFILES=
 XM_FILE= xm-i386v4.h
 
 NAT_FILE= nm-i386v4.h
-NATDEPFILES= corelow.o core-svr4.o exec.o procfs.o fork-child.o i386v4-nat.o
+# I'm told that gdb 4.11 gets "File in wrong format" on core files
+# with Solaris 2.1, so comment out corelow.o until it is fixed.
+NATDEPFILES= core-svr4.o exec.o procfs.o fork-child.o i386v4-nat.o # corelow.o
 
 # SVR4 comes standard with terminfo, and in some implementations, the
 # old termcap descriptions are incomplete.  So ensure that we use the

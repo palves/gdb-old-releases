@@ -48,7 +48,7 @@ static const template i386_optab[] = {
 {"push", 1, 0x50, _, ShortForm, { WordReg,0,0 } },
 {"push", 1, 0xff, 0x6,  Modrm, { WordReg|WordMem, 0, 0 } },
 {"push", 1, 0x6a, _, NoModrm, { Imm8S, 0, 0} },
-{"push", 1, 0x68, _, NoModrm, { Imm32, 0, 0} },
+{"push", 1, 0x68, _, NoModrm, { Imm16|Imm32, 0, 0} },
 {"push", 1, 0x06, _,  Seg2ShortForm, { SReg2,0,0 } },
 {"push", 1, 0x0fa0, _, Seg3ShortForm, { SReg3,0,0 } },
 /* push all */
@@ -180,7 +180,7 @@ static const template i386_optab[] = {
 /* Warning! the mul/imul (opcode 0xf6) must only have 1 operand!  They are
    expanding 64-bit multiplies, and *cannot* be selected to accomplish
    'imul %ebx, %eax' (opcode 0x0faf must be used in this case)
-   These multiplies can only be selected with single opearnd forms. */
+   These multiplies can only be selected with single operand forms. */
 {"mul",  1, 0xf6, 4, W|Modrm, { Reg|Mem, 0, 0} },
 {"imul", 1, 0xf6, 5, W|Modrm, { Reg|Mem, 0, 0} },
 
@@ -495,6 +495,7 @@ static const template i386_optab[] = {
 
 /* exchange %st<n> with %st0 */
 {"fxch", 1, 0xd9c8, _, ShortForm, { FloatReg, 0, 0} },
+{"fxch", 0, 0xd9c9, _, NoModrm, { 0, 0, 0} }, /* alias for fxch %st, %st(1) */
 
 /* comparison (without pop) */
 {"fcom", 1, 0xd8d0, _, ShortForm, { FloatReg, 0, 0} },
@@ -728,7 +729,7 @@ static const template i386_optab[] = {
 {"wbinvd", 0, 0x0f09, _, NoModrm, { 0, 0, 0} },
 {"invlpg", 1, 0x0f01, 7, Modrm, { Mem, 0, 0} },
 
-{"", 0, 0, 0, 0, { 0, 0, 0} }	/* sentinal */
+{"", 0, 0, 0, 0, { 0, 0, 0} }	/* sentinel */
 };
 #undef _
 

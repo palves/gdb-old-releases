@@ -28,6 +28,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "bfd.h"
 #include "target.h"
 #include "gdbcore.h"
+#include "thread.h"
 
 static void
 core_files_info PARAMS ((struct target_ops *));
@@ -260,7 +261,7 @@ get_core_registers (regno)
   else
     {
 cant:
-      fprintf_filtered (stderr, "Couldn't fetch registers from core file: %s\n",
+      fprintf_filtered (gdb_stderr, "Couldn't fetch registers from core file: %s\n",
 	       bfd_errmsg (bfd_error));
     }
 
@@ -277,7 +278,7 @@ cant:
       }
     else
       {
-	fprintf_filtered (stderr, "Couldn't fetch register set 2 from core file: %s\n",
+	fprintf_filtered (gdb_stderr, "Couldn't fetch register set 2 from core file: %s\n",
 		 bfd_errmsg (bfd_error));
       }
   }
@@ -299,6 +300,7 @@ ignore (addr, contents)
      CORE_ADDR addr;
      char *contents;
 {
+  return 0;
 }
 
 struct target_ops core_ops = {

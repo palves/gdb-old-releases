@@ -125,10 +125,17 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /***********************************************/
 /* provide overrides for routines in this file */
 /***********************************************/
-#define MY_get_symtab MY(get_symtab)
-#define MY_get_symtab_upper_bound MY(get_symtab_upper_bound)
-#define MY_canonicalize_reloc MY(canonicalize_reloc)
-#define MY_write_object_contents MY(write_object_contents)
+/* these don't use MY because that causes problems within JUMP_TABLE
+   (CAT winds up being expanded recursively, which ANSI C compilers
+   will not do).  */
+#define MY_get_symtab hp300hpux_get_symtab
+#define MY_get_symtab_upper_bound hp300hpux_get_symtab_upper_bound
+#define MY_canonicalize_reloc hp300hpux_canonicalize_reloc
+#define MY_write_object_contents hp300hpux_write_object_contents
+
+#define MY_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
+#define MY_bfd_link_add_symbols _bfd_generic_link_add_symbols
+#define MY_bfd_final_link _bfd_generic_final_link
 
 #define hp300hpux_write_syms aout_32_write_syms
 
@@ -166,6 +173,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define HP_RLENGTH_ALIGN	0x03
 
 #define NAME(x,y) CAT3(hp300hpux,_32_,y)
+#define ARCH_SIZE 32
 #include "aoutx.h"
 
 /* Since the hpux symbol table has nlist elements interspersed with
@@ -231,6 +239,8 @@ DEFUN(MY(callback),(abfd),
   return abfd->xvec;
 }
 
+extern boolean aout_32_write_syms PARAMS ((bfd *abfd));
+
 static boolean
 DEFUN(MY(write_object_contents),(abfd),
       bfd *abfd)
@@ -283,8 +293,7 @@ DEFUN(MY(write_object_contents),(abfd),
         if (!NAME(aout,squirt_out_relocs)(abfd, obj_datasec (abfd))) return false;
     }
 
-    MY(write_syms)(abfd);
-    return true;
+    return MY(write_syms)(abfd);
 }									
 
 /* convert the hp symbol type to be the same as aout64.h usage so we */

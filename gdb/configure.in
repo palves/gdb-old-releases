@@ -15,9 +15,7 @@ i[34]86)		gdb_host_cpu=i386 ;;
 m68*)			gdb_host_cpu=m68k ;;
 np1)			gdb_host_cpu=gould ;;
 pyramid)		gdb_host_cpu=pyr ;;
-mips*)			gdb_host_cpu=mips ;;
 *)			gdb_host_cpu=$host_cpu ;;
-
 
 esac
 
@@ -44,11 +42,11 @@ i[34]86-sequent-sysv*)	gdb_host=ptx ;;
 i[34]86-*-aix*)		gdb_host=i386aix ;;
 i[34]86-*-bsd*)		gdb_host=i386bsd ;;
 i[34]86-*-netbsd*)	gdb_host=i386bsd ;;
-i[34]86-*-go32*)	gdb_host=go32 ;;
+i[34]86-*-go32*)		gdb_host=go32 ;;
 i[34]86-*-linux*)	gdb_host=linux ;;
-i[34]86-*-lynx*)	gdb_host=i386lynx ;;
+i[34]86-*-lynxos*)	gdb_host=i386lynx ;;
 # Obsolete I suspect
-# i[34]86-*-mach)	gdb_host=i386mach ;;
+# i[34]86-*-mach)		gdb_host=i386mach ;;
 i[34]86-*-mach*)	gdb_host=i386m3 ;;
 i[34]86-*-osf1mk*)	gdb_host=i386mk ;;
 i[34]86-*-sco3.2v4*)	gdb_host=i386sco4 ;;
@@ -57,6 +55,7 @@ i[34]86-*-solaris*)	gdb_host=i386sol2 ;;
 i[34]86-*-sunos*)	gdb_host=sun386 ;;
 i[34]86-*-sysv3.2*)	gdb_host=i386v32 ;;
 i[34]86-*-sysv4*)	gdb_host=i386v4 ;;
+i[34]86-*-unixware)	gdb_host=i386v4 ;;
 i[34]86-*-sysv*)	gdb_host=i386v ;;
 i[34]86-*-isc*)		gdb_host=i386v32 ;;
 
@@ -73,6 +72,7 @@ m68*-cbm-sysv4*)	gdb_host=amix ;;
 m68*-hp-bsd*)		gdb_host=hp300bsd ;;
 m68*-hp-hpux*)		gdb_host=hp300hpux ;;
 m68*-isi-*)		gdb_host=isi ;;
+m68*-*-lynxos*)		gdb_host=m68klynx ;;
 m68*-motorola-*)	gdb_host=delta68 ;;
 m68*-sony-*)		gdb_host=news ;;
 m68*-sun-sunos3*)	gdb_host=sun3os3 ;;
@@ -84,14 +84,15 @@ m88*-motorola-sysv*)	gdb_host=delta88 ;;
 # I suspect this is just used for DGUX
 m88*-*-*)		gdb_host=m88k ;;
 
-mips*-dec-*)		gdb_host=decstation ;;
-mips*-little-*)		gdb_host=littlemips ;;
-mips*-sgi-irix3*)	gdb_host=irix3 ;;
-mips*-sgi-irix4*)	gdb_host=irix4 ;;
-mips*-sony-*)		gdb_host=news-mips ;;
-mips*-*-sysv*)		gdb_host=riscos ;;
-mips*-*-riscos*)	gdb_host=riscos ;;
-mips*-*-mach*)		gdb_host=mipsm3 ;;
+mips-dec-*)		gdb_host=decstation ;;
+mips-little-*)		gdb_host=littlemips ;;
+mips-sgi-irix3*)	gdb_host=irix3 ;;
+mips-sgi-irix4*)	gdb_host=irix4 ;;
+mips-sgi-irix5*)	gdb_host=irix5 ;;
+mips-sony-*)		gdb_host=news-mips ;;
+mips-*-sysv*)		gdb_host=riscos ;;
+mips-*-riscos*)		gdb_host=riscos ;;
+mips-*-mach*)		gdb_host=mipsm3 ;;
 
 none-*-*)		gdb_host=none ;;
 
@@ -108,6 +109,7 @@ romp-*-*)		gdb_host=rtbsd ;;
 
 rs6000-*-*)		gdb_host=rs6000 ;;
 
+sparc-*-lynxos*)	gdb_host=sparclynx ;;
 sparc-*-solaris2*)	gdb_host=sun4sol2 ;;
 sparc-*-sunos4*)	gdb_host=sun4os4 ;;
 sparc-*-*)		gdb_host=sun4os4 ;;
@@ -168,6 +170,7 @@ a29k-*-sym1*)		gdb_target=ultra3 ;;
 a29k-*-udi*)		gdb_target=a29k-udi ;;
 
 alpha-*-osf*)		gdb_target=alpha-osf1 ;;
+alpha-*-netware*)	gdb_target=alpha-nw ;;
 
 arm-*-*)		gdb_target=arm ;;
 
@@ -175,14 +178,13 @@ c1-*-*)			gdb_target=convex ;;
 c2-*-*)			gdb_target=convex ;;
 
 h8300-*-*)		gdb_target=h8300hms ;;
-h8300h-*-*)		gdb_target=h8300hms gdb_target_cpu=h8300 ;;
 h8500-*-*)		gdb_target=h8500hms ;;
 
 sh-*-*)			gdb_target=sh ;;
 
 hppa*-*-bsd*)		gdb_target=hppabsd ;;
 hppa*-*-hpux*)		gdb_target=hppahpux ;;
-hppa*-*-hiux*)		gdb_target=hppahiux ;;
+hppa*-*-hiux*)		gdb_target=hppahpux ;;
 
 i[34]86-sequent-*)	gdb_target=symmetry ;;
 i[34]86-ncr-*)		gdb_target=ncr3000 ;;
@@ -195,7 +197,7 @@ i[34]86-*-aix*)		gdb_target=i386aix ;;
 i[34]86-*-bsd*)		gdb_target=i386bsd ;;
 i[34]86-*-netbsd*)	gdb_target=i386bsd ;;
 i[34]86-*-go32*)	gdb_target=i386aout ;;
-i[34]86-*-lynx*)	gdb_target=i386lynx
+i[34]86-*-lynxos*)	gdb_target=i386lynx
 			configdirs="${configdirs} gdbserver" 
 			;;
 i[34]86-*-solaris*)	gdb_target=i386sol2 ;;
@@ -225,6 +227,7 @@ m68*-hp-bsd*)		gdb_target=hp300bsd ;;
 m68*-hp-hpux*)		gdb_target=hp300hpux ;;
 
 m68*-altos-*)		gdb_target=altos ;;
+m68*-apollo*-bsd*)	gdb_target=apollo68b ;;
 m68*-att-*)		gdb_target=3b1 ;;
 m68*-ericsson-*)	gdb_target=es1800 ;;
 m68*-isi-*)		gdb_target=isi ;;
@@ -240,6 +243,9 @@ m68*-monitor-*)         gdb_target=monitor ;;
 m68*-*-aout*)		gdb_target=m68k-em ;;
 m68*-*-coff*)		gdb_target=m68k-em ;;
 m68*-*-elf*)		gdb_target=m68k-em ;;
+m68*-*-lynxos*)		gdb_target=m68klynx
+			configdirs="${configdirs} gdbserver"
+			;;
 m68*-*-os68k*)		gdb_target=os68k ;;
 m68*-*-sunos3*)		gdb_target=sun3os3 ;;
 m68*-*-sunos4*)		gdb_target=sun3os4 ;;
@@ -251,9 +257,12 @@ m88*-*-*)		gdb_target=m88k ;;
 
 mips*-big-*)		gdb_target=bigmips ;;
 mips*-dec-*)		gdb_target=decstation ;;
-mips*el-idt-ecoff*)	gdb_target=idtl ;;
+mips*el-*-ecoff*)	gdb_target=idtl ;;
 mips*-idt-ecoff*)	gdb_target=idt ;;
+mips*el-*-elf*)		gdb_target=idtl ;;
+mips*-*-elf*)		gdb_target=idt ;;
 mips*-little-*)		gdb_target=littlemips ;;
+mips*-sgi-irix5*)	gdb_target=irix5 ;;
 mips*-sgi-*)		gdb_target=irix3 ;;
 mips*-sony-*)		gdb_target=bigmips ;;
 mips*-*-sysv*)		gdb_target=bigmips ;;
@@ -276,6 +285,9 @@ rs6000-*-*)		gdb_target=rs6000 ;;
 sparc-*-aout*)		gdb_target=sparc-em ;;
 sparc-*-coff*)		gdb_target=sparc-em ;;
 sparc-*-elf*)		gdb_target=sparc-em ;;
+sparc-*-lynxos*)	gdb_target=sparclynx
+			configdirs="${configdirs} gdbserver"
+			;;
 sparc-*-solaris2*)	gdb_target=sun4sol2 ;;
 sparc-*-sunos4*)	gdb_target=sun4os4 ;;
 sparc-*-vxworks*)	gdb_target=vxsparc ;;

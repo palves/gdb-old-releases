@@ -32,7 +32,7 @@ set bug_id 0
 set binfile "gdbme"
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    error "$objdir/$subdir/$binfile does not exist."
+    perror "$objdir/$subdir/$binfile does not exist."
     return 0
 }
 
@@ -93,11 +93,17 @@ if [gdb_test "ptype v_t_struct_p->v_float_member"	"type = float"]<0 then {
 send "ptype struct link\n"
 expect {
     -re "type = struct link \{.*
-    struct link \*next;.*
-    struct link \*\(\*linkfunc\)\(\);.*
+    struct link \[*\]next;.*
+    struct link \[*(\]+linkfunc\[)(\]+;.*
     struct t_struct stuff.1..2..3.;.*
 \}.*$prompt $"                      { pass "ptype linked list structure" }
-    -re ".*$prompt $"	{ fail "ptype linked list structure" }
+    -re ".*$prompt $"	{ 
+
+	# IBM's xlc puts out bogus stabs--the stuff field is type 42,
+	# which isn't defined.
+
+	fail "ptype linked list structure (compiler bug in IBM's xlc)"
+    }
     timeout		{ fail "(timeout) ptype linked list structure" }
 }
 
@@ -124,12 +130,18 @@ expect {
 
 send "ptype union tu_link\n"
 expect {
-    -re "type = union tu_link \{.*
-    struct link \*next;.*
-    struct link \*\(\*linkfunc\)\(\);.*
+    -re "type = union tu_link .*
+    struct link \[*\]next;.*
+    struct link \[(\*\]+linkfunc\[)(\]+;.*
     struct t_struct stuff.1..2..3.;.*
 \}.*$prompt $"                      { pass "ptype linked list union" }
-    -re ".*$prompt $"	{ fail "ptype linked list union" }
+    -re ".*$prompt $" {
+
+	# IBM's xlc puts out bogus stabs--the stuff field is type 42,
+	# which isn't defined.
+
+	fail "ptype linked list union (compiler bug in IBM's xlc)"
+    }
     timeout		{ fail "(timeout) ptype linked list union" }
 }
 
@@ -141,7 +153,7 @@ expect {
 setup_xfail "a29k-*-*" 1838
 send "ptype primary\n"
 expect {
-    -re "type = enum \{red, green, blue\}.*$prompt $"       { pass "ptype unnamed enumeration" }
+    -re "type = enum .red, green, blue.*$prompt $"       { pass "ptype unnamed enumeration" }
     -re ".*$prompt $"	{ fail "ptype unnamed enumeration" }
     timeout		{ fail "(timeout) ptype unnamed enumeration" }
 }
@@ -168,7 +180,16 @@ expect {
 }
 
 # And check that whatis shows the name, not "enum {...}".
-gdb_test "whatis v_boolean" "type = boolean" "whatis unnamed typedef'd enum"
+
+# The problem with xlc is that the stabs look like
+#   :t51=eFALSE:0,TRUE:1,;
+#   boolean:t55=51
+#   v_boolean:G51
+# GDB's behavior is correct; the type which the variable is defined
+# as (51) doesn't have a name.  Only 55 has a name.
+
+gdb_test "whatis v_boolean" "type = boolean" \
+  "whatis unnamed typedef'd enum (compiler bug in IBM's xlc)"
 
 # Same thing with struct and union.
 gdb_test "ptype t_struct3" "type = struct \{.*

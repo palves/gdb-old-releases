@@ -125,12 +125,21 @@ void
 child_resume (pid, step, signal)
      int pid;
      int step;
-     int signal;
+     enum target_signal signal;
 {
   errno = 0;
 
   if (pid == -1)
+    /* Resume all threads.  */
+#ifdef PIDGET
+    /* This is for Lynx, and should be cleaned up by having Lynx be
+       a separate debugging target, with its own target_resume function.  */
+    pid = PIDGET (inferior_pid);
+#else
+    /* I think this only gets used in the non-threaded case, where "resume
+       all threads" and "resume inferior_pid" are the same.  */
     pid = inferior_pid;
+#endif
 
   /* An address of (PTRACE_ARG3_TYPE)1 tells ptrace to continue from where
      it was.  (If GDB wanted it to start some other way, we have already
@@ -142,9 +151,11 @@ child_resume (pid, step, signal)
      instructions), so we don't have to worry about that here.  */
 
   if (step)
-    ptrace (PT_STEP,     pid, (PTRACE_ARG3_TYPE) 1, signal);
+    ptrace (PT_STEP,     pid, (PTRACE_ARG3_TYPE) 1,
+	    target_signal_to_host (signal));
   else
-    ptrace (PT_CONTINUE, pid, (PTRACE_ARG3_TYPE) 1, signal);
+    ptrace (PT_CONTINUE, pid, (PTRACE_ARG3_TYPE) 1,
+	    target_signal_to_host (signal));
 
   if (errno)
     perror_with_name ("ptrace");
@@ -185,17 +196,17 @@ detach (signal)
 #define PTRACE_XFER_TYPE int
 #endif
 
-#if !defined (FETCH_INFERIOR_REGISTERS)
-
 /* KERNEL_U_ADDR is the amount to subtract from u.u_ar0
    to get the offset in the core file of the register values.  */
-#if defined (KERNEL_U_ADDR_BSD)
+#if defined (KERNEL_U_ADDR_BSD) && !defined (FETCH_INFERIOR_REGISTERS)
 /* Get kernel_u_addr using BSD-style nlist().  */
 CORE_ADDR kernel_u_addr;
+#endif /* KERNEL_U_ADDR_BSD.  */
 
 void
 _initialize_kernel_u_addr ()
 {
+#if defined (KERNEL_U_ADDR_BSD) && !defined (FETCH_INFERIOR_REGISTERS)
   struct nlist names[2];
 
   names[0].n_un.n_name = "_u";
@@ -204,8 +215,10 @@ _initialize_kernel_u_addr ()
     kernel_u_addr = names[0].n_value;
   else
     fatal ("Unable to get kernel u area address.");
-}
 #endif /* KERNEL_U_ADDR_BSD.  */
+}
+
+#if !defined (FETCH_INFERIOR_REGISTERS)
 
 #if !defined (offsetof)
 #define offsetof(TYPE, MEMBER) ((unsigned long) &((TYPE *)0)->MEMBER)

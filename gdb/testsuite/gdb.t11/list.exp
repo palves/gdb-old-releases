@@ -30,7 +30,7 @@ set binfile "gdbme"
 set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    error "$objdir/$subdir/$binfile does not exist."
+    perror "$objdir/$subdir/$binfile does not exist."
     return 0
 }
 
@@ -86,7 +86,7 @@ proc test_listsize {} {
     setup_xfail "a29k-*-udi"
     send "list\n"
     expect {
-	-re "1\[ \t\]+#include \"gdbme0.h\".*10\[ \t\]+foo \(x\+\+\);\r\n$prompt $" {
+	-re "1\[ \t\]+#include \"gdbme0.h\".*10\[ \t\]+foo .x\[+)\]+;\r\n$prompt $" {
 	    pass "show default lines around main"
 	}
 	-re ".*$prompt $" {
@@ -166,7 +166,7 @@ proc test_listsize {} {
 	
 	send "list 3\n"
 	expect {
-	    -re "2\[ \t\]+\r\n3\[ \t\]+main \(\)\r\n$prompt $" {
+	    -re "2\[ \t\]+\r\n3\[ \t\]+main \[)(\]+\r\n$prompt $" {
 		pass "list line 3 with listsize 2"
 	    }
 	    -re ".*$prompt $" {
@@ -201,7 +201,7 @@ proc test_listsize {} {
 	setup_xfail "*-*-*"
 	send "list 2\n"
 	expect {
-	    -re "1\[ \t\]+#include \"gdbme0.h\".*3\[ \t\]+main \(\)\r\n$prompt $" {
+	    -re "1\[ \t\]+#include \"gdbme0.h\".*3\[ \t\]+main \[)(\]+\r\n$prompt $" {
 		pass "list line 2 with listsize 3"
 	    }
 	    -re "1\[ \t\]+#include \"gdbme0.h\"\r\n2\[ \t\]+\r\n$prompt $" {
@@ -218,10 +218,10 @@ proc test_listsize {} {
 	setup_xfail "*-*-*"
 	send "list 3\n"
 	expect {
-	    -re "2\[ \t\]+\r\n3\[ \t\]+main \(\)\r\n4\[ \t\]+\{\r\n$prompt $" {
+	    -re "2\[ \t\]+\r\n3\[ \t\]+main \[(\]+\[)\]+\r\n4\[ \t\]+\{\r\n$prompt $" {
 		pass "list line 3 with listsize 3"
 	    }
-	    -re "2\[ \t\]+\r\n3\[ \t\]+main \(\)\r\n$prompt $" {
+	    -re "2\[ \t\]+\r\n3\[ \t\]+main \[)(\]+\r\n$prompt $" {
 		fail "list line 3 with listsize 3"
 	    }
 	    -re ".*$prompt $" {
@@ -251,7 +251,7 @@ proc test_listsize {} {
 	
 	send "list 2\n"
 	expect {
-	    -re "1\[ \t\]+#include \"gdbme0.h\".*3\[ \t\]+main \(\)\r\n$prompt $" {
+	    -re "1\[ \t\]+#include \"gdbme0.h\".*3\[ \t\]+main \[)(\]+\r\n$prompt $" {
 		pass "list line 2 with listsize 4"
 	    }
 	    -re ".*$prompt $" {
@@ -408,7 +408,7 @@ proc test_list_include_file {} {
     setup_xfail "a29k-*-udi"
     send "list gdbme0.h:1\n"
     expect {
-	-re "1\[ \t\]+/\* An include file .*5\[ \t\]+foo \(x\)\r\n$prompt $" {
+	-re "1\[ \t\]+/\[*\]+ An include file .*5\[ \t\]+foo \[(\]+x\[)\]+\r\n$prompt $" {
 	    pass "list line 1 in include file"
 	}
 	-re "No source file named gdbme0.h.\r\n$prompt $" {
@@ -462,7 +462,7 @@ proc test_list_filename_and_number {} {
     }
     send "list gdbme0.c:10\n"
     expect {
-	-re "5\[ \t\]+int x;.*14\[ \t\]+foo \(x\+\+\);\r\n$prompt $" {
+	-re "5\[ \t\]+int x;.*14\[ \t\]+foo .x\[+)\]+;\r\n$prompt $" {
 	    incr testcnt 
 	}
 	-re ".*$prompt $" { fail "list gdbme.c:10" ; return }
@@ -470,7 +470,7 @@ proc test_list_filename_and_number {} {
     }
     send "list gdbme1.c:1\n"
     expect {
-	-re "1\[ \t\]+void.*5\[ \t\]+printf \(.*\);\r\n$prompt $" {
+	-re "1\[ \t\]+void.*5\[ \t\]+printf \[(\]+.*\[)\]+;\r\n$prompt $" {
 	    incr testcnt 
 	}
 	-re ".*$prompt $" { fail "list gdbme1.c:1" ; return }
@@ -478,7 +478,7 @@ proc test_list_filename_and_number {} {
     }
     send "list gdbme1.c:10\n"
     expect {
-	-re "5\[ \t\]+printf \(.*\);.*12\[ \t\]+\}\r\n$prompt $" {
+	-re "5\[ \t\]+printf \[(\]+.*\[)\]+;.*12\[ \t\]+\}\r\n$prompt $" {
 	    incr testcnt 
 	}
 	-re ".*$prompt $" { fail "list gdbme1.c:10" ; return }
@@ -500,7 +500,7 @@ proc test_list_function {} {
     setup_xfail "a29k-*-udi"
     send "list main\n"
     expect {
-	-re "1\[ \t\]+#include .*8\[ \t\]+foo \(.*\);\r\n$prompt $" {
+	-re "1\[ \t\]+#include .*8\[ \t\]+foo \[(\]+.*\[)\]+;\r\n$prompt $" {
 	    pass "list function in source file 1"
 	}
 	-re ".*$prompt $" { fail "list main" ; return }
@@ -526,13 +526,13 @@ proc test_list_function {} {
     setup_xfail "*-*-sysv4*"
     send "list foo\n"
     expect {
-	-re "2\[ \t\]+including file.*11\[ \t\]+bar \(.*\);\r\n$prompt $" {
+	-re "2\[ \t\]+including file.*11\[ \t\]+bar \[(\]+.*\[)\]+;\r\n$prompt $" {
 	    pass "list function in include file"
 	}
-	-re "1\[ \t\]+/\* An include file.*10\[ \t\]+bar \(.*\);\r\n$prompt $" {
+	-re "1\[ \t\]+/\* An include file.*10\[ \t\]+bar \[(\]+.*\[)\]+;\r\n$prompt $" {
 	    pass "list function in include file"
 	}
-	-re ".*main \(\).*$prompt $" {
+	-re ".*main \[)(\]+.*$prompt $" {
 	    fail "list function in include file"
 	}
 	-re ".*$prompt $" { fail "list foo (in include file)" ; return }
@@ -547,21 +547,21 @@ proc test_list_forward {} {
 
     send "list gdbme0.c:10\n"
     expect {
-	-re "5\[ \t\]+int x;.*14\[ \t\]+foo \(.*\);\r\n$prompt $" { incr testcnt }
+	-re "5\[ \t\]+int x;.*14\[ \t\]+foo \[(\]+.*\[)\]+;\r\n$prompt $" { incr testcnt }
 	-re ".*$prompt $" { fail "list gdbme0.c:10" ; return }
 	timeout { fail "list gdbme0.c:10" ; return }
     }
 
     send "list\n"
     expect {
-	-re "15\[ \t\]+foo \(.*\);.*24\[ \t\]+foo \(.*\);\r\n$prompt $" { incr testcnt }
+	-re "15\[ \t\]+foo \[(\]+.*\[)\]+;.*24\[ \t\]+foo \[(\]+.*\[)\]+;\r\n$prompt $" { incr testcnt }
 	-re ".*$prompt $" { fail "list 15-24" ; return }
 	timeout { fail "list 15-24 (timeout)" ; return }
     }
 
     send "list\n"
     expect {
-	-re "25\[ \t\]+foo \(.*\);.*34\[ \t\]+\r\n$prompt $" { incr testcnt }
+	-re "25\[ \t\]+foo \[(\]+.*\[)\]+;.*34\[ \t\]+\r\n$prompt $" { incr testcnt }
 	-re ".*$prompt $" { fail "list 25-34" ; return }
 	timeout { fail "list 25-34 (timeout)" ; return }
     }
@@ -583,21 +583,21 @@ proc test_list_backwards {} {
 
     send "list gdbme0.c:30\n"
     expect {
-	-re "25\[ \t\]+foo \(.*\);.*34\[ \t\]+\r\n$prompt $" { incr testcnt }
+	-re "25\[ \t\]+foo \[(\]+.*\[)\]+;.*34\[ \t\]+\r\n$prompt $" { incr testcnt }
 	-re ".*$prompt $" { fail "list gdbme0.c:30" ; return }
 	timeout { fail "list gdbme0.c:30" ; return }
     }
 
     send "list -\n"
     expect {
-	-re "15\[ \t\]+foo \(.*\);.*24\[ \t\]+foo \(.*\);\r\n$prompt $" { incr testcnt }
+	-re "15\[ \t\]+foo \[(\]+.*\[)\]+;.*24\[ \t\]+foo \[(\]+.*\[)\]+;\r\n$prompt $" { incr testcnt }
 	-re ".*$prompt $" { fail "list 15-24" ; return }
 	timeout { fail "list 15-24 (timeout)" ; return }
     }
 
     send "list -\n"
     expect {
-	-re "5\[ \t\]+int x;.*14\[ \t\]+foo \(.*\);\r\n$prompt $" { incr testcnt }
+	-re "5\[ \t\]+int x;.*14\[ \t\]+foo \[(\]+.*\[)\]+;\r\n$prompt $" { incr testcnt }
 	-re ".*$prompt $" { fail "list 5-14" ; return }
 	timeout { fail "list 5-14 (timeout)" ; return }
     }
@@ -621,7 +621,7 @@ proc test_list_range {} {
 
     send "list gdbme0.c:2,gdbme0.c:5\n"
     expect {
-	-re "2\[ \t\]+\r\n3\[ \t\]+main \(\).*5\[ \t\]+int x;\r\n$prompt $" {
+	-re "2\[ \t\]+\r\n3\[ \t\]+main \[)(\]+.*5\[ \t\]+int x;\r\n$prompt $" {
 	    pass "list range; filename:line1,filename:line2"
 	}
 	-re ".*$prompt $" { fail "list gdbme0.c:2,gdbme0.c:5" }
@@ -630,7 +630,7 @@ proc test_list_range {} {
 
     send "list 2,5\n"
     expect {
-	-re "2\[ \t\]+\r\n3\[ \t\]+main \(\).*5\[ \t\]+int x;\r\n$prompt $" {
+	-re "2\[ \t\]+\r\n3\[ \t\]+main \[)(\]+.*5\[ \t\]+int x;\r\n$prompt $" {
 	    pass "list range; line1,line2"
 	}
 	-re ".*$prompt $" { fail "list 2,5" }
@@ -657,7 +657,7 @@ proc test_list_range {} {
 
     send "list 30,40\n"
     expect {
-	-re "30\[ \t\]+foo \(.*\);.*39\[ \t\]+\}\r\n$prompt $" {
+	-re "30\[ \t\]+foo \[(\]+.*\[)\]+;.*39\[ \t\]+\}\r\n$prompt $" {
 	    pass "list range; upper bound past EOF"
 	}
 	-re ".*$prompt $" { fail "list 30,40" }
@@ -698,7 +698,7 @@ proc test_list_filename_and_function {} {
     setup_xfail "a29k-*-udi"
     send "list gdbme0.c:main\n"
     expect {
-	-re "1\[ \t\]+#include .*8\[ \t\]+foo \(.*\);\r\n$prompt $" {
+	-re "1\[ \t\]+#include .*8\[ \t\]+foo \[(\]+.*\[)\]+;\r\n$prompt $" {
 	    incr testcnt
 	}
 	-re ".*$prompt $" { fail "list gdbme0.c:main" }
@@ -712,7 +712,7 @@ proc test_list_filename_and_function {} {
     setup_xfail "rs6000-*-aix*"
     send "list gdbme0.c:unused\n"
     expect {
-	-re "32\[ \t\]+foo \(.*\);.*39\[ \t\]+\}\r\n$prompt $" {
+	-re "32\[ \t\]+foo \[(\]+.*\[)\]+;.*39\[ \t\]+\}\r\n$prompt $" {
 	    incr testcnt
 	}
 	-re "34.*39\[ \t\]+\}\r\n$prompt $" {
@@ -733,10 +733,10 @@ proc test_list_filename_and_function {} {
     setup_xfail "a29k-*-udi"
     send "list gdbme0.h:foo\n"
     expect {
-	-re "2\[ \t\]+including file.  This.*11\[ \t\]+bar \(.*\);\r\n$prompt $" {
+	-re "2\[ \t\]+including file.  This.*11\[ \t\]+bar \[(\]+.*\[)\]+;\r\n$prompt $" {
 	    incr testcnt
 	}
-	-re "1\[ \t\]+/\* An include file.*10\[ \t\]+bar \(.*\);\r\n$prompt $" {
+	-re "1\[ \t\]+/\* An include file.*10\[ \t\]+bar \[(\]+.*\[)\]+;\r\n$prompt $" {
 	    incr testcnt
 	}
 	-re "No source file named gdbme0.h.\r\n$prompt $" {
@@ -756,7 +756,7 @@ proc test_list_filename_and_function {} {
 	-re "1\[ \t\]+void.*7\[ \t\]*\r\n$prompt $" {
 	    incr testcnt
 	}
-	-re "1\[ \t\]+void.*9\[ \t\]*unused \(\)\r\n$prompt $" {
+	-re "1\[ \t\]+void.*9\[ \t\]*unused \[)(\]+\r\n$prompt $" {
 	    incr testcnt
 	}
 	-re ".*$prompt $" { fail "list gdbme1.c:bar" }
@@ -770,7 +770,7 @@ proc test_list_filename_and_function {} {
     setup_xfail "rs6000-*-aix*"
     send "list gdbme1.c:unused\n"
     expect {
-	-re "5\[ \t\]+printf \(.*\);.*12\[ \t\]+\}\r\n$prompt $" {
+	-re "5\[ \t\]+printf \[(\]+.*\[)\]+;.*12\[ \t\]+\}\r\n$prompt $" {
 	    incr testcnt
 	}
 	-re "7.*12\[ \t\]+\}\r\n$prompt $" {
@@ -799,10 +799,10 @@ proc test_list_filename_and_function {} {
 	-re "Function \"foo\" not defined in .*gdbme0.c\r\n$prompt $" {
 	    pass "list filename:function; wrong filename rejected"
 	}
-	-re "2\[ \t\]+including file.*11\[ \t\]+bar \(.*\);\r\n$prompt $" {
+	-re "2\[ \t\]+including file.*11\[ \t\]+bar \[(\]+.*\[)\]+;\r\n$prompt $" {
 	    fail "list filename:function; wrong filename not rejected"
 	}
-	-re ".*main \(\).*$prompt $" {
+	-re ".*main \[)(\]+.*$prompt $" {
 	    fail "list filename:function; wrong filename not rejected"
 	}
 	-re ".*$prompt $" {

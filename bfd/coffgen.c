@@ -39,7 +39,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 #include "coff/internal.h"
-#include "seclet.h"
 #include "libcoff.h"
 
 static asection bfd_debug_section = { "*DEBUG*" };
@@ -360,6 +359,7 @@ DEFUN(coff_count_linenumbers,(abfd),
 /* Takes a bfd and a symbol, returns a pointer to the coff specific
    area of the symbol if there is one.  */
 
+/*ARGSUSED*/
 coff_symbol_type *
 DEFUN(coff_symbol_from,(ignore_abfd, symbol),
       bfd            *ignore_abfd AND
@@ -893,6 +893,7 @@ DEFUN(coff_write_linenumbers,(abfd),
   bfd_release (abfd, buff);
 }
 
+/*ARGSUSED*/
 alent   *
 DEFUN(coff_get_lineno,(ignore_abfd, symbol),
       bfd            *ignore_abfd AND
@@ -1285,6 +1286,7 @@ coff_bfd_make_debug_symbol (abfd, ptr, sz)
   return &new->symbol;
 }
 
+/*ARGSUSED*/
 void
 coff_get_symbol_info (abfd, symbol, ret)
      bfd *abfd;
@@ -1328,13 +1330,13 @@ coff_print_symbol (abfd, filep, symbol, how)
 	  fprintf (file,"[%3d]", combined - root);
 
 	  fprintf (file,
-		   "(sc %2d)(fl 0x%02x)(ty %3x)(sc %3d) (nx %d) 0x%08x %s",
+		   "(sc %2d)(fl 0x%02x)(ty %3x)(sc %3d) (nx %d) 0x%08lx %s",
 		   combined->u.syment.n_scnum,
 		   combined->u.syment.n_flags,
 		   combined->u.syment.n_type,
 		   combined->u.syment.n_sclass,
 		   combined->u.syment.n_numaux,
-		   combined->u.syment.n_value,
+		   (unsigned long) combined->u.syment.n_value,
 		   symbol->name);
 
 	  for (aux = 0; aux < combined->u.syment.n_numaux; aux++) 
@@ -1355,7 +1357,7 @@ coff_print_symbol (abfd, filep, symbol, how)
 		  break;
 		default:
 
-		  fprintf (file, "AUX lnno %d size 0x%x tagndx %d",
+		  fprintf (file, "AUX lnno %d size 0x%x tagndx %ld",
 			   auxp->u.auxent.x_sym.x_misc.x_lnsz.x_lnno,
 			   auxp->u.auxent.x_sym.x_misc.x_lnsz.x_size,
 			   tagndx);
@@ -1369,9 +1371,10 @@ coff_print_symbol (abfd, filep, symbol, how)
 	      l++;
 	      while (l->line_number) 
 		{
-		  fprintf (file, "\n%4d : 0x%x",
-			  l->line_number,
-			  l->u.offset + symbol->section->vma);
+		  fprintf (file, "\n%4d : 0x%lx",
+			   l->line_number,
+			   ((unsigned long)
+			    (l->u.offset + symbol->section->vma)));
 		  l++;
 		}
 	    }
@@ -1392,6 +1395,7 @@ coff_print_symbol (abfd, filep, symbol, how)
    and return the name of the source file and the line nearest to the
    wanted location.  */
 
+/*ARGSUSED*/
 boolean
 DEFUN(coff_find_nearest_line,(abfd,
 			      section,

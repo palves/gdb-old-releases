@@ -363,7 +363,7 @@ mod_path (dirname, which_path)
 	if (stat (name, &st) < 0)
 	  {
 	    int save_errno = errno;
-	    fprintf (stderr, "Warning: ");
+	    fprintf_unfiltered (gdb_stderr, "Warning: ");
 	    print_sys_errmsg (name, save_errno);
 	  }
 	else if ((st.st_mode & S_IFMT) != S_IFDIR)
@@ -804,7 +804,7 @@ identify_source_line (s, line, mid_statement, pc)
   if (line > s->nlines)
     /* Don't index off the end of the line_charpos array.  */
     return 0;
-  printf ("\032\032%s:%d:%d:%s:0x%lx\n", s->fullname,
+  printf_unfiltered ("\032\032%s:%d:%d:%s:0x%lx\n", s->fullname,
 	  line, s->line_charpos[line - 1],
 	  mid_statement ? "middle" : "beg",
 	  (unsigned long) pc);
@@ -1032,7 +1032,7 @@ list_command (arg, from_tty)
 	{
 	  printf_filtered ("%s is in ",
 			   local_hex_string((unsigned long) sal.pc));
-	  fputs_filtered (SYMBOL_SOURCE_NAME (sym), stdout);
+	  fputs_filtered (SYMBOL_SOURCE_NAME (sym), gdb_stdout);
 	  printf_filtered (" (%s:%d).\n", sal.symtab->filename, sal.line);
 	}
       else
@@ -1118,14 +1118,14 @@ line_info (arg, from_tty)
 		 address.  */
 	      printf_filtered (" for address ");
 	      wrap_here ("  ");
-	      print_address (sal.pc, stdout);
+	      print_address (sal.pc, gdb_stdout);
 	    }
 	  else
 	    printf_filtered (".");
 	  printf_filtered ("\n");
 	}
       else if (sal.line > 0
-	  && find_line_pc_range (sal.symtab, sal.line, &start_pc, &end_pc))
+	       && find_line_pc_range (sal, &start_pc, &end_pc))
 	{
 	  if (start_pc == end_pc)
 	    {
@@ -1133,7 +1133,7 @@ line_info (arg, from_tty)
 			       sal.line, sal.symtab->filename);
 	      wrap_here ("  ");
 	      printf_filtered (" is at address ");
-	      print_address (start_pc, stdout);
+	      print_address (start_pc, gdb_stdout);
 	      wrap_here ("  ");
 	      printf_filtered (" but contains no code.\n");
 	    }
@@ -1143,10 +1143,10 @@ line_info (arg, from_tty)
 			       sal.line, sal.symtab->filename);
 	      wrap_here ("  ");
 	      printf_filtered (" starts at address ");
-	      print_address (start_pc, stdout);
+	      print_address (start_pc, gdb_stdout);
 	      wrap_here ("  ");
 	      printf_filtered (" and ends at ");
-	      print_address (end_pc, stdout);
+	      print_address (end_pc, gdb_stdout);
 	      printf_filtered (".\n");
 	    }
 

@@ -116,7 +116,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 					we can extend the protocol and GDB
 					can tell whether the stub it is
 					talking to uses the old or the new.
-*/
+	search		tAA:PP,MM	Search backword starting at address
+					AA for a match with pattern PP and
+					mask MM.  PP and MM are 4 bytes.
+					Not supported by all stubs.  */
 
 #include "defs.h"
 #include <string.h>
@@ -164,7 +167,7 @@ static void
 remote_fetch_registers PARAMS ((int regno));
 
 static void
-remote_resume PARAMS ((int pid, int step, int siggnal));
+remote_resume PARAMS ((int pid, int step, enum target_signal siggnal));
 
 static int
 remote_start_remote PARAMS ((char *dummy));
@@ -190,8 +193,7 @@ remote_send PARAMS ((char *buf));
 static int
 readchar PARAMS ((void));
 
-static int
-remote_wait PARAMS ((int pid, WAITTYPE *status));
+static int remote_wait PARAMS ((int pid, struct target_waitstatus *status));
 
 static int
 tohex PARAMS ((int nib));
@@ -213,10 +215,6 @@ interrupt_query PARAMS ((void));
 
 extern struct target_ops remote_ops;	/* Forward decl */
 
-extern int baud_rate;
-
-extern int remote_debug;
-
 /* This was 5 seconds, which is a long time to sit and wait.
    Unless this is going though some terminal server or multiplexer or
    other form of hairy serial connection, I would think 2 seconds would
@@ -232,7 +230,12 @@ int icache;
    starts.  */
 serial_t remote_desc = NULL;
 
-#define	PBUFSIZ	1024
+/* Having this larger than 400 causes us to be incompatible with m68k-stub.c
+   and i386-stub.c.  Normally, no one would notice because it only matters
+   for writing large chunks of memory (e.g. in downloads).  Also, this needs
+   to be more than 400 if required to hold the registers (see below, where
+   we round it up based on REGISTER_BYTES).  */
+#define	PBUFSIZ	400
 
 /* Maximum number of bytes to read/write at once.  The value here
    is chosen to fill up a packet (the headers account for the 32).  */
@@ -380,7 +383,8 @@ tohex (nib)
 
 static void
 remote_resume (pid, step, siggnal)
-     int pid, step, siggnal;
+     int pid, step;
+     enum target_signal siggnal;
 {
   char buf[PBUFSIZ];
 
@@ -388,13 +392,9 @@ remote_resume (pid, step, siggnal)
     {
       char *name;
       target_terminal_ours_for_output ();
-      printf_filtered ("Can't send signals to a remote system.  ");
-      name = strsigno (siggnal);
-      if (name)
-	printf_filtered (name);
-      else
-	printf_filtered ("Signal %d", siggnal);
-      printf_filtered (" not sent.\n");
+      printf_filtered
+	("Can't send signals to a remote system.  %s not sent.\n",
+	 target_signal_to_name (siggnal));
       target_terminal_inferior ();
     }
 
@@ -416,7 +416,7 @@ remote_interrupt (signo)
   signal (signo, remote_interrupt_twice);
   
   if (remote_debug)
-    printf ("remote_interrupt called\n");
+    printf_unfiltered ("remote_interrupt called\n");
 
   SERIAL_WRITE (remote_desc, "\003", 1); /* Send a ^C */
 }
@@ -460,11 +460,12 @@ Give up (and stop debugging it)? "))
 static int
 remote_wait (pid, status)
      int pid;
-     WAITTYPE *status;
+     struct target_waitstatus *status;
 {
   unsigned char buf[PBUFSIZ];
 
-  WSETEXIT ((*status), 0);
+  status->kind = TARGET_WAITKIND_EXITED;
+  status->value.integer = 0;
 
   while (1)
     {
@@ -564,12 +565,6 @@ remote_wait (pid, status)
 		 stuff.  (Just what does "text" as seen by the stub
 		 mean, anyway?).  */
 
-	      /* FIXME: Why don't the various symfile_offsets routines
-		 in the sym_fns vectors set this?
-		 (no good reason -kingdon).  */
-	      if (symfile_objfile->num_sections == 0)
-		symfile_objfile->num_sections = SECT_OFF_MAX;
-
 	      offs = ((struct section_offsets *)
 		      alloca (sizeof (struct section_offsets)
 			      + (symfile_objfile->num_sections
@@ -619,7 +614,8 @@ remote_wait (pid, status)
       else if (buf[0] == 'W')
 	{
 	  /* The remote process exited.  */
-	  WSETEXIT (*status, (fromhex (buf[1]) << 4) + fromhex (buf[2]));
+	  status->kind = TARGET_WAITKIND_EXITED;
+	  status->value.integer = (fromhex (buf[1]) << 4) + fromhex (buf[2]);
 	  return 0;
 	}
       else if (buf[0] == 'S')
@@ -628,7 +624,9 @@ remote_wait (pid, status)
 	warning ("Invalid remote reply: %s", buf);
     }
 
-  WSETSTOP ((*status), (((fromhex (buf[1])) << 4) + (fromhex (buf[2]))));
+  status->kind = TARGET_WAITKIND_STOPPED;
+  status->value.sig = (enum target_signal)
+    (((fromhex (buf[1])) << 4) + (fromhex (buf[2])));
 
   return 0;
 }
@@ -661,7 +659,7 @@ remote_fetch_registers (regno)
 	 && (buf[0] < 'a' || buf[0] > 'f'))
     {
       if (remote_debug)
-	printf ("Bad register packet; fetching a new packet\n");
+	printf_unfiltered ("Bad register packet; fetching a new packet\n");
       getpkt (buf, 0);
     }
 
@@ -802,9 +800,6 @@ remote_write_bytes (memaddr, myaddr, len)
   int i;
   char *p;
 
-  if (len > PBUFSIZ / 2 - 20)
-    abort ();
-
   sprintf (buf, "M%x,%x:", memaddr, len);
 
   /* We send target system values byte by byte, in increasing byte addresses,
@@ -925,6 +920,80 @@ remote_xfer_memory(memaddr, myaddr, len, should_write, target)
   return total_xferred;
 }
 
+#if 0
+/* Enable after 4.12.  */
+
+void
+remote_search (len, data, mask, startaddr, increment, lorange, hirange
+	       addr_found, data_found)
+     int len;
+     char *data;
+     char *mask;
+     CORE_ADDR startaddr;
+     int increment;
+     CORE_ADDR lorange;
+     CORE_ADDR hirange;
+     CORE_ADDR *addr_found;
+     char *data_found;
+{
+  if (increment == -4 && len == 4)
+    {
+      long mask_long, data_long;
+      long data_found_long;
+      CORE_ADDR addr_we_found;
+      char buf[PBUFSIZ];
+      long returned_long[2];
+      char *p;
+
+      mask_long = extract_unsigned_integer (mask, len);
+      data_long = extract_unsigned_integer (data, len);
+      sprintf (buf, "t%x:%x,%x", startaddr, data_long, mask_long);
+      putpkt (buf);
+      getpkt (buf, 0);
+      if (buf[0] == '\0')
+	{
+	  /* The stub doesn't support the 't' request.  We might want to
+	     remember this fact, but on the other hand the stub could be
+	     switched on us.  Maybe we should remember it only until
+	     the next "target remote".  */
+	  generic_search (len, data, mask, startaddr, increment, lorange,
+			  hirange, addr_found, data_found);
+	  return;
+	}
+
+      if (buf[0] == 'E')
+	/* There is no correspondance between what the remote protocol uses
+	   for errors and errno codes.  We would like a cleaner way of
+	   representing errors (big enough to include errno codes, bfd_error
+	   codes, and others).  But for now just use EIO.  */
+	memory_error (EIO, startaddr);
+      p = buf;
+      addr_we_found = 0;
+      while (*p != '\0' && *p != ',')
+	addr_we_found = (addr_we_found << 4) + fromhex (*p++);
+      if (*p == '\0')
+	error ("Protocol error: short return for search");
+
+      data_found_long = 0;
+      while (*p != '\0' && *p != ',')
+	data_found_long = (data_found_long << 4) + fromhex (*p++);
+      /* Ignore anything after this comma, for future extensions.  */
+
+      if (addr_we_found < lorange || addr_we_found >= hirange)
+	{
+	  *addr_found = 0;
+	  return;
+	}
+
+      *addr_found = addr_we_found;
+      *data_found = store_unsigned_integer (data_we_found, len);
+      return;
+    }
+  generic_search (len, data, mask, startaddr, increment, lorange,
+		  hirange, addr_found, data_found);
+}
+#endif /* 0 */
+
 static void
 remote_files_info (ignore)
      struct target_ops *ignore;
@@ -1005,7 +1074,7 @@ putpkt (buf)
       if (remote_debug)
 	{
 	  *p = '\0';
-	  printf ("Sending packet: %s...", buf2);  fflush(stdout);
+	  printf_unfiltered ("Sending packet: %s...", buf2);  gdb_flush(gdb_stdout);
 	}
       if (SERIAL_WRITE (remote_desc, buf2, p - buf2))
 	perror_with_name ("putpkt: write failed");
@@ -1019,7 +1088,7 @@ putpkt (buf)
 	    {
 	    case '+':
 	      if (remote_debug)
-		printf("Ack\n");
+		printf_unfiltered("Ack\n");
 	      return;
 	    case SERIAL_TIMEOUT:
 	      break;		/* Retransmit buffer */
@@ -1029,17 +1098,24 @@ putpkt (buf)
 	      error ("putpkt: EOF while trying to read ACK");
 	    default:
 	      if (remote_debug)
-		printf ("%02X %c ", ch&0xFF, ch);
+		printf_unfiltered ("%02X %c ", ch&0xFF, ch);
 	      continue;
 	    }
 	  break;		/* Here to retransmit */
 	}
 
+#if 0
+      /* This is wrong.  If doing a long backtrace, the user should be
+	 able to get out next time we call QUIT, without anything as violent
+	 as interrupt_query.  If we want to provide a way out of here
+	 without getting to the next QUIT, it should be based on hitting
+	 ^C twice as in remote_wait.  */
       if (quit_flag)
 	{
 	  quit_flag = 0;
 	  interrupt_query ();
 	}
+#endif
     }
 }
 
@@ -1062,11 +1138,18 @@ getpkt (buf, forever)
 
   while (1)
     {
+#if 0
+      /* This is wrong.  If doing a long backtrace, the user should be
+	 able to get out time next we call QUIT, without anything as violent
+	 as interrupt_query.  If we want to provide a way out of here
+	 without getting to the next QUIT, it should be based on hitting
+	 ^C twice as in remote_wait.  */
       if (quit_flag)
 	{
 	  quit_flag = 0;
 	  interrupt_query ();
 	}
+#endif
 
       /* This can loop forever if the remote side sends us characters
 	 continuously, but if it pauses, we'll get a zero from readchar
@@ -1141,7 +1224,7 @@ whole:
 	}
       else
 	{
-	  printf ("Ignoring packet error, continuing...\n");
+	  printf_unfiltered ("Ignoring packet error, continuing...\n");
 	  break;
 	}
     }
@@ -1151,7 +1234,7 @@ out:
   SERIAL_WRITE (remote_desc, "+", 1);
 
   if (remote_debug)
-    fprintf (stderr,"Packet received: %s\n", buf);
+    fprintf_unfiltered (gdb_stderr,"Packet received: %s\n", buf);
 }
 
 static void
@@ -1263,10 +1346,12 @@ Specify the serial device it is connected to (e.g. /dev/ttya).",  /* to_doc */
   NULL,				/* sections_end */
   OPS_MAGIC			/* to_magic */
 };
+#endif /* Use remote.  */
 
 void
 _initialize_remote ()
 {
+#if !defined(DONT_USE_REMOTE)
   add_target (&remote_ops);
-}
 #endif
+}

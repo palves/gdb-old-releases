@@ -1,3 +1,33 @@
+Sat Dec 11 16:39:30 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* iface.c (sim_store_register): Get regval the right way up.
+	* writecode.c (info_args): Add lda.
+
+Tue Oct 26 13:01:46 1993  Doug Evans  (dje@canuck.cygnus.com)
+
+	* Makefile.in (INCDIR): Fix definition.
+	(CSEARCH): Add -I$(srcdir)/../../gdb
+	(comped1.o, comped3.o, compedb3.o, comped2.o): Use CSEARCH, not INCDIR.
+	* iface.c: Replace #include "../include/wait.h" with "remote-sim.h".
+	(sim_set_pc): int result, use SIM_ADDR for type of arg `addr'.
+	(sim_store_register): int result, pass value by reference.
+	(sim_fetch_register): Use unsigned char * for arg `buf'.
+	(sim_write): int result, use SIM_ADDR for `where' arg,
+	use unsigned char * for `what' arg.
+	(sim_read): Ditto.
+	(sim_resume): int result.
+	(sim_stop_reason): Renamed from sim_stop_signal, int result,
+	new arg `reason'.
+	(sim_info): int result, merge sim_info_print into here.
+	(sim_info_print): Deleted.
+	* run.c: #include <stdio.h>
+	(main): Update call to sim_info.
+	* sim.h: Remove various prototypes defined in remote-sim.h.
+
+Sat Oct 23 15:16:45 1993  Doug Evans  (dje@canuck.cygnus.com)
+
+	* iface.c (sim_stop_signal): Result is now enum sim_stop.
+
 Thu Oct  7 19:01:07 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
 
 	* writecode.c (doset, info_docode): Understand set and res insns.

@@ -38,7 +38,7 @@ set bug_id 0
 set binfile "gdbme"
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    error "$objdir/$subdir/$binfile does not exist."
+    perror "$objdir/$subdir/$binfile does not exist."
     return 0
 }
 
@@ -75,10 +75,10 @@ expect {
     -re "Breakpoint.*at.* file .*, line.*$prompt $"\
 	{ send "run 5\n"
 	    expect {
-		-re "Starting program.*Breakpoint \[0-9\]+,.*main.*if \(argc != 2\).*$prompt $"\
+		-re "Starting program.*Breakpoint \[0-9\]+,.*main.*if .argc != 2.*$prompt $"\
 		    { send "info terminal\n"
 			expect {
-			    -re "Inferior's terminal status \(currently saved by GDB\):.*\gdb\) $"\
+			    -re "Inferior's terminal status .currently saved by GDB.:.*$prompt $"\
 				{ pass "info terminal at breakpoint" }
 			    -re ".*$prompt $"	{ fail "info terminal at breakpoint" }
 			    timeout			{ fail "(timeout) info terminal at breakpoint" }

@@ -25,6 +25,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "wait.h"
 #include "gdbcore.h"
 #include "terminal.h"
+#include "thread.h"
 
 #include <signal.h>
 
@@ -59,8 +60,6 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
   char *shell_file;
   static char default_shell_file[] = SHELL_FILE;
   int len;
-  int pending_execs;
-  int terminal_initted;
   /* Set debug_fork then attach to the child while it sleeps, to debug. */
   static int debug_fork = 0;
   /* This is set to the result of setpgrp, which if vforked, will be visible
@@ -76,8 +75,8 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
   /* The user might want tilde-expansion, and in general probably wants
      the program to behave the same way as if run from
      his/her favorite shell.  So we let the shell run it for us.
-     FIXME, this should probably search the local environment (as
-     modified by the setenv command), not the env gdb inherited.  */
+     FIXME-maybe, we might want a "set shell" command so the user can change
+     the shell from within GDB.  */
   shell_file = getenv ("SHELL");
   if (shell_file == NULL)
     shell_file = default_shell_file;
@@ -171,8 +170,8 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
      output prior to doing a fork, to avoid the possibility of both the
      parent and child flushing the same data after the fork. */
 
-  fflush (stdout);
-  fflush (stderr);
+  gdb_flush (gdb_stdout);
+  gdb_flush (gdb_stderr);
 
 #if defined(USG) && !defined(HAVE_VFORK)
   pid = fork ();
@@ -229,9 +228,9 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
       environ = env;
       execlp (shell_file, shell_file, "-c", shell_command, (char *)0);
 
-      fprintf (stderr, "Cannot exec %s: %s.\n", shell_file,
+      fprintf_unfiltered (gdb_stderr, "Cannot exec %s: %s.\n", shell_file,
 	       safe_strerror (errno));
-      fflush (stderr);
+      gdb_flush (gdb_stderr);
       _exit (0177);
     }
 
@@ -240,27 +239,34 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
 
   init_thread_list();
 
+  inferior_pid = pid;		/* Needed for wait_for_inferior stuff below */
+
   /* Now that we have a child process, make it our target, and
      initialize anything target-vector-specific that needs initializing.  */
   (*init_trace_fun)(pid);
+
+  /* We are now in the child process of interest, having exec'd the
+     correct program, and are poised at the first instruction of the
+     new program.  */
+#ifdef SOLIB_CREATE_INFERIOR_HOOK
+  SOLIB_CREATE_INFERIOR_HOOK (pid);
+#endif
+}
+
+/* Accept NTRAPS traps from the inferior.  */
+
+void
+startup_inferior (ntraps)
+     int ntraps;
+{
+  int pending_execs = ntraps;
+  int terminal_initted;
 
   /* The process was started by the fork that created it,
      but it will have stopped one instruction after execing the shell.
      Here we must get it up to actual execution of the real program.  */
 
-  inferior_pid = pid;		/* Needed for wait_for_inferior stuff below */
-
   clear_proceed_status ();
-
-  /* We will get a trace trap after one instruction.
-     Continue it automatically.  Eventually (after shell does an exec)
-     it will get another trace trap.  Then insert breakpoints and continue.  */
-
-#ifdef START_INFERIOR_TRAPS_EXPECTED
-  pending_execs = START_INFERIOR_TRAPS_EXPECTED;
-#else
-  pending_execs = 2;
-#endif
 
   init_wait_for_inferior ();
 
@@ -270,7 +276,7 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
     {
       stop_soon_quietly = 1;	/* Make wait_for_inferior be quiet */
       wait_for_inferior ();
-      if (stop_signal != SIGTRAP)
+      if (stop_signal != TARGET_SIGNAL_TRAP)
 	{
 	  /* Let shell child handle its own signals in its own way */
 	  /* FIXME, what if child has exit()ed?  Must exit loop somehow */
@@ -296,15 +302,8 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
 	    }
 	  if (0 == --pending_execs)
 	    break;
-	  resume (0, 0);		/* Just make it go on */
+	  resume (0, TARGET_SIGNAL_0);		/* Just make it go on */
 	}
     }
   stop_soon_quietly = 0;
-
-  /* We are now in the child process of interest, having exec'd the
-     correct program, and are poised at the first instruction of the
-     new program.  */
-#ifdef SOLIB_CREATE_INFERIOR_HOOK
-  SOLIB_CREATE_INFERIOR_HOOK (pid);
-#endif
 }

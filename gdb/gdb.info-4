@@ -6,8 +6,8 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.09, August 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.11.
+   This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.12.
 
    Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
@@ -24,6 +24,419 @@ of a permission notice identical to this one.
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
 versions.
+
+
+File: gdb.info,  Node: Print Settings,  Next: Value History,  Prev: Auto Display,  Up: Data
+
+Print settings
+==============
+
+   GDB provides the following ways to control how arrays, structures,
+and symbols are printed.
+
+These settings are useful for debugging programs in any language:
+
+`set print address'
+`set print address on'
+     GDB prints memory addresses showing the location of stack traces,
+     structure values, pointer values, breakpoints, and so forth, even
+     when it also displays the contents of those addresses.  The default
+     is `on'.  For example, this is what a stack frame display looks
+     like, with `set print address on':
+
+          (gdb) f
+          #0  set_quotes (lq=0x34c78 "<<", rq=0x34c88 ">>")
+              at input.c:530
+          530         if (lquote != def_lquote)
+
+`set print address off'
+     Do not print addresses when displaying their contents.  For
+     example, this is the same stack frame displayed with `set print
+     address off':
+
+          (gdb) set print addr off
+          (gdb) f
+          #0  set_quotes (lq="<<", rq=">>") at input.c:530
+          530         if (lquote != def_lquote)
+
+     You can use `set print address off' to eliminate all machine
+     dependent displays from the GDB interface.  For example, with
+     `print address off', you should get the same text for backtraces on
+     all machines--whether or not they involve pointer arguments.
+
+`show print address'
+     Show whether or not addresses are to be printed.
+
+   When GDB prints a symbolic address, it normally prints the closest
+earlier symbol plus an offset.  If that symbol does not uniquely
+identify the address (for example, it is a name whose scope is a single
+source file), you may need to disambiguate.  One way to do this is with
+`info line', for example `info line *0x4537'.  Alternately, you can set
+GDB to print the source file and line number when it prints a symbolic
+address:
+
+`set print symbol-filename on'
+     Tell GDB to print the source file name and line number of a symbol
+     in the symbolic form of an address.
+
+`set print symbol-filename off'
+     Do not print source file name and line number of a symbol.  This
+     is the default.
+
+`show print symbol-filename'
+     Show whether or not GDB will print the source file name and line
+     number of a symbol in the symbolic form of an address.
+
+   Another situation where it is helpful to show symbol filenames and
+line numbers is when disassembling code; GDB shows you the line number
+and source file that corresponds to each instruction.
+
+   Also, you may wish to see the symbolic form only if the address being
+printed is reasonably close to the closest earlier symbol:
+
+`set print max-symbolic-offset MAX-OFFSET'
+     Tell GDB to only display the symbolic form of an address if the
+     offset between the closest earlier symbol and the address is less
+     than MAX-OFFSET.  The default is 0, which means to always print the
+     symbolic form of an address, if any symbol precedes it.
+
+`show print max-symbolic-offset'
+     Ask how large the maximum offset is that GDB prints in a symbolic
+     address.
+
+   Sometimes GDB can tell you more about an address if it does an
+extensive search of its symbol information.  The default is to provide
+a quick symbolic display that is usually correct, but which may not give
+the most useful answer when working in some object file formats.  If
+you are not getting the information you need, try:
+
+`set print fast-symbolic-addr off'
+     Search all symbol information when displaying an address
+     symbolically.  This setting may display more information about
+     static variables, for example, but also takes longer.
+
+`set print fast-symbolic-addr'
+`set print fast-symbolic-addr on'
+     Search only the "minimal symbol information" when displaying
+     symbolic information about an address.  This is the default.
+
+`show print fast-symbolic-addr'
+     Ask whether GDB is using a fast or slow method of printing
+     symbolic address.
+
+   If you have a pointer and you are not sure where it points, try `set
+print symbol-filename on' and `set print fast-symbolic-addr off'.  Then
+you can determine the name and source file location of the variable
+where it points, using `p/a POINTER'.  This interprets the address in
+symbolic form.  For example, here GDB shows that a variable `ptt'
+points at another variable `t', defined in `hi2.c':
+
+     (gdb) set print fast-symbolic-addr off
+     (gdb) set print symbol-filename on
+     (gdb) p/a ptt
+     $4 = 0xe008 <t in hi2.c>
+
+     *Warning:* For pointers that point to a local variable, `p/a' does
+     not show the symbol name and filename of the referent, even with
+     the appropriate `set print' options turned on.
+
+   Other settings control how different kinds of objects are printed:
+
+`set print array'
+`set print array on'
+     Pretty-print arrays.  This format is more convenient to read, but
+     uses more space.  The default is off.
+
+`set print array off'
+     Return to compressed format for arrays.
+
+`show print array'
+     Show whether compressed or pretty format is selected for displaying
+     arrays.
+
+`set print elements NUMBER-OF-ELEMENTS'
+     If GDB is printing a large array, it stops printing after it has
+     printed the number of elements set by the `set print elements'
+     command.  This limit also applies to the display of strings.
+     Setting the number of elements to zero means that the printing is
+     unlimited.
+
+`show print elements'
+     Display the number of elements of a large array that GDB prints
+     before losing patience.
+
+`set print pretty on'
+     Cause GDB to print structures in an indented format with one
+     member per line, like this:
+
+          $1 = {
+            next = 0x0,
+            flags = {
+              sweet = 1,
+              sour = 1
+            },
+            meat = 0x54 "Pork"
+          }
+
+`set print pretty off'
+     Cause GDB to print structures in a compact format, like this:
+
+          $1 = {next = 0x0, flags = {sweet = 1, sour = 1}, \
+          meat = 0x54 "Pork"}
+
+     This is the default format.
+
+`show print pretty'
+     Show which format GDB is using to print structures.
+
+`set print sevenbit-strings on'
+     Print using only seven-bit characters; if this option is set, GDB
+     displays any eight-bit characters (in strings or character values)
+     using the notation `\'NNN.  This setting is best if you are
+     working in English (ASCII) and you use the high-order bit of
+     characters as a marker or "meta" bit.
+
+`set print sevenbit-strings off'
+     Print full eight-bit characters.  This allows the use of more
+     international character sets, and is the default.
+
+`show print sevenbit-strings'
+     Show whether or not GDB is printing only seven-bit characters.
+
+`set print union on'
+     Tell GDB to print unions which are contained in structures.  This
+     is the default setting.
+
+`set print union off'
+     Tell GDB not to print unions which are contained in structures.
+
+`show print union'
+     Ask GDB whether or not it will print unions which are contained in
+     structures.
+
+     For example, given the declarations
+
+          typedef enum {Tree, Bug} Species;
+          typedef enum {Big_tree, Acorn, Seedling} Tree_forms;
+          typedef enum {Caterpillar, Cocoon, Butterfly}
+                        Bug_forms;
+          
+          struct thing {
+            Species it;
+            union {
+              Tree_forms tree;
+              Bug_forms bug;
+            } form;
+          };
+          
+          struct thing foo = {Tree, {Acorn}};
+
+     with `set print union on' in effect `p foo' would print
+
+          $1 = {it = Tree, form = {tree = Acorn, bug = Cocoon}}
+
+     and with `set print union off' in effect it would print
+
+          $1 = {it = Tree, form = {...}}
+
+These settings are of interest when debugging C++ programs:
+
+`set print demangle'
+`set print demangle on'
+     Print C++ names in their source form rather than in the encoded
+     ("mangled") form passed to the assembler and linker for type-safe
+     linkage.  The default is `on'.
+
+`show print demangle'
+     Show whether C++ names are printed in mangled or demangled form.
+
+`set print asm-demangle'
+`set print asm-demangle on'
+     Print C++ names in their source form rather than their mangled
+     form, even in assembler code printouts such as instruction
+     disassemblies.  The default is off.
+
+`show print asm-demangle'
+     Show whether C++ names in assembly listings are printed in mangled
+     or demangled form.
+
+`set demangle-style STYLE'
+     Choose among several encoding schemes used by different compilers
+     to represent C++ names.  The choices for STYLE are currently:
+
+    `auto'
+          Allow GDB to choose a decoding style by inspecting your
+          program.
+
+    `gnu'
+          Decode based on the GNU C++ compiler (`g++') encoding
+          algorithm.
+
+    `lucid'
+          Decode based on the Lucid C++ compiler (`lcc') encoding
+          algorithm.
+
+    `arm'
+          Decode using the algorithm in the `C++ Annotated Reference
+          Manual'.  *Warning:* this setting alone is not sufficient to
+          allow debugging `cfront'-generated executables.  GDB would
+          require further enhancement to permit that.
+
+`show demangle-style'
+     Display the encoding style currently in use for decoding C++
+     symbols.
+
+`set print object'
+`set print object on'
+     When displaying a pointer to an object, identify the *actual*
+     (derived) type of the object rather than the *declared* type, using
+     the virtual function table.
+
+`set print object off'
+     Display only the declared type of objects, without reference to the
+     virtual function table.  This is the default setting.
+
+`show print object'
+     Show whether actual, or declared, object types are displayed.
+
+`set print vtbl'
+`set print vtbl on'
+     Pretty print C++ virtual function tables.  The default is off.
+
+`set print vtbl off'
+     Do not pretty print C++ virtual function tables.
+
+`show print vtbl'
+     Show whether C++ virtual function tables are pretty printed, or
+     not.
+
+
+File: gdb.info,  Node: Value History,  Next: Convenience Vars,  Prev: Print Settings,  Up: Data
+
+Value history
+=============
+
+   Values printed by the `print' command are saved in the GDB "value
+history" so that you can refer to them in other expressions.  Values are
+kept until the symbol table is re-read or discarded (for example with
+the `file' or `symbol-file' commands).  When the symbol table changes,
+the value history is discarded, since the values may contain pointers
+back to the types defined in the symbol table.
+
+   The values printed are given "history numbers" by which you can
+refer to them.  These are successive integers starting with one.
+`print' shows you the history number assigned to a value by printing
+`$NUM = ' before the value; here NUM is the history number.
+
+   To refer to any previous value, use `$' followed by the value's
+history number.  The way `print' labels its output is designed to
+remind you of this.  Just `$' refers to the most recent value in the
+history, and `$$' refers to the value before that.  `$$N' refers to the
+Nth value from the end; `$$2' is the value just prior to `$$', `$$1' is
+equivalent to `$$', and `$$0' is equivalent to `$'.
+
+   For example, suppose you have just printed a pointer to a structure
+and want to see the contents of the structure.  It suffices to type
+
+     p *$
+
+   If you have a chain of structures where the component `next' points
+to the next one, you can print the contents of the next one with this:
+
+     p *$.next
+
+You can print successive links in the chain by repeating this
+command--which you can do by just typing RET.
+
+   Note that the history records values, not expressions.  If the value
+of `x' is 4 and you type these commands:
+
+     print x
+     set x=5
+
+then the value recorded in the value history by the `print' command
+remains 4 even though the value of `x' has changed.
+
+`show values'
+     Print the last ten values in the value history, with their item
+     numbers.  This is like `p $$9' repeated ten times, except that
+     `show values' does not change the history.
+
+`show values N'
+     Print ten history values centered on history item number N.
+
+`show values +'
+     Print ten history values just after the values last printed.  If
+     no more values are available, produces no display.
+
+   Pressing RET to repeat `show values N' has exactly the same effect
+as `show values +'.
+
+
+File: gdb.info,  Node: Convenience Vars,  Next: Registers,  Prev: Value History,  Up: Data
+
+Convenience variables
+=====================
+
+   GDB provides "convenience variables" that you can use within GDB to
+hold on to a value and refer to it later.  These variables exist
+entirely within GDB; they are not part of your program, and setting a
+convenience variable has no direct effect on further execution of your
+program.  That is why you can use them freely.
+
+   Convenience variables are prefixed with `$'.  Any name preceded by
+`$' can be used for a convenience variable, unless it is one of the
+predefined machine-specific register names (*note Registers::.).
+(Value history references, in contrast, are *numbers* preceded by `$'.
+*Note Value history: Value History.)
+
+   You can save a value in a convenience variable with an assignment
+expression, just as you would set a variable in your program.  For
+example:
+
+     set $foo = *object_ptr
+
+would save in `$foo' the value contained in the object pointed to by
+`object_ptr'.
+
+   Using a convenience variable for the first time creates it, but its
+value is `void' until you assign a new value.  You can alter the value
+with another assignment at any time.
+
+   Convenience variables have no fixed types.  You can assign a
+convenience variable any type of value, including structures and
+arrays, even if that variable already has a value of a different type.
+The convenience variable, when used as an expression, has the type of
+its current value.
+
+`show convenience'
+     Print a list of convenience variables used so far, and their
+     values.  Abbreviated `show con'.
+
+   One of the ways to use a convenience variable is as a counter to be
+incremented or a pointer to be advanced.  For example, to print a field
+from successive elements of an array of structures:
+
+     set $i = 0
+     print bar[$i++]->contents
+     ... repeat that command by typing RET.
+
+   Some convenience variables are created automatically by GDB and given
+values likely to be useful.
+
+`$_'
+     The variable `$_' is automatically set by the `x' command to the
+     last address examined (*note Examining memory: Memory.).  Other
+     commands which provide a default address for `x' to examine also
+     set `$_' to that address; these commands include `info line' and
+     `info breakpoint'.  The type of `$_' is `void *' except when set
+     by the `x' command, in which case it is a pointer to the type of
+     `$__'.
+
+`$__'
+     The variable `$__' is automatically set by the `x' command to the
+     value found in the last address examined.  Its type is chosen to
+     match the format in which the data was printed.
 
 
 File: gdb.info,  Node: Registers,  Next: Floating Point Hardware,  Prev: Convenience Vars,  Up: Data
@@ -103,7 +516,7 @@ frame (with `frame 0').
    However, GDB must deduce where registers are saved, from the machine
 code generated by your compiler.  If some registers are not saved, or if
 GDB is unable to locate the saved registers, the selected stack frame
-will make no difference.
+makes no difference.
 
 `set rstack_high_address ADDRESS'
      On AMD 29000 family processors, registers are saved in a separate
@@ -113,7 +526,7 @@ will make no difference.
      do not exist.  If necessary, you can get around this problem by
      specifying the ending address of the register stack with the `set
      rstack_high_address' command.  The argument should be an address,
-     which you will probably want to precede with `0x' to specify in
+     which you probably want to precede with `0x' to specify in
      hexadecimal.
 
 `show rstack_high_address'
@@ -259,7 +672,7 @@ File: gdb.info,  Node: Show,  Next: Checks,  Prev: Setting,  Up: Languages
 Displaying the language
 =======================
 
-   The following commands will help you find out which language is the
+   The following commands help you find out which language is the
 working language, and also what language source files were written in.
 
 `show language'
@@ -270,8 +683,8 @@ working language, and also what language source files were written in.
 `info frame'
      Among the other information listed here (*note Information about a
      frame: Frame Info.) is the source language for this frame.  This
-     is the language that will become the working language if you ever
-     use an identifier that is in this frame.
+     language becomes the working language if you use an identifier
+     from this frame.
 
 `info source'
      Among the other information listed here (*note Examining the
@@ -296,7 +709,7 @@ compiled by eliminating type mismatches, and providing active checks
 for range errors when your program is running.
 
    GDB can check for conditions like the above if you wish.  Although
-GDB will not check the statements in your program, it can check
+GDB does not check the statements in your program, it can check
 expressions entered directly into GDB for evaluation via the `print'
 command, for example.  As with the working language, GDB can also
 decide whether or not to check automatically based on your program's
@@ -444,9 +857,9 @@ Expressions.) can be used with the constructs of any supported language.
    The following sections detail to what degree each source language is
 supported by GDB.  These sections are not meant to be language
 tutorials or references, but serve only as a reference guide to what the
-GDB expression parser will accept, and what input and output formats
-should look like for different languages.  There are many good books
-written on each of these languages; please look to these for a language
+GDB expression parser accepts, and what input and output formats should
+look like for different languages.  There are many good books written
+on each of these languages; please look to these for a language
 reference or tutorial.
 
 * Menu:
@@ -467,6 +880,12 @@ together.
    The C++ debugging facilities are jointly implemented by the GNU C++
 compiler and GDB.  Therefore, to debug your C++ code effectively, you
 must compile your C++ programs with the GNU C++ compiler, `g++'.
+
+   For best results when debugging C++ programs, use the stabs debugging
+format.  You can select that format explicitly with the `g++'
+command-line options `-gstabs' or `-gstabs+'.  See *Note Options for
+Debugging Your Program or GNU CC: (gcc.info)Debugging Options, for more
+information.
 
 * Menu:
 
@@ -666,17 +1085,17 @@ C++ expressions
    GDB expression handling has a number of extensions to interpret a
 significant subset of C++ expressions.
 
-     *Warning:* Most of these extensions depend on the use of additional
-     debugging information in the symbol table, and thus require a rich,
-     extendable object code format.  In particular, if your system uses
-     a.out, MIPS ECOFF, RS/6000 XCOFF, or Sun ELF with stabs extensions
-     to the symbol table, these facilities are all available.  Where
-     the object code format is standard COFF, on the other hand, most
-     of the C++ support in GDB will *not* work, nor can it.  For the
-     standard SVr4 debugging format, DWARF in ELF, the standard is
-     still evolving, so the C++ support in GDB is still fragile; when
-     this debugging format stabilizes, however, C++ support will also
-     be available on systems that use it.
+     *Warning:* GDB can only debug C++ code if you compile with the GNU
+     C++ compiler.  Moreover, C++ debugging depends on the use of
+     additional debugging information in the symbol table, and thus
+     requires special support.  GDB has this support *only* with the
+     stabs debug format.  In particular, if your compiler generates
+     a.out, MIPS ECOFF, RS/6000 XCOFF, or ELF with stabs extensions to
+     the symbol table, these facilities are all available.  (With GNU
+     CC, you can use the `-gstabs' option to request stabs debugging
+     extensions explicitly.)  Where the object code format is standard
+     COFF or DWARF in ELF, on the other hand, most of the C++ support
+     in GDB does *not* work.
 
   1. Member function calls are allowed; you can use expressions like
 
@@ -687,10 +1106,10 @@ significant subset of C++ expressions.
      function; that is, GDB allows implicit references to the class
      instance pointer `this' following the same rules as C++.
 
-  3. You can call overloaded functions; GDB will resolve the function
-     call to the right definition, with one restriction--you must use
+  3. You can call overloaded functions; GDB resolves the function call
+     to the right definition, with one restriction--you must use
      arguments of the type required by the function that you want to
-     call.  GDB will not perform conversions requiring constructors or
+     call.  GDB does not perform conversions requiring constructors or
      user-defined type operators.
 
   4. GDB understands variables declared as C++ references; you can use
@@ -734,7 +1153,7 @@ C and C++ type and range checks
 -------------------------------
 
    By default, when GDB parses C or C++ expressions, type checking is
-not used.  However, if you turn type checking on, GDB will consider two
+not used.  However, if you turn type checking on, GDB considers two
 variables type equivalent if:
 
    * The two variables are structured and have the same structure,
@@ -755,7 +1174,7 @@ GDB and C
 
    The `set print union' and `show print union' commands apply to the
 `union' type.  When set to `on', any `union' that is inside a `struct'
-or `class' will also be printed.  Otherwise, it will appear as `{...}'.
+or `class' is also printed.  Otherwise, it appears as `{...}'.
 
    The `@' operator aids in the debugging of dynamic arrays, formed
 with pointers and a memory allocation function.  *Note Expressions:
@@ -824,8 +1243,8 @@ Modula-2
    The extensions made to GDB to support Modula-2 only support output
 from the GNU Modula-2 compiler (which is currently being developed).
 Other Modula-2 compilers are not currently supported, and attempting to
-debug executables produced by them will most likely result in an error
-as GDB reads in the executable's symbol table.
+debug executables produced by them is most likely to give an error as
+GDB reads in the executable's symbol table.
 
 * Menu:
 
@@ -943,407 +1362,7 @@ increasing precedence:
      GDB and Modula-2 scope operators.
 
      *Warning:* Sets and their operations are not yet supported, so GDB
-     will treat the use of the operator `IN', or the use of operators
-     `+', `-', `*', `/', `=', , `<>', `#', `<=', and `>=' on sets as an
+     treats the use of the operator `IN', or the use of operators `+',
+     `-', `*', `/', `=', , `<>', `#', `<=', and `>=' on sets as an
      error.
-
-
-File: gdb.info,  Node: Built-In Func/Proc,  Next: M2 Constants,  Prev: M2 Operators,  Up: Modula-2
-
-Built-in functions and procedures
----------------------------------
-
-   Modula-2 also makes available several built-in procedures and
-functions.  In describing these, the following metavariables are used:
-
-A
-     represents an `ARRAY' variable.
-
-C
-     represents a `CHAR' constant or variable.
-
-I
-     represents a variable or constant of integral type.
-
-M
-     represents an identifier that belongs to a set.  Generally used in
-     the same function with the metavariable S.  The type of S should
-     be `SET OF MTYPE' (where MTYPE is the type of M).
-
-N
-     represents a variable or constant of integral or floating-point
-     type.
-
-R
-     represents a variable or constant of floating-point type.
-
-T
-     represents a type.
-
-V
-     represents a variable.
-
-X
-     represents a variable or constant of one of many types.  See the
-     explanation of the function for details.
-
-   All Modula-2 built-in procedures also return a result, described
-below.
-
-`ABS(N)'
-     Returns the absolute value of N.
-
-`CAP(C)'
-     If C is a lower case letter, it returns its upper case equivalent,
-     otherwise it returns its argument
-
-`CHR(I)'
-     Returns the character whose ordinal value is I.
-
-`DEC(V)'
-     Decrements the value in the variable V.  Returns the new value.
-
-`DEC(V,I)'
-     Decrements the value in the variable V by I.  Returns the new
-     value.
-
-`EXCL(M,S)'
-     Removes the element M from the set S.  Returns the new set.
-
-`FLOAT(I)'
-     Returns the floating point equivalent of the integer I.
-
-`HIGH(A)'
-     Returns the index of the last member of A.
-
-`INC(V)'
-     Increments the value in the variable V.  Returns the new value.
-
-`INC(V,I)'
-     Increments the value in the variable V by I.  Returns the new
-     value.
-
-`INCL(M,S)'
-     Adds the element M to the set S if it is not already there.
-     Returns the new set.
-
-`MAX(T)'
-     Returns the maximum value of the type T.
-
-`MIN(T)'
-     Returns the minimum value of the type T.
-
-`ODD(I)'
-     Returns boolean TRUE if I is an odd number.
-
-`ORD(X)'
-     Returns the ordinal value of its argument.  For example, the
-     ordinal value of a character is its ASCII value (on machines
-     supporting the ASCII character set).  X must be of an ordered
-     type, which include integral, character and enumerated types.
-
-`SIZE(X)'
-     Returns the size of its argument.  X can be a variable or a type.
-
-`TRUNC(R)'
-     Returns the integral part of R.
-
-`VAL(T,I)'
-     Returns the member of the type T whose ordinal value is I.
-
-     *Warning:*  Sets and their operations are not yet supported, so
-     GDB will treat the use of procedures `INCL' and `EXCL' as an error.
-
-
-File: gdb.info,  Node: M2 Constants,  Next: M2 Defaults,  Prev: Built-In Func/Proc,  Up: Modula-2
-
-Constants
----------
-
-   GDB allows you to express the constants of Modula-2 in the following
-ways:
-
-   * Integer constants are simply a sequence of digits.  When used in an
-     expression, a constant is interpreted to be type-compatible with
-     the rest of the expression.  Hexadecimal integers are specified by
-     a trailing `H', and octal integers by a trailing `B'.
-
-   * Floating point constants appear as a sequence of digits, followed
-     by a decimal point and another sequence of digits.  An optional
-     exponent can then be specified, in the form `E[+|-]NNN', where
-     `[+|-]NNN' is the desired exponent.  All of the digits of the
-     floating point constant must be valid decimal (base 10) digits.
-
-   * Character constants consist of a single character enclosed by a
-     pair of like quotes, either single (`'') or double (`"').  They may
-     also be expressed by their ordinal value (their ASCII value,
-     usually) followed by a `C'.
-
-   * String constants consist of a sequence of characters enclosed by a
-     pair of like quotes, either single (`'') or double (`"').  Escape
-     sequences in the style of C are also allowed.  *Note C and C++
-     constants: C Constants, for a brief explanation of escape
-     sequences.
-
-   * Enumerated constants consist of an enumerated identifier.
-
-   * Boolean constants consist of the identifiers `TRUE' and `FALSE'.
-
-   * Pointer constants consist of integral values only.
-
-   * Set constants are not yet supported.
-
-
-File: gdb.info,  Node: M2 Defaults,  Next: Deviations,  Prev: M2 Constants,  Up: Modula-2
-
-Modula-2 defaults
------------------
-
-   If type and range checking are set automatically by GDB, they both
-default to `on' whenever the working language changes to Modula-2.
-This happens regardless of whether you, or GDB, selected the working
-language.
-
-   If you allow GDB to set the language automatically, then entering
-code compiled from a file whose name ends with `.mod' will set the
-working language to Modula-2. *Note Having GDB set the language
-automatically: Automatically, for further details.
-
-
-File: gdb.info,  Node: Deviations,  Next: M2 Checks,  Prev: M2 Defaults,  Up: Modula-2
-
-Deviations from standard Modula-2
----------------------------------
-
-   A few changes have been made to make Modula-2 programs easier to
-debug.  This is done primarily via loosening its type strictness:
-
-   * Unlike in standard Modula-2, pointer constants can be formed by
-     integers.  This allows you to modify pointer variables during
-     debugging.  (In standard Modula-2, the actual address contained in
-     a pointer variable is hidden from you; it can only be modified
-     through direct assignment to another pointer variable or
-     expression that returned a pointer.)
-
-   * C escape sequences can be used in strings and characters to
-     represent non-printable characters.  GDB will print out strings
-     with these escape sequences embedded.  Single non-printable
-     characters are printed using the `CHR(NNN)' format.
-
-   * The assignment operator (`:=') returns the value of its right-hand
-     argument.
-
-   * All built-in procedures both modify *and* return their argument.
-
-
-File: gdb.info,  Node: M2 Checks,  Next: M2 Scope,  Prev: Deviations,  Up: Modula-2
-
-Modula-2 type and range checks
-------------------------------
-
-     *Warning:* in this release, GDB does not yet perform type or range
-     checking.
-
-   GDB considers two Modula-2 variables type equivalent if:
-
-   * They are of types that have been declared equivalent via a `TYPE
-     T1 = T2' statement
-
-   * They have been declared on the same line.  (Note:  This is true of
-     the GNU Modula-2 compiler, but it may not be true of other
-     compilers.)
-
-   As long as type checking is enabled, any attempt to combine variables
-whose types are not equivalent is an error.
-
-   Range checking is done on all mathematical operations, assignment,
-array index bounds, and all built-in functions and procedures.
-
-
-File: gdb.info,  Node: M2 Scope,  Next: GDB/M2,  Prev: M2 Checks,  Up: Modula-2
-
-The scope operators `::' and `.'
---------------------------------
-
-   There are a few subtle differences between the Modula-2 scope
-operator (`.') and the GDB scope operator (`::').  The two have similar
-syntax:
-
-
-     MODULE . ID
-     SCOPE :: ID
-
-where SCOPE is the name of a module or a procedure, MODULE the name of
-a module, and ID is any declared identifier within your program, except
-another module.
-
-   Using the `::' operator makes GDB search the scope specified by
-SCOPE for the identifier ID.  If it is not found in the specified
-scope, then GDB will search all scopes enclosing the one specified by
-SCOPE.
-
-   Using the `.' operator makes GDB search the current scope for the
-identifier specified by ID that was imported from the definition module
-specified by MODULE.  With this operator, it is an error if the
-identifier ID was not imported from definition module MODULE, or if ID
-is not an identifier in MODULE.
-
-
-File: gdb.info,  Node: GDB/M2,  Prev: M2 Scope,  Up: Modula-2
-
-GDB and Modula-2
-----------------
-
-   Some GDB commands have little use when debugging Modula-2 programs.
-Five subcommands of `set print' and `show print' apply specifically to
-C and C++: `vtbl', `demangle', `asm-demangle', `object', and `union'.
-The first four apply to C++, and the last to the C `union' type, which
-has no direct analogue in Modula-2.
-
-   The `@' operator (*note Expressions: Expressions.), while available
-while using any language, is not useful with Modula-2.  Its intent is
-to aid the debugging of "dynamic arrays", which cannot be created in
-Modula-2 as they can in C or C++.  However, because an address can be
-specified by an integral constant, the construct `{TYPE}ADREXP' is
-still useful.  (*note Expressions: Expressions.)
-
-   In GDB scripts, the Modula-2 inequality operator `#' is interpreted
-as the beginning of a comment.  Use `<>' instead.
-
-
-File: gdb.info,  Node: Symbols,  Next: Altering,  Prev: Languages,  Up: Top
-
-Examining the Symbol Table
-**************************
-
-   The commands described in this section allow you to inquire about the
-symbols (names of variables, functions and types) defined in your
-program.  This information is inherent in the text of your program and
-does not change as your program executes.  GDB finds it in your
-program's symbol table, in the file indicated when you started GDB
-(*note Choosing files: File Options.), or by one of the file-management
-commands (*note Commands to specify files: Files.).
-
-   Occasionally, you may need to refer to symbols that contain unusual
-characters, which GDB ordinarily treats as word delimiters.  The most
-frequent case is in referring to static variables in other source files
-(*note Program variables: Variables.).  File names are recorded in
-object files as debugging symbols, but GDB would ordinarily parse a
-typical file name, like `foo.c', as the three words `foo' `.' `c'.  To
-allow GDB to recognize `foo.c' as a single symbol, enclose it in single
-quotes; for example,
-
-     p 'foo.c'::x
-
-looks up the value of `x' in the scope of the file `foo.c'.
-
-`info address SYMBOL'
-     Describe where the data for SYMBOL is stored.  For a register
-     variable, this says which register it is kept in.  For a
-     non-register local variable, this prints the stack-frame offset at
-     which the variable is always stored.
-
-     Note the contrast with `print &SYMBOL', which does not work at all
-     for a register variable, and for a stack local variable prints the
-     exact address of the current instantiation of the variable.
-
-`whatis EXP'
-     Print the data type of expression EXP.  EXP is not actually
-     evaluated, and any side-effecting operations (such as assignments
-     or function calls) inside it do not take place.  *Note
-     Expressions: Expressions.
-
-`whatis'
-     Print the data type of `$', the last value in the value history.
-
-`ptype TYPENAME'
-     Print a description of data type TYPENAME.  TYPENAME may be the
-     name of a type, or for C code it may have the form `class
-     CLASS-NAME', `struct STRUCT-TAG', `union UNION-TAG' or `enum
-     ENUM-TAG'.
-
-`ptype EXP'
-`ptype'
-     Print a description of the type of expression EXP.  `ptype'
-     differs from `whatis' by printing a detailed description, instead
-     of just the name of the type.
-
-     For example, for this variable declaration:
-
-          struct complex {double real; double imag;} v;
-
-     the two commands give this output:
-
-          (gdb) whatis v
-          type = struct complex
-          (gdb) ptype v
-          type = struct complex {
-              double real;
-              double imag;
-          }
-
-     As with `whatis', using `ptype' without an argument refers to the
-     type of `$', the last value in the value history.
-
-`info types REGEXP'
-`info types'
-     Print a brief description of all types whose name matches REGEXP
-     (or all types in your program, if you supply no argument).  Each
-     complete typename is matched as though it were a complete line;
-     thus, `i type value' gives information on all types in your
-     program whose name includes the string `value', but `i type
-     ^value$' gives information only on types whose complete name is
-     `value'.
-
-     This command differs from `ptype' in two ways: first, like
-     `whatis', it does not print a detailed description; second, it
-     lists all source files where a type is defined.
-
-`info source'
-     Show the name of the current source file--that is, the source file
-     for the function containing the current point of execution--and
-     the language it was written in.
-
-`info sources'
-     Print the names of all source files in your program for which
-     there is debugging information, organized into two lists: files
-     whose symbols have already been read, and files whose symbols will
-     be read when needed.
-
-`info functions'
-     Print the names and data types of all defined functions.
-
-`info functions REGEXP'
-     Print the names and data types of all defined functions whose
-     names contain a match for regular expression REGEXP.  Thus, `info
-     fun step' finds all functions whose names include `step'; `info
-     fun ^step' finds those whose names start with `step'.
-
-`info variables'
-     Print the names and data types of all variables that are declared
-     outside of functions (i.e., excluding local variables).
-
-`info variables REGEXP'
-     Print the names and data types of all variables (except for local
-     variables) whose names contain a match for regular expression
-     REGEXP.
-
-`maint print symbols FILENAME'
-`maint print psymbols FILENAME'
-`maint print msymbols FILENAME'
-     Write a dump of debugging symbol data into the file FILENAME.
-     These commands are used to debug the GDB symbol-reading code.  Only
-     symbols with debugging data are included.  If you use `maint print
-     symbols', GDB includes all the symbols for which it has already
-     collected full details: that is, FILENAME reflects symbols for
-     only those files whose symbols GDB has read.  You can use the
-     command `info sources' to find out which files these are.  If you
-     use `maint print psymbols' instead, the dump shows information
-     about symbols that GDB only knows partially--that is, symbols
-     defined in files that GDB has skimmed, but not yet read
-     completely.  Finally, `maint print msymbols' dumps just the
-     minimal symbol information required for each object file from
-     which GDB has read some symbols.  *Note Commands to specify files:
-     Files, for a discussion of how GDB reads symbols (in the
-     description of `symbol-file').
 

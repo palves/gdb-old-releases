@@ -18,16 +18,10 @@ void free();
 #define SEEK_SET 0
 #define SEEK_CUR 1
 
-/* This is a hack.  This is only a hack.  Were this a common source file,
-   rather than a config file specific to BSD on HP 68k's, you would have
-   been instructed to clean this up.  As it is, clean it up if FSF's 
-   HP's-running-ancient-BSD ever go away.  */
-#ifdef	EPROCUNAVAIL
-#include <machine/param.h>		/* BSD 4.4 alpha or better */
-#include <stdlib.h>			/* Get this too, for abort(). */
-#define	NO_CORE_COMMAND			/* Core files don't have command name */
-#else
-#include <machine/machparam.h>		/* BSD 4.3 or worse */
+#include <sys/param.h>
+#ifdef BSD4_4
+#include <stdlib.h>
+#define NO_CORE_COMMAND
 #endif
 
 #define	HOST_PAGE_SIZE		NBPG

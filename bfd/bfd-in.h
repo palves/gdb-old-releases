@@ -81,7 +81,13 @@ typedef struct _bfd bfd;
    force me to change it. */
 /* typedef enum boolean {false, true} boolean; */
 /* Yup, SVR4 has a "typedef enum boolean" in <sys/types.h>  -fnf */
+/* It gets worse if the host also defines a true/false enum... -sts */
+#ifndef TRUE_FALSE_ALREADY_DEFINED
 typedef enum bfd_boolean {false, true} boolean;
+#define BFD_TRUE_FALSE
+#else
+typedef enum bfd_boolean {bfd_false, bfd_true} boolean;
+#endif
 
 /* A pointer to a position in a file.  */
 /* FIXME:  This should be using off_t from <sys/types.h>.
@@ -114,8 +120,8 @@ typedef unsigned HOST_64_BIT uint64_type;
 #if !defined (uint64_type) && defined (__GNUC__)
 #define uint64_type unsigned long long
 #define int64_type long long
-#define uint64_typeLOW(x) (unsigned long)(((x) & 0xffffffff))
-#define uint64_typeHIGH(x) (unsigned long)(((x) >> 32) & 0xffffffff)
+#define uint64_typeLOW(x) ((unsigned long)(((x) & 0xffffffff)))
+#define uint64_typeHIGH(x) ((unsigned long)(((x) >> 32) & 0xffffffff))
 #endif
 
 typedef unsigned HOST_64_BIT bfd_vma;
@@ -123,9 +129,9 @@ typedef HOST_64_BIT bfd_signed_vma;
 typedef unsigned HOST_64_BIT bfd_size_type;
 typedef unsigned HOST_64_BIT symvalue;
 #define fprintf_vma(s,x) \
-		fprintf(s,"%08x%08x", uint64_typeHIGH(x), uint64_typeLOW(x))
+		fprintf(s,"%08lx%08lx", uint64_typeHIGH(x), uint64_typeLOW(x))
 #define sprintf_vma(s,x) \
-		sprintf(s,"%08x%08x", uint64_typeHIGH(x), uint64_typeLOW(x))
+		sprintf(s,"%08lx%08lx", uint64_typeHIGH(x), uint64_typeLOW(x))
 #else /* not BFD64  */
 
 /* Represent a target address.  Also used as a generic unsigned type
@@ -160,17 +166,50 @@ typedef enum bfd_format {
 	      bfd_type_end}	/* marks the end; don't use it! */
          bfd_format;
 
-/* Object file flag values */
+/* Values that may appear in the flags field of a BFD.  These also
+   appear in the object_flags field of the bfd_target structure, where
+   they indicate the set of flags used by that backend (not all flags
+   are meaningful for all object file formats) (FIXME: at the moment,
+   the object_flags values have mostly just been copied from backend
+   to another, and are not necessarily correct).  */
+
+/* No flags.  */
 #define NO_FLAGS    	0x00
+
+/* BFD contains relocation entries.  */
 #define HAS_RELOC   	0x01
+
+/* BFD is directly executable.  */
 #define EXEC_P      	0x02
+
+/* BFD has line number information (basically used for F_LNNO in a
+   COFF header).  */
 #define HAS_LINENO  	0x04
+
+/* BFD has debugging information.  */
 #define HAS_DEBUG   	0x08
+
+/* BFD has symbols.  */
 #define HAS_SYMS    	0x10
+
+/* BFD has local symbols (basically used for F_LSYMS in a COFF
+   header).  */
 #define HAS_LOCALS  	0x20
+
+/* BFD is a dynamic object.  */
 #define DYNAMIC     	0x40
+
+/* Text section is write protected (if D_PAGED is not set, this is
+   like an a.out NMAGIC file) (the linker sets this by default, but
+   clears it for -r or -N).  */
 #define WP_TEXT     	0x80
+
+/* BFD is dynamically paged (this is like an a.out ZMAGIC file) (the
+   linker sets this by default, but clears it for -r or -n or -N).  */
 #define D_PAGED     	0x100
+
+/* BFD is relaxable (this means that bfd_relax_section may be able to
+   do something).  */
 #define BFD_IS_RELAXABLE 0x200
 
 /* symbols and relocation */
@@ -253,41 +292,32 @@ typedef struct sec *sec_ptr;
 
 typedef struct stat stat_type; 
 
-/** Error handling */
+/* Error handling */
 
-typedef enum bfd_error {
-	      no_error = 0, system_call_error, invalid_target,
-	      wrong_format, invalid_operation, no_memory,
-	      no_symbols, no_relocation_info,
-	      no_more_archived_files, malformed_archive,
-	      symbol_not_found, file_not_recognized,
-	      file_ambiguously_recognized, no_contents,
-	      bfd_error_nonrepresentable_section,
-	      no_debug_section, bad_value,
-
-	      /* An input file is shorter than expected.  */
-	      file_truncated,
-	      
-	      invalid_error_code} bfd_ec;
+typedef enum bfd_error
+{
+  no_error = 0,
+  system_call_error,
+  invalid_target,
+  wrong_format,
+  invalid_operation,
+  no_memory,
+  no_symbols,
+  no_relocation_info,
+  no_more_archived_files,
+  malformed_archive,
+  symbol_not_found,
+  file_not_recognized,
+  file_ambiguously_recognized,
+  no_contents,
+  bfd_error_nonrepresentable_section,
+  no_debug_section,
+  bad_value,
+  file_truncated,
+  invalid_error_code
+} bfd_ec;
 
 extern bfd_ec bfd_error;
-struct reloc_cache_entry;
-struct bfd_seclet;
-
-
-typedef struct bfd_error_vector {
-  void (* nonrepresentable_section ) PARAMS ((CONST bfd  *CONST abfd,
-					      CONST char *CONST name));
-  void (* undefined_symbol) PARAMS ((CONST struct reloc_cache_entry *rel,
-				     CONST struct bfd_seclet *sec));
-  void (* reloc_value_truncated) PARAMS ((CONST struct
-					  reloc_cache_entry *rel,
-					  struct bfd_seclet *sec));
-
-  void (* reloc_dangerous) PARAMS ((CONST struct reloc_cache_entry *rel,
-				    CONST struct bfd_seclet *sec));
-  
-} bfd_error_vector_type;
 
 CONST char *bfd_errmsg PARAMS ((bfd_ec error_tag));
 void bfd_perror PARAMS ((CONST char *message));
@@ -313,6 +343,87 @@ typedef struct _symbol_info
   CONST char *stab_name;
 } symbol_info;
 
+/* Hash table routines.  There is no way to free up a hash table.  */
+
+/* An element in the hash table.  Most uses will actually use a larger
+   structure, and an instance of this will be the first field.  */
+
+struct bfd_hash_entry
+{
+  /* Next entry for this hash code.  */
+  struct bfd_hash_entry *next;
+  /* String being hashed.  */
+  const char *string;
+  /* Hash code.  This is the full hash code, not the index into the
+     table.  */
+  unsigned long hash;
+};
+
+/* A hash table.  */
+
+struct bfd_hash_table
+{
+  /* The hash array.  */
+  struct bfd_hash_entry **table;
+  /* The number of slots in the hash table.  */
+  unsigned int size;
+  /* A function used to create new elements in the hash table.  The
+     first entry is itself a pointer to an element.  When this
+     function is first invoked, this pointer will be NULL.  However,
+     having the pointer permits a hierarchy of method functions to be
+     built each of which calls the function in the superclass.  Thus
+     each function should be written to allocate a new block of memory
+     only if the argument is NULL.  */
+  struct bfd_hash_entry *(*newfunc) PARAMS ((struct bfd_hash_entry *,
+					     struct bfd_hash_table *,
+					     const char *));
+  /* An obstack for this hash table.  */
+  struct obstack memory;
+};
+
+/* Initialize a hash table.  */
+extern boolean bfd_hash_table_init
+  PARAMS ((struct bfd_hash_table *,
+	   struct bfd_hash_entry *(*) (struct bfd_hash_entry *,
+				       struct bfd_hash_table *,
+				       const char *)));
+
+/* Initialize a hash table specifying a size.  */
+extern boolean bfd_hash_table_init_n
+  PARAMS ((struct bfd_hash_table *,
+	   struct bfd_hash_entry *(*) (struct bfd_hash_entry *,
+				       struct bfd_hash_table *,
+				       const char *),
+	   unsigned int size));
+
+/* Free up a hash table.  */
+extern void bfd_hash_table_free PARAMS ((struct bfd_hash_table *));
+
+/* Look up a string in a hash table.  If CREATE is true, a new entry
+   will be created for this string if one does not already exist.  The
+   COPY argument must be true if this routine should copy the string
+   into newly allocated memory when adding an entry.  */
+extern struct bfd_hash_entry *bfd_hash_lookup
+  PARAMS ((struct bfd_hash_table *, const char *, boolean create,
+	   boolean copy));
+
+/* Base method for creating a hash table entry.  */
+extern struct bfd_hash_entry *bfd_hash_newfunc
+  PARAMS ((struct bfd_hash_entry *, struct bfd_hash_table *,
+	   const char *));
+
+/* Grab some space for a hash table entry.  */
+extern PTR bfd_hash_allocate PARAMS ((struct bfd_hash_table *,
+				      unsigned int));
+
+/* Traverse a hash table in a random order, calling a function on each
+   element.  If the function returns false, the traversal stops.  The
+   INFO argument is passed to the function.  */
+extern void bfd_hash_traverse PARAMS ((struct bfd_hash_table *,
+				       boolean (*) (struct bfd_hash_entry *,
+						    PTR),
+				       PTR info));
+
 /* The code that implements targets can initialize a jump table with this
    macro.  It must name all its routines the same way (a prefix plus
    the standard routine suffix), or it must #define the routines that
@@ -330,7 +441,7 @@ typedef struct _symbol_info
 #define CAT3(a,b,c)	a##b##c
 #define CAT4(a,b,c,d)	a##b##c##d
 #else
-#ifdef __STDC__
+#if defined(__STDC__) || defined(ALMOST_STDC)
 #define CAT(a,b) a##b
 #define CAT3(a,b,c) a##b##c
 #define XCAT2(a,b)	CAT(a,b)
@@ -373,9 +484,11 @@ CAT(NAME,_bfd_debug_info_end),\
 CAT(NAME,_bfd_debug_info_accumulate),\
 CAT(NAME,_bfd_get_relocated_section_contents),\
 CAT(NAME,_bfd_relax_section),\
-CAT(NAME,_bfd_seclet_link),\
 CAT(NAME,_bfd_reloc_type_lookup),\
-CAT(NAME,_bfd_make_debug_symbol)
+CAT(NAME,_bfd_make_debug_symbol),\
+CAT(NAME,_bfd_link_hash_table_create),\
+CAT(NAME,_bfd_link_add_symbols),\
+CAT(NAME,_bfd_final_link)
 
 #define COFF_SWAP_TABLE (PTR) &bfd_coff_std_swap_table
 
@@ -385,8 +498,10 @@ CAT(NAME,_bfd_make_debug_symbol)
 /* Cast from const char * to char * so that caller can assign to
    a char * without a warning.  */
 #define bfd_get_filename(abfd) ((char *) (abfd)->filename)
+#define bfd_get_cacheable(abfd) ((abfd)->cacheable)
 #define bfd_get_format(abfd) ((abfd)->format)
 #define bfd_get_target(abfd) ((abfd)->xvec->name)
+#define bfd_get_flavour(abfd) ((abfd)->xvec->flavour)
 #define bfd_get_file_flags(abfd) ((abfd)->flags)
 #define bfd_applicable_file_flags(abfd) ((abfd)->xvec->object_flags)
 #define bfd_applicable_section_flags(abfd) ((abfd)->xvec->section_flags)
@@ -403,25 +518,76 @@ CAT(NAME,_bfd_make_debug_symbol)
 
 #define bfd_get_symbol_leading_char(abfd) ((abfd)->xvec->symbol_leading_char)
 
+#define bfd_set_cacheable(abfd,bool) (((abfd)->cacheable = (bool)), true)
+
 /* Byte swapping routines.  */
 
-bfd_vma		bfd_getb64	   PARAMS ((unsigned char *));
-bfd_vma 	bfd_getl64	   PARAMS ((unsigned char *));
-bfd_signed_vma	bfd_getb_signed_64 PARAMS ((unsigned char *));
-bfd_signed_vma	bfd_getl_signed_64 PARAMS ((unsigned char *));
-bfd_vma		bfd_getb32	   PARAMS ((unsigned char *));
-bfd_vma		bfd_getl32	   PARAMS ((unsigned char *));
-bfd_signed_vma	bfd_getb_signed_32 PARAMS ((unsigned char *));
-bfd_signed_vma	bfd_getl_signed_32 PARAMS ((unsigned char *));
-bfd_vma		bfd_getb16	   PARAMS ((unsigned char *));
-bfd_vma		bfd_getl16	   PARAMS ((unsigned char *));
-bfd_signed_vma	bfd_getb_signed_16 PARAMS ((unsigned char *));
-bfd_signed_vma	bfd_getl_signed_16 PARAMS ((unsigned char *));
+bfd_vma		bfd_getb64	   PARAMS ((const unsigned char *));
+bfd_vma 	bfd_getl64	   PARAMS ((const unsigned char *));
+bfd_signed_vma	bfd_getb_signed_64 PARAMS ((const unsigned char *));
+bfd_signed_vma	bfd_getl_signed_64 PARAMS ((const unsigned char *));
+bfd_vma		bfd_getb32	   PARAMS ((const unsigned char *));
+bfd_vma		bfd_getl32	   PARAMS ((const unsigned char *));
+bfd_signed_vma	bfd_getb_signed_32 PARAMS ((const unsigned char *));
+bfd_signed_vma	bfd_getl_signed_32 PARAMS ((const unsigned char *));
+bfd_vma		bfd_getb16	   PARAMS ((const unsigned char *));
+bfd_vma		bfd_getl16	   PARAMS ((const unsigned char *));
+bfd_signed_vma	bfd_getb_signed_16 PARAMS ((const unsigned char *));
+bfd_signed_vma	bfd_getl_signed_16 PARAMS ((const unsigned char *));
 void		bfd_putb64	   PARAMS ((bfd_vma, unsigned char *));
 void		bfd_putl64	   PARAMS ((bfd_vma, unsigned char *));
 void		bfd_putb32	   PARAMS ((bfd_vma, unsigned char *));
 void		bfd_putl32	   PARAMS ((bfd_vma, unsigned char *));
 void		bfd_putb16	   PARAMS ((bfd_vma, unsigned char *));
 void		bfd_putl16	   PARAMS ((bfd_vma, unsigned char *));
+
+/* ECOFF linking routines.  */
+#if defined(__STDC__) || defined(ALMOST_STDC)
+struct ecoff_debug_info;
+struct ecoff_debug_swap;
+struct ecoff_extr;
+struct symbol_cache_entry;
+struct bfd_link_info;
+#endif
+extern PTR bfd_ecoff_debug_init
+  PARAMS ((bfd *output_bfd, struct ecoff_debug_info *output_debug,
+	   const struct ecoff_debug_swap *output_swap,
+	   struct bfd_link_info *));
+extern void bfd_ecoff_debug_free
+  PARAMS ((PTR handle, bfd *output_bfd, struct ecoff_debug_info *output_debug,
+	   const struct ecoff_debug_swap *output_swap,
+	   struct bfd_link_info *));
+extern boolean bfd_ecoff_debug_accumulate
+  PARAMS ((PTR handle, bfd *output_bfd, struct ecoff_debug_info *output_debug,
+	   const struct ecoff_debug_swap *output_swap,
+	   bfd *input_bfd, struct ecoff_debug_info *input_debug,
+	   const struct ecoff_debug_swap *input_swap,
+	   struct bfd_link_info *));
+extern boolean bfd_ecoff_debug_accumulate_other
+  PARAMS ((PTR handle, bfd *output_bfd, struct ecoff_debug_info *output_debug,
+	   const struct ecoff_debug_swap *output_swap, bfd *input_bfd,
+	   struct bfd_link_info *));
+extern boolean bfd_ecoff_debug_externals
+  PARAMS ((bfd *abfd, struct ecoff_debug_info *debug,
+	   const struct ecoff_debug_swap *swap,
+	   boolean relocateable,
+	   boolean (*get_extr) (struct symbol_cache_entry *,
+				struct ecoff_extr *),
+	   void (*set_index) (struct symbol_cache_entry *,
+			      bfd_size_type)));
+extern boolean bfd_ecoff_debug_one_external
+  PARAMS ((bfd *abfd, struct ecoff_debug_info *debug,
+	   const struct ecoff_debug_swap *swap,
+	   const char *name, struct ecoff_extr *esym));
+extern bfd_size_type bfd_ecoff_debug_size
+  PARAMS ((bfd *abfd, struct ecoff_debug_info *debug,
+	   const struct ecoff_debug_swap *swap));
+extern boolean bfd_ecoff_write_debug
+  PARAMS ((bfd *abfd, struct ecoff_debug_info *debug,
+	   const struct ecoff_debug_swap *swap, file_ptr where));
+extern boolean bfd_ecoff_write_accumulated_debug
+  PARAMS ((PTR handle, bfd *abfd, struct ecoff_debug_info *debug,
+	   const struct ecoff_debug_swap *swap,
+	   struct bfd_link_info *info, file_ptr where));
 
 /* And more from the source.  */

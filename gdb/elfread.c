@@ -45,6 +45,7 @@ struct elfinfo {
   unsigned int lnsize;		/* Size of dwarf line number section */
   asection *stabsect;		/* Section pointer for .stab section */
   asection *stabindexsect;	/* Section pointer for .stab.index section */
+  asection *mdebugsect;		/* Section pointer for .mdebug section */
 };
 
 /* Various things we might complain about... */
@@ -136,6 +137,10 @@ elf_locate_sections (ignore_abfd, sectp, eip)
     {
       ei -> stabindexsect = sectp;
     }
+  else if (STREQ (sectp -> name, ".mdebug"))
+    {
+      ei -> mdebugsect = sectp;
+    }
 }
 
 #if 0	/* Currently unused */
@@ -200,7 +205,8 @@ record_minimal_symbol_and_info (name, address, ms_type, info, objfile)
     }
 
   name = obsavestring (name, strlen (name), &objfile -> symbol_obstack);
-  prim_record_minimal_symbol_and_info (name, address, ms_type, info, section);
+  prim_record_minimal_symbol_and_info (name, address, ms_type, info, section,
+				       objfile);
 }
 
 /*
@@ -447,7 +453,8 @@ elf_symtab_read (abfd, addr, objfile)
    format to look for:  FIXME!!!
 
    dwarf_build_psymtabs() builds psymtabs for DWARF symbols;
-   elfstab_build_psymtabs() handles STABS symbols.
+   elfstab_build_psymtabs() handles STABS symbols;
+   mdebug_build_psymtabs() handles ECOFF debugging information.
 
    Note that ELF files have a "minimal" symbol table, which looks a lot
    like a COFF symbol table, but has only the minimal information necessary
@@ -518,6 +525,17 @@ elf_symfile_read (objfile, section_offsets, mainline)
 	  bfd_get_section_size_before_reloc (ei.stabsect),/* .stab size */
 	  (file_ptr) elf_sect->sh_offset,		/* .stabstr offset */
 	  elf_sect->sh_size);				/* .stabstr size */
+    }
+  if (ei.mdebugsect)
+    {
+      const struct ecoff_debug_swap *swap;
+
+      /* .mdebug section, presumably holding ECOFF debugging
+	 information.  */
+      swap = get_elf_backend_data (abfd)->elf_backend_ecoff_debug_swap;
+      if (swap)
+	elfmdebug_build_psymtabs (objfile, swap, ei.mdebugsect,
+				  section_offsets);
     }
 
   if (!have_partial_symbols ())
@@ -615,15 +633,16 @@ elf_symfile_offsets (objfile, addr)
 {
   struct section_offsets *section_offsets;
   int i;
- 
+
+  objfile->num_sections = SECT_OFF_MAX;
   section_offsets = (struct section_offsets *)
     obstack_alloc (&objfile -> psymbol_obstack,
-		   sizeof (struct section_offsets) +
-		          sizeof (section_offsets->offsets) * (SECT_OFF_MAX-1));
+		   sizeof (struct section_offsets)
+		   + sizeof (section_offsets->offsets) * (SECT_OFF_MAX-1));
 
   for (i = 0; i < SECT_OFF_MAX; i++)
     ANOFFSET (section_offsets, i) = addr;
-  
+
   return section_offsets;
 }
 
@@ -694,26 +713,11 @@ elfstab_offset_sections (objfile, pst)
     complain (&stab_info_mismatch_complaint, filename);
 }
 
-/*  Register that we are able to handle ELF object file formats and DWARF
-    debugging formats.
-
-    Unlike other object file formats, where the debugging information format
-    is implied by the object file format, the ELF object file format and the
-    DWARF debugging information format are two distinct, and potentially
-    separate entities.  I.E. it is perfectly possible to have ELF objects
-    with debugging formats other than DWARF.  And it is conceivable that the
-    DWARF debugging format might be used with another object file format,
-    like COFF, by simply using COFF's custom section feature.
-
-    GDB, and to a lesser extent BFD, should support the notion of separate
-    object file formats and debugging information formats.  For now, we just
-    use "elf" in the same sense as "a.out" or "coff", to imply both the ELF
-    object file format and the DWARF debugging format. */
+/* Register that we are able to handle ELF object file formats.  */
 
 static struct sym_fns elf_sym_fns =
 {
-  "elf",		/* sym_name: name or name prefix of BFD target type */
-  3,			/* sym_namelen: number of significant sym_name chars */
+  bfd_target_elf_flavour,
   elf_new_init,		/* sym_new_init: init anything gbl to entire symtab */
   elf_symfile_init,	/* sym_init: read initial info, setup for sym_read() */
   elf_symfile_read,	/* sym_read: read a symbol file into symtab */

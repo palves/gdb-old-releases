@@ -19,6 +19,8 @@ Cambridge, MA 02139, USA.  */
 
 #include <ctype.h>
 
+extern double atof ();
+
 /* Disclaimer: this is currently just used by CHILL in GDB and therefore
    has not been tested well.  It may have been tested for nothing except
    that it compiles.  */

@@ -235,7 +235,7 @@ vx_create_inferior (exec_file, args, env)
   stop_soon_quietly = 0;
 
   /* insert_step_breakpoint ();  FIXME, do we need this?  */
-  proceed(-1, -1, 0);
+  proceed (-1, TARGET_SIGNAL_DEFAULT, 0);
 }
 
 /* Fill ARGSTRUCT in argc/argv form with the arguments from the
@@ -459,7 +459,7 @@ vx_write_register (regno)
 
   in_data.bytes = registers;
 
-  in_data.len = VX_NUM_REGS * sizeof (REGISTER_TYPE);
+  in_data.len = VX_NUM_REGS * REGISTER_SIZE;
 
   /* XXX change second param to be a proc number */
   status = net_ptrace_clnt_call (PTRACE_SETREGS, &ptrace_in, &ptrace_out);
@@ -557,27 +557,27 @@ vx_xfer_memory (memaddr, myaddr, len, write, target)
 static void
 vx_files_info ()
 {
-  printf ("\tAttached to host `%s'", vx_host);
-  printf (", which has %sfloating point", target_has_fp? "": "no ");
-  printf (".\n");
+  printf_unfiltered ("\tAttached to host `%s'", vx_host);
+  printf_unfiltered (", which has %sfloating point", target_has_fp? "": "no ");
+  printf_unfiltered (".\n");
 }
 
 static void
 vx_run_files_info ()
 {
-  printf ("\tRunning %s VxWorks process %s", 
+  printf_unfiltered ("\tRunning %s VxWorks process %s", 
 	  vx_running? "child": "attached",
 	  local_hex_string((unsigned long) inferior_pid));
   if (vx_running)
-    printf (", function `%s'", vx_running);
-  printf(".\n");
+    printf_unfiltered (", function `%s'", vx_running);
+  printf_unfiltered(".\n");
 }
 
 static void
 vx_resume (pid, step, siggnal)
      int pid;
      int step;
-     int siggnal;
+     enum target_signal siggnal;
 {
   int status;
   Rptrace ptrace_in;
@@ -860,10 +860,9 @@ sleep_ms (ms)
 static int
 vx_wait (pid_to_wait_for, status)
      int pid_to_wait_for;
-     int *status;
+     struct target_waitstatus *status;
 {
   register int pid;
-  WAITTYPE w;
   RDB_EVENT rdbEvent;
   int quit_failed;
 
@@ -912,51 +911,57 @@ vx_wait (pid_to_wait_for, status)
 	       local_hex_string((unsigned long) pid));
     } while (pid == 0);
 
-  /* FIXME, eventually do more then SIGTRAP on everything...  */
+  /* The mostly likely kind.  */
+  status->kind = TARGET_WAITKIND_STOPPED;
+
   switch (rdbEvent.eventType)
     {
     case EVENT_EXIT:
-      WSETEXIT (w, 0);
+      status->kind = TARGET_WAITKIND_EXITED;
       /* FIXME is it possible to distinguish between a
-	 XXX   normal vs abnormal exit in VxWorks? */
+	 normal vs abnormal exit in VxWorks? */
+      status->value.integer = 0;
       break;
 
-    case EVENT_START:		/* Task was just started. */
-      WSETSTOP (w, SIGTRAP);
+    case EVENT_START:
+      /* Task was just started. */
+      status->value.sig = TARGET_SIGNAL_TRAP;
       break;
 
     case EVENT_STOP:
-      WSETSTOP (w, SIGTRAP);
+      status->value.sig = TARGET_SIGNAL_TRAP;
       /* XXX was it stopped by a signal?  act accordingly */
       break;
 
     case EVENT_BREAK:		/* Breakpoint was hit. */
-      WSETSTOP (w, SIGTRAP);
+      status->value.sig = TARGET_SIGNAL_TRAP;
       break;
 
     case EVENT_SUSPEND:		/* Task was suspended, probably by ^C. */
-      WSETSTOP (w, SIGINT);
+      status->value.sig = TARGET_SIGNAL_INT;
       break;
 
     case EVENT_BUS_ERR:		/* Task made evil nasty reference. */
-      WSETSTOP (w, SIGBUS);
+      status->value.sig = TARGET_SIGNAL_BUS;
       break;
 
     case EVENT_ZERO_DIV:	/* Division by zero */
-      WSETSTOP (w, SIGFPE);	/* Like Unix, call it a float exception. */
+      status->value.sig = TARGET_SIGNAL_FPE;
       break;
 
     case EVENT_SIGNAL:
-      /* The target is not running Unix, and its
-	 faults/traces do not map nicely into Unix signals.
-	 Make sure they do not get confused with Unix signals
-	 by numbering them with values higher than the highest
-	 legal Unix signal.  code in the arch-dependent PRINT_RANDOM_SIGNAL
-	 routine will interpret the value for wait_for_inferior.  */
-      WSETSTOP (w, rdbEvent.sigType + NSIG);
+#ifdef I80960
+      status->value.sig = i960_fault_to_signal (rdbEvent.sigType);
+#else
+      /* Back in the old days, before enum target_signal, this code used
+	 to add NSIG to the signal number and claim that PRINT_RANDOM_SIGNAL
+	 would take care of it.  But PRINT_RANDOM_SIGNAL has never been
+	 defined except on the i960, so I don't really know what we are
+	 supposed to do on other architectures.  */
+      status->value.sig = TARGET_SIGNAL_UNKNOWN;
+#endif
       break;
     } /* switch */
-  *status = *(int *)&w;		/* Grumble union wait crap Grumble */
   return pid;
 }
 
@@ -974,9 +979,9 @@ add_symbol_stub (arg)
 {
   struct ldfile *pLoadFile = (struct ldfile *)arg;
 
-  printf("\t%s: ", pLoadFile->name);
+  printf_unfiltered("\t%s: ", pLoadFile->name);
   symbol_file_add (pLoadFile->name, 0, pLoadFile->txt_addr, 0, 0, 0);
-  printf ("ok\n");
+  printf_unfiltered ("ok\n");
   return 1;
 }
 /* Target command for VxWorks target systems.
@@ -1004,8 +1009,8 @@ vx_open (args, from_tty)
   target_preopen (from_tty);
   
   unpush_target (&vx_ops);
-  printf ("Attaching remote machine across net...\n");
-  fflush (stdout);
+  printf_unfiltered ("Attaching remote machine across net...\n");
+  gdb_flush (gdb_stdout);
 
   /* Allow the user to kill the connect attempt by typing ^C.
      Wait until the call to target_has_fp () completes before
@@ -1039,7 +1044,7 @@ vx_open (args, from_tty)
 	     "Error while reading symbols from boot file:\n", RETURN_MASK_ALL))
 	  puts_filtered ("ok\n");
       } else if (from_tty)
-	printf ("VxWorks kernel symbols not loaded.\n");
+	printf_unfiltered ("VxWorks kernel symbols not loaded.\n");
     }
   else
     error ("Can't retrieve boot file name from target machine.");
@@ -1103,7 +1108,7 @@ vx_attach (args, from_tty)
     error ("Invalid process-id -- give a single number in decimal or 0xhex");
 
   if (from_tty)
-      printf ("Attaching pid %s.\n",
+      printf_unfiltered ("Attaching pid %s.\n",
 	      local_hex_string((unsigned long) pid));
 
   memset ((char *)&ptrace_in,  '\0', sizeof (ptrace_in));
@@ -1149,7 +1154,7 @@ vx_detach (args, from_tty)
     error ("Argument given to VxWorks \"detach\".");
 
   if (from_tty)
-      printf ("Detaching pid %s.\n",
+      printf_unfiltered ("Detaching pid %s.\n",
 	      local_hex_string((unsigned long) inferior_pid));
 
   if (args)		/* FIXME, should be possible to leave suspended */
@@ -1181,7 +1186,7 @@ vx_kill ()
   Ptrace_return ptrace_out;
   int status;
 
-  printf ("Killing pid %s.\n", local_hex_string((unsigned long) inferior_pid));
+  printf_unfiltered ("Killing pid %s.\n", local_hex_string((unsigned long) inferior_pid));
 
   memset ((char *)&ptrace_in,  '\0', sizeof (ptrace_in));
   memset ((char *)&ptrace_out, '\0', sizeof (ptrace_out));

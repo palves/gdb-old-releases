@@ -21,6 +21,9 @@
 #include <signal.h>
 #include <sys/times.h>
 #include <sys/param.h>
+#include "ansidecl.h"
+#include "sysdep.h"
+#include "remote-sim.h"
 
 #define O_RECOMPILE 85
 #define DEFINE_TABLE
@@ -121,7 +124,8 @@ int debug;
 #define NORMAL_TP ((cpu.regs[R_TP].c - cpu.memory)>>16)
 #define SET_NORMREG(x,y) ((cpu.regs[x].l = (y)))
 #define GET_NORMREG(x) (cpu.regs[x].l)
-#define SET_SEGREG(x,y) { cpu.regs[x].c = (y & 0xff0000) + cpu.memory;}
+#define SET_SEGREG(x,y) { cpu.regs[x].c = ((y) & 0xff0000) + cpu.memory;}
+#define GET_SEGREG(x)  ( (cpu.regs[x].c  - cpu.memory ) >> 16)
 #define SET_NORMAL_CPPC(x) { pc = (x) & 0xffff; SET_SEGREG(R_CP, (x));}
 #define NORMAL_SR ((N<<3)|(Z<<2)|(V<<1)|(C))
 #define P(X,Y) ((X<<8) | Y)
@@ -150,6 +154,10 @@ static unsigned char *(regptr[R_LAST][3]);
 static unsigned char *(segregptr[R_LAST][3]);
 static cpu_state_type cpu;
 
+static int segforreg[] = {R_DP, R_DP, R_DP, R_DP,
+			    R_EP, R_EP, R_TP, R_TP,
+			    R_DP, R_DP, R_DP, R_DP,
+			    R_EP, R_EP, R_TP, R_TP};
 int LOW;
 int HIGH;
 
@@ -1166,7 +1174,7 @@ control_c (sig, code, scp, addr)
 }
 
 int
-sim_resume (step)
+sim_resume (step, siggnal)
 {
   static int init1;
   int res;
@@ -1397,6 +1405,8 @@ sim_resume (step)
       FETCH (arga, code->srca, 0);
       FETCH (argb, code->srcb, 1);
 
+
+	
 #ifdef DEBUG
       if (debug)
 	{
@@ -1526,9 +1536,9 @@ sim_resume (step)
 	break;
 
       LABEL (O_BNOT):
-	arga = 1 << (arga & 0xf);
-	bit = (argb & arga);
-	res = (argb & ~arga) | ~(argb & arga);
+	bit = argb & (1<<(arga & 0xf));
+	res = argb ^ (1<<(arga & 0xf));
+        goto bitop;
 	break;
 
       LABEL (O_BSET):
@@ -1874,7 +1884,7 @@ sim_resume (step)
       DISPATCH (code->flags)
       {
       bitop:
-	Z = res == 0;
+	Z = (res & bit) == 0;
 	pc = code->next_pc;
 	break;
       LABEL (FLAG_multword):
@@ -2050,7 +2060,6 @@ sim_resume (step)
       }
       ENDDISPATCH;
     next:;
-
     }
   while (!cpu.exception);
   cpu.ticks += get_now () - tick_start;
@@ -2059,16 +2068,17 @@ sim_resume (step)
   cpu.regs[R_PC].s[LOW] = pc;
   BUILDSR ();
 
-
   signal (SIGINT, prev);
+
+  return 0;
 }
 
 
 
 
-void
+int
 sim_write (addr, buffer, size)
-     long int addr;
+     SIM_ADDR addr;
      unsigned char *buffer;
      int size;
 {
@@ -2076,24 +2086,26 @@ sim_write (addr, buffer, size)
 
   init_pointers ();
   if (addr < 0 || addr + size > MSIZE)
-    return;
+    return 0;
   for (i = 0; i < size; i++)
     {
       cpu.memory[addr + i] = buffer[i];
       cpu.cache_idx[addr + i] = 0;
     }
+  return size;
 }
 
-void
+int
 sim_read (addr, buffer, size)
-     long int addr;
-     char *buffer;
+     SIM_ADDR addr;
+     unsigned char *buffer;
      int size;
 {
   init_pointers ();
   if (addr < 0 || addr + size > MSIZE)
-    return;
+    return 0;
   memcpy (buffer, cpu.memory + addr, size);
+  return size;
 }
 
 /* Ripped off from tm-h8500.h */
@@ -2107,24 +2119,36 @@ sim_read (addr, buffer, size)
 #define R6_REGNUM	6
 #define R7_REGNUM	7
 
-#define SP_REGNUM       R7_REGNUM	/* Contains address of top of stack */
-#define FP_REGNUM       R6_REGNUM	/* Contains address of executing stack frame */
+/* As above, but with correct seg register glued on */
+#define PR0_REGNUM	8
+#define PR1_REGNUM	9
+#define PR2_REGNUM	10
+#define PR3_REGNUM	11
+#define PR4_REGNUM	12
+#define PR5_REGNUM	13
+#define PR6_REGNUM	14
+#define PR7_REGNUM	15
 
-#define CCR_REGNUM      8	/* Contains processor status */
-#define PC_REGNUM       9	/* Contains program counter */
+#define SP_REGNUM       PR7_REGNUM	/* Contains address of top of stack */
+#define FP_REGNUM       PR6_REGNUM	/* Contains address of executing stack frame */
 
-#define SEG_C_REGNUM	10	/* Segment registers */
-#define SEG_D_REGNUM	11
-#define SEG_E_REGNUM	12
-#define SEG_T_REGNUM	13
 
-#define CYCLE_REGNUM    14
-#define INST_REGNUM     15
-#define TICK_REGNUM     16
+#define SEG_C_REGNUM	16	/* Segment registers */
+#define SEG_D_REGNUM	17
+#define SEG_E_REGNUM	18
+#define SEG_T_REGNUM	19
 
+#define CCR_REGNUM      20	/* Contains processor status */
+#define PC_REGNUM       21	/* Contains program counter */
+
+#define CYCLE_REGNUM    22
+#define INST_REGNUM     23
+#define TICK_REGNUM     24
+
+int
 sim_store_register (rn, value)
      int rn;
-     int value;
+     unsigned char *value;
 {
   int seg;
   int reg = -1;
@@ -2133,14 +2157,13 @@ sim_store_register (rn, value)
   switch (rn)
     {
     case PC_REGNUM:
-      seg = 0;
-      reg = PC_REGNUM;
+      SET_SEGREG (R_CP, (value[1]<<16));
+      cpu.regs[rn].s[LOW] = (value[2] << 8) | value[3];
       break;
     case SEG_C_REGNUM:
     case SEG_D_REGNUM:
     case SEG_E_REGNUM:
     case SEG_T_REGNUM:
-      value <<= 16;
       seg = rn - SEG_C_REGNUM + R_CP;
       reg = -1;
       break;
@@ -2155,35 +2178,50 @@ sim_store_register (rn, value)
     case R6_REGNUM:
     case R7_REGNUM:
       seg = 0;
-      reg = rn - GR0 + R0_REGNUM;
+      reg = rn - R0_REGNUM;
       break;
     case CCR_REGNUM:
       seg = 0;
       reg = R_SR;
       break;
     case CYCLE_REGNUM:
-      cpu.cycles = value;
-      return;
+      cpu.cycles = (value[0] << 24) | (value[1] << 16) | (value[2] << 8) | value[3];
+      return 0;
     case INST_REGNUM:
-      cpu.insts = value;
-      return;
+      cpu.insts = (value[0] << 24) | (value[1] << 16) | (value[2] << 8) | value[3];
+      return 0;
     case TICK_REGNUM:
-      cpu.ticks = value;
-      return;
+      cpu.ticks = (value[0] << 24) | (value[1] << 16) | (value[2] << 8) | value[3];
+      return 0;
+    case PR0_REGNUM:
+    case PR1_REGNUM:
+    case PR2_REGNUM:
+    case PR3_REGNUM:
+    case PR4_REGNUM:
+    case PR5_REGNUM:
+    case PR6_REGNUM:
+    case PR7_REGNUM:
+      SET_SEGREG (segforreg[rn], value[1]);
+      reg = rn - PR0_REGNUM;      
+      cpu.regs[reg].s[LOW] = (value[2] << 8) | value[3];
+      return 0;
     }
 
   if (seg)
-    SET_SEGREG (seg, value);
+    SET_SEGREG (seg, value[0] << 16);
 
   if (reg > 0)
     {
-      cpu.regs[reg].s[LOW] = value & 0xffff;
+      cpu.regs[reg].s[LOW] = (value[0] << 8) | value[1];
     }
+
+  return 0;
 }
 
+int
 sim_fetch_register (rn, buf)
-     gdbreg_type rn;
-     char *buf;
+     int rn;
+     unsigned char *buf;
 {
   init_pointers ();
 
@@ -2195,15 +2233,32 @@ sim_fetch_register (rn, buf)
     case SEG_D_REGNUM:
     case SEG_E_REGNUM:
     case SEG_T_REGNUM:
-      buf[0] = ((cpu.regs[rn - SEG_C_REGNUM + R_CP].c - cpu.memory) >> 16);
+      buf[0] = GET_SEGREG(rn - SEG_C_REGNUM + R_CP);
       break;
     case CCR_REGNUM:
       buf[0] = cpu.regs[R_SR].s[HIGH];
       buf[1] = cpu.regs[R_SR].s[LOW];
       break;
     case PC_REGNUM:
-      buf[0] = HIGH_BYTE (cpu.regs[R_PC].s[LOW]);
-      buf[1] = LOW_BYTE (cpu.regs[R_PC].s[LOW]);
+      buf[0] = 0;
+      buf[1] = GET_SEGREG(R_CP);
+      buf[2] = HIGH_BYTE (cpu.regs[R_PC].s[LOW]);
+      buf[3] = LOW_BYTE (cpu.regs[R_PC].s[LOW]);
+      break;
+
+    case PR0_REGNUM:
+    case PR1_REGNUM:
+    case PR2_REGNUM:
+    case PR3_REGNUM:
+    case PR4_REGNUM:
+    case PR5_REGNUM:
+    case PR6_REGNUM:
+    case PR7_REGNUM:
+      rn -= PR0_REGNUM;
+      buf[0] = 0;
+      buf[1] = GET_SEGREG(segforreg[rn]);
+      buf[2] = HIGH_BYTE (cpu.regs[rn].s[LOW]);
+      buf[3] = LOW_BYTE (cpu.regs[rn].s[LOW]);
       break;
     case R0_REGNUM:
     case R1_REGNUM:
@@ -2236,8 +2291,9 @@ sim_fetch_register (rn, buf)
       buf[2] = cpu.insts >> 8;
       buf[3] = cpu.insts >> 0;
       break;
-
     }
+
+  return 0;
 }
 
 int
@@ -2268,19 +2324,33 @@ sim_trace ()
 	  cpu.regs[5].s[LOW],
 	  cpu.regs[6].s[LOW],
 	  cpu.regs[7].s[LOW]);
-  sim_resume (1);
+  sim_resume (1, 0);
   return 0;
 }
 
-sim_stop_signal ()
+int
+sim_stop_reason (reason, sigrc)
+     enum sim_stop *reason;
+     int *sigrc;
 {
-  return cpu.exception;
+  *reason = sim_stopped;
+  *sigrc = cpu.exception;
+  return 0;
 }
 
+int
 sim_set_pc (n)
+     SIM_ADDR n;
 {
-  sim_store_register (SEG_C_REGNUM, n >> 16);
-  sim_store_register (PC_REGNUM, n);
+  unsigned char reg[4];
+
+  reg[0] = 0;
+  reg[1] = n >> 16;
+  reg[2] = n >> 8;
+  reg[3] = n;
+
+  sim_store_register (PC_REGNUM, reg);
+  return 0;
 }
 
 
@@ -2297,37 +2367,43 @@ sim_csize (n)
 
 
 
-sim_info ()
+int
+sim_info (printf_fn, verbose)
+     void (*printf_fn)();
+     int verbose;
 {
   double timetaken = (double) cpu.ticks / (double) now_persec ();
   double virttime = cpu.cycles / 10.0e6;
 
-  printf ("\n\ninstructions executed  %10d\n", cpu.insts);
-  printf ("cycles (v approximate) %10d\n", cpu.cycles);
-  printf ("real time taken        %10.4f\n", timetaken);
-  printf ("virtual time taked     %10.4f\n", virttime);
+  (*printf_fn) ("\n\ninstructions executed  %10d\n", cpu.insts);
+  (*printf_fn) ("cycles (v approximate) %10d\n", cpu.cycles);
+  (*printf_fn) ("real time taken        %10.4f\n", timetaken);
+  (*printf_fn) ("virtual time taked     %10.4f\n", virttime);
   if (timetaken) 
     {
-      printf ("simulation ratio       %10.4f\n", virttime / timetaken);
+      (*printf_fn) ("simulation ratio       %10.4f\n", virttime / timetaken);
     }
   
-  printf ("compiles               %10d\n", cpu.compiles);
-  printf ("cache size             %10d\n", cpu.csize);
+  (*printf_fn) ("compiles               %10d\n", cpu.compiles);
+  (*printf_fn) ("cache size             %10d\n", cpu.csize);
+  return 0;
 }
 
-void
+int
 sim_kill()
 {
+  return 0;
 }
 
-sim_open ()
+sim_open (name)
+     char *name;
 {
   return 0;
 }
 
 sim_set_args(argv, env)
-char **argv;
-char **env;
+     char **argv;
+     char **env;
 {
   return 0;
 }

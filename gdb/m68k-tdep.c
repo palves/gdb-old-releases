@@ -160,6 +160,10 @@ CORE_ADDR ip;
 	{
 	  ip += 4;	/* Skip link.w */
 	}
+      else if (op == 0x4856)
+	ip += 2; /* Skip pea %fp */
+      else if (op == 0x2c4f)
+	ip += 2; /* Skip move.l %sp, %fp */
       else if (op == P_LINK_L)
 	{
 	  ip += 6;	/* Skip link.l */
@@ -211,14 +215,29 @@ m68k_find_saved_regs (frame_info, saved_regs)
   else   								
     {
       pc = get_pc_function_start ((frame_info)->pc); 			
-      /* Verify we have a link a6 instruction next;			
-	 if not we lose.  If we win, find the address above the saved   
-	 regs using the amount of storage from the link instruction.  */
-      if (044016 == read_memory_integer (pc, 2))			
+
+      if (0x4856 == read_memory_integer (pc, 2)
+	  && 0x2c4f == read_memory_integer (pc + 2, 2))
+	{
+	  /*
+	    pea %fp
+            move.l %sp, %fp */
+
+	  pc += 4;
+	  next_addr = frame_info->frame;
+	}
+      else if (044016 == read_memory_integer (pc, 2))
+	/* link.l %fp */
+	/* Find the address above the saved   
+	   regs using the amount of storage from the link instruction.  */
 	next_addr = (frame_info)->frame + read_memory_integer (pc += 2, 4), pc+=4; 
       else if (047126 == read_memory_integer (pc, 2))			
+	/* link.w %fp */
+	/* Find the address above the saved   
+	   regs using the amount of storage from the link instruction.  */
 	next_addr = (frame_info)->frame + read_memory_integer (pc += 2, 2), pc+=2; 
-      else goto lose;							
+      else goto lose;
+
       /* If have an addal #-n, sp next, adjust next_addr.  */		
       if ((0177777 & read_memory_integer (pc, 2)) == 0157774)		
 	next_addr += read_memory_integer (pc += 2, 4), pc += 4;		
@@ -474,15 +493,14 @@ CORE_ADDR
 m68k_saved_pc_after_call(frame)
      struct frame_info *frame;
 {
-#ifdef GDB_TARGET_IS_SUN3
+#ifdef SYSCALL_TRAP
   int op;
 
-  op = read_memory_integer (frame->pc, 2);
-  op &= 0xFFFF;
+  op = read_memory_integer (frame->pc - SYSCALL_TRAP_OFFSET, 2);
 
-  if (op == P_TRAP)
+  if (op == SYSCALL_TRAP)
     return read_memory_integer (read_register (SP_REGNUM) + 4, 4);
   else
-#endif /* GDB_TARGET_IS_SUN3 */
+#endif /* SYSCALL_TRAP */
     return read_memory_integer (read_register (SP_REGNUM), 4);
 }

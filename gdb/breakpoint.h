@@ -294,11 +294,11 @@ struct bpstat
 struct frame_info;
 #endif
 
-extern int
-breakpoint_here_p PARAMS ((CORE_ADDR));
+extern int breakpoint_here_p PARAMS ((CORE_ADDR));
 
-extern int
-breakpoint_thread_match PARAMS ((CORE_ADDR, int));
+extern int frame_in_dummy PARAMS ((struct frame_info *));
+
+extern int breakpoint_thread_match PARAMS ((CORE_ADDR, int));
 
 extern void
 until_break_command PARAMS ((char *, int));

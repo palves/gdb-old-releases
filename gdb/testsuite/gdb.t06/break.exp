@@ -33,7 +33,7 @@ set binfile "gdbme"
 set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    error "$objdir/$subdir/$binfile does not exist."
+    perror "$objdir/$subdir/$binfile does not exist."
     return 0
 }
 
@@ -52,7 +52,7 @@ gdb_load $objdir/$subdir/$binfile
 #
 send "delete breakpoints\n"
 expect {
-    -re "Delete all breakpoints\? \(y or n\) $"\
+    -re "Delete all breakpoints.*y or n. $"\
 	{ send "y\n"
 	    expect {
 		-re ".*$prompt $"\
@@ -129,17 +129,13 @@ expect {
 #
 # check to see what breakpoints are set
 #
-# This test fails on Solaris2.1 because of minor differences in the line
-# numbers.  It's not entirely clear if this is a bug in gdb or a too
-# picky test.
-setup_xfail "sparc-sun-solaris2.*"
 send "info break\n"
 expect {
-    -re "Num Type\[ \]+Disp Enb Address\[ \]+What.*\
-\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:56.*\
-\[0-9\]+\[\t \]+breakpoint     keep y.* in factorial at .*$srcfile:72.*\
-\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:60.*\
-\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:60.*\
+    -re "Num Type\[ \]+Disp Enb Address\[ \]+What.*
+\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:56.*
+\[0-9\]+\[\t \]+breakpoint     keep y.* in factorial at .*$srcfile:72.*
+\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:60.*
+\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:60.*
 \[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:66.*$prompt $" { pass "breakpoint info" }
 	-re ".*$prompt $"   { fail "breakpoint info" }
 	timeout	    { fail "(timeout) breakpoint info" }
@@ -166,8 +162,7 @@ if [istarget "*-*-vxworks"] then {
     }
 }
 expect {
-    -re "Starting program.*Breakpoint \[0-9\]+,.*main \(argc.*argv.*\) at .*$srcfile:56.*\
-56\[\t \]+if \(argc.*\) \{.*$prompt $"\
+    -re "Starting program.*Breakpoint \[0-9\]+,.*main .*argc.*argv.* at .*$srcfile:56.*56\[\t \]+if .argc.* \{.*$prompt $"\
 	                    { pass "run until function breakpoint" }
     -re ".*$prompt $"       { fail "run until function breakpoint" }
     timeout	            { fail "(timeout) run until function breakpoint" }
@@ -179,7 +174,7 @@ expect {
 #
 send "continue\n"
 expect {
-    -re "continue.*Continuing..*Breakpoint \[0-9\]+, main \(argc.*argv.*\) at .*$srcfile:60.*\
+    -re "continue.*Continuing..*Breakpoint \[0-9\]+, main .argc.*argv.* at .*$srcfile:60.*
 60\[\t ]+printf.*factorial.*$prompt $" { pass "run until breakpoint set at a line number" }
     -re ".*$prompt $"       { fail "run until breakpoint set at a line number" }
     timeout	            { fail "(timeout) run until breakpoint set at a line number" }
@@ -191,12 +186,10 @@ expect {
 #
 send "continue\n"
 expect {
-    -re "continue.*Continuing..*Breakpoint \[0-9\]+, factorial \(value=2\) at .*$srcfile:72.*\
-72\[\t ]+if \(value > 1\) \{.*$prompt $"\
+    -re "continue.*Continuing..*Breakpoint \[0-9\]+, factorial .value=2. at .*$srcfile:72.*72\[\t ]+if .value > 1. \{.*$prompt $"\
 	{ send "continue\n"
 	    expect {
-		-re "continue.*Continuing..*Breakpoint \[0-9\]+, factorial \(value=1\) at .*$srcfile:72.*\
-72\[\t ]+if \(value > 1\) \{.*$prompt $" { pass "run until file:function breakpoint" }
+		-re "continue.*Continuing..*Breakpoint \[0-9\]+, factorial .value=1. at .*$srcfile:72.*72\[\t ]+if .value > 1.*$prompt $" { pass "run until file:function breakpoint" }
 		-re ".*$prompt $"       { fail "run until file:function breakpoint" }
 		timeout	            { fail "(timeout) run until file:function breakpoint" }
 	    }
@@ -211,8 +204,7 @@ expect {
 #
 send "continue\n"
 expect {
-    -re "continue.*Continuing..*Breakpoint \[0-9\]+, main \(argc.*argv.*\) at .*$srcfile:66.*\
-66\[\t ]+return 0;.*$prompt $" { pass "run until file:linenum breakpoint" }
+    -re "continue.*Continuing..*Breakpoint \[0-9\]+, main .*argc.*argv.* at .*$srcfile:66.*66\[\t ]+return 0;.*$prompt $" { pass "run until file:linenum breakpoint" }
     -re ".*$prompt $"       { fail "run until file:linenum breakpoint" }
     timeout	            { fail "(timeout) run until file:linenum breakpoint" }
 }
@@ -223,20 +215,22 @@ expect {
 #
 send "delete breakpoints\n"
 expect {
-    -re "Delete all breakpoints\? \(y or n\) $"\
-	{ send "y\n"
-	    expect {
-		-re ".*$prompt $"\
-		    { send "info breakpoints\n"
-			expect {
-			    -re "No breakpoints or watchpoints..*$prompt $" { pass "Deleted all breakpoints" }
-			    -re ".*$prompt $"       { fail "Deleted all breakpoints" }
-			    timeout	            { fail "Deleted all breakpoints" }
-			}
+    -re "Delete all breakpoints.*y or n.*$" {
+	send "y\n"
+	expect {
+	    -re ".*$prompt $" {
+		send "info breakpoints\n"
+		expect {
+		    -re "No breakpoints or watchpoints..*$prompt $" {
+			pass "Deleted all breakpoints"
 		    }
-		timeout	            { fail "Deleted all breakpoints" }	    
+		    -re ".*$prompt $"       { fail "Deleted all breakpoints" }
+		    timeout	            { fail "Deleted all breakpoints" }
+		}
 	    }
+	    timeout	            { fail "Deleted all breakpoints" }	    
 	}
+    }
     -re ".*$prompt $"       { fail "Deleted all breakpoints" }
     timeout	            { fail "Deleted all breakpoints" }
 }
@@ -247,9 +241,15 @@ expect {
 #
 send "tbreak main\n"
 expect {
-    -re "Breakpoint.*at.* file .*$srcfile, line.*$prompt $" { pass "Temporary breakpoint function" }
-	-re ".*$prompt $"   { pass "Temporary breakpoint function" }
-	timeout	    { fail "(timeout) breakpoint function" }
+    -re "Breakpoint.*at.* file .*$srcfile, line.*$prompt $" {
+	pass "Temporary breakpoint function"
+    }
+    -re ".*$prompt $" {
+	pass "Temporary breakpoint function"
+    }
+    timeout {
+	fail "(timeout) breakpoint function"
+    }
 }
 
 
@@ -258,9 +258,15 @@ expect {
 #
 send "tbreak $srcfile:factorial\n"
 expect {
-    -re "Breakpoint.*at.* file .*$srcfile, line.*$prompt $" { pass "Temporary breakpoint function in file" }
-	-re ".*$prompt $"   { pass "Temporary breakpoint function in file" }
-	timeout	    { fail "(timeout) breakpoint function in file" }
+    -re "Breakpoint.*at.* file .*$srcfile, line.*$prompt $" {
+	pass "Temporary breakpoint function in file"
+    }
+    -re ".*$prompt $" {
+	pass "Temporary breakpoint function in file"
+    }
+    timeout {
+	fail "(timeout) breakpoint function in file"
+    }
 }
 
 
@@ -289,19 +295,17 @@ expect {
 #
 # check to see what breakpoints are set (temporary this time)
 #
-# This test fails on Solaris2.1 because of minor differences in the line
-# numbers.  It's not entirely clear if this is a bug in gdb or a too
-# picky test.
-setup_xfail "sparc-sun-solaris2.*"
 send "info break\n"
 expect {
-    -re "Num Type.*Disp Enb Address.*What.*\
-\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:56.*\
-\[0-9\]+\[\t \]+breakpoint     del.*y.*in factorial at .*$srcfile:72.*\
-\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:60.*\
-\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:66.*$prompt $" { pass "Temporary breakpoint info" }
-	-re ".*$prompt $"   { fail "Temporary breakpoint info" }
-	timeout	    { fail "(timeout) Temporary breakpoint info" }
+    -re "Num Type.*Disp Enb Address.*What.*
+\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:56.*
+\[0-9\]+\[\t \]+breakpoint     del.*y.*in factorial at .*$srcfile:72.*
+\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:60.*
+\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:66.*$prompt $" {
+        pass "Temporary breakpoint info"
+    }
+    -re ".*$prompt $"   { fail "Temporary breakpoint info" }
+    timeout	    { fail "(timeout) Temporary breakpoint info" }
 }
 
 
@@ -325,7 +329,7 @@ proc test_next_with_recursion {} {
 # FIXME: should be using runto
     send "kill\n"
     expect {
-	-re ".*Kill the program being debugged\? \(y or n\) $" {
+	-re ".*Kill the program being debugged.*y or n. $" {
 	    send "y\n"
 	    continue -expect
 	}
@@ -359,7 +363,7 @@ proc test_next_with_recursion {} {
 	}
     }
     expect {
-	-re "Starting .*Break.* factorial \(value=6\) .*$prompt $" {}
+	-re "Starting .*Break.* factorial .value=6. .*$prompt $" {}
 	timeout { fail "run to factorial(6)" ; return }
     }
 
@@ -367,14 +371,14 @@ proc test_next_with_recursion {} {
 
     send "continue\n"
     expect {
-	-re "Continuing.*Break.* factorial \(value=5\) .*$prompt $" {}
+	-re "Continuing.*Break.* factorial .value=5. .*$prompt $" {}
 	timeout { fail "continue to factorial(5)" ; return }
     }
 
     # Do a backtrace just to confirm how many levels deep we are.
 
     set result [gdb_test "backtrace" \
-			"#0\[ \t\]+ factorial \(value=5\)" \
+			"#0\[ \t\]+ factorial .value=5." \
 			"backtrace from factorial(5)"]
     if $result!=0 then { return }
 
@@ -383,7 +387,7 @@ proc test_next_with_recursion {} {
 
     send "next\n"
     expect {
-	-re ".* factorial \(value - 1\);.*$prompt $" {}
+	-re ".* factorial .value - 1.;.*$prompt $" {}
 	timeout { fail "next to recursive call (timeout)" ; return }
     }
 
@@ -398,7 +402,7 @@ proc test_next_with_recursion {} {
     setup_xfail "*-*-*"
     send "next\n"
     expect {
-	-re "factorial \(value=5\) at .*$prompt $" {
+	-re "factorial .value=5. at .*$prompt $" {
 	    pass "next over recursive call"
 	}
 	-re ".*$prompt $" {
@@ -411,7 +415,7 @@ proc test_next_with_recursion {} {
     # Do a backtrace just to confirm.
 
     set result [gdb_test "backtrace" \
-			 "#0\[ \t\]+ factorial \(value=5\)" \
+			 "#0\[ \t\]+ factorial .value=5." \
 			 "backtrace from factorial(5)"]
     if $result!=0 then { return }
 

@@ -35,7 +35,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 static void
 emit_char (c, stream, quoter)
      register int c;
-     FILE *stream;
+     GDB_FILE *stream;
      int quoter;
 {
 
@@ -87,7 +87,7 @@ emit_char (c, stream, quoter)
 static void
 m2_printchar (c, stream)
      int c;
-     FILE *stream;
+     GDB_FILE *stream;
 {
   fputs_filtered ("'", stream);
   emit_char (c, stream, '\'');
@@ -103,7 +103,7 @@ m2_printchar (c, stream)
 
 static void
 m2_printstr (stream, string, length, force_ellipses)
-     FILE *stream;
+     GDB_FILE *stream;
      char *string;
      unsigned int length;
      int force_ellipses;
@@ -118,7 +118,7 @@ m2_printstr (stream, string, length, force_ellipses)
 
   if (length == 0)
     {
-      fputs_filtered ("\"\"", stdout);
+      fputs_filtered ("\"\"", gdb_stdout);
       return;
     }
 
@@ -236,7 +236,7 @@ m2_create_fundamental_type (objfile, typeid)
       case FT_SIGNED_CHAR:
 	type = init_type (TYPE_CODE_INT,
 			  TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-			  TYPE_FLAG_SIGNED, "signed char", objfile);
+			  0, "signed char", objfile);
 	break;
       case FT_UNSIGNED_CHAR:
 	type = init_type (TYPE_CODE_INT,
@@ -251,7 +251,7 @@ m2_create_fundamental_type (objfile, typeid)
       case FT_SIGNED_SHORT:
 	type = init_type (TYPE_CODE_INT,
 			  TARGET_SHORT_BIT / TARGET_CHAR_BIT,
-			  TYPE_FLAG_SIGNED, "short", objfile);	/* FIXME-fnf */
+			  0, "short", objfile);	/* FIXME-fnf */
 	break;
       case FT_UNSIGNED_SHORT:
 	type = init_type (TYPE_CODE_INT,
@@ -266,7 +266,7 @@ m2_create_fundamental_type (objfile, typeid)
       case FT_SIGNED_INTEGER:
 	type = init_type (TYPE_CODE_INT,
 			  TARGET_INT_BIT / TARGET_CHAR_BIT,
-			  TYPE_FLAG_SIGNED, "int", objfile); /* FIXME -fnf */
+			  0, "int", objfile); /* FIXME -fnf */
 	break;
       case FT_UNSIGNED_INTEGER:
 	type = init_type (TYPE_CODE_INT,
@@ -286,7 +286,7 @@ m2_create_fundamental_type (objfile, typeid)
       case FT_SIGNED_LONG:
 	type = init_type (TYPE_CODE_INT,
 			  TARGET_LONG_BIT / TARGET_CHAR_BIT,
-			  TYPE_FLAG_SIGNED, "long", objfile); /* FIXME -fnf */
+			  0, "long", objfile); /* FIXME -fnf */
 	break;
       case FT_UNSIGNED_LONG:
 	type = init_type (TYPE_CODE_INT,
@@ -301,7 +301,7 @@ m2_create_fundamental_type (objfile, typeid)
       case FT_SIGNED_LONG_LONG:
 	type = init_type (TYPE_CODE_INT,
 			  TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
-			  TYPE_FLAG_SIGNED, "signed long long", objfile);
+			  0, "signed long long", objfile);
 	break;
       case FT_UNSIGNED_LONG_LONG:
 	type = init_type (TYPE_CODE_INT,

@@ -1,3 +1,16 @@
+Tue Nov 16 20:33:17 1993  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* COPYING.LIB: New file (standard version 2 LGPL, as already cited
+	by the source files).
+
+Fri Nov  5 11:47:33 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in (info dvi install-info): Actually make the manual.
+
+Mon Nov  1 14:20:25 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* mmalloc.texi: Fix typo ("for for" -> "for").
+
 Fri Jul 16 15:27:08 1993  Jim Kingdon  (kingdon@rtl.cygnus.com)
 
 	* test1.c: New file which tests for bug fixed below.

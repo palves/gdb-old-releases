@@ -89,7 +89,7 @@ single_step (ignore)
       npc4 = next_pc + 4; /* branch not taken */
 
       target_insert_breakpoint (next_pc, break_mem[0]);
-      /* printf ("set break at %x\n",next_pc); */
+      /* printf_unfiltered ("set break at %x\n",next_pc); */
 
       pc = read_register (PC_REGNUM);
       pc_instruction = read_memory_integer (pc, sizeof(pc_instruction));
@@ -497,6 +497,16 @@ sparc_pop_frame ()
     {
       read_memory (fsr.regs[FP0_REGNUM], raw_buffer, 32 * 4);
       write_register_bytes (REGISTER_BYTE (FP0_REGNUM), raw_buffer, 32 * 4);
+    }
+  if (fsr.regs[FPS_REGNUM])
+    {
+      read_memory (fsr.regs[FPS_REGNUM], raw_buffer, 4);
+      write_register_bytes (REGISTER_BYTE (FPS_REGNUM), raw_buffer, 4);
+    }
+  if (fsr.regs[CPS_REGNUM])
+    {
+      read_memory (fsr.regs[CPS_REGNUM], raw_buffer, 4);
+      write_register_bytes (REGISTER_BYTE (CPS_REGNUM), raw_buffer, 4);
     }
   if (fsr.regs[G1_REGNUM])
     {

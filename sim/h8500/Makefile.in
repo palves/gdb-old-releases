@@ -57,7 +57,7 @@ MAKEINFO = makeinfo
 RANLIB = ranlib
 
 INCDIR = $(srcdir)/../../include 
-CSEARCH = -I. -I$(srcdir) -I$(INCDIR) -I$(srcdir)/../../bfd
+CSEARCH = -I. -I$(srcdir) -I$(INCDIR) -I$(srcdir)/../../bfd -I$(srcdir)/../../gdb
 DEP = mkdep
 
 #### host, target, and site specific Makefile frags come in here.

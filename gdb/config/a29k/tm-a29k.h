@@ -1,5 +1,5 @@
-/* Parameters for target machine of AMD 29000, for GDB, the GNU debugger.
-   Copyright 1990, 1991, 1993 Free Software Foundation, Inc.
+/* Parameters for target machine AMD 29000, for GDB, the GNU debugger.
+   Copyright 1990, 1991, 1993, 1994 Free Software Foundation, Inc.
    Contributed by Cygnus Support.  Written by Jim Kingdon.
 
 This file is part of GDB.
@@ -100,9 +100,11 @@ CORE_ADDR skip_prologue ();
 
 #define INVALID_FLOAT(p, len) 0   /* Just a first guess; not checked */
 
-/* Say how long (ordinary) registers are.  */
+/* Say how long (ordinary) registers are.  This is a piece of bogosity
+   used in push_word and a few other places; REGISTER_RAW_SIZE is the
+   real way to know how big a register is.  */
 
-#define REGISTER_TYPE long
+#define REGISTER_SIZE 4
 
 /* Allow the register declarations here to be overridden for remote
    kernel debugging.  */
@@ -269,23 +271,6 @@ CORE_ADDR skip_prologue ();
 /* Largest value REGISTER_VIRTUAL_SIZE can have.  */
 
 #define MAX_REGISTER_VIRTUAL_SIZE (4)
-
-/* Nonzero if register N requires conversion
-   from raw format to virtual format.  */
-
-#define REGISTER_CONVERTIBLE(N) (0)
-
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
-
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO) \
-{ memcpy ((TO), (FROM), 4); }
-
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
-
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-{ memcpy ((TO), (FROM), 4); }
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -519,16 +504,11 @@ extern CORE_ADDR frame_locals_address ();
 
 /* Return number of args passed to a frame.
    Can return -1, meaning no way to tell.  */
-/* While we could go the effort of finding the tags word and getting
-   the argcount field from it,
-   (1) It only counts arguments in registers, i.e. the first 16 words
-       of arguments
-   (2) It gives the number of arguments the function was declared with
-       not how many it was called with (or some variation, like all 16
-       words for varadic functions).  This makes argcount pretty much
-       redundant with -g info, even for varadic functions.
-   So don't bother.  */
-#define FRAME_NUM_ARGS(numargs, fi) ((numargs) = -1)
+/* We tried going to the effort of finding the tags word and getting
+   the argcount field from it, to support debugging assembler code.
+   Problem was, the "argcount" field never did hold the argument
+   count.  */
+#define	FRAME_NUM_ARGS(numargs, fi) ((numargs) = -1)
 
 #define FRAME_ARGS_ADDRESS(fi) FRAME_LOCALS_ADDRESS (fi)
 
@@ -559,6 +539,7 @@ extern CORE_ADDR frame_locals_address ();
        |____________|<-msp 0 <-----------mfp_dummy_____|  |
        |            |  (at start)     |  save regs     |  |
        | arg_slop   |		      |  pc0,pc1       |  |
+       |            |		      |  pc2,lr0 sproc |  |
        | (16 words) |		      | gr96-gr124     |  |
        |____________|<-msp 1--after   | sr160-sr162    |  |
        |            | PUSH_DUMMY_FRAME| sr128-sr135    |  |
@@ -606,7 +587,7 @@ extern CORE_ADDR frame_locals_address ();
 
 #define DUMMY_FRAME_RSIZE \
 (4 /* mfp_dummy */     	  \
- + 2 * 4  /* pc0, pc1 */  \
+ + 4 * 4  /* pc0, pc1, pc2, lr0 */  \
  + DUMMY_SAVE_GREGS * 4   \
  + DUMMY_SAVE_SR160 * 4	  \
  + DUMMY_SAVE_SR128 * 4	  \
@@ -731,3 +712,11 @@ extern enum a29k_processor_types {
   /* Bit 0x400 of the CPS does identify freeze mode, i.e. 29050.  */
   a29k_freeze_mode
 } processor_type;
+
+/* We need three arguments for a general frame specification for the
+   "frame" or "info frame" command.  */
+
+#define SETUP_ARBITRARY_FRAME(argc, argv) setup_arbitrary_frame (argc, argv)
+/* FIXME:  Depends on equivalence between FRAME and "struct frame_info *",
+   and equivalence between CORE_ADDR and FRAME_ADDR. */
+extern struct frame_info *setup_arbitrary_frame PARAMS ((int, CORE_ADDR *));

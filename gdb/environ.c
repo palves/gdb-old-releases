@@ -21,7 +21,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "defs.h"
 #include "environ.h"
 #include <string.h>
-#include "defs.h" /* For strsave().  */
+#include "gdbcore.h"
 
 
 /* Return a new environment object.  */
@@ -164,7 +164,7 @@ set_in_environ (e, var, value)
      behavior.  */
   if (STREQ (var, "GNUTARGET"))
     {
-      set_gnutarget (value);
+      set_gnutarget ((char *)value);
     }
   return;
 }

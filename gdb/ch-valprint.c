@@ -26,9 +26,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "value.h"
 #include "language.h"
 #include "demangle.h"
+#include "c-lang.h" /* For c_val_print */
 
 static void
-chill_print_value_fields PARAMS ((struct type *, char *, FILE *, int, int,
+chill_print_value_fields PARAMS ((struct type *, char *, GDB_FILE *, int, int,
 				  enum val_prettyprint, struct type **));
 
 
@@ -51,7 +52,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
      struct type *type;
      char *valaddr;
      CORE_ADDR address;
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      int deref_ref;
      int recurse;
@@ -182,12 +183,6 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	  print_scalar_formatted (valaddr, type, format, 0, stream);
 	  break;
 	}
-      if (addressprint && format != 's')
-	{
-	  /* This used to say `addr', which is unset at this point.
-	     Is `address' what is meant?  */
-	  fprintf_filtered (stream, "H'%lx ", (unsigned long) address);
-	}
       i = TYPE_LENGTH (type);
       LA_PRINT_STRING (stream, valaddr, i, 0);
       /* Return number of characters printed, plus one for the terminating
@@ -195,7 +190,73 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
       return (i + (print_max && i != print_max));
       break;
 
+    case TYPE_CODE_BITSTRING:
+    case TYPE_CODE_SET:
+      {
+	struct type *range = TYPE_FIELD_TYPE (type, 0);
+	int low_bound = TYPE_LOW_BOUND (range);
+	int high_bound = TYPE_HIGH_BOUND (range);
+	int i;
+	int is_bitstring = TYPE_CODE (type) == TYPE_CODE_BITSTRING;
+	int need_comma = 0;
+	int in_range = 0;
+
+	if (is_bitstring)
+	  fputs_filtered ("B'", stream);
+	else
+	  fputs_filtered ("[", stream);
+	for (i = low_bound; i <= high_bound; i++)
+	  {
+	    int element = value_bit_index (type, valaddr, i);
+	    if (is_bitstring)
+	      fprintf_filtered (stream, "%d", element);
+	    else if (element)
+	      {
+		if (need_comma)
+		  fputs_filtered (", ", stream);
+		print_type_scalar (TYPE_TARGET_TYPE (range), i, stream);
+		need_comma = 1;
+
+		/* Look for a continuous range of true elements. */
+		if (i+1 <= high_bound && value_bit_index (type, valaddr, ++i))
+		  {
+		    int j = i; /* j is the upper bound so far of the range */
+		    fputs_filtered (":", stream);
+		    while (i+1 <= high_bound
+			   && value_bit_index (type, valaddr, ++i))
+		      j = i;
+		    print_type_scalar (TYPE_TARGET_TYPE (range), j, stream);
+		  }
+	      }
+	  }
+	if (is_bitstring)
+	  fputs_filtered ("'", stream);
+	else
+	  fputs_filtered ("]", stream);
+      }
+      break;
+
     case TYPE_CODE_STRUCT:
+      if (chill_is_varying_struct (type))
+	{
+	  struct type *inner = TYPE_FIELD_TYPE (type, 1);
+	  long length = unpack_long (TYPE_FIELD_TYPE (type, 0), valaddr);
+	  char *data_addr = valaddr + TYPE_FIELD_BITPOS (type, 1) / 8;
+	  
+	  switch (TYPE_CODE (inner))
+	    {
+	    case TYPE_CODE_STRING:
+	      if (length > TYPE_LENGTH (type))
+		{
+		  fprintf_filtered (stream,
+				    "<dynamic length %d > static length %d>",
+				    length, TYPE_LENGTH (type));
+		  length > TYPE_LENGTH (type);
+		}
+	      LA_PRINT_STRING (stream, data_addr, length, 0);
+	      return length;
+	    }
+	}
       chill_print_value_fields (type, valaddr, stream, format, recurse, pretty,
 				0);
       break;
@@ -233,19 +294,24 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 		   deref_ref, recurse, pretty);
       break;
 
+    case TYPE_CODE_RANGE:
+      if (TYPE_TARGET_TYPE (type))
+	chill_val_print (TYPE_TARGET_TYPE (type), valaddr, address, stream,
+			 format, deref_ref, recurse, pretty);
+      break;
+
     case TYPE_CODE_MEMBER:
     case TYPE_CODE_UNION:
     case TYPE_CODE_FUNC:
     case TYPE_CODE_VOID:
     case TYPE_CODE_ERROR:
-    case TYPE_CODE_RANGE:
     default:
-      /* Let's derfer printing to the C printer, rather than
+      /* Let's defer printing to the C printer, rather than
 	 print an error message.  FIXME! */
       c_val_print (type, valaddr, address, stream, format,
 		   deref_ref, recurse, pretty);
     }
-  fflush (stream);
+  gdb_flush (stream);
   return (0);
 }
 
@@ -263,7 +329,7 @@ chill_print_value_fields (type, valaddr, stream, format, recurse, pretty,
 			  dont_print)
      struct type *type;
      char *valaddr;
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      int recurse;
      enum val_prettyprint pretty;
@@ -329,4 +395,3 @@ chill_print_value_fields (type, valaddr, stream, format, recurse, pretty,
     }
   fprintf_filtered (stream, "]");
 }
-

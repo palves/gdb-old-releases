@@ -14,6 +14,7 @@ cpu=`echo $canon | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\1/'`
 #  convention, else the table becomes a real mess to understand and maintain.
 
 case "${canon}" in
+  alpha-*-netware*)	bfd_name=alpha-nlm ;;
   alpha-*-*)		bfd_name=alphaosf ;;
   a29k-*-ebmon*)	bfd_name=a29k-coff ;;
   a29k-*-udi*)		bfd_name=a29k-coff ;;
@@ -28,6 +29,7 @@ case "${canon}" in
   hppa*-*-hiux*)	bfd_name=hppahpux ;;
   hppa*-*-osf*)		bfd_name=hppa-elf ;;
   i[34]86-*-sysv4*)	bfd_name=i386-elf ;;
+  i[34]86-*-unixware)	bfd_name=i386-elf ;;
   i[34]86-*-solaris2*)	bfd_name=i386-elf ;;
   i[34]86-*-sysv*)	bfd_name=i386-coff ;;
   i[34]86-*-isc*)	bfd_name=i386-coff ;;
@@ -57,28 +59,36 @@ case "${canon}" in
   m68*-*-os68k*)	bfd_name=m68k-aout ;;
   m68*-*-sunos*)	bfd_name=m68k-aout ;;
   m68*-*-sysv*)		bfd_name=m68k-coff ;;
+  m68*-*-sysv4*)	bfd_name=m68k-elf ;;
   m68*-*-vxworks*)	bfd_name=m68k-aout ;;
   m68*-ericsson-*)	bfd_name=m68k-aout ;;
   m68*-netx-*)		bfd_name=m68k-aout ;;
+
   m88*-*-sysv4*)	bfd_name=m88k-elf ;;
-  m88k-*-*)		bfd_name=m88k-coff ;;
-  m88110-*-*)		bfd_name=m88k-coff ;;
-  mips-big-*)		bfd_name=bigmips ;;
-  mips-dec-bsd*)        bfd_name=mipsdecbsd ;;
-  mips-dec-*)		bfd_name=decstation ;;
-  mips-*-ecoffl*)	bfd_name=decstation ;;
-  mips-*-ecoff*)	bfd_name=bigmips ;;
-  mips-sgi-*)		bfd_name=bigmips ;;
-  mips-*-sysv*)		bfd_name=riscos ;;
-  mips-*-riscos*)	bfd_name=riscos ;;
-  mips-*-bsd*)		bfd_name=noop ;;
-  mips-*-elfl*)		bfd_name=mipslelf ;;
-  mips-*-elf*)		bfd_name=mipsbelf ;;
+  # DGUX used to use COFF, but now (Jan 94) I believe it uses ELF by default.
+  m88*-*-dgux*)		bfd_name=m88k-elf ;;
+  m88*-*-*)		bfd_name=m88k-coff ;;
+
+  mips*-big-*)		bfd_name=bigmips ;;
+  mips*-dec-bsd*)       bfd_name=mipsdecbsd ;;
+  mips*-dec-*)		bfd_name=decstation ;;
+  mips*el-*-ecoff*)	bfd_name=decstation ;;
+  mips*-*-ecoff*)	bfd_name=bigmips ;;
+  mips*-*-irix5*)	bfd_name=mipsbelf ;;
+  mips*-sgi-*)		bfd_name=bigmips ;;
+  mips*-*-sysv*)	bfd_name=riscos ;;
+  mips*-*-riscos*)	bfd_name=riscos ;;
+  mips*-*-bsd*)		bfd_name=bigmips ;; # Sony News
+  mips*el-*-elf*)	bfd_name=mipslelf ;;
+  mips*-*-elf*)		bfd_name=mipsbelf ;;
   # Apparently this is similar enough to 386 mach to use the same target.
   ns32*-*-mach*)	bfd_name=i386-mach3 ;;
   rs6000-*-*)		bfd_name=rs6000 ;;
+  sparc-*-lynxos*)	bfd_name=sparc-lynx ;;
   sparc-*-solaris2*)	bfd_name=sparc-elf ;;
   sparc-*-sysv4*)	bfd_name=sparc-elf ;;
+  sparc-*-netware*)	bfd_name=sparc-nlm ;;
+  sparc*-*-coff*)	bfd_name=sparc-coff ;;
   sparc*-*-*)		bfd_name=sparc-aout ;;
   tahoe-*-*)		bfd_name=tahoe ;;
   vax-*-vms*)		bfd_name=vax-vms ;;
@@ -91,11 +101,12 @@ case "${canon}" in
   *-*-netware*)		bfd_name=${cpu}-nlm ;;
   *-*-sysv4*)		bfd_name=${cpu}-elf ;;
   *-*-solaris2*)	bfd_name=${cpu}-elf ;;
+  *-*-vsta*)		bfd_name=${cpu}-aout ;;
   *-*-go32*)		bfd_name=${cpu}-aout ;;
   *-*-sysv*)		bfd_name=${cpu}-coff ;;
 
-  *-*-aout64*)		bfd_name=${cpu}-aout64 ; target64=true ;;
-  *-*-elf64*)		bfd_name=${cpu}-elf64 ; target64=true ;;
+  *-*-aout64*)		bfd_name=${cpu}-aout64 ;;
+  *-*-elf64*)		bfd_name=${cpu}-elf64 ;;
 
   *-adobe-*)		bfd_name=adobe ;;
   *-sony-*)		bfd_name=news ;;

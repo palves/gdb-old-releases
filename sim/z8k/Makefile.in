@@ -58,8 +58,8 @@ BISON = bison
 MAKEINFO = makeinfo
 RANLIB = ranlib
 
-INCDIR = -I. -I$(srcdir)/../../include  -I$(srcdir)/../../bfd
-CSEARCH = -I. -I$(srcdir)/../bfd -I$(INCDIR)  -I../../bfd
+INCDIR = $(srcdir)/../../include
+CSEARCH = -I. -I$(srcdir) -I$(INCDIR) -I../../bfd -I$(srcdir)/../../bfd -I$(srcdir)/../../gdb
 DEP = mkdep
 
 
@@ -76,16 +76,16 @@ run:$(OFILES) run.o
 	$(CC) $(CFLAGS) -o run run.o $(OFILES) ../../bfd/libbfd.a ../../libiberty/libiberty.a  ../../opcodes/libopcodes.a
 
 comped1.o:comped1.c tc-gen1.h 
-	$(CC) -c -g -o comped1.o $(INCDIR) $(srcdir)/comped1.c	
+	$(CC) -c -g -o comped1.o $(CSEARCH) $(srcdir)/comped1.c	
 
 comped3.o:comped3.c tc-gen3.h 
-	$(CC) -c -g -o comped3.o $(INCDIR) $(srcdir)/comped3.c	
+	$(CC) -c -g -o comped3.o $(CSEARCH) $(srcdir)/comped3.c	
 
 compedb3.o:compedb3.c tc-genb3.h 
-	$(CC) -c -g -o compedb3.o $(INCDIR) $(srcdir)/compedb3.c	
+	$(CC) -c -g -o compedb3.o $(CSEARCH) $(srcdir)/compedb3.c	
 
 comped2.o:comped2.c tc-gen2.h
-	$(CC) -c -g -o comped2.o $(INCDIR) $(srcdir)/comped2.c	
+	$(CC) -c -g -o comped2.o $(CSEARCH) $(srcdir)/comped2.c	
 
 tc-gen1.h:writecode
 	./writecode  -1 >tc-gen1.h

@@ -267,7 +267,8 @@ st2000_create_inferior (execfile, args, env)
   target_terminal_inferior ();
 
   /* insert_step_breakpoint ();  FIXME, do we need this?  */
-  proceed ((CORE_ADDR)entry_pt, -1, 0);		/* Let 'er rip... */
+  /* Let 'er rip... */
+  proceed ((CORE_ADDR)entry_pt, TARGET_SIGNAL_DEFAULT, 0);
 }
 
 /* Open a connection to a remote debugger.
@@ -355,7 +356,8 @@ st2000_detach (from_tty)
 
 static void
 st2000_resume (pid, step, sig)
-     int pid, step, sig;
+     int pid, step;
+     enum target_signal sig;
 {
   if (step)
     {
@@ -376,17 +378,19 @@ st2000_resume (pid, step, sig)
 
 static int
 st2000_wait (status)
-     WAITTYPE *status;
+     struct target_waitstatus *status;
 {
   int old_timeout = timeout;
 
-  WSETEXIT ((*status), 0);
+  status->kind = TARGET_WAITKIND_EXITED;
+  status->value.integer = 0;
 
   timeout = 0;		/* Don't time out -- user program is running. */
 
   expect_prompt(0);    /* Wait for prompt, outputting extraneous text */
 
-  WSETSTOP ((*status), SIGTRAP);
+  status->kind = TARGET_WAITKIND_STOPPED;
+  status->value.sig = TARGET_SIGNAL_TRAP;
 
   timeout = old_timeout;
 

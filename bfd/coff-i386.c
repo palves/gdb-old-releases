@@ -31,7 +31,8 @@ static bfd_reloc_status_type coff_i386_reloc PARAMS ((bfd *abfd,
 						      asymbol *symbol,
 						      PTR data,
 						      asection *input_section,
-						      bfd *output_bfd));
+						      bfd *output_bfd,
+						      char **error_message));
 
 /* For some reason when using i386 COFF the value stored in the .text
    section for a reference to a common symbol is the value itself plus
@@ -43,13 +44,15 @@ static bfd_reloc_status_type coff_i386_reloc PARAMS ((bfd *abfd,
    reloc type to make any required adjustments.  */
 
 static bfd_reloc_status_type
-coff_i386_reloc (abfd, reloc_entry, symbol, data, input_section, output_bfd)
+coff_i386_reloc (abfd, reloc_entry, symbol, data, input_section, output_bfd,
+		 error_message)
      bfd *abfd;
      arelent *reloc_entry;
      asymbol *symbol;
      PTR data;
      asection *input_section;
      bfd *output_bfd;
+     char **error_message;
 {
   symvalue diff;
 
@@ -85,7 +88,7 @@ coff_i386_reloc (abfd, reloc_entry, symbol, data, input_section, output_bfd)
 
   if (diff != 0)
     {
-      reloc_howto_type *howto = reloc_entry->howto;
+      const reloc_howto_type *howto = reloc_entry->howto;
       unsigned char *addr = (unsigned char *) data + reloc_entry->address;
 
       switch (howto->size)
@@ -311,7 +314,7 @@ bfd_target
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT),
+   HAS_SYMS | HAS_LOCALS | WP_TEXT),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
   0,				/* leading underscore */

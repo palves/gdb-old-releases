@@ -1,3 +1,54 @@
+Mon Jan 17 00:14:23 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* hppa.h: More minor template fixes for sfu and copr (to allow
+	for easier disassembly).
+
+	* hppa.h: Fix templates for all the sfu and copr instructions.
+
+Wed Dec 15 15:12:42 1993  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* i386.h (push): Permit Imm16 operand too.
+
+Sat Dec 11 16:14:06 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	*  h8300.h (andc): Exists in base arch.
+
+Wed Dec  1 12:15:32 1993  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* From Hisashi MINAMINO <minamino@sramhc.sra.co.jp>     
+	* hppa.h: #undef NONE to avoid conflict with hiux include files.
+
+Sun Nov 21 22:06:57 1993  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* hppa.h: Add FP quadword store instructions.
+
+Wed Nov 17 17:13:16 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips.h: (M_J_A): Added.
+	(M_LA): Removed.
+
+Mon Nov  8 12:12:47 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips.h (OP_MASK_CACHE, OP_SH_CACHE): Define.  From Ted Lemon
+	<mellon@pepper.ncd.com>.
+
+Sun Nov  7 00:30:11 1993  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* hppa.h: Immediate field in probei instructions is unsigned,
+	not low-sign extended.
+
+Wed Nov  3 10:30:00 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* m88k.h (RRI10MASK): Change from 0xfc00ffe0 to 0xfc00fc00.
+
+Tue Nov  2 12:41:30 1993  Ken Raeburn  (raeburn@rover.cygnus.com)
+
+	* i386.h: Add "fxch" without operand.
+
+Mon Nov  1 18:13:03 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips.h (M_JAL_1, M_JAL_2, M_JAL_A): Added.
+
 Sat Oct  2 22:26:11 1993  Jeffrey A Law  (law@snake.cs.utah.edu)
 
 	* hppa.h: Add gfw and gfr to the opcode table.

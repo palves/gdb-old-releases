@@ -107,14 +107,14 @@ int regno;
   else
     {
       /* FIXME: Until read_register() returns LONGEST, we have this.  */
-      char value[MAX_REGISTER_RAW_SIZE];
-      read_register_gen (regno, value);
-      sim_store_register (regno, value);
+      char tmp[MAX_REGISTER_RAW_SIZE];
+      read_register_gen (regno, tmp);
+      sim_store_register (regno, tmp);
       if (sr_get_debug ())
 	{
 	  printf_filtered ("gdbsim_store_register: %d", regno);
 	  /* FIXME: We could print something more intelligible.  */
-	  dump_mem (value, REGISTER_RAW_SIZE (regno));
+	  dump_mem (tmp, REGISTER_RAW_SIZE (regno));
 	}
     }
 }
@@ -138,70 +138,14 @@ gdbsim_load (prog, fromtty)
      char *prog;
      int fromtty;
 {
-  bfd	*abfd;
-
   if (sr_get_debug ())
     printf_filtered ("gdbsim_load: prog \"%s\"\n", prog);
 
   inferior_pid = 0;  
-  program_loaded = 0;
-  abfd = bfd_openr (prog, gnutarget);
-
-  if (!abfd) 
-    error ("Unable to open file %s.", prog);
-
-  if (bfd_check_format (abfd, bfd_object) == 0)
-    error ("File is not an object file.");
-
-  if (sim_load (abfd, prog) != 0)
-    return;
-
   program_loaded = 1;
-
-  sim_set_pc (abfd->start_address);
+  gr_load_image (prog, fromtty);
 }
 
-/*
- * This is a utility routine that sim_load() can call to do the work.
- * The result is 0 for success, non-zero for failure.
- *
- * Eg: int sim_load (bfd *abfd, char *prog) { return sim_load_standard (abfd); }
- */
-
-sim_load_standard (abfd)
-     bfd *abfd;
-{
-  asection *s;
-
-  s = abfd->sections;
-  while (s != (asection *)NULL) 
-  {
-    if (s->flags & SEC_LOAD) 
-    {
-      int i;
-      int delta = 4096;
-      char *buffer = xmalloc (delta);
-      printf_filtered ("%s\t: 0x%4x .. 0x%4x  ",
-		      s->name, s->vma, s->vma + s->_raw_size);
-      for (i = 0; i < s->_raw_size; i+= delta) 
-      {
-	int sub_delta = delta;
-	if (sub_delta > s->_raw_size - i)
-	  sub_delta = s->_raw_size - i ;
-
-	bfd_get_section_contents (abfd, s, buffer, i, sub_delta);
-	sim_write (s->vma + i, buffer, sub_delta);
-	printf_filtered ("*");
-	fflush (stdout);
-      }
-      printf_filtered ("\n");
-      free (buffer);
-    }
-    s = s->next;
-  }
-
-  return 0;
-}
 
 /* Start an inferior process and set inferior_pid to its pid.
    EXEC_FILE is the file to run.
@@ -252,7 +196,7 @@ gdbsim_create_inferior (exec_file, args, env)
 
   inferior_pid = 42;
   insert_breakpoints ();	/* Needed to get correct instruction in cache */
-  proceed (entry_pt, -1, 0);
+  proceed (entry_pt, TARGET_SIGNAL_DEFAULT, 0);
 }
 
 /* The open routine takes the rest of the parameters from the command,
@@ -332,12 +276,13 @@ gdbsim_detach (args,from_tty)
 
 static void
 gdbsim_resume (pid, step, siggnal)
-     int pid, step, siggnal;
+     int pid, step;
+     enum target_signal siggnal;
 {
   if (sr_get_debug ())
     printf_filtered ("gdbsim_resume: step %d, signal %d\n", step, siggnal);
 
-  sim_resume (step, siggnal);
+  sim_resume (step, target_signal_to_host (siggnal));
 }
 
 /* Wait for inferior process to do something.  Return pid of child,
@@ -347,13 +292,35 @@ gdbsim_resume (pid, step, siggnal)
 static int
 gdbsim_wait (pid, status)
      int pid;
-     WAITTYPE *status;
+     struct target_waitstatus *status;
 {
+  int sigrc;
+  enum sim_stop reason;
+
   if (sr_get_debug ())
-    printf_filtered ("gdbsim_wait: ");
-  WSETSTOP (*status, sim_stop_signal ());
-  if (sr_get_debug ())
-    printf_filtered ("status %d\n", *status);
+    printf_filtered ("gdbsim_wait\n");
+
+  sim_stop_reason (&reason, &sigrc);
+  switch (reason)
+    {
+    case sim_exited:
+      status->kind = TARGET_WAITKIND_EXITED;
+      status->value.integer = sigrc;
+      break;
+    case sim_stopped:
+      status->kind = TARGET_WAITKIND_STOPPED;
+      /* The signal in sigrc is a host signal.  That probably
+	 should be fixed.  */
+      status->value.sig = target_signal_from_host (sigrc);
+      break;
+    case sim_signalled:
+      status->kind = TARGET_WAITKIND_SIGNALLED;
+      /* The signal in sigrc is a host signal.  That probably
+	 should be fixed.  */
+      status->value.sig = target_signal_from_host (sigrc);
+      break;
+    }
+
   return inferior_pid;
 }
 
@@ -417,7 +384,7 @@ gdbsim_files_info (target)
     {
       printf_filtered ("\tAttached to %s running program %s\n",
 		       target_shortname, file);
-      sim_info ();
+      sim_info (printf_filtered, 0);
     }
 }
 

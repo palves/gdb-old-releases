@@ -30,7 +30,7 @@ set binfile "gdbme"
 set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    error "$objdir/$subdir/$binfile does not exist"
+    perror "$objdir/$subdir/$binfile does not exist"
     continue
 }
 
@@ -142,7 +142,7 @@ proc test_character_literals_accepted {} {
     prt_accept "p '\\141'" "97 'a'"
     prt_accept "p/x '\\377'" "0xff"
     # Note "p '\''" => "= 39 '\''"
-    prt_accept "p '\''" "39 '\\\''"
+    prt_accept "p '''" "39 '\[\\'\]+'"
     # Note "p '\\'" => "= 92 '\\'"
     prt_accept "p '\\\\'" "92 '\\\\\\\\'"
 
@@ -288,10 +288,10 @@ proc test_print_all_chars {} {
     prt_accept "p ctable1\[37\]"  "37 '%'"
     prt_accept "p ctable1\[38\]"  "38 '&'"
     prt_accept "p ctable1\[39\]"  "39 '\\\\''"
-    prt_accept "p ctable1\[40\]"  "40 '\('"
-    prt_accept "p ctable1\[41\]"  "41 '\)'"
-    prt_accept "p ctable1\[42\]"  "42 '\\*'"
-    prt_accept "p ctable1\[43\]"  "43 '\\+'"
+    prt_accept "p ctable1\[40\]"  "40 '\[(\]+'"
+    prt_accept "p ctable1\[41\]"  "41 '\[)\]+'"
+    prt_accept "p ctable1\[42\]"  "42 '\[*\]+'"
+    prt_accept "p ctable1\[43\]"  "43 '\[+\]+'"
     prt_accept "p ctable1\[44\]"  "44 ','"
     prt_accept "p ctable1\[45\]"  "45 '-'"
     prt_accept "p ctable1\[46\]"  "46 '.'"
@@ -371,10 +371,10 @@ proc test_print_all_chars {} {
     prt_accept "p ctable1\[120\]" "120 'x'"
     prt_accept "p ctable1\[121\]" "121 'y'"
     prt_accept "p ctable1\[122\]" "122 'z'"
-    prt_accept "p ctable1\[123\]" "123 '\{'"
-    prt_accept "p ctable1\[124\]" "124 '\|'"
-    prt_accept "p ctable1\[125\]" "125 '\}'"
-    prt_accept "p ctable1\[126\]" "126 '\\~'"
+    prt_accept "p ctable1\[123\]" "123 '\[{\]+'"
+    prt_accept "p ctable1\[124\]" "124 '\[|\]+'"
+    prt_accept "p ctable1\[125\]" "125 '\[}\]+'"
+    prt_accept "p ctable1\[126\]" "126 '\[~\]'"
     prt_accept "p ctable1\[127\]" "127 '\\\\177'"
     prt_accept "p ctable1\[128\]" "128 '\\\\200'"
     prt_accept "p ctable1\[129\]" "129 '\\\\201'"
@@ -520,37 +520,37 @@ proc test_print_repeats_10 {} {
     set passcount 0
     send "set print elements 1\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[0*16\]"  "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[0*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[1*16\]"  "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[1*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[2*16\]"  "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[2*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[3*16\]"  "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[3*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[4*16\]"  "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[4*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[5*16\]"  "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[5*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[6*16\]"  "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[6*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[7*16\]"  "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[7*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[8*16\]"  "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[8*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[9*16\]"  "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[9*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[10*16\]" "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[10*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[11*16\]" "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[11*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[12*16\]" "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[12*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[13*16\]" "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[13*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[14*16\]" "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[14*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[15*16\]" "\(unsigned char \\*\) \"a\"..."
+    prt_accept "p &ctable2\[15*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"a\"..."
     if $passcount then {
 	pass "$passcount tests with elements = 1 and repeat count = 10"
     }
@@ -558,37 +558,37 @@ proc test_print_repeats_10 {} {
     set passcount 0
     send "set print elements 2\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[0*16\]"  "\(unsigned char \\*\) \"aX\"..."
+    prt_accept "p &ctable2\[0*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[1*16\]"  "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[1*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[2*16\]"  "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[2*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[3*16\]"  "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[3*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[4*16\]"  "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[4*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[5*16\]"  "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[5*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[6*16\]"  "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[6*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[7*16\]"  "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[7*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[8*16\]"  "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[8*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[9*16\]"  "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[9*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[10*16\]" "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[10*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[11*16\]" "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[11*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[12*16\]" "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[12*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[13*16\]" "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[13*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[14*16\]" "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[14*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[15*16\]" "\(unsigned char \\*\) \"aa\"..."
+    prt_accept "p &ctable2\[15*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aa\"..."
     if $passcount then {
 	pass "$passcount tests with elements = 2 and repeat count = 10"
     }
@@ -596,37 +596,37 @@ proc test_print_repeats_10 {} {
     set passcount 0
     send "set print elements 3\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[0*16\]"  "\(unsigned char \\*\) \"aXX\"..."
+    prt_accept "p &ctable2\[0*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[1*16\]"  "\(unsigned char \\*\) \"aaX\"..."
+    prt_accept "p &ctable2\[1*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[2*16\]"  "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[2*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[3*16\]"  "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[3*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[4*16\]"  "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[4*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[5*16\]"  "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[5*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[6*16\]"  "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[6*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[7*16\]"  "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[7*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[8*16\]"  "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[8*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[9*16\]"  "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[9*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[10*16\]" "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[10*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[11*16\]" "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[11*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[12*16\]" "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[12*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[13*16\]" "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[13*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[14*16\]" "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[14*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[15*16\]" "\(unsigned char \\*\) \"aaa\"..."
+    prt_accept "p &ctable2\[15*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\"..."
     if $passcount then {
 	pass "$passcount tests with elements = 3 and repeat count = 10"
     }
@@ -634,37 +634,37 @@ proc test_print_repeats_10 {} {
     set passcount 0
     send "set print elements 4\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[0*16\]"  "\(unsigned char \\*\) \"aXXX\"..."
+    prt_accept "p &ctable2\[0*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[1*16\]"  "\(unsigned char \\*\) \"aaXX\"..."
+    prt_accept "p &ctable2\[1*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[2*16\]"  "\(unsigned char \\*\) \"aaaX\"..."
+    prt_accept "p &ctable2\[2*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[3*16\]"  "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[3*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[4*16\]"  "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[4*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[5*16\]"  "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[5*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[6*16\]"  "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[6*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[7*16\]"  "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[7*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[8*16\]"  "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[8*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[9*16\]"  "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[9*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[10*16\]" "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[10*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[11*16\]" "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[11*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[12*16\]" "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[12*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[13*16\]" "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[13*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[14*16\]" "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[14*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[15*16\]" "\(unsigned char \\*\) \"aaaa\"..."
+    prt_accept "p &ctable2\[15*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\"..."
     if $passcount then {
 	pass "$passcount tests with elements = 4 and repeat count = 10"
     }
@@ -672,37 +672,37 @@ proc test_print_repeats_10 {} {
     set passcount 0
     send "set print elements 5\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[0*16\]"  "\(unsigned char \\*\) \"aXXXX\"..."
+    prt_accept "p &ctable2\[0*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[1*16\]"  "\(unsigned char \\*\) \"aaXXX\"..."
+    prt_accept "p &ctable2\[1*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[2*16\]"  "\(unsigned char \\*\) \"aaaXX\"..."
+    prt_accept "p &ctable2\[2*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[3*16\]"  "\(unsigned char \\*\) \"aaaaX\"..."
+    prt_accept "p &ctable2\[3*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[4*16\]"  "\(unsigned char \\*\) \"aaaaa\"..."
+    prt_accept "p &ctable2\[4*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[5*16\]"  "\(unsigned char \\*\) \"aaaaa\"..."
+    prt_accept "p &ctable2\[5*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[6*16\]"  "\(unsigned char \\*\) \"aaaaa\"..."
+    prt_accept "p &ctable2\[6*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[7*16\]"  "\(unsigned char \\*\) \"aaaaa\"..."
+    prt_accept "p &ctable2\[7*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[8*16\]"  "\(unsigned char \\*\) \"aaaaa\"..."
+    prt_accept "p &ctable2\[8*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[9*16\]"  "\(unsigned char \\*\) \"aaaaa\"..."
+    prt_accept "p &ctable2\[9*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[10*16\]" "\(unsigned char \\*\) \"aaaaa\"..."
+    prt_accept "p &ctable2\[10*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[11*16\]" "\(unsigned char \\*\) \"aaaaa\"..."
+    prt_accept "p &ctable2\[11*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[12*16\]" "\(unsigned char \\*\) \"aaaaa\"..."
+    prt_accept "p &ctable2\[12*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[13*16\]" "\(unsigned char \\*\) \"aaaaa\"..."
+    prt_accept "p &ctable2\[13*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[14*16\]" "\(unsigned char \\*\) \"aaaaa\"..."
+    prt_accept "p &ctable2\[14*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[15*16\]" "\(unsigned char \\*\) \"aaaaa\"..."
+    prt_accept "p &ctable2\[15*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\"..."
     if $passcount then {
 	pass "$passcount tests with elements = 5 and repeat count = 10"
     }
@@ -710,37 +710,37 @@ proc test_print_repeats_10 {} {
     set passcount 0
     send "set print elements 6\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[0*16\]"  "\(unsigned char \\*\) \"aXXXXX\"..."
+    prt_accept "p &ctable2\[0*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[1*16\]"  "\(unsigned char \\*\) \"aaXXXX\"..."
+    prt_accept "p &ctable2\[1*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[2*16\]"  "\(unsigned char \\*\) \"aaaXXX\"..."
+    prt_accept "p &ctable2\[2*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[3*16\]"  "\(unsigned char \\*\) \"aaaaXX\"..."
+    prt_accept "p &ctable2\[3*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[4*16\]"  "\(unsigned char \\*\) \"aaaaaX\"..."
+    prt_accept "p &ctable2\[4*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[5*16\]"  "\(unsigned char \\*\) \"aaaaaa\"..."
+    prt_accept "p &ctable2\[5*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[6*16\]"  "\(unsigned char \\*\) \"aaaaaa\"..."
+    prt_accept "p &ctable2\[6*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[7*16\]"  "\(unsigned char \\*\) \"aaaaaa\"..."
+    prt_accept "p &ctable2\[7*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[8*16\]"  "\(unsigned char \\*\) \"aaaaaa\"..."
+    prt_accept "p &ctable2\[8*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[9*16\]"  "\(unsigned char \\*\) \"aaaaaa\"..."
+    prt_accept "p &ctable2\[9*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[10*16\]" "\(unsigned char \\*\) \"aaaaaa\"..."
+    prt_accept "p &ctable2\[10*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[11*16\]" "\(unsigned char \\*\) \"aaaaaa\"..."
+    prt_accept "p &ctable2\[11*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[12*16\]" "\(unsigned char \\*\) \"aaaaaa\"..."
+    prt_accept "p &ctable2\[12*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[13*16\]" "\(unsigned char \\*\) \"aaaaaa\"..."
+    prt_accept "p &ctable2\[13*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[14*16\]" "\(unsigned char \\*\) \"aaaaaa\"..."
+    prt_accept "p &ctable2\[14*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[15*16\]" "\(unsigned char \\*\) \"aaaaaa\"..."
+    prt_accept "p &ctable2\[15*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaa\"..."
     if $passcount then {
 	pass "$passcount tests with elements = 6 and repeat count = 10"
     }
@@ -748,37 +748,37 @@ proc test_print_repeats_10 {} {
     set passcount 0
     send "set print elements 7\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[0*16\]"  "\(unsigned char \\*\) \"aXXXXXX\"..."
+    prt_accept "p &ctable2\[0*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[1*16\]"  "\(unsigned char \\*\) \"aaXXXXX\"..."
+    prt_accept "p &ctable2\[1*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[2*16\]"  "\(unsigned char \\*\) \"aaaXXXX\"..."
+    prt_accept "p &ctable2\[2*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[3*16\]"  "\(unsigned char \\*\) \"aaaaXXX\"..."
+    prt_accept "p &ctable2\[3*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[4*16\]"  "\(unsigned char \\*\) \"aaaaaXX\"..."
+    prt_accept "p &ctable2\[4*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[5*16\]"  "\(unsigned char \\*\) \"aaaaaaX\"..."
+    prt_accept "p &ctable2\[5*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[6*16\]"  "\(unsigned char \\*\) \"aaaaaaa\"..."
+    prt_accept "p &ctable2\[6*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[7*16\]"  "\(unsigned char \\*\) \"aaaaaaa\"..."
+    prt_accept "p &ctable2\[7*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[8*16\]"  "\(unsigned char \\*\) \"aaaaaaa\"..."
+    prt_accept "p &ctable2\[8*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[9*16\]"  "\(unsigned char \\*\) \"aaaaaaa\"..."
+    prt_accept "p &ctable2\[9*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[10*16\]" "\(unsigned char \\*\) \"aaaaaaa\"..."
+    prt_accept "p &ctable2\[10*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[11*16\]" "\(unsigned char \\*\) \"aaaaaaa\"..."
+    prt_accept "p &ctable2\[11*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[12*16\]" "\(unsigned char \\*\) \"aaaaaaa\"..."
+    prt_accept "p &ctable2\[12*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[13*16\]" "\(unsigned char \\*\) \"aaaaaaa\"..."
+    prt_accept "p &ctable2\[13*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[14*16\]" "\(unsigned char \\*\) \"aaaaaaa\"..."
+    prt_accept "p &ctable2\[14*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[15*16\]" "\(unsigned char \\*\) \"aaaaaaa\"..."
+    prt_accept "p &ctable2\[15*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaa\"..."
     if $passcount then {
 	pass "$passcount tests with elements = 7 and repeat count = 10"
     }
@@ -786,37 +786,37 @@ proc test_print_repeats_10 {} {
     set passcount 0
     send "set print elements 8\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[0*16\]"  "\(unsigned char \\*\) \"aXXXXXXX\"..."
+    prt_accept "p &ctable2\[0*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[1*16\]"  "\(unsigned char \\*\) \"aaXXXXXX\"..."
+    prt_accept "p &ctable2\[1*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[2*16\]"  "\(unsigned char \\*\) \"aaaXXXXX\"..."
+    prt_accept "p &ctable2\[2*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[3*16\]"  "\(unsigned char \\*\) \"aaaaXXXX\"..."
+    prt_accept "p &ctable2\[3*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[4*16\]"  "\(unsigned char \\*\) \"aaaaaXXX\"..."
+    prt_accept "p &ctable2\[4*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[5*16\]"  "\(unsigned char \\*\) \"aaaaaaXX\"..."
+    prt_accept "p &ctable2\[5*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[6*16\]"  "\(unsigned char \\*\) \"aaaaaaaX\"..."
+    prt_accept "p &ctable2\[6*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[7*16\]"  "\(unsigned char \\*\) \"aaaaaaaa\"..."
+    prt_accept "p &ctable2\[7*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[8*16\]"  "\(unsigned char \\*\) \"aaaaaaaa\"..."
+    prt_accept "p &ctable2\[8*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[9*16\]"  "\(unsigned char \\*\) \"aaaaaaaa\"..."
+    prt_accept "p &ctable2\[9*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[10*16\]" "\(unsigned char \\*\) \"aaaaaaaa\"..."
+    prt_accept "p &ctable2\[10*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[11*16\]" "\(unsigned char \\*\) \"aaaaaaaa\"..."
+    prt_accept "p &ctable2\[11*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[12*16\]" "\(unsigned char \\*\) \"aaaaaaaa\"..."
+    prt_accept "p &ctable2\[12*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[13*16\]" "\(unsigned char \\*\) \"aaaaaaaa\"..."
+    prt_accept "p &ctable2\[13*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[14*16\]" "\(unsigned char \\*\) \"aaaaaaaa\"..."
+    prt_accept "p &ctable2\[14*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[15*16\]" "\(unsigned char \\*\) \"aaaaaaaa\"..."
+    prt_accept "p &ctable2\[15*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaa\"..."
     if $passcount then {
 	pass "$passcount tests with elements = 8 and repeat count = 10"
     }
@@ -824,37 +824,37 @@ proc test_print_repeats_10 {} {
     set passcount 0
     send "set print elements 9\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[0*16\]"  "\(unsigned char \\*\) \"aXXXXXXXX\"..."
+    prt_accept "p &ctable2\[0*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[1*16\]"  "\(unsigned char \\*\) \"aaXXXXXXX\"..."
+    prt_accept "p &ctable2\[1*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[2*16\]"  "\(unsigned char \\*\) \"aaaXXXXXX\"..."
+    prt_accept "p &ctable2\[2*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[3*16\]"  "\(unsigned char \\*\) \"aaaaXXXXX\"..."
+    prt_accept "p &ctable2\[3*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[4*16\]"  "\(unsigned char \\*\) \"aaaaaXXXX\"..."
+    prt_accept "p &ctable2\[4*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[5*16\]"  "\(unsigned char \\*\) \"aaaaaaXXX\"..."
+    prt_accept "p &ctable2\[5*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[6*16\]"  "\(unsigned char \\*\) \"aaaaaaaXX\"..."
+    prt_accept "p &ctable2\[6*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[7*16\]"  "\(unsigned char \\*\) \"aaaaaaaaX\"..."
+    prt_accept "p &ctable2\[7*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[8*16\]"  "\(unsigned char \\*\) \"aaaaaaaaa\"..."
+    prt_accept "p &ctable2\[8*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[9*16\]"  "\(unsigned char \\*\) \"aaaaaaaaa\"..."
+    prt_accept "p &ctable2\[9*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[10*16\]" "\(unsigned char \\*\) \"aaaaaaaaa\"..."
+    prt_accept "p &ctable2\[10*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[11*16\]" "\(unsigned char \\*\) \"aaaaaaaaa\"..."
+    prt_accept "p &ctable2\[11*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[12*16\]" "\(unsigned char \\*\) \"aaaaaaaaa\"..."
+    prt_accept "p &ctable2\[12*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[13*16\]" "\(unsigned char \\*\) \"aaaaaaaaa\"..."
+    prt_accept "p &ctable2\[13*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[14*16\]" "\(unsigned char \\*\) \"aaaaaaaaa\"..."
+    prt_accept "p &ctable2\[14*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[15*16\]" "\(unsigned char \\*\) \"aaaaaaaaa\"..."
+    prt_accept "p &ctable2\[15*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaa\"..."
     if $passcount then {
 	pass "$passcount tests with elements = 9 and repeat count = 10"
     }
@@ -862,37 +862,37 @@ proc test_print_repeats_10 {} {
     set passcount 0
     send "set print elements 10\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[0*16\]"  "\(unsigned char \\*\) \"aXXXXXXXXX\"..."
+    prt_accept "p &ctable2\[0*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[1*16\]"  "\(unsigned char \\*\) \"aaXXXXXXXX\"..."
+    prt_accept "p &ctable2\[1*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[2*16\]"  "\(unsigned char \\*\) \"aaaXXXXXXX\"..."
+    prt_accept "p &ctable2\[2*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[3*16\]"  "\(unsigned char \\*\) \"aaaaXXXXXX\"..."
+    prt_accept "p &ctable2\[3*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[4*16\]"  "\(unsigned char \\*\) \"aaaaaXXXXX\"..."
+    prt_accept "p &ctable2\[4*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[5*16\]"  "\(unsigned char \\*\) \"aaaaaaXXXX\"..."
+    prt_accept "p &ctable2\[5*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[6*16\]"  "\(unsigned char \\*\) \"aaaaaaaXXX\"..."
+    prt_accept "p &ctable2\[6*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaXXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[7*16\]"  "\(unsigned char \\*\) \"aaaaaaaaXX\"..."
+    prt_accept "p &ctable2\[7*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaXX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[8*16\]"  "\(unsigned char \\*\) \"aaaaaaaaaX\"..."
+    prt_accept "p &ctable2\[8*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaX\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[9*16\]"  "\(unsigned char \\*\) \"aaaaaaaaaa\"..."
+    prt_accept "p &ctable2\[9*16\]"  "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[10*16\]" "\(unsigned char \\*\) \"aaaaaaaaaa\"..."
+    prt_accept "p &ctable2\[10*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[11*16\]" "\(unsigned char \\*\) \"aaaaaaaaaa\"..."
+    prt_accept "p &ctable2\[11*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[12*16\]" "\(unsigned char \\*\) \"aaaaaaaaaa\"..."
+    prt_accept "p &ctable2\[12*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[13*16\]" "\(unsigned char \\*\) \"aaaaaaaaaa\"..."
+    prt_accept "p &ctable2\[13*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[14*16\]" "\(unsigned char \\*\) \"aaaaaaaaaa\"..."
+    prt_accept "p &ctable2\[14*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaa\"..."
     setup_xfail "a29k-*-udi" 2417
-    prt_accept "p &ctable2\[15*16\]" "\(unsigned char \\*\) \"aaaaaaaaaa\"..."
+    prt_accept "p &ctable2\[15*16\]" "\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaa\"..."
     if $passcount then {
 	pass "$passcount tests with elements = 10 and repeat count = 10"
     }
@@ -901,52 +901,52 @@ proc test_print_repeats_10 {} {
     send "set print elements 11\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[0*16\]" \
-	"\(unsigned char \\*\) \"aXXXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aXXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[1*16\]" \
-	"\(unsigned char \\*\) \"aaXXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[2*16\]" \
-	"\(unsigned char \\*\) \"aaaXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[3*16\]" \
-	"\(unsigned char \\*\) \"aaaaXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[4*16\]" \
-	"\(unsigned char \\*\) \"aaaaaXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[5*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[6*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[7*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[8*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaaXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[9*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaaaX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaaX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[10*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 11 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 11 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[11*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 11 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 11 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[12*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 11 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 11 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[13*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 11 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 11 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[14*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 11 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 11 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[15*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 11 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 11 times>..."
     if $passcount then {
 	pass "$passcount tests with elements = 11 and repeat count = 10"
     }
@@ -955,52 +955,52 @@ proc test_print_repeats_10 {} {
     send "set print elements 12\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[0*16\]" \
-	"\(unsigned char \\*\) \"a\", 'X' <repeats 11 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"a\", 'X' <repeats 11 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[1*16\]" \
-	"\(unsigned char \\*\) \"aaXXXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaXXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[2*16\]" \
-	"\(unsigned char \\*\) \"aaaXXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[3*16\]" \
-	"\(unsigned char \\*\) \"aaaaXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[4*16\]" \
-	"\(unsigned char \\*\) \"aaaaaXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[5*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[6*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[7*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[8*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaaXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[9*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaaaXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaaXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[10*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 11 times>, \"X\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 11 times>, \"X\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[11*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 12 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 12 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[12*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 12 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 12 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[13*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 12 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 12 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[14*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 12 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 12 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[15*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 12 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 12 times>..."
     if $passcount then {
 	pass "$passcount tests with elements = 12 and repeat count = 10"
     }
@@ -1009,52 +1009,52 @@ proc test_print_repeats_10 {} {
     send "set print elements 13\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[0*16\]" \
-	"\(unsigned char \\*\) \"a\", 'X' <repeats 12 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"a\", 'X' <repeats 12 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[1*16\]" \
-	"\(unsigned char \\*\) \"aa\", 'X' <repeats 11 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aa\", 'X' <repeats 11 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[2*16\]" \
-	"\(unsigned char \\*\) \"aaaXXXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaXXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[3*16\]" \
-	"\(unsigned char \\*\) \"aaaaXXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[4*16\]" \
-	"\(unsigned char \\*\) \"aaaaaXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[5*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[6*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[7*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[8*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaaXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[9*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaaaXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaaXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[10*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 11 times>, \"XX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 11 times>, \"XX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[11*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 12 times>, \"X\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 12 times>, \"X\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[12*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 13 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 13 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[13*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 13 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 13 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[14*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 13 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 13 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[15*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 13 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 13 times>..."
     if $passcount then {
 	pass "$passcount tests with elements = 13 and repeat count = 10"
     }
@@ -1063,52 +1063,52 @@ proc test_print_repeats_10 {} {
     send "set print elements 14\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[0*16\]" \
-	"\(unsigned char \\*\) \"a\", 'X' <repeats 13 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"a\", 'X' <repeats 13 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[1*16\]" \
-	"\(unsigned char \\*\) \"aa\", 'X' <repeats 12 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aa\", 'X' <repeats 12 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[2*16\]" \
-	"\(unsigned char \\*\) \"aaa\", 'X' <repeats 11 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\", 'X' <repeats 11 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[3*16\]" \
-	"\(unsigned char \\*\) \"aaaaXXXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaXXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[4*16\]" \
-	"\(unsigned char \\*\) \"aaaaaXXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[5*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[6*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[7*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[8*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaaXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[9*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaaaXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaaXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[10*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 11 times>, \"XXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 11 times>, \"XXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[11*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 12 times>, \"XX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 12 times>, \"XX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[12*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 13 times>, \"X\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 13 times>, \"X\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[13*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 14 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 14 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[14*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 14 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 14 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[15*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 14 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 14 times>..."
     if $passcount then {
 	pass "$passcount tests with elements = 14 and repeat count = 10"
     }
@@ -1117,52 +1117,52 @@ proc test_print_repeats_10 {} {
     send "set print elements 15\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[0*16\]" \
-	"\(unsigned char \\*\) \"a\", 'X' <repeats 14 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"a\", 'X' <repeats 14 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[1*16\]" \
-	"\(unsigned char \\*\) \"aa\", 'X' <repeats 13 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aa\", 'X' <repeats 13 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[2*16\]" \
-	"\(unsigned char \\*\) \"aaa\", 'X' <repeats 12 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\", 'X' <repeats 12 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[3*16\]" \
-	"\(unsigned char \\*\) \"aaaa\", 'X' <repeats 11 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\", 'X' <repeats 11 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[4*16\]" \
-	"\(unsigned char \\*\) \"aaaaaXXXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaXXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[5*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaXXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[6*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[7*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[8*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaaXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[9*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaaaXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaaXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[10*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 11 times>, \"XXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 11 times>, \"XXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[11*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 12 times>, \"XXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 12 times>, \"XXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[12*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 13 times>, \"XX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 13 times>, \"XX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[13*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 14 times>, \"X\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 14 times>, \"X\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[14*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 15 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 15 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[15*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 15 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 15 times>..."
     if $passcount then {
 	pass "$passcount tests with elements = 15 and repeat count = 10"
     }
@@ -1171,52 +1171,52 @@ proc test_print_repeats_10 {} {
     send "set print elements 16\n" ; expect -re "$prompt $"
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[0*16\]" \
-	"\(unsigned char \\*\) \"a\", 'X' <repeats 15 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"a\", 'X' <repeats 15 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[1*16\]" \
-	"\(unsigned char \\*\) \"aa\", 'X' <repeats 14 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aa\", 'X' <repeats 14 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[2*16\]" \
-	"\(unsigned char \\*\) \"aaa\", 'X' <repeats 13 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaa\", 'X' <repeats 13 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[3*16\]" \
-	"\(unsigned char \\*\) \"aaaa\", 'X' <repeats 12 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaa\", 'X' <repeats 12 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[4*16\]" \
-	"\(unsigned char \\*\) \"aaaaa\", 'X' <repeats 11 times>..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaa\", 'X' <repeats 11 times>..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[5*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaXXXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaXXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[6*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaXXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaXXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[7*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaXXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaXXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[8*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaaXXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaXXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[9*16\]" \
-	"\(unsigned char \\*\) \"aaaaaaaaaaXXXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"aaaaaaaaaaXXXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[10*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 11 times>, \"XXXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 11 times>, \"XXXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[11*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 12 times>, \"XXXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 12 times>, \"XXXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[12*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 13 times>, \"XXX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 13 times>, \"XXX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[13*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 14 times>, \"XX\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 14 times>, \"XX\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[14*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 15 times>, \"X\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 15 times>, \"X\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable2\[15*16\]" \
-	"\(unsigned char \\*\) 'a' <repeats 16 times>"
+	"\[(\]+unsigned char \[*\]+\[)\]+ 'a' <repeats 16 times>"
     if $passcount then {
 	pass "$passcount tests with elements = 16 and repeat count = 10"
     }
@@ -1249,103 +1249,103 @@ proc test_print_strings {} {
 
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[0\]" \
-	"\(unsigned char \\*\) \"\""
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\""
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[1\]" \
-	"\(unsigned char \\*\) \"\\\\001\\\\002\\\\003\\\\004\\\\005\\\\006\\\\a\\\\b\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\001\\\\002\\\\003\\\\004\\\\005\\\\006\\\\a\\\\b\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[1*8\]" \
-	"\(unsigned char \\*\) \"\\\\b\\\\t\\\\n\\\\013\\\\f\\\\r\\\\016\\\\017\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\b\\\\t\\\\n\\\\013\\\\f\\\\r\\\\016\\\\017\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[2*8\]" \
-	"\(unsigned char \\*\) \"\\\\020\\\\021\\\\022\\\\023\\\\024\\\\025\\\\026\\\\027\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\020\\\\021\\\\022\\\\023\\\\024\\\\025\\\\026\\\\027\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[3*8\]" \
-	"\(unsigned char \\*\) \"\\\\030\\\\031\\\\032\\\\e\\\\034\\\\035\\\\036\\\\037\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\030\\\\031\\\\032\\\\e\\\\034\\\\035\\\\036\\\\037\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[4*8\]" \
-	"\(unsigned char \\*\) \" !\\\\\"#\\\$%&'\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \" !\\\\\"#\\\$%&'\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[5*8\]" \
-	"\(unsigned char \\*\) \"\(\)\\*\\+,-./\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\[(\]+\[)\]+\[*\]+\\+,-./\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[6*8\]" \
-	"\(unsigned char \\*\) \"01234567\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"01234567\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[7*8\]" \
-	"\(unsigned char \\*\) \"89:;<=>\\?\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"89:;<=>\\?\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[8*8\]" \
-	"\(unsigned char \\*\) \"@ABCDEFG\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"@ABCDEFG\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[9*8\]" \
-	"\(unsigned char \\*\) \"HIJKLMNO\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"HIJKLMNO\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[10*8\]" \
-	"\(unsigned char \\*\) \"PQRSTUVW\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"PQRSTUVW\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[11*8\]" \
-	"\(unsigned char \\*\) \"XYZ\\\[\\\\\\\\\\\]\\^_\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"XYZ\\\[\\\\\\\\\\\]\\^_\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[12*8\]" \
-	"\(unsigned char \\*\) \"`abcdefg\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"`abcdefg\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[13*8\]" \
-	"\(unsigned char \\*\) \"hijklmno\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"hijklmno\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[14*8\]" \
-	"\(unsigned char \\*\) \"pqrstuvw\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"pqrstuvw\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[15*8\]" \
-	"\(unsigned char \\*\) \"xyz\{\|\}\\~\\\\177\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"xyz\[{|}\]+\\~\\\\177\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[16*8\]" \
-	"\(unsigned char \\*\) \"\\\\200\\\\201\\\\202\\\\203\\\\204\\\\205\\\\206\\\\207\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\200\\\\201\\\\202\\\\203\\\\204\\\\205\\\\206\\\\207\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[17*8\]" \
-	"\(unsigned char \\*\) \"\\\\210\\\\211\\\\212\\\\213\\\\214\\\\215\\\\216\\\\217\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\210\\\\211\\\\212\\\\213\\\\214\\\\215\\\\216\\\\217\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[18*8\]" \
-	"\(unsigned char \\*\) \"\\\\220\\\\221\\\\222\\\\223\\\\224\\\\225\\\\226\\\\227\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\220\\\\221\\\\222\\\\223\\\\224\\\\225\\\\226\\\\227\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[19*8\]" \
-	"\(unsigned char \\*\) \"\\\\230\\\\231\\\\232\\\\233\\\\234\\\\235\\\\236\\\\237\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\230\\\\231\\\\232\\\\233\\\\234\\\\235\\\\236\\\\237\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[20*8\]" \
-	"\(unsigned char \\*\) \"\\\\240\\\\241\\\\242\\\\243\\\\244\\\\245\\\\246\\\\247\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\240\\\\241\\\\242\\\\243\\\\244\\\\245\\\\246\\\\247\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[21*8\]" \
-	"\(unsigned char \\*\) \"\\\\250\\\\251\\\\252\\\\253\\\\254\\\\255\\\\256\\\\257\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\250\\\\251\\\\252\\\\253\\\\254\\\\255\\\\256\\\\257\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[22*8\]" \
-	"\(unsigned char \\*\) \"\\\\260\\\\261\\\\262\\\\263\\\\264\\\\265\\\\266\\\\267\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\260\\\\261\\\\262\\\\263\\\\264\\\\265\\\\266\\\\267\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[23*8\]" \
-	"\(unsigned char \\*\) \"\\\\270\\\\271\\\\272\\\\273\\\\274\\\\275\\\\276\\\\277\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\270\\\\271\\\\272\\\\273\\\\274\\\\275\\\\276\\\\277\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[24*8\]" \
-	"\(unsigned char \\*\) \"\\\\300\\\\301\\\\302\\\\303\\\\304\\\\305\\\\306\\\\307\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\300\\\\301\\\\302\\\\303\\\\304\\\\305\\\\306\\\\307\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[25*8\]" \
-	"\(unsigned char \\*\) \"\\\\310\\\\311\\\\312\\\\313\\\\314\\\\315\\\\316\\\\317\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\310\\\\311\\\\312\\\\313\\\\314\\\\315\\\\316\\\\317\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[26*8\]" \
-	"\(unsigned char \\*\) \"\\\\320\\\\321\\\\322\\\\323\\\\324\\\\325\\\\326\\\\327\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\320\\\\321\\\\322\\\\323\\\\324\\\\325\\\\326\\\\327\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[27*8\]" \
-	"\(unsigned char \\*\) \"\\\\330\\\\331\\\\332\\\\333\\\\334\\\\335\\\\336\\\\337\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\330\\\\331\\\\332\\\\333\\\\334\\\\335\\\\336\\\\337\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[28*8\]" \
-	"\(unsigned char \\*\) \"\\\\340\\\\341\\\\342\\\\343\\\\344\\\\345\\\\346\\\\347\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\340\\\\341\\\\342\\\\343\\\\344\\\\345\\\\346\\\\347\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[29*8\]" \
-	"\(unsigned char \\*\) \"\\\\350\\\\351\\\\352\\\\353\\\\354\\\\355\\\\356\\\\357\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\350\\\\351\\\\352\\\\353\\\\354\\\\355\\\\356\\\\357\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[30*8\]" \
-	"\(unsigned char \\*\) \"\\\\360\\\\361\\\\362\\\\363\\\\364\\\\365\\\\366\\\\367\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\360\\\\361\\\\362\\\\363\\\\364\\\\365\\\\366\\\\367\"..."
     setup_xfail "a29k-*-udi" 2417
     prt_accept "p &ctable1\[31*8\]" \
-	"\(unsigned char \\*\) \"\\\\370\\\\371\\\\372\\\\373\\\\374\\\\375\\\\376\\\\377\"..."
+	"\[(\]+unsigned char \[*\]+\[)\]+ \"\\\\370\\\\371\\\\372\\\\373\\\\374\\\\375\\\\376\\\\377\"..."
 
     if $passcount then {
 	pass "$passcount tests printing substrings from ASCII table"
@@ -1385,17 +1385,17 @@ proc test_print_char_arrays {} {
     prt_accept "p arrays" \
 	"{array1 = \"abc\", array2 = \"d\", array3 = \"e\", array4 = \"fg\", array5 = \"hij\"}"
 
-    prt_accept "p parrays"		"\(struct some_arrays \\*\) $hex"
+    prt_accept "p parrays"		"\[(\]+struct some_arrays \[*\]+\[)\]+ $hex"
     prt_accept "p parrays->array1"	"\"abc\""
-    prt_accept "p &parrays->array1"	"\(unsigned char \\*\) $hex \"abc\""
+    prt_accept "p &parrays->array1"	"\[(\]+unsigned char \[*\]+\[)\]+ $hex \"abc\""
     prt_accept "p parrays->array2"	"\"d\""
-    prt_accept "p &parrays->array2"	"\(unsigned char \\*\) $hex \"defghij\""
+    prt_accept "p &parrays->array2"	"\[(\]+unsigned char \[*\]+\[)\]+ $hex \"defghij\""
     prt_accept "p parrays->array3"	"\"e\""
-    prt_accept "p &parrays->array3"	"\(unsigned char \\*\) $hex \"efghij\""
+    prt_accept "p &parrays->array3"	"\[(\]+unsigned char \[*\]+\[)\]+ $hex \"efghij\""
     prt_accept "p parrays->array4"	"\"fg\""
-    prt_accept "p &parrays->array4"	"\(unsigned char \\*\) $hex \"fghij\""
+    prt_accept "p &parrays->array4"	"\[(\]+unsigned char \[*\]+\[)\]+ $hex \"fghij\""
     prt_accept "p parrays->array5"	"\"hij\""
-    prt_accept "p &parrays->array5"	"\(unsigned char \\*\) $hex \"hij\""
+    prt_accept "p &parrays->array5"	"\[(\]+unsigned char \[*\]+\[)\]+ $hex \"hij\""
 
     send "set print address off\n" ; expect -re "$prompt $"
     if $passcount then {
@@ -1432,7 +1432,7 @@ proc test_print_string_constants {} {
     setup_xfail "a29k-*-udi" 2416
     prt_accept "p &*\"foo\""		"\"foo\""
     setup_xfail "*-*-*"
-    prt_accept "ptype &*\"foo\""	"char \\*"
+    prt_accept "ptype &*\"foo\""	"char \[*\]+"
     setup_xfail "a29k-*-udi" 2416
     prt_accept "p (char *)\"foo\""	"\"foo\""
 

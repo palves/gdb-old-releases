@@ -261,7 +261,7 @@ readchar ()
     error ("Timeout reading from remote system.");
 
   if (!quiet)
-    printf ("%c", buf);
+    printf_unfiltered ("%c", buf);
 
   return buf & 0x7f;
 }
@@ -275,7 +275,7 @@ readchar_nofail ()
   if (buf == SERIAL_TIMEOUT)
     buf = 0;
   if (!quiet)
-    printf ("%c", buf);
+    printf_unfiltered ("%c", buf);
 
   return buf & 0x7f;
 
@@ -446,7 +446,7 @@ hms_load (args, fromtty)
 	      bfd_get_section_contents (abfd, s, buffer, i, delta);
 	      hms_write_inferior_memory (s->vma + i, buffer, delta);
 	      printf_filtered ("*");
-	      fflush (stdout);
+	      gdb_flush (gdb_stdout);
 	    }
 	  printf_filtered ("\n");
 	  free (buffer);
@@ -485,7 +485,7 @@ hms_create_inferior (execfile, args, env)
   expect_prompt ();
 
   insert_breakpoints ();	/* Needed to get correct instruction in cache */
-  proceed (entry_pt, -1, 0);
+  proceed (entry_pt, TARGET_SIGNAL_DEFAULT, 0);
 }
 
 /* Open a connection to a remote debugger.
@@ -639,7 +639,8 @@ hms_detach (args, from_tty)
 
 void
 hms_resume (pid, step, sig)
-     int pid, step, sig;
+     int pid, step;
+     enum target_signal sig;
 {
   dcache_flush ();
 
@@ -666,7 +667,7 @@ hms_resume (pid, step, sig)
 int
 hms_wait (pid, status)
      int pid;
-     WAITTYPE *status;
+     struct target_waitstatus *status;
 {
   /* Strings to look for.  '?' means match any single character.
      Note that with the algorithm we use, the initial character
@@ -694,11 +695,13 @@ hms_wait (pid, status)
   int old_immediate_quit = immediate_quit;
   int swallowed_cr = 0;
 
-  WSETEXIT ((*status), 0);
+  status->kind = TARGET_WAITKIND_EXITED;
+  status->value.integer = 0;
 
   if (need_artificial_trap != 0)
     {
-      WSETSTOP ((*status), SIGTRAP);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_TRAP;
       need_artificial_trap--;
       return 0;
     }
@@ -744,12 +747,12 @@ hms_wait (pid, status)
 
 	  /* Print out any characters which have been swallowed.  */
 	  for (p = swallowed; p < swallowed_p; ++p)
-	    putc (*p, stdout);
+	    putc_unfiltered (*p);
 	  swallowed_p = swallowed;
 
 	  if ((ch != '\r' && ch != '\n') || swallowed_cr > 10)
 	    {
-	      putc (ch, stdout);
+	      putc_unfiltered (ch);
 	      swallowed_cr = 10;
 	    }
 	  swallowed_cr++;
@@ -758,12 +761,14 @@ hms_wait (pid, status)
     }
   if (*bp == '\0')
     {
-      WSETSTOP ((*status), SIGTRAP);
+      status->kind = TARGET_WAITKIND_STOPPED;
+      status->value.sig = TARGET_SIGNAL_TRAP;
       expect_prompt ();
     }
   else
     {
-      WSETEXIT ((*status), 0);
+      status->kind = TARGET_WAITKIND_EXITED;
+      status->value.integer = 0;
     }
 
   timeout = old_timeout;
@@ -847,7 +852,7 @@ hms_write (a, l)
   if (!quiet)
     for (i = 0; i < l; i++)
       {
-	printf ("%c", a[i]);
+	printf_unfiltered ("%c", a[i]);
       }
 }
 
@@ -868,7 +873,7 @@ hms_fetch_register (dummy)
   int s;
   int gottok;
 
-  REGISTER_TYPE reg[NUM_REGS];
+  unsigned LONGEST reg[NUM_REGS];
   int foo[8];
 
   check_open ();
@@ -1215,7 +1220,7 @@ hms_before_main_loop ()
 {
   char ttyname[100];
   char *p, *p2;
-  extern FILE *instream;
+  extern GDB_FILE *instream;
 
   push_target (&hms_ops);
 }
@@ -1241,7 +1246,7 @@ hms_insert_breakpoint (addr, save)
     }
   else
     {
-      fprintf_filtered (stderr,
+      fprintf_filtered (gdb_stderr,
 		      "Too many break points, break point not installed\n");
       return (1);
     }

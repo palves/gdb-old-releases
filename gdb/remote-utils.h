@@ -39,8 +39,6 @@ struct _sr_settings {
 };
 
 extern struct _sr_settings sr_settings;
-extern int remote_debug;
-extern int baud_rate;
 
 /* get and set debug value. */
 #define sr_get_debug()			(remote_debug)
@@ -144,6 +142,5 @@ void sr_write_cr PARAMS((char *s));
 
 void gr_open PARAMS((char *args, int from_tty,
 		     struct gr_settings *gr_settings)); 
-
-
+void gr_load_image PARAMS((char*, int from_tty));
 #endif /* REMOTE_UTILS_H */

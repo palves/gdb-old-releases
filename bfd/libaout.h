@@ -44,10 +44,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define BYTES_IN_WORD 4
 #endif /* ARCH_SIZE==32 */
 
-/* Declare these types at file level, since they are used in parameter
-   lists, which have wierd scope.  */
+/* Declare at file level, since it isused in parameter lists, which
+   have weird scope.  */
 struct external_exec;
-struct internal_exec;
 
 /* Back-end information for various a.out targets.  */
 struct aout_backend_data
@@ -134,7 +133,7 @@ enum machine_type {
   M_HPUX = (0x20c % 256)/* HP 200/300 HPUX binary */
 };
 
-#define N_DYNAMIC(exec) ((exec).a_info & 0x8000000)
+#define N_DYNAMIC(exec) ((exec).a_info & 0x80000000)
 
 #ifndef N_MAGIC
 # define N_MAGIC(exec) ((exec).a_info & 0xffff)
@@ -153,6 +152,12 @@ enum machine_type {
 ((exec).a_info = ((magic) & 0xffff) \
  | (((int)(type) & 0xff) << 16) \
  | (((flags) & 0xff) << 24))
+#endif
+
+#ifndef N_SET_DYNAMIC
+# define N_SET_DYNAMIC(exec, dynamic) \
+((exec).a_info = (dynamic) ? ((exec).a_info | 0x80000000) : \
+((exec).a_info & 0x7fffffff))
 #endif
 
 #ifndef N_SET_MAGIC
@@ -222,6 +227,12 @@ struct aoutdata {
     z_magic,
     o_magic,
     n_magic } magic;
+
+  /* The external symbol information.  */
+  struct external_nlist *external_syms;
+  bfd_size_type external_sym_count;
+  char *external_strings;
+  struct aout_link_hash_entry **sym_hashes;
 };
 
 struct  aout_data_struct {
@@ -240,6 +251,10 @@ struct  aout_data_struct {
 #define	obj_reloc_entry_size(bfd) (adata(bfd).reloc_entry_size)
 #define	obj_symbol_entry_size(bfd) (adata(bfd).symbol_entry_size)
 #define obj_aout_subformat(bfd)	(adata(bfd).subformat)
+#define obj_aout_external_syms(bfd) (adata(bfd).external_syms)
+#define obj_aout_external_sym_count(bfd) (adata(bfd).external_sym_count)
+#define obj_aout_external_strings(bfd) (adata(bfd).external_strings)
+#define obj_aout_sym_hashes(bfd) (adata(bfd).sym_hashes)
 
 /* We take the address of the first element of an asymbol to ensure that the
    macro is only ever applied to an asymbol */
@@ -279,7 +294,7 @@ NAME(aout,make_empty_symbol) PARAMS ((bfd *abfd));
 boolean
 NAME(aout,slurp_symbol_table) PARAMS ((bfd *abfd));
 
-void
+boolean
 NAME(aout,write_syms) PARAMS ((bfd *abfd));
 
 void
@@ -339,6 +354,17 @@ void
 NAME(aout,swap_exec_header_out) PARAMS ((bfd *abfd,
        struct internal_exec *execp, struct external_exec *raw_bytes));
 
+struct bfd_link_hash_table *
+NAME(aout,link_hash_table_create) PARAMS ((bfd *));
+
+boolean
+NAME(aout,link_add_symbols) PARAMS ((bfd *, struct bfd_link_info *));
+
+boolean
+NAME(aout,final_link) PARAMS ((bfd *, struct bfd_link_info *,
+			       void (*) (bfd *, file_ptr *, file_ptr *,
+					 file_ptr *)));
+
 /* Prototypes for functions in stab-syms.c. */
 
 CONST char *
@@ -376,11 +402,12 @@ aout_stab_name PARAMS ((int code));
 	bfd_write ((PTR) &exec_bytes, 1, EXEC_BYTES_SIZE, abfd);	      \
 	/* Now write out reloc info, followed by syms and strings */	      \
   									      \
-	if (bfd_get_symcount (abfd) != 0) 				      \
+	if (bfd_get_outsymbols (abfd) != (asymbol **) NULL		      \
+	    && bfd_get_symcount (abfd) != 0) 				      \
 	    {								      \
 	      bfd_seek (abfd, (file_ptr)(N_SYMOFF(*execp)), SEEK_SET);	      \
 									      \
-	      NAME(aout,write_syms)(abfd);				      \
+	      if (! NAME(aout,write_syms)(abfd)) return false;		      \
 									      \
 	      bfd_seek (abfd, (file_ptr)(N_TRELOFF(*execp)), SEEK_SET);	      \
 									      \

@@ -73,9 +73,11 @@ extern CORE_ADDR saved_pc_after_call ();
 
 #define INVALID_FLOAT(p, len) (0)
 
-/* How long (ordinary) registers are */
+/* Say how long (ordinary) registers are.  This is a piece of bogosity
+   used in push_word and a few other places; REGISTER_RAW_SIZE is the
+   real way to know how big a register is.  */
 
-#define REGISTER_TYPE long
+#define REGISTER_SIZE 4
 
 /* Number of machine registers */
 #define NUM_REGS 40
@@ -164,30 +166,26 @@ extern CORE_ADDR saved_pc_after_call ();
 
 #define REGISTER_CONVERTIBLE(N) ((N) >= FP0_REGNUM)
 
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
+/* Convert data from raw format for register REGNUM in buffer FROM
+   to virtual format with type TYPE in buffer TO.  */
 
 extern struct ext_format ext_format_i960;
 
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)     \
+#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,TYPE,FROM,TO)	\
 { \
-  if ((REGNUM) >= FP0_REGNUM)   \
-    ieee_extended_to_double (&ext_format_i960, (FROM), (double *)(TO));     \
-  else                                  \
-    memcpy ((TO), (FROM), 4);	\
+  double val; \
+  ieee_extended_to_double (&ext_format_i960, (FROM), &val); \
+  store_floating ((TO), TYPE_LENGTH (TYPE), val); \
 }
 
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
+/* Convert data from virtual format with type TYPE in buffer FROM
+   to raw format for register REGNUM in buffer TO.  */
 
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO) \
+#define REGISTER_CONVERT_TO_RAW(TYPE,REGNUM,FROM,TO)	\
 { \
-  if ((REGNUM) >= FP0_REGNUM)   \
-    double_to_ieee_extended (&ext_format_i960, (double *)(FROM), (TO));     \
-  else                                  \
-    memcpy ((TO), (FROM), 4); 	\
+  double val = extract_floating ((FROM), TYPE_LENGTH (TYPE)); \
+  double_to_ieee_extended (&ext_format_i960, &val, (TO)); \
 }
-
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -336,12 +334,6 @@ extern CORE_ADDR frame_args_address ();		/* i960-tdep.c */
 #define FRAME_FIND_SAVED_REGS(frame_info_addr, sr) \
 	frame_find_saved_regs (frame_info_addr, &sr)
 extern void frame_find_saved_regs();		/* See i960-tdep.c */
-
-
-/* Print status when we get a random unexpected signal.  We have more
-   kinds of signals than Unix does... */
-
-#define	PRINT_RANDOM_SIGNAL(stop_signal) print_fault (stop_signal)
 
 /* Things needed for making calls to functions in the inferior process */
 

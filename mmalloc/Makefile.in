@@ -60,6 +60,14 @@ MAKEINFO =	makeinfo
 RANLIB =	ranlib
 RM =		rm
 
+# where to find makeinfo
+MAKEINFO=makeinfo
+
+SET_TEXINPUTS = TEXINPUTS=${TEXIDIR}:.:$(srcdir):$(READLINE_DIR):$$TEXINPUTS
+
+# The TeX formatter
+TEX = tex
+
 TARGETLIB =	libmmalloc.a
 
 CFILES =	mcalloc.c mfree.c mmalloc.c mmcheck.c mmemalign.c mmstats.c \
@@ -85,11 +93,21 @@ STAGESTUFF =	$(TARGETLIB) *.o
 
 all:		$(TARGETLIB)
 
-info:
+info: mmalloc.info
+dvi: mmalloc.dvi
 clean-info:
-install-info:
-dvi:
 installcheck:
+
+mmalloc.info: mmalloc.texi
+	$(MAKEINFO) -I $(srcdir) -o ./mmalloc.info mmalloc.texi
+
+# This file doesn't need texindex currently.
+mmalloc.dvi: mmalloc.texi
+	$(SET_TEXINPUTS) $(TEX) mmalloc.texi
+	rm -f mmalloc.?? mmalloc.??s mmalloc.log mmalloc.aux mmalloc.toc
+
+install-info: info
+	$(INSTALL_DATA) mmalloc.info $(infodir)/$$i
 
 check: test1.c
 #	$(CC) -g $(srcdir)/test1.c libmmalloc.a

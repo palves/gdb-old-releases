@@ -17,11 +17,14 @@
    MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 
 */
+
 #include <signal.h>
 #include "sysdep.h"
 #include <sys/times.h>
 #include <sys/param.h>
 #include "bfd.h"
+#include "remote-sim.h"
+
 #define O_RECOMPILE 85
 #define DEFINE_TABLE
 
@@ -226,7 +229,7 @@ ptr (x)
   return (char *) (x + saved_state.asregs.memory);
 }
 
-/* Simulate a monitor trap.  */
+/* Simulate a monitor trap, put the result into r0 and errno into r1 */
 
 static void
 trap (i, regs)
@@ -250,19 +253,19 @@ trap (i, regs)
 	switch (regs[4])
 	  {
 	  case 3:
-	    regs[4] = read (regs[5], ptr (regs[6]), regs[7]);
+	    regs[0] = read (regs[5], ptr (regs[6]), regs[7]);
 	    break;
 	  case 4:
-	    regs[4] = write (regs[5], ptr (regs[6]), regs[7]);
+	    regs[0] = write (regs[5], ptr (regs[6]), regs[7]);
 	    break;
 	  case 19:
-	    regs[4] = lseek (regs[5], regs[6], regs[7]);
+	    regs[0] = lseek (regs[5], regs[6], regs[7]);
 	    break;
 	  case 6:
-	    regs[4] = close (regs[5]);
+	    regs[0] = close (regs[5]);
 	    break;
 	  case 5:
-	    regs[4] = open (ptr (regs[5]), regs[6]);
+	    regs[0] = open (ptr (regs[5]), regs[6]);
 	    break;
 	  case 1:
 	    /* EXIT */
@@ -273,7 +276,7 @@ trap (i, regs)
 	  default:
 	    abort ();
 	  }
-	regs[0] = errno;
+	regs[1] = errno;
 	errno = perrno;
       }
 
@@ -281,6 +284,7 @@ trap (i, regs)
 
     case 255:
       saved_state.asregs.exception = SIGTRAP;
+      saved_state.asregs.exception = 5;
       break;
     }
 
@@ -528,9 +532,9 @@ gotcall (from, to)
 }
 
 #define MMASKB ((saved_state.asregs.msize -1) & ~0)
-void
-sim_resume (step)
-     int step;
+int
+sim_resume (step, siggnal)
+     int step, siggnal;
 {
   register unsigned int pc;
   register int cycles = 0;
@@ -644,6 +648,8 @@ sim_resume (step)
     }
 
   signal (SIGINT, prev);
+
+  return 0;
 }
 
 
@@ -651,7 +657,7 @@ sim_resume (step)
 
 int
 sim_write (addr, buffer, size)
-     long int addr;
+     SIM_ADDR addr;
      unsigned char *buffer;
      int size;
 {
@@ -662,13 +668,13 @@ sim_write (addr, buffer, size)
     {
       saved_state.asregs.memory[MMASKB & (addr + i)] = buffer[i];
     }
-return size;
+  return size;
 }
 
 int
 sim_read (addr, buffer, size)
-     long int addr;
-     char *buffer;
+     SIM_ADDR addr;
+     unsigned char *buffer;
      int size;
 {
   int i;
@@ -679,26 +685,28 @@ sim_read (addr, buffer, size)
     {
       buffer[i] = saved_state.asregs.memory[MMASKB & (addr + i)];
     }
-return size;
+  return size;
 }
 
 
-void
+int
 sim_store_register (rn, value)
      int rn;
-     unsigned char value[4];
+     unsigned char *value;
 {
   saved_state.asregs.regs[rn] = (value[0] << 24) | (value[1] << 16) | (value[2] << 8) | (value[3]);
+  return 0;
 }
 
-void
+int
 sim_fetch_register (rn, buf)
      int rn;
-     char *buf;
+     unsigned char *buf;
 {
   int value = ((int *) (&saved_state))[rn];
 
   swap (buf, value);
+  return 0;
 }
 
 
@@ -709,21 +717,28 @@ sim_trace ()
 }
 
 int
-sim_stop_signal ()
+sim_stop_reason (reason, sigrc)
+     enum sim_stop *reason;
+     int *sigrc;
 {
-  return saved_state.asregs.exception;
+  *reason = sim_stopped;
+  *sigrc = saved_state.asregs.exception;
+  return 0;
 }
 
-void
+int
 sim_set_pc (x)
-     int x;
+     SIM_ADDR x;
 {
   saved_state.asregs.pc = x;
+  return 0;
 }
 
 
-void
-sim_info ()
+int
+sim_info (printf_fn, verbose)
+     void (*printf_fn)();
+     int verbose;
 {
   double timetaken = (double) saved_state.asregs.ticks / (double) now_persec ();
   double virttime = saved_state.asregs.cycles / 36.0e6;
@@ -742,6 +757,8 @@ sim_info ()
       printf ("# cycles/second          %10d\n", (int) (saved_state.asregs.cycles / timetaken));
       printf ("# simulation ratio       %10.4f\n", virttime / timetaken);
     }
+
+  return 0;
 }
 
 
@@ -760,18 +777,22 @@ sim_set_profile_size (n)
 }
 
 
-void
-sim_kill()
-{
-
-}
-
 int
-sim_open()
+sim_kill ()
 {
   return 0;
 }
-int sim_set_args()
+
+int
+sim_open (name)
+     char *name;
+{
+  return 0;
+}
+
+int sim_set_args (argv, env)
+     char **argv;
+     char **env;
 {
   return 0;
 }

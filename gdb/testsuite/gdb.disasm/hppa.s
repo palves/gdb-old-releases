@@ -109,6 +109,11 @@
 	.EXPORT fmpy_addsub_tests,CODE
 	.EXPORT xmpyu_tests,CODE
 	.EXPORT special_tests,CODE
+	.EXPORT sfu_tests,CODE
+	.EXPORT copr_tests,CODE
+	.EXPORT copr_indexing_load,CODE
+	.EXPORT copr_indexing_store,CODE
+	.EXPORT copr_short_memory,CODE
 	.EXPORT main,CODE
 	.EXPORT main,ENTRY,PRIV_LEV=3,RTNVAL=GR
 main
@@ -1211,7 +1216,7 @@ system_control_tests
 	mfsp %sr0,%r4
 	mfctl %cr10,%r4
 	sync
-;	diag 1234
+	diag 1234
 
 probe_tests
 	prober (%sr0,%r5),%r6,%r7
@@ -1252,7 +1257,6 @@ insert_tests
 	iitlbp %r4,(%sr0,%r5)
 
 fpu_misc_tests
-	copr,0,0
 	ftest
 
 fpu_memory_indexing_tests
@@ -1272,6 +1276,10 @@ fpu_memory_indexing_tests
 	fstdx,s %fr6,%r4(%sr0,%r5)
 	fstdx,m %fr6,%r4(%sr0,%r5)
 	fstdx,sm %fr6,%r4(%sr0,%r5)
+	fstqx %fr6,%r4(%sr0,%r5)
+	fstqx,s %fr6,%r4(%sr0,%r5)
+	fstqx,m %fr6,%r4(%sr0,%r5)
+	fstqx,sm %fr6,%r4(%sr0,%r5)
 
 fpu_short_memory_tests
 	fldws 0(%sr0,%r5),%fr6
@@ -1286,6 +1294,9 @@ fpu_short_memory_tests
 	fstds %fr6,0(%sr0,%r5)
 	fstds,mb %fr6,0(%sr0,%r5)
 	fstds,ma %fr6,0(%sr0,%r5)
+	fstqs %fr6,0(%sr0,%r5)
+	fstqs,mb %fr6,0(%sr0,%r5)
+	fstqs,ma %fr6,0(%sr0,%r5)
 
 
 fcpy_tests
@@ -1552,6 +1563,64 @@ special_tests
 	gfw,m %r4(%sr0,%r5)
 	gfr %r4(%sr0,%r5)
 	gfr,m %r4(%sr0,%r5)
+
+sfu_tests
+	spop0,4,5
+	spop0,4,115
+	spop0,4,5,n
+	spop0,4,115,n
+	spop1,4,5 5
+	spop1,4,115 5
+	spop1,4,5,n 5
+	spop1,4,115,n 5
+	spop2,4,5 5
+	spop2,4,115 5
+	spop2,4,5,n 5
+	spop2,4,115,n 5
+	spop3,4,5 5,6
+	spop3,4,115 5,6
+	spop3,4,5,n 5,6
+	spop3,4,115,n 5,6
+
+copr_tests
+	copr,4,5
+	copr,4,115
+	copr,4,5,n
+	copr,4,115,n
+
+copr_indexing_load 
+	cldwx,4 5(0,4),26
+	cldwx,4,s 5(0,4),26
+	cldwx,4,m 5(0,4),26
+	cldwx,4,sm 5(0,4),26
+	clddx,4 5(0,4),26
+	clddx,4,s 5(0,4),26
+	clddx,4,m 5(0,4),26
+	clddx,4,sm 5(0,4),26
+
+copr_indexing_store 
+	cstwx,4 26,5(0,4)
+	cstwx,4,s 26,5(0,4)
+	cstwx,4,m 26,5(0,4)
+	cstwx,4,sm 26,5(0,4)
+	cstdx,4 26,5(0,4)
+	cstdx,4,s 26,5(0,4)
+	cstdx,4,m 26,5(0,4)
+	cstdx,4,sm 26,5(0,4)
+
+copr_short_memory 
+	cldws,4 0(0,4),26
+	cldws,4,mb 0(0,4),26
+	cldws,4,ma 0(0,4),26
+	cldds,4 0(0,4),26
+	cldds,4,mb 0(0,4),26
+	cldds,4,ma 0(0,4),26
+	cstws,4 26,0(0,4)
+	cstws,4,mb 26,0(0,4)
+	cstws,4,ma 26,0(0,4)
+	cstds,4 26,0(0,4)
+	cstds,4,mb 26,0(0,4)
+	cstds,4,ma 26,0(0,4)
 
 	ldw 0(0,%r4),%r26
 	ldw 0(0,%r4),%r26

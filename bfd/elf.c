@@ -194,18 +194,6 @@ DEFUN (bfd_elf_find_section, (abfd, name),
   return 0;
 }
 
-const struct bfd_elf_arch_map bfd_elf_arch_map[] = {
-  { bfd_arch_sparc, EM_SPARC },
-  { bfd_arch_i386, EM_386 },
-  { bfd_arch_m68k, EM_68K },
-  { bfd_arch_m88k, EM_88K },
-  { bfd_arch_i860, EM_860 },
-  { bfd_arch_mips, EM_MIPS },
-  { bfd_arch_hppa, EM_HPPA },
-};
-
-const int bfd_elf_arch_map_size = sizeof (bfd_elf_arch_map) / sizeof (bfd_elf_arch_map[0]);
-
 const char *const bfd_elf_section_type_names[] = {
   "SHT_NULL", "SHT_PROGBITS", "SHT_SYMTAB", "SHT_STRTAB",
   "SHT_RELA", "SHT_HASH", "SHT_DYNAMIC", "SHT_NOTE",
@@ -222,23 +210,27 @@ const char *const bfd_elf_section_type_names[] = {
    function.  It just short circuits the reloc if producing
    relocateable output against an external symbol.  */
 
+/*ARGSUSED*/
 bfd_reloc_status_type
 bfd_elf_generic_reloc (abfd,
 		       reloc_entry,
 		       symbol,
 		       data,
 		       input_section,
-		       output_bfd)
+		       output_bfd,
+		       error_message)
      bfd *abfd;
      arelent *reloc_entry;
      asymbol *symbol;
      PTR data;
      asection *input_section;
      bfd *output_bfd;
+     char **error_message;
 {
   if (output_bfd != (bfd *) NULL
       && (symbol->flags & BSF_SECTION_SYM) == 0
-      && reloc_entry->addend == 0)
+      && (! reloc_entry->howto->partial_inplace
+	  || reloc_entry->addend == 0))
     {
       reloc_entry->address += input_section->output_offset;
       return bfd_reloc_ok;

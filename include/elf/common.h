@@ -69,15 +69,16 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Values for e_machine, which identifies the architecture */
 
-#define EM_NONE		0		/* No machine */
-#define EM_M32		1		/* AT&T WE 32100 */
-#define EM_SPARC	2		/* SUN SPARC */
-#define EM_386		3		/* Intel 80386 */
-#define EM_68K		4		/* Motorola m68k family */
-#define EM_88K		5		/* Motorola m88k family */
-#define EM_860		7		/* Intel 80860 */
-#define EM_MIPS		8		/* MIPS R3000 */
-#define EM_HPPA		9		/* HP PA-RISC */
+#define EM_NONE		0	/* No machine */
+#define EM_M32		1	/* AT&T WE 32100 */
+#define EM_SPARC	2	/* SUN SPARC */
+#define EM_386		3	/* Intel 80386 */
+#define EM_68K		4	/* Motorola m68k family */
+#define EM_88K		5	/* Motorola m88k family */
+#define EM_860		7	/* Intel 80860 */
+#define EM_MIPS		8	/* MIPS R3000 (officially, big-endian only) */
+#define EM_HPPA		9	/* HP PA-RISC (not officially assigned?) */
+#define EM_MIPS_RS4_BE 10	/* MIPS R4000 big-endian */
 
 
 /* Values for e_version */

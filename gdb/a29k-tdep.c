@@ -1,5 +1,5 @@
 /* Target-machine dependent code for the AMD 29000
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    Contributed by Cygnus Support.  Written by Jim Kingdon.
 
 This file is part of GDB.
@@ -149,17 +149,18 @@ examine_prologue (pc, rsize, msize, mfp_used)
     }
   p += 4;
 
-  /* Next instruction must be asgeu V_SPILL,gr1,rab.  
+  /* Next instruction ought to be asgeu V_SPILL,gr1,rab.  
    * We don't check the vector number to allow for kernel debugging.  The 
    * kernel will use a different trap number. 
+   * If this insn is missing, we just keep going; Metaware R2.3u compiler
+   * generates prologue that intermixes initializations and puts the asgeu
+   * way down.
    */
   insn = read_memory_integer (p, 4);
-  if ((insn & 0xff00ffff) != (0x5e000100|RAB_HW_REGNUM))
+  if ((insn & 0xff00ffff) == (0x5e000100|RAB_HW_REGNUM))
     {
-      p = pc;
-      goto done;
+      p += 4;
     }
-  p += 4;
 
   /* Next instruction usually sets the frame pointer (lr1) by adding
      <size * 4> from gr1.  However, this can (and high C does) be
@@ -269,6 +270,19 @@ examine_prologue (pc, rsize, msize, mfp_used)
 		*msize = msize0;
 	    }
 	}
+    }
+
+  /* Next instruction might be asgeu V_SPILL,gr1,rab.  
+   * We don't check the vector number to allow for kernel debugging.  The 
+   * kernel will use a different trap number. 
+   * Metaware R2.3u compiler
+   * generates prologue that intermixes initializations and puts the asgeu
+   * way down after everything else.
+   */
+  insn = read_memory_integer (p, 4);
+  if ((insn & 0xff00ffff) == (0x5e000100|RAB_HW_REGNUM))
+    {
+      p += 4;
     }
 
  done:
@@ -404,10 +418,20 @@ init_frame_info (innermost_frame, fci)
       /* Search backward to find the trace-back tag.  However,
 	 do not trace back beyond the start of the text segment
 	 (just as a sanity check to avoid going into never-never land).  */
+#if 1
       while (p >= text_start
 	     && ((insn = read_memory_integer (p, 4)) & TAGWORD_ZERO_MASK) != 0)
 	p -= 4;
-      
+#else /* 0 */
+      char pat[4] = {0, 0, 0, 0};
+      char mask[4];
+      char insn_raw[4];
+      store_unsigned_integer (mask, 4, TAGWORD_ZERO_MASK);
+      /* Enable this once target_search is enabled and tested.  */
+      target_search (4, pat, mask, p, -4, text_start, p+1, &p, &insn_raw);
+      insn = extract_unsigned_integer (insn_raw, 4);
+#endif /* 0 */
+
       if (p < text_start)
 	{
 	  /* Couldn't find the trace-back tag.
@@ -423,14 +447,14 @@ init_frame_info (innermost_frame, fci)
 	   after the trace-back tag.  */
 	p += 4;
     }
+
   /* We've found the start of the function.  
-   * Try looking for a tag word that indicates whether there is a
-   * memory frame pointer and what the memory stack allocation is.
-   * If one doesn't exist, try using a more exhaustive search of
-   * the prologue.  For now we don't care about the argcount or
-   * whether or not the routine is transparent.
-   */
-  if (examine_tag(p-4,&trans,NULL,&msize,&mfp_used)) /* Found a good tag */
+     Try looking for a tag word that indicates whether there is a
+     memory frame pointer and what the memory stack allocation is.
+     If one doesn't exist, try using a more exhaustive search of
+     the prologue.  */
+
+  if (examine_tag(p-4,&trans,(int *)NULL,&msize,&mfp_used)) /* Found good tag */
       examine_prologue (p, &rsize, 0, 0);
   else 						/* No tag try prologue */
       examine_prologue (p, &rsize, &msize, &mfp_used);
@@ -716,6 +740,8 @@ pop_frame ()
   CORE_ADDR rfb = read_register (RFB_REGNUM);				      
   CORE_ADDR gr1 = fi->frame + fi->rsize;
   CORE_ADDR lr1;							      
+  CORE_ADDR original_lr0;
+  int must_fix_lr0 = 0;
   int i;
 
   /* If popping a dummy frame, need to restore registers.  */
@@ -730,15 +756,23 @@ pop_frame ()
 	write_register (SR_REGNUM(i+160), read_register (lrnum++));
       for (i = 0; i < DUMMY_SAVE_GREGS; ++i)
 	write_register (RETURN_REGNUM + i, read_register (lrnum++));
-      /* Restore the PCs.  */
+      /* Restore the PCs and prepare to restore LR0.  */
       write_register(PC_REGNUM, read_register (lrnum++));
-      write_register(NPC_REGNUM, read_register (lrnum));
+      write_register(NPC_REGNUM, read_register (lrnum++));
+      write_register(PC2_REGNUM, read_register (lrnum++));
+      original_lr0 = read_register (lrnum++);
+      must_fix_lr0 = 1;
     }
 
   /* Restore the memory stack pointer.  */
   write_register (MSP_REGNUM, fi->saved_msp);				      
   /* Restore the register stack pointer.  */				      
   write_register (GR1_REGNUM, gr1);
+
+  /* If we popped a dummy frame, restore lr0 now that gr1 has been restored. */
+  if (must_fix_lr0) 
+    write_register (LR0_REGNUM, original_lr0);
+
   /* Check whether we need to fill registers.  */			      
   lr1 = read_register (LR0_REGNUM + 1);				      
   if (lr1 > rfb)							      
@@ -768,8 +802,13 @@ push_dummy_frame ()
   long w;
   CORE_ADDR rab, gr1;
   CORE_ADDR msp = read_register (MSP_REGNUM);
-  int lrnum,  i, saved_lr0;
-  
+  int lrnum, i;
+  CORE_ADDR original_lr0;
+      
+  /* Read original lr0 before changing gr1.  This order isn't really needed
+     since GDB happens to have a snapshot of all the regs and doesn't toss
+     it when gr1 is changed.  But it's The Right Thing To Do.  */
+  original_lr0 = read_register (LR0_REGNUM);
 
   /* Allocate the new frame. */ 
   gr1 = read_register (GR1_REGNUM) - DUMMY_FRAME_RSIZE;
@@ -812,10 +851,56 @@ push_dummy_frame ()
     write_register (lrnum++, read_register (SR_REGNUM (i + 160)));
   for (i = 0; i < DUMMY_SAVE_GREGS; ++i)
     write_register (lrnum++, read_register (RETURN_REGNUM + i));
-  /* Save the PCs.  */
+  /* Save the PCs and LR0.  */
   write_register (lrnum++, read_register (PC_REGNUM));
-  write_register (lrnum, read_register (NPC_REGNUM));
+  write_register (lrnum++, read_register (NPC_REGNUM));
+  write_register (lrnum++, read_register (PC2_REGNUM));
+
+  /* Why are we saving LR0?  What would clobber it? (the dummy frame should
+     be below it on the register stack, no?).  */
+  write_register (lrnum++, original_lr0);
 }
+
+
+
+/*
+   This routine takes three arguments and makes the cached frames look
+   as if these arguments defined a frame on the cache.  This allows the
+   rest of `info frame' to extract the important arguments without much
+   difficulty.  Since an individual frame on the 29K is determined by
+   three values (FP, PC, and MSP), we really need all three to do a
+   good job.  */
+
+FRAME
+setup_arbitrary_frame (argc, argv)
+     int argc;
+     FRAME_ADDR *argv;
+{
+  FRAME fid;
+
+  if (argc != 3)
+    error ("AMD 29k frame specifications require three arguments: rsp pc msp");
+
+  fid = create_new_frame (argv[0], argv[1]);
+
+  if (!fid)
+    fatal ("internal: create_new_frame returned invalid frame id");
+  
+  /* Creating a new frame munges the `frame' value from the current
+     GR1, so we restore it again here.  FIXME, untangle all this
+     29K frame stuff...  */
+  fid->frame = argv[0];
+
+  /* Our MSP is in argv[2].  It'd be intelligent if we could just
+     save this value in the FRAME.  But the way it's set up (FIXME),
+     we must save our caller's MSP.  We compute that by adding our
+     memory stack frame size to our MSP.  */
+  fid->saved_msp = argv[2] + fid->msize;
+
+  return fid;
+}
+
+
 
 enum a29k_processor_types processor_type = a29k_unknown;
 
@@ -830,36 +915,36 @@ a29k_get_processor_type ()
   switch ((cfg_reg >> 28) & 0xf)
     {
     case 0:
-      fprintf_filtered (stderr, "Remote debugging an Am29000");
+      fprintf_filtered (gdb_stderr, "Remote debugging an Am29000");
       break;
     case 1:
-      fprintf_filtered (stderr, "Remote debugging an Am29005");
+      fprintf_filtered (gdb_stderr, "Remote debugging an Am29005");
       break;
     case 2:
-      fprintf_filtered (stderr, "Remote debugging an Am29050");
+      fprintf_filtered (gdb_stderr, "Remote debugging an Am29050");
       processor_type = a29k_freeze_mode;
       break;
     case 3:
-      fprintf_filtered (stderr, "Remote debugging an Am29035");
+      fprintf_filtered (gdb_stderr, "Remote debugging an Am29035");
       break;
     case 4:
-      fprintf_filtered (stderr, "Remote debugging an Am29030");
+      fprintf_filtered (gdb_stderr, "Remote debugging an Am29030");
       break;
     case 5:
-      fprintf_filtered (stderr, "Remote debugging an Am2920*");
+      fprintf_filtered (gdb_stderr, "Remote debugging an Am2920*");
       break;
     case 6:
-      fprintf_filtered (stderr, "Remote debugging an Am2924*");
+      fprintf_filtered (gdb_stderr, "Remote debugging an Am2924*");
       break;
     case 7:
-      fprintf_filtered (stderr, "Remote debugging an Am29040");
+      fprintf_filtered (gdb_stderr, "Remote debugging an Am29040");
       break;
     default:
-      fprintf_filtered (stderr, "Remote debugging an unknown Am29k\n");
+      fprintf_filtered (gdb_stderr, "Remote debugging an unknown Am29k\n");
       /* Don't bother to print the revision.  */
       return;
     }
-  fprintf_filtered (stderr, " revision %c\n", 'A' + ((cfg_reg >> 24) & 0x0f));
+  fprintf_filtered (gdb_stderr, " revision %c\n", 'A' + ((cfg_reg >> 24) & 0x0f));
 }
 
 void

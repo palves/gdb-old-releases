@@ -47,13 +47,13 @@ FILE *std_err;
 /* Prototypes for local functions */
 
 static void 
-dump_symtab PARAMS ((struct objfile *, struct symtab *, FILE *));
+dump_symtab PARAMS ((struct objfile *, struct symtab *, GDB_FILE *));
 
 static void 
-dump_psymtab PARAMS ((struct objfile *, struct partial_symtab *, FILE *));
+dump_psymtab PARAMS ((struct objfile *, struct partial_symtab *, GDB_FILE *));
 
 static void 
-dump_msymbols PARAMS ((struct objfile *, FILE *));
+dump_msymbols PARAMS ((struct objfile *, GDB_FILE *));
 
 static void 
 dump_objfile PARAMS ((struct objfile *));
@@ -62,12 +62,12 @@ static int
 block_depth PARAMS ((struct block *));
 
 static void
-print_partial_symbol PARAMS ((struct partial_symbol *, int, char *, FILE *));
+print_partial_symbol PARAMS ((struct partial_symbol *, int, char *, GDB_FILE *));
 
 struct print_symbol_args {
   struct symbol *symbol;
   int depth;
-  FILE *outfile;
+  GDB_FILE *outfile;
 };
 
 static int print_symbol PARAMS ((char *));
@@ -206,7 +206,7 @@ dump_objfile (objfile)
 static void 
 dump_msymbols (objfile, outfile)
      struct objfile *objfile;
-     FILE *outfile;
+     GDB_FILE *outfile;
 {
   struct minimal_symbol *msymbol;
   int index;
@@ -271,14 +271,14 @@ static void
 dump_psymtab (objfile, psymtab, outfile)
      struct objfile *objfile;
      struct partial_symtab *psymtab;
-     FILE *outfile;
+     GDB_FILE *outfile;
 {
   int i;
 
   fprintf_filtered (outfile, "\nPartial symtab for source file %s ",
 		    psymtab -> filename);
   fprintf_filtered (outfile, "(object 0x%lx)\n\n", (unsigned long) psymtab);
-  fprintf (outfile, "  Read from object file %s (0x%lx)\n",
+  fprintf_unfiltered (outfile, "  Read from object file %s (0x%lx)\n",
 	   objfile -> name, (unsigned long) objfile);
   
   if (psymtab -> readin)
@@ -329,7 +329,7 @@ static void
 dump_symtab (objfile, symtab, outfile)
      struct objfile *objfile;
      struct symtab *symtab;
-     FILE *outfile;
+     GDB_FILE *outfile;
 {
   register int i, j;
   int len, blen;
@@ -338,22 +338,22 @@ dump_symtab (objfile, symtab, outfile)
   register struct block *b;
   int depth;
 
-  fprintf (outfile, "\nSymtab for file %s\n", symtab->filename);
-  fprintf (outfile, "Read from object file %s (%lx)\n", objfile->name,
+  fprintf_unfiltered (outfile, "\nSymtab for file %s\n", symtab->filename);
+  fprintf_unfiltered (outfile, "Read from object file %s (%lx)\n", objfile->name,
 	   (unsigned long) objfile);
-  fprintf (outfile, "Language: %s\n", language_str (symtab -> language));
+  fprintf_unfiltered (outfile, "Language: %s\n", language_str (symtab -> language));
   
   /* First print the line table.  */
   l = LINETABLE (symtab);
   if (l) {
-    fprintf (outfile, "\nLine table:\n\n");
+    fprintf_unfiltered (outfile, "\nLine table:\n\n");
     len = l->nitems;
     for (i = 0; i < len; i++)
-      fprintf (outfile, " line %ld at %lx\n", l->item[i].line,
-	       (unsigned long) l->item[i].pc);
+      fprintf_unfiltered (outfile, " line %d at %lx\n", l->item[i].line,
+			  (unsigned long) l->item[i].pc);
   }
   /* Now print the block info.  */
-  fprintf (outfile, "\nBlockvector:\n\n");
+  fprintf_unfiltered (outfile, "\nBlockvector:\n\n");
   bv = BLOCKVECTOR (symtab);
   len = BLOCKVECTOR_NBLOCKS (bv);
   for (i = 0; i < len; i++)
@@ -361,25 +361,25 @@ dump_symtab (objfile, symtab, outfile)
       b = BLOCKVECTOR_BLOCK (bv, i);
       depth = block_depth (b) * 2;
       print_spaces (depth, outfile);
-      fprintf (outfile, "block #%03d (object 0x%lx) ", i, (unsigned long) b);
-      fprintf (outfile, "[0x%lx..0x%lx]",
+      fprintf_unfiltered (outfile, "block #%03d (object 0x%lx) ", i, (unsigned long) b);
+      fprintf_unfiltered (outfile, "[0x%lx..0x%lx]",
 	       (unsigned long) BLOCK_START (b),
 	       (unsigned long) BLOCK_END (b));
       if (BLOCK_SUPERBLOCK (b))
-	fprintf (outfile, " (under 0x%lx)",
+	fprintf_unfiltered (outfile, " (under 0x%lx)",
 		 (unsigned long) BLOCK_SUPERBLOCK (b));
       if (BLOCK_FUNCTION (b))
 	{
-	  fprintf (outfile, " %s", SYMBOL_NAME (BLOCK_FUNCTION (b)));
+	  fprintf_unfiltered (outfile, " %s", SYMBOL_NAME (BLOCK_FUNCTION (b)));
 	  if (SYMBOL_DEMANGLED_NAME (BLOCK_FUNCTION (b)) != NULL)
 	    {
-	      fprintf (outfile, " %s",
+	      fprintf_unfiltered (outfile, " %s",
 		       SYMBOL_DEMANGLED_NAME (BLOCK_FUNCTION (b)));
 	    }
 	}
       if (BLOCK_GCC_COMPILED(b))
-	fprintf (outfile, " gcc%d compiled", BLOCK_GCC_COMPILED(b));
-      fputc ('\n', outfile);
+	fprintf_unfiltered (outfile, " gcc%d compiled", BLOCK_GCC_COMPILED(b));
+      fputc_unfiltered ('\n', outfile);
       blen = BLOCK_NSYMS (b);
       for (j = 0; j < blen; j++)
 	{
@@ -391,7 +391,7 @@ dump_symtab (objfile, symtab, outfile)
 			RETURN_MASK_ERROR);
 	}
     }
-  fprintf (outfile, "\n");
+  fprintf_unfiltered (outfile, "\n");
 }
 
 void
@@ -400,7 +400,7 @@ maintenance_print_symbols (args, from_tty)
      int from_tty;
 {
   char **argv;
-  FILE *outfile;
+  GDB_FILE *outfile;
   struct cleanup *cleanups;
   char *symname = NULL;
   char *filename = DEV_TTY;
@@ -432,7 +432,7 @@ maintenance_print_symbols (args, from_tty)
   filename = tilde_expand (filename);
   make_cleanup (free, filename);
   
-  outfile = fopen (filename, FOPEN_WT);
+  outfile = gdb_fopen (filename, FOPEN_WT);
   if (outfile == 0)
     perror_with_name (filename);
   make_cleanup (fclose, (char *) outfile);
@@ -456,12 +456,12 @@ print_symbol (args)
 {
   struct symbol *symbol = ((struct print_symbol_args *)args)->symbol;
   int depth = ((struct print_symbol_args *)args)->depth;
-  FILE *outfile = ((struct print_symbol_args *)args)->outfile;
+  GDB_FILE *outfile = ((struct print_symbol_args *)args)->outfile;
 
   print_spaces (depth, outfile);
   if (SYMBOL_NAMESPACE (symbol) == LABEL_NAMESPACE)
     {
-      fprintf (outfile, "label %s at 0x%lx\n", SYMBOL_SOURCE_NAME (symbol),
+      fprintf_unfiltered (outfile, "label %s at 0x%lx\n", SYMBOL_SOURCE_NAME (symbol),
 	       (unsigned long) SYMBOL_VALUE_ADDRESS (symbol));
       return 1;
     }
@@ -473,7 +473,7 @@ print_symbol (args)
 	}
       else
 	{
-	  fprintf (outfile, "%s %s = ",
+	  fprintf_unfiltered (outfile, "%s %s = ",
 	       (TYPE_CODE (SYMBOL_TYPE (symbol)) == TYPE_CODE_ENUM
 		? "enum"
 		: (TYPE_CODE (SYMBOL_TYPE (symbol)) == TYPE_CODE_STRUCT
@@ -481,12 +481,12 @@ print_symbol (args)
 	       SYMBOL_NAME (symbol));
 	  LA_PRINT_TYPE (SYMBOL_TYPE (symbol), "", outfile, 1, depth);
 	}
-      fprintf (outfile, ";\n");
+      fprintf_unfiltered (outfile, ";\n");
     }
   else
     {
       if (SYMBOL_CLASS (symbol) == LOC_TYPEDEF)
-	fprintf (outfile, "typedef ");
+	fprintf_unfiltered (outfile, "typedef ");
       if (SYMBOL_TYPE (symbol))
 	{
 	  /* Print details of types, except for enums where it's clutter.  */
@@ -494,72 +494,72 @@ print_symbol (args)
 			 outfile,
 			 TYPE_CODE (SYMBOL_TYPE (symbol)) != TYPE_CODE_ENUM,
 			 depth);
-	  fprintf (outfile, "; ");
+	  fprintf_unfiltered (outfile, "; ");
 	}
       else
-	fprintf (outfile, "%s ", SYMBOL_SOURCE_NAME (symbol));
+	fprintf_unfiltered (outfile, "%s ", SYMBOL_SOURCE_NAME (symbol));
 
       switch (SYMBOL_CLASS (symbol))
 	{
 	case LOC_CONST:
-	  fprintf (outfile, "const %ld (0x%lx),",
+	  fprintf_unfiltered (outfile, "const %ld (0x%lx),",
 		   SYMBOL_VALUE (symbol),
 		   (unsigned long) SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_CONST_BYTES:
-	  fprintf (outfile, "const %u hex bytes:",
+	  fprintf_unfiltered (outfile, "const %u hex bytes:",
 		   TYPE_LENGTH (SYMBOL_TYPE (symbol)));
 	  {
 	    unsigned i;
 	    for (i = 0; i < TYPE_LENGTH (SYMBOL_TYPE (symbol)); i++)
-	      fprintf (outfile, " %02x",
+	      fprintf_unfiltered (outfile, " %02x",
 			 (unsigned)SYMBOL_VALUE_BYTES (symbol) [i]);
-	    fprintf (outfile, ",");
+	    fprintf_unfiltered (outfile, ",");
 	  }
 	  break;
 
 	case LOC_STATIC:
-	  fprintf (outfile, "static at 0x%lx,",
+	  fprintf_unfiltered (outfile, "static at 0x%lx,",
 		   (unsigned long) SYMBOL_VALUE_ADDRESS (symbol));
 	  break;
 
 	case LOC_REGISTER:
-	  fprintf (outfile, "register %ld,", SYMBOL_VALUE (symbol));
+	  fprintf_unfiltered (outfile, "register %ld,", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_ARG:
-	  fprintf (outfile, "arg at 0x%lx,", SYMBOL_VALUE (symbol));
+	  fprintf_unfiltered (outfile, "arg at 0x%lx,", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_LOCAL_ARG:
-	  fprintf (outfile, "arg at offset 0x%lx from fp,",
+	  fprintf_unfiltered (outfile, "arg at offset 0x%lx from fp,",
 		   SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_REF_ARG:
-	  fprintf (outfile, "reference arg at 0x%lx,", SYMBOL_VALUE (symbol));
+	  fprintf_unfiltered (outfile, "reference arg at 0x%lx,", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_REGPARM:
-	  fprintf (outfile, "parameter register %ld,", SYMBOL_VALUE (symbol));
+	  fprintf_unfiltered (outfile, "parameter register %ld,", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_REGPARM_ADDR:
-	  fprintf (outfile, "address parameter register %ld,", SYMBOL_VALUE (symbol));
+	  fprintf_unfiltered (outfile, "address parameter register %ld,", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_LOCAL:
-	  fprintf (outfile, "local at 0x%lx,", SYMBOL_VALUE (symbol));
+	  fprintf_unfiltered (outfile, "local at 0x%lx,", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_BASEREG:
-	  fprintf (outfile, "local at 0x%lx from register %d",
+	  fprintf_unfiltered (outfile, "local at 0x%lx from register %d",
 		   SYMBOL_VALUE (symbol), SYMBOL_BASEREG (symbol));
 	  break;
 
 	case LOC_BASEREG_ARG:
-	  fprintf (outfile, "arg at 0x%lx from register %d,",
+	  fprintf_unfiltered (outfile, "arg at 0x%lx from register %d,",
 		   SYMBOL_VALUE (symbol), SYMBOL_BASEREG (symbol));
 	  break;
 
@@ -567,26 +567,26 @@ print_symbol (args)
 	  break;
 
 	case LOC_LABEL:
-	  fprintf (outfile, "label at 0x%lx",
+	  fprintf_unfiltered (outfile, "label at 0x%lx",
 		   (unsigned long) SYMBOL_VALUE_ADDRESS (symbol));
 	  break;
 
 	case LOC_BLOCK:
-	  fprintf (outfile, "block (object 0x%lx) starting at 0x%lx,",
+	  fprintf_unfiltered (outfile, "block (object 0x%lx) starting at 0x%lx,",
 		   (unsigned long) SYMBOL_BLOCK_VALUE (symbol),
 		   (unsigned long) BLOCK_START (SYMBOL_BLOCK_VALUE (symbol)));
 	  break;
 
 	case LOC_OPTIMIZED_OUT:
-	  fprintf (outfile, "optimized out");
+	  fprintf_unfiltered (outfile, "optimized out");
 	  break;
 
         default:
-	  fprintf (outfile, "botched symbol class %x", SYMBOL_CLASS (symbol));
+	  fprintf_unfiltered (outfile, "botched symbol class %x", SYMBOL_CLASS (symbol));
 	  break;
 	}
     }
-  fprintf (outfile, "\n");
+  fprintf_unfiltered (outfile, "\n");
   return 1;
 }
 
@@ -596,7 +596,7 @@ maintenance_print_psymbols (args, from_tty)
      int from_tty;
 {
   char **argv;
-  FILE *outfile;
+  GDB_FILE *outfile;
   struct cleanup *cleanups;
   char *symname = NULL;
   char *filename = DEV_TTY;
@@ -628,7 +628,7 @@ maintenance_print_psymbols (args, from_tty)
   filename = tilde_expand (filename);
   make_cleanup (free, filename);
   
-  outfile = fopen (filename, FOPEN_WT);
+  outfile = gdb_fopen (filename, FOPEN_WT);
   if (outfile == 0)
     perror_with_name (filename);
   make_cleanup (fclose, outfile);
@@ -646,7 +646,7 @@ print_partial_symbol (p, count, what, outfile)
      struct partial_symbol *p;
      int count;
      char *what;
-     FILE *outfile;
+     GDB_FILE *outfile;
 {
 
   fprintf_filtered (outfile, "  %s partial symbols:\n", what);
@@ -739,7 +739,7 @@ maintenance_print_msymbols (args, from_tty)
      int from_tty;
 {
   char **argv;
-  FILE *outfile;
+  GDB_FILE *outfile;
   struct cleanup *cleanups;
   char *filename = DEV_TTY;
   char *symname = NULL;
@@ -770,7 +770,7 @@ maintenance_print_msymbols (args, from_tty)
   filename = tilde_expand (filename);
   make_cleanup (free, filename);
   
-  outfile = fopen (filename, FOPEN_WT);
+  outfile = gdb_fopen (filename, FOPEN_WT);
   if (outfile == 0)
     perror_with_name (filename);
   make_cleanup (fclose, outfile);

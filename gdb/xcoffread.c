@@ -810,7 +810,7 @@ retrieve_tracebackinfo (abfd, textsec, cs)
 		abfd, textsec, buffer, 
 		(file_ptr)(functionstart + 
 		 bytesread - (buffer + bufferbytes - (char*)pinsn)),MIN_TBTABSIZ))
-	  { printf ("Abnormal return!..\n"); return NULL; }
+	  { printf_unfiltered ("Abnormal return!..\n"); return NULL; }
 
 	ptb = (struct tbtable *)buffer;
       }
@@ -892,7 +892,7 @@ retrieve_traceback (abfd, textsec, cs, size)
 		abfd, textsec, buffer, 
 		(file_ptr)(functionstart + 
 		 bytesread - (buffer + bufferbytes - pinsn)),MIN_TBTABSIZ))
-	/*   abort (); */ { printf ("abort!!!\n"); return NULL; }
+	/*   abort (); */ { printf_unfiltered ("abort!!!\n"); return NULL; }
 
 	return (struct tbtable *)buffer;
       }
@@ -926,7 +926,7 @@ retrieve_traceback (abfd, textsec, cs, size)
 /* Reading symbol table has to be fast! Keep the followings as macros, rather
    than functions. */
 
-#define	RECORD_MINIMAL_SYMBOL(NAME, ADDR, TYPE, ALLOCED, SECTION)	\
+#define	RECORD_MINIMAL_SYMBOL(NAME, ADDR, TYPE, ALLOCED, SECTION, OBJFILE) \
 {						\
   char *namestr;				\
   if (ALLOCED) 					\
@@ -937,7 +937,7 @@ retrieve_traceback (abfd, textsec, cs, size)
     (ALLOCED) = 1;						\
   }								\
   prim_record_minimal_symbol_and_info (namestr, (ADDR), (TYPE), \
-				       (char *)NULL, (SECTION));	\
+				       (char *)NULL, (SECTION), (OBJFILE)); \
   misc_func_recorded = 1;					\
 }
 
@@ -1051,7 +1051,7 @@ read_xcoff_symtab (objfile, nsyms)
 
   textsec = bfd_get_section_by_name (abfd, ".text");
   if (!textsec) {
-    printf ("Unable to locate text section!\n");
+    printf_unfiltered ("Unable to locate text section!\n");
   }
 
   while (symnum < nsyms) {
@@ -1182,7 +1182,8 @@ read_xcoff_symtab (objfile, nsyms)
 		  if (!misc_func_recorded) {
 		     int alloced = 0;
 		     RECORD_MINIMAL_SYMBOL (last_csect_name, last_csect_val,
-					    mst_text, alloced, last_csect_sec);
+					    mst_text, alloced, last_csect_sec,
+					    objfile);
 		  }
 		    
 
@@ -1241,7 +1242,7 @@ read_xcoff_symtab (objfile, nsyms)
 
 function_entry_point:
 	    RECORD_MINIMAL_SYMBOL (cs->c_name, cs->c_value, mst_text, 
-				   symname_alloced, cs->c_secnum);
+				   symname_alloced, cs->c_secnum, objfile);
 
 	    fcn_line_offset = main_aux->x_sym.x_fcnary.x_fcn.x_lnnoptr;
 	    fcn_start_addr = cs->c_value;
@@ -1330,14 +1331,14 @@ function_entry_point:
 
 	    prim_record_minimal_symbol_and_info
 	      ("<trampoline>", cs->c_value, mst_unknown,
-	       (char *)NULL, cs->c_secnum);
+	       (char *)NULL, cs->c_secnum, objfile);
 #else
 
 	    /* record trampoline code entries as mst_unknown symbol. When we
 	       lookup mst symbols, we will choose mst_text over mst_unknown. */
 
 	    RECORD_MINIMAL_SYMBOL (cs->c_name, cs->c_value, mst_unknown,
-				   symname_alloced);
+				   symname_alloced, objfile);
 #endif
 	    continue;
 	  }
@@ -1361,7 +1362,7 @@ function_entry_point:
 
 	  int alloced = 0;
 	  RECORD_MINIMAL_SYMBOL (last_csect_name, last_csect_val,
-				mst_text, alloced, last_csect_sec);
+				mst_text, alloced, last_csect_sec, objfile);
       }
 
       /* c_value field contains symnum of next .file entry in table
@@ -1459,7 +1460,7 @@ function_entry_point:
     case C_STRTAG	:
     case C_UNTAG	:
     case C_ENTAG	:
-      printf ("ERROR: Unimplemented storage class: %d.\n", cs->c_sclass);
+      printf_unfiltered ("ERROR: Unimplemented storage class: %d.\n", cs->c_sclass);
       break;
 
     case C_HIDEXT	:		/* ignore these.. */
@@ -1681,7 +1682,7 @@ process_xcoff_symbol (cs, objfile)
       break;
 
     case C_REG:
-      printf ("ERROR! C_REG is not fully implemented!\n");
+      printf_unfiltered ("ERROR! C_REG is not fully implemented!\n");
       SYMBOL_CLASS (sym) = LOC_REGISTER;
       SYMBOL_NAME (sym) = SYMNAME_ALLOC (name, symname_alloced);
       SYMBOL_SECTION (sym) = cs->c_secnum;
@@ -1858,7 +1859,7 @@ free_linetab ()
 
 #undef next_symbol_text
 #define	next_symbol_text() \
-  printf ("Gdb Error: symbol names on multiple lines not implemented.\n")
+  printf_unfiltered ("Gdb Error: symbol names on multiple lines not implemented.\n")
 
 
 static void
@@ -1983,7 +1984,7 @@ init_debugsection(abfd)
     return -1;
 
   if (!bfd_get_section_contents(abfd, secp, debugsec, (file_ptr) 0, length)) {
-    printf ("Can't read .debug section from symbol file\n");
+    printf_unfiltered ("Can't read .debug section from symbol file\n");
     return -1;
   }
   return 0;
@@ -2079,7 +2080,13 @@ xcoff_symfile_read (objfile, section_offset, mainline)
   free_debugsection ();
 
   /* Sort symbols alphabetically within each block.  */
-  sort_all_symtab_syms ();
+  {
+    struct symtab *s;
+    for (s = objfile -> symtabs; s != NULL; s = s -> next)
+      {
+	sort_symtab_syms (s);
+      }
+  }
 
   /* Install any minimal symbols that have been collected as the current
      minimal symbols for this objfile. */
@@ -2134,12 +2141,20 @@ xcoff_symfile_offsets (objfile, addr)
   
   return section_offsets;
 }
-/* Register our ability to parse symbols for xcoff BFD files. */
+
+/* Register our ability to parse symbols for xcoff BFD files.  */
 
 static struct sym_fns xcoff_sym_fns =
 {
-  "aixcoff-rs6000",	/* sym_name: name or name prefix of BFD target type */
-  15,			/* sym_namelen: number of significant sym_name chars */
+
+  /* Because the bfd uses coff_flavour, we need to specially kludge
+     the flavour.  FIXME: coff and xcoff and fundamentally similar
+     except for debug format, and we should see if we can merge this
+     file with coffread.c.  For example, the extra storage classes
+     used for stabs could presumably be recognized in any COFF file.  */
+
+  (enum bfd_flavour)-1,
+
   xcoff_new_init,	/* sym_new_init: init anything gbl to entire symtab */
   xcoff_symfile_init,	/* sym_init: read initial info, setup for sym_read() */
   xcoff_symfile_read,	/* sym_read: read a symbol file into symtab */

@@ -22,7 +22,7 @@
 %You are forbidden to forbid anyone else to use, share and improve
 %what you give them.   Help stamp out software-hoarding!
 
-\def\texinfoversion{2.115}
+\def\texinfoversion{2.116}
 \message{Loading texinfo package [Version \texinfoversion]:}
 
 % Print the version number if in a .fmt file.
@@ -3281,7 +3281,7 @@ July\or August\or September\or October\or November\or December\fi
 % Expand, preventing hyphenation at `-' chars.
 % Note that groups don't affect changes in \hyphenchar.
 \functionparens
-\code{#1}%
+\tclose{#1}% avoid \code because of side effects on active chars
 \interlinepenalty=10000
 \advance\rightskip by 0pt plus 1fil
 \endgraf\penalty 10000\vskip -\parskip\penalty 10000%

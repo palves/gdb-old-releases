@@ -22,12 +22,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 SECTION
 	Sections
 
-	Sections are supported in BFD in <<section.c>>.
-
 	The raw data contained within a BFD is maintained through the
 	section abstraction.  A single BFD may have any number of
-	sections, and keeps hold of them by pointing to the first,
+	sections.  It keeps hold of them by pointing to the first;
 	each one points to the next in the list.
+
+	Sections are supported in BFD in <<section.c>>.
 
 @menu
 @* Section Input::
@@ -39,31 +39,31 @@ SECTION
 INODE
 Section Input, Section Output, Sections, Sections
 SUBSECTION
-	Section Input
+	Section input
 
 	When a BFD is opened for reading, the section structures are
 	created and attached to the BFD.
 
 	Each section has a name which describes the section in the
-	outside world - for example, <<a.out>> would contain at least
+	outside world---for example, <<a.out>> would contain at least
 	three sections, called <<.text>>, <<.data>> and <<.bss>>. 
 
 	Names need not be unique; for example a COFF file may have several
-	sections named .data.
+	sections named <<.data>>.
 
-	Sometimes a BFD will contain more than the 'natural' number of
+	Sometimes a BFD will contain more than the ``natural'' number of
 	sections. A back end may attach other sections containing
 	constructor data, or an application may add a section (using
-	bfd_make_section) to the sections attached to an already open
-	BFD. For example, the linker creates a supernumary section
+	<<bfd_make_section>>) to the sections attached to an already open
+	BFD. For example, the linker creates an extra section
 	<<COMMON>> for each input file's BFD to hold information about
 	common storage.
 
-	The raw data is not necessarily read in at the same time as
+	The raw data is not necessarily read in when
 	the section descriptor is created. Some targets may leave the
 	data in place until a <<bfd_get_section_contents>> call is
-	made. Other back ends may read in all the data at once - For
-	example; an S-record file has to be read once to determine the
+	made. Other back ends may read in all the data at once.  For
+	example, an S-record file has to be read once to determine the
 	size of the data. An IEEE-695 file doesn't contain raw data in
 	sections, but data and relocation expressions intermixed, so
 	the data area has to be parsed to get out the data and
@@ -73,31 +73,32 @@ INODE
 Section Output, typedef asection, Section Input, Sections
 
 SUBSECTION
-	Section Output
+	Section output
 
 	To write a new object style BFD, the various sections to be
 	written have to be created. They are attached to the BFD in
-	the same way as input sections, data is written to the
+	the same way as input sections; data is written to the
 	sections using <<bfd_set_section_contents>>.  
 
 	Any program that creates or combines sections (e.g., the assembler
-	and linker) must use the fields <<output_section>> and
+	and linker) must use the <<asection>> fields <<output_section>> and
 	<<output_offset>> to indicate the file sections to which each
 	section must be written.  (If the section is being created from
 	scratch, <<output_section>> should probably point to the section
-	itself, and <<output_offset>> should probably be zero.)
+	itself and <<output_offset>> should probably be zero.)
 
-	The data to be written comes from input sections attached to
+	The data to be written comes from input sections attached
+	(via <<output_section>> pointers) to
 	the output sections.  The output section structure can be
-	considered a filter for the input section, the output section
+	considered a filter for the input section: the output section
 	determines the vma of the output data and the name, but the
 	input section determines the offset into the output section of
 	the data to be written.
 
 	E.g., to create a section "O", starting at 0x100, 0x123 long,
-	containing two subsections, "A" at offset 0x0 (ie at vma
-	0x100) and "B" at offset 0x20 (ie at vma 0x120) the structures
-	would look like:
+	containing two subsections, "A" at offset 0x0 (i.e., at vma
+	0x100) and "B" at offset 0x20 (i.e., at vma 0x120) the <<asection>>
+	structures would look like:
 
 |   section name          "A"
 |     output_offset   0x00
@@ -111,23 +112,23 @@ SUBSECTION
 
 
 SUBSECTION
-	Seglets
+	Link orders
 
-	The data within a section is stored in a <<seglet>>.  These
-	are much like the fixups in <<gas>>.  The seglet abstraction
-	allows the a section to grow and shrink within itself.
+	The data within a section is stored in a @dfn{link_order}.
+	These are much like the fixups in <<gas>>.  The link_order
+	abstraction allows a section to grow and shrink within itself.
 
-	A seglet knows how big it is, and which is the next seglet and
-	where the raw data for it is, and also points to a list of
-	relocations which apply to it.
+	A link_order knows how big it is, and which is the next
+	link_order and where the raw data for it is; it also points to
+	a list of relocations which apply to it.
 
-	The seglet is used by the linker to perform relaxing on final
-	code.  The application creates code which is as big as
+	The link_order is used by the linker to perform relaxing on
+	final code.  The compiler creates code which is as big as
 	necessary to make it work without relaxing, and the user can
 	select whether to relax.  Sometimes relaxing takes a lot of
 	time.  The linker runs around the relocations to see if any
 	are attached to data which can be shrunk, if so it does it on
-	a seglet by seglet basis.
+	a link_order by link_order basis.
 
 */
 
@@ -144,18 +145,18 @@ typedef asection, section prototypes, Section Output, Sections
 SUBSECTION
 	typedef asection
 
-	The shape of a section struct:
+	Here is the section structure:
 
 CODE_FRAGMENT
 .
 .typedef struct sec 
 .{
-.        {* The name of the section, the name isn't a copy, the pointer is
+.        {* The name of the section; the name isn't a copy, the pointer is
 .        the same as that passed to bfd_make_section. *}
 .
 .    CONST char *name;
 .
-.        {* Which section is it 0.nth      *}
+.        {* Which section is it; 0..nth.      *}
 .
 .   int index;                      
 .
@@ -163,7 +164,7 @@ CODE_FRAGMENT
 .
 .    struct sec *next;
 .
-.        {* The field flags contains attributes of the section. Some of
+.        {* The field flags contains attributes of the section. Some
 .           flags are read in from the object file, and some are
 .           synthesized from other information.  *}         
 .
@@ -171,17 +172,17 @@ CODE_FRAGMENT
 .
 .#define SEC_NO_FLAGS   0x000
 .
-.        {* Tells the OS to allocate space for this section when loaded.
-.           This would clear for a section containing debug information
+.        {* Tells the OS to allocate space for this section when loading.
+.           This is clear for a section containing debug information
 .           only. *}
 .#define SEC_ALLOC      0x001
 .          
 .        {* Tells the OS to load the section from the file when loading.
-.           This would be clear for a .bss section *}
+.           This is clear for a .bss section. *}
 .#define SEC_LOAD       0x002
 .
-.        {* The section contains data still to be relocated, so there will
-.           be some relocation information too. *}
+.        {* The section contains data still to be relocated, so there is
+.           some relocation information too. *}
 .#define SEC_RELOC      0x004
 .
 .#if 0   {* Obsolete ? *}
@@ -205,10 +206,10 @@ CODE_FRAGMENT
 .           type is used by the linker to create lists of constructors and
 .           destructors used by <<g++>>. When a back end sees a symbol
 .           which should be used in a constructor list, it creates a new
-.           section for the type of name (eg <<__CTOR_LIST__>>), attaches
-.           the symbol to it and builds a relocation. To build the lists
+.           section for the type of name (e.g., <<__CTOR_LIST__>>), attaches
+.           the symbol to it, and builds a relocation. To build the lists
 .           of constructors, all the linker has to do is catenate all the
-.           sections called <<__CTOR_LIST__>> and relocte the data
+.           sections called <<__CTOR_LIST__>> and relocate the data
 .           contained within - exactly the operations it would peform on
 .           standard data. *}
 .#define SEC_CONSTRUCTOR 0x100
@@ -220,13 +221,12 @@ CODE_FRAGMENT
 .#define SEC_CONSTRUCTOR_BSS  0x3100
 .
 .        {* The section has contents - a data section could be
-.           <<SEC_ALLOC>> | <<SEC_HAS_CONTENTS>>, a debug section could be
+.           <<SEC_ALLOC>> | <<SEC_HAS_CONTENTS>>; a debug section could be
 .           <<SEC_HAS_CONTENTS>> *}
 .#define SEC_HAS_CONTENTS 0x200
 .
-.        {* An instruction to the linker not to output sections
-.          containing this flag even if they have information which
-.          would normally be written. *}
+.        {* An instruction to the linker to not output the section
+.          even if it has information which would normally be written. *}
 .#define SEC_NEVER_LOAD 0x400
 .
 .        {* The section is a shared library section.  The linker must leave
@@ -260,18 +260,18 @@ CODE_FRAGMENT
 .   boolean user_set_vma;
 .
 .       {*  The load address of the section - where it would be in a
-.           rom image, really only used for writing section header
+.           rom image; really only used for writing section header
 .	    information. *}
 .
 .   bfd_vma lma;
 .
 .        {* The size of the section in bytes, as it will be output.
-.           contains a value even if the section has no contents (eg, the
+.           contains a value even if the section has no contents (e.g., the
 .           size of <<.bss>>). This will be filled in after relocation *}
 .
 .   bfd_size_type _cooked_size;    
 .
-.        {* The size on disk of the section in bytes originally.  Normally this
+.        {* The original size on disk of the section, in bytes.  Normally this
 .	    value is the same as the size, but if some relaxing has
 .	    been done, then this value will be bigger.  *}
 .
@@ -279,7 +279,7 @@ CODE_FRAGMENT
 .
 .        {* If this section is going to be output, then this value is the
 .           offset into the output section of the first byte in the input
-.           section. Eg, if this was going to start at the 100th byte in
+.           section. E.g., if this was going to start at the 100th byte in
 .           the output section, this value would be 100. *}
 .
 .   bfd_vma output_offset;
@@ -288,8 +288,8 @@ CODE_FRAGMENT
 .
 .   struct sec *output_section;
 .
-.        {* The alignment requirement of the section, as an exponent - eg
-.           3 aligns to 2^3 (or 8) *}
+.        {* The alignment requirement of the section, as an exponent of 2 -
+.           e.g., 3 aligns to 2^3 (or 8). *}
 .
 .   unsigned int alignment_power;
 .
@@ -341,7 +341,7 @@ CODE_FRAGMENT
 .
 .   file_ptr moving_line_filepos;
 .
-.        {* what the section number is in the target world  *}
+.        {* What the section number is in the target world  *}
 .
 .   int target_index;
 .
@@ -361,8 +361,8 @@ CODE_FRAGMENT
 .   struct symbol_cache_entry *symbol;  
 .   struct symbol_cache_entry **symbol_ptr_ptr;
 .
-.   struct bfd_seclet *seclets_head;
-.   struct bfd_seclet *seclets_tail;
+.   struct bfd_link_order *link_order_head;
+.   struct bfd_link_order *link_order_tail;
 .} asection ;
 .
 .
@@ -420,10 +420,9 @@ DOCDD
 INODE
 section prototypes,  , typedef asection, Sections
 SUBSECTION
-	section prototypes
+	Section prototypes
 
-These are the functions exported by the section handling part of
-<<libbfd>.
+These are the functions exported by the section handling part of BFD.
 */
 
 /*
@@ -434,13 +433,13 @@ SYNOPSIS
 	asection *bfd_get_section_by_name(bfd *abfd, CONST char *name);
 
 DESCRIPTION
-	Runs through the provided @var{abfd} and returns the one of the
-	<<asection>>s who's name matches that provided, otherwise NULL.
+	Run through @var{abfd} and return the one of the
+	<<asection>>s whose name matches @var{name}, otherwise <<NULL>>.
 	@xref{Sections}, for more information.
 
 	This should only be used in special cases; the normal way to process
-	all sections of a given name is to use bfd_map_over_sections and
-	strcmp on the name (or better yet, base it on the section flags
+	all sections of a given name is to use <<bfd_map_over_sections>> and
+	<<strcmp>> on the name (or better yet, base it on the section flags
 	or something else) for each section.
 */
 
@@ -462,22 +461,22 @@ FUNCTION
 	bfd_make_section_old_way
 
 SYNOPSIS
-	asection *bfd_make_section_old_way(bfd *, CONST char *name);
+	asection *bfd_make_section_old_way(bfd *abfd, CONST char *name);
 
 DESCRIPTION
-	This function creates a new empty section called @var{name}
-	and attaches it to the end of the chain of sections for the
-	BFD supplied. An attempt to create a section with a name which
-	is already in use, returns its pointer without changing the
+	Create a new empty section called @var{name}
+	and attach it to the end of the chain of sections for the
+	BFD @var{abfd}. An attempt to create a section with a name which
+	is already in use returns its pointer without changing the
 	section chain.
 
 	It has the funny name since this is the way it used to be
-	before is was rewritten...
+	before it was rewritten....
 
 	Possible errors are:
-	o invalid_operation -
+	o <<invalid_operation>> -
 	If output has already started for this BFD.
-	o no_memory -
+	o <<no_memory>> -
 	If obstack alloc fails.
 
 */
@@ -501,16 +500,16 @@ FUNCTION
 	bfd_make_section_anyway
 
 SYNOPSIS
-	asection *bfd_make_section_anyway(bfd *, CONST char *name);
+	asection *bfd_make_section_anyway(bfd *abfd, CONST char *name);
 
 DESCRIPTION
    Create a new empty section called @var{name} and attach it to the end of
    the chain of sections for @var{abfd}.  Create a new section even if there
    is already a section with that name.  
 
-   Returns NULL and sets bfd_error on error; possible errors are:
-   o invalid_operation - If output has already started for @var{abfd}.
-   o no_memory - If obstack alloc fails.
+   Return <<NULL>> and set <<bfd_error>> on error; possible errors are:
+   o <<invalid_operation>> - If output has already started for @var{abfd}.
+   o <<no_memory>> - If obstack alloc fails.
 */
 
 sec_ptr
@@ -578,10 +577,10 @@ SYNOPSIS
 	asection *bfd_make_section(bfd *, CONST char *name);
 
 DESCRIPTION
-   Like bfd_make_section_anyway, but return NULL (without setting
+   Like <<bfd_make_section_anyway>>, but return <<NULL>> (without setting
    bfd_error) without changing the section chain if there is already a
-   section named @var{name}.  If there is an error, return NULL and set
-   bfd_error.
+   section named @var{name}.  If there is an error, return <<NULL>> and set
+   <<bfd_error>>.
 */
 
 sec_ptr
@@ -624,20 +623,21 @@ FUNCTION
 	bfd_set_section_flags
 
 SYNOPSIS
-	boolean bfd_set_section_flags(bfd *, asection *, flagword);
+	boolean bfd_set_section_flags(bfd *abfd, asection *sec, flagword flags);
 
 DESCRIPTION
-	Attempts to set the attributes of the section named in the BFD
-	supplied to the value. Returns true on success, false on
-	error. Possible error returns are:
+	Set the attributes of the section @var{sec} in the BFD
+	@var{abfd} to the value @var{flags}. Return <<true>> on success,
+	<<false>> on error. Possible error returns are:
 
-	o invalid operation -
+	o <<invalid_operation>> -
 	The section cannot have one or more of the attributes
 	requested. For example, a .bss section in <<a.out>> may not
 	have the <<SEC_HAS_CONTENTS>> field set.
 
 */
 
+/*ARGSUSED*/
 boolean
 DEFUN(bfd_set_section_flags,(abfd, section, flags),
      bfd *abfd AND
@@ -673,13 +673,13 @@ SYNOPSIS
 				   PTR obj);
 
 DESCRIPTION
-	Calls the provided function @var{func} for each section
+	Call the provided function @var{func} for each section
 	attached to the BFD @var{abfd}, passing @var{obj} as an
 	argument. The function will be called as if by 
 
 |	func(abfd, the_section, obj);
 
-	This is the prefered method for iterating over sections, an
+	This is the prefered method for iterating over sections; an
 	alternative would be to use a loop:
 
 |	   section *p;
@@ -712,15 +712,15 @@ FUNCTION
 	bfd_set_section_size
 
 SYNOPSIS
-	boolean bfd_set_section_size(bfd *, asection *, bfd_size_type val);
+	boolean bfd_set_section_size(bfd *abfd, asection *sec, bfd_size_type val);
 
 DESCRIPTION
-	Sets @var{section} to the size @var{val}. If the operation is
+	Set @var{sec} to the size @var{val}. If the operation is
 	ok, then <<true>> is returned, else <<false>>. 
 
 	Possible error returns:
-	o invalid_operation -
-	Writing has started to the BFD, so setting the size is invalid
+	o <<invalid_operation>> -
+	Writing has started to the BFD, so setting the size is invalid.
 
 */
 
@@ -767,7 +767,7 @@ DESCRIPTION
 
 	Normally <<true>> is returned, else <<false>>. Possible error
 	returns are:
-	o no_contents -
+	o <<no_contents>> -
 	The output section does not have the <<SEC_HAS_CONTENTS>>
 	attribute, so nothing can be written to it.
 	o and some more too
@@ -849,14 +849,15 @@ SYNOPSIS
          file_ptr offset, bfd_size_type count);
 
 DESCRIPTION
-	This function reads data from @var{section} in BFD @var{abfd}
+	Read data from @var{section} in BFD @var{abfd}
 	into memory starting at @var{location}. The data is read at an
 	offset of @var{offset} from the start of the input section,
 	and is read for @var{count} bytes.
 
-	If the contents of a constuctor with the <<SEC_CONSTUCTOR>>
-	flag set are requested, then the @var{location} is filled with
-	zeroes. If no errors occur, <<true>> is returned, else
+	If the contents of a constructor with the <<SEC_CONSTRUCTOR>>
+	flag set are requested or if the section does not have the
+	<<SEC_HAS_CONTENTS>> flag set, then the @var{location} is filled
+	with zeroes. If no errors occur, <<true>> is returned, else
 	<<false>>.
 
 
@@ -893,6 +894,12 @@ DEFUN(bfd_get_section_contents,(abfd, section, location, offset, count),
   if (count == 0)
     /* Don't bother.  */
     return true;
+
+  if ((section->flags & SEC_HAS_CONTENTS) == 0)
+    {
+      memset(location, 0, (unsigned)count);
+      return true;
+    }
 
   return BFD_SEND (abfd, _bfd_get_section_contents,
 		   (abfd, section, location, offset, count));

@@ -344,7 +344,7 @@ int Foo::times (int y) { return x * y; }
 
 int Foo::st = 100;
 
-int Foo::operator int() { return x; }
+Foo::operator int() { return x; }
 
 Foo foo(10, 11);
 Bar bar(20, 21, 22);
@@ -394,10 +394,14 @@ main()
   inheritance1 ();
   inheritance3 ();
   register_class ();
+
+  /* FIXME: pmi gets optimized out.  Need to do some more computation with
+     it or something.  (No one notices, because the test is xfail'd anyway,
+     but that probably won't always be true...).  */
   int Foo::* pmi = &Foo::y;
 
   /* Make sure the AIX linker doesn't remove the variable.  */
   v_tagless.one = 5;
 
-  return (int)foo.*pmi;
+  return foo.*pmi;
 }

@@ -23,12 +23,13 @@ Cambridge, MA 02139, USA.  */
 
 #include <varargs.h>
 #include <stdio.h>
+#include <ansidecl.h>
 #undef vsprintf
 
 int
 vsprintf (buf, format, ap)
      char *buf;
-     char *format;
+     const char *format;
      va_list ap;
 {
   FILE b;

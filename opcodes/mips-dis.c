@@ -90,6 +90,12 @@ print_insn_arg (d, l, pc, info)
 			     delta);
       break;
 
+    case 'k':
+      (*info->fprintf_func) (info->stream, "0x%x",
+			     (unsigned int) ((l >> OP_SH_CACHE)
+					     & OP_MASK_CACHE));
+      break;
+
     case 'a':
       (*info->print_address_func)
 	(((pc & 0xF0000000) | (((l >> OP_SH_TARGET) & OP_MASK_TARGET) << 2)),

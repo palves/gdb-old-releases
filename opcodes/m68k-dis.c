@@ -174,7 +174,7 @@ dummy_print_address (vma, info)
 }
 
 /* Print the m68k instruction at address MEMADDR in debugged memory,
-   on STREAM.  Returns length of the instruction, in bytes.  */
+   on INFO->STREAM.  Returns length of the instruction, in bytes.  */
 
 int
 print_insn_m68k (memaddr, info)

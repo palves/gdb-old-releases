@@ -36,8 +36,8 @@ match_max 6000
 # test help add-symbol-file
 send "help add-symbol-file\n"
 expect 	{
-	-re "Load the symbols from FILE, assuming FILE has been dynamically loaded..*\
-The second argument provides the starting address of the file\'s text..*$prompt $"\
+	-re "Load the symbols from FILE, assuming FILE has been dynamically loaded..*
+The second argument provides the starting address of the file\'s text..*$prompt $" \
  			{ pass "help add-symbol-file" }
 	-re ".*$prompt $"	{ fail "help add-symbol-file" }
 	timeout		{ fail "(timeout) help add-symbol-file" }
@@ -47,14 +47,9 @@ The second argument provides the starting address of the file\'s text..*$prompt 
 # test help aliases
 send "help aliases\n"
 expect {
-	-re "Aliases of other commands..*\
-List of commands\:.*\
-where -- Print backtrace of all stack frames.*\
-ni -- Step one instruction.*\
-si -- Step one instruction exactly.*\
-delete breakpoints -- Delete some breakpoints or auto-display expressions.*\
-disable breakpoints -- Disable some breakpoints.*\
-Type \"help\" followed by command name for full documentation..*\
+	-re "Aliases of other commands..*
+List of commands\:.*
+Type \"help\" followed by command name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help aliases" }
 	-re "$prompt $" { fail "help aliases" }
@@ -64,13 +59,13 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 
 send "help attach\n"
 expect {
-	-re "Attach to a process or file outside of GDB..*\
-This command attaches to another target, of the same type as your last.*\
-`target' command \(`info files' will show your target stack\)..*\
-The command may take as argument a process id or a device file..*\
-For a process id, you must have permission to send the process a signal,.*\
-and it must have the same effective uid as the debugger..*\
-When using \"attach\", you should use the \"file\" command to specify.*\
+	-re "Attach to a process or file outside of GDB..*
+This command attaches to another target, of the same type as your last.*
+`target' command .`info files' will show your target stack.*
+The command may take as argument a process id or a device file..*
+For a process id, you must have permission to send the process a signal,.*
+and it must have the same effective uid as the debugger..*
+When using \"attach\", you should use the \"file\" command to specify.*
 the program running in the process, and to load its symbol table..*$prompt $"\
 			{ pass "help attach" }
 	-re "$prompt $"	{ fail "help attach" }
@@ -82,14 +77,14 @@ the program running in the process, and to load its symbol table..*$prompt $"\
 # test help breakpoint "b" abbreviation
 send "help b\n"
 expect {
-	-re "Set breakpoint at specified line or function..*\
-Argument may be line number, function name, or \"\*\" and an address..*\
-If line number is specified, break at start of code for that line..*\
-If function is specified, break at start of code for that function..*\
-If an address is specified, break at that exact address..*\
-With no arg, uses current execution address of selected stack frame..*\
-This is useful for breaking on return to a stack frame..*\
-Multiple breakpoints at one place are permitted, and useful if conditional..*\
+	-re "Set breakpoint at specified line or function..*
+Argument may be line number, function name, or \"\[*\]\" and an address..*
+If line number is specified, break at start of code for that line..*
+If function is specified, break at start of code for that function..*
+If an address is specified, break at that exact address..*
+With no arg, uses current execution address of selected stack frame..*
+This is useful for breaking on return to a stack frame..*
+Multiple breakpoints at one place are permitted, and useful if conditional..*
 Do \"help breakpoints\" for info on other commands dealing with breakpoints..*$prompt $"\
 			{ pass "help breakpoint \"b\" abbreviation" }
 	-re "$prompt $"	{ fail "help breakpoint \"b\" abbreviation" }
@@ -100,14 +95,14 @@ Do \"help breakpoints\" for info on other commands dealing with breakpoints..*$p
 # test help breakpoint "br" abbreviation
 send "help br\n"
 expect {
-	-re "Set breakpoint at specified line or function..*\
-Argument may be line number, function name, or \"\*\" and an address..*\
-If line number is specified, break at start of code for that line..*\
-If function is specified, break at start of code for that function..*\
-If an address is specified, break at that exact address..*\
-With no arg, uses current execution address of selected stack frame..*\
-This is useful for breaking on return to a stack frame..*\
-Multiple breakpoints at one place are permitted, and useful if conditional..*\
+	-re "Set breakpoint at specified line or function..*
+Argument may be line number, function name, or \"\[*\]\" and an address..*
+If line number is specified, break at start of code for that line..*
+If function is specified, break at start of code for that function..*
+If an address is specified, break at that exact address..*
+With no arg, uses current execution address of selected stack frame..*
+This is useful for breaking on return to a stack frame..*
+Multiple breakpoints at one place are permitted, and useful if conditional..*
 Do \"help breakpoints\" for info on other commands dealing with breakpoints..*$prompt $"\
 			{ pass "help breakpoint \"br\" abbreviation" }
 	-re "$prompt $"	{ fail "help breakpoint \"br\" abbreviation" }
@@ -118,14 +113,14 @@ Do \"help breakpoints\" for info on other commands dealing with breakpoints..*$p
 # test help breakpoint "bre" abbreviation
 send "help bre\n"
 expect {
-	-re "Set breakpoint at specified line or function..*\
-Argument may be line number, function name, or \"\*\" and an address..*\
-If line number is specified, break at start of code for that line..*\
-If function is specified, break at start of code for that function..*\
-If an address is specified, break at that exact address..*\
-With no arg, uses current execution address of selected stack frame..*\
-This is useful for breaking on return to a stack frame..*\
-Multiple breakpoints at one place are permitted, and useful if conditional..*\
+	-re "Set breakpoint at specified line or function..*
+Argument may be line number, function name, or \"\[*\]\" and an address..*
+If line number is specified, break at start of code for that line..*
+If function is specified, break at start of code for that function..*
+If an address is specified, break at that exact address..*
+With no arg, uses current execution address of selected stack frame..*
+This is useful for breaking on return to a stack frame..*
+Multiple breakpoints at one place are permitted, and useful if conditional..*
 Do \"help breakpoints\" for info on other commands dealing with breakpoints..*$prompt $"\
 			{ pass "help breakpoint \"bre\" abbreviation" }
 	-re "$prompt $"	{ fail "help breakpoint \"bre\" abbreviation" }
@@ -136,14 +131,14 @@ Do \"help breakpoints\" for info on other commands dealing with breakpoints..*$p
 # test help breakpoint "brea" abbreviation
 send "help brea\n"
 expect {
-	-re "Set breakpoint at specified line or function..*\
-Argument may be line number, function name, or \"\*\" and an address..*\
-If line number is specified, break at start of code for that line..*\
-If function is specified, break at start of code for that function..*\
-If an address is specified, break at that exact address..*\
-With no arg, uses current execution address of selected stack frame..*\
-This is useful for breaking on return to a stack frame..*\
-Multiple breakpoints at one place are permitted, and useful if conditional..*\
+	-re "Set breakpoint at specified line or function..*
+Argument may be line number, function name, or \"\[*\]\" and an address..*
+If line number is specified, break at start of code for that line..*
+If function is specified, break at start of code for that function..*
+If an address is specified, break at that exact address..*
+With no arg, uses current execution address of selected stack frame..*
+This is useful for breaking on return to a stack frame..*
+Multiple breakpoints at one place are permitted, and useful if conditional..*
 Do \"help breakpoints\" for info on other commands dealing with breakpoints..*$prompt $"\
 			{ pass "help breakpoint \"brea\" abbreviation" }
 	-re "$prompt $"	{ fail "help breakpoint \"brea\" abbreviation" }
@@ -154,14 +149,14 @@ Do \"help breakpoints\" for info on other commands dealing with breakpoints..*$p
 # test help breakpoint "break" abbreviation
 send "help break\n"
 expect {
-	-re "Set breakpoint at specified line or function..*\
-Argument may be line number, function name, or \"\*\" and an address..*\
-If line number is specified, break at start of code for that line..*\
-If function is specified, break at start of code for that function..*\
-If an address is specified, break at that exact address..*\
-With no arg, uses current execution address of selected stack frame..*\
-This is useful for breaking on return to a stack frame..*\
-Multiple breakpoints at one place are permitted, and useful if conditional..*\
+	-re "Set breakpoint at specified line or function..*
+Argument may be line number, function name, or \"\[*\]\" and an address..*
+If line number is specified, break at start of code for that line..*
+If function is specified, break at start of code for that function..*
+If an address is specified, break at that exact address..*
+With no arg, uses current execution address of selected stack frame..*
+This is useful for breaking on return to a stack frame..*
+Multiple breakpoints at one place are permitted, and useful if conditional..*
 Do \"help breakpoints\" for info on other commands dealing with breakpoints..*$prompt $"\
 			{ pass "help breakpoint \"break\" abbreviation" }
 	-re "$prompt $"	{ fail "help breakpoint \"break\" abbreviation" }
@@ -172,20 +167,20 @@ Do \"help breakpoints\" for info on other commands dealing with breakpoints..*$p
 # test help breakpoints
 send "help breakpoints\n"
 expect {
-	-re "Making program stop at certain points..*\
-List of commands\:.*\
-watch -- Set a watchpoint for an expression.*\
-catch -- Set breakpoints to catch exceptions that are raised.*\
-break -- Set breakpoint at specified line or function.*\
-clear -- Clear breakpoint at specified line or function.*\
-delete -- Delete some breakpoints or auto-display expressions.*\
-disable -- Disable some breakpoints.*\
-enable -- Enable some breakpoints.*\
-tbreak -- Set a temporary breakpoint.*\
-condition -- Specify breakpoint number N to break only if COND is true.*\
-commands -- Set commands to be executed when a breakpoint is hit.*\
-ignore -- Set ignore-count of breakpoint number N to COUNT.*\
-Type \"help\" followed by command name for full documentation..*\
+	-re "Making program stop at certain points..*
+List of commands\:.*
+watch -- Set a watchpoint for an expression.*
+catch -- Set breakpoints to catch exceptions that are raised.*
+break -- Set breakpoint at specified line or function.*
+clear -- Clear breakpoint at specified line or function.*
+delete -- Delete some breakpoints or auto-display expressions.*
+disable -- Disable some breakpoints.*
+enable -- Enable some breakpoints.*
+tbreak -- Set a temporary breakpoint.*
+condition -- Specify breakpoint number N to break only if COND is true.*
+commands -- Set commands to be executed when a breakpoint is hit.*
+ignore -- Set ignore-count of breakpoint number N to COUNT.*
+Type \"help\" followed by command name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help breakpoints" }
 	-re "$prompt $"	{ fail "help breakpoints" }
@@ -196,7 +191,7 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help backtrace "bt" abbreviation
 send "help bt\n"
 expect {
-	-re "Print backtrace of all stack frames, or innermost COUNT frames..*\
+	-re "Print backtrace of all stack frames, or innermost COUNT frames..*
 With a negative argument, print outermost -COUNT frames..*$prompt $"\
 			{ pass "help backtrace \"bt\" abbreviation" }
 	-re "$prompt $"	{ fail "help backtrace \"bt\" abbreviation" }
@@ -207,7 +202,7 @@ With a negative argument, print outermost -COUNT frames..*$prompt $"\
 # test help backtrace
 send "help backtrace\n"
 expect {
-	-re "Print backtrace of all stack frames, or innermost COUNT frames..*\
+	-re "Print backtrace of all stack frames, or innermost COUNT frames..*
 With a negative argument, print outermost -COUNT frames..*$prompt $"\
 			{ pass "help backtrace" }
 	-re "$prompt $"	{ fail "help backtrace" }
@@ -248,13 +243,13 @@ expect {
 # test help catch
 send "help catch\n"
 expect {
-	-re "Set breakpoints to catch exceptions that are raised..*\
-Argument may be a single exception to catch, multiple exceptions.*\
-to catch, or the default exception \"default\".  If no arguments.*\
-are given, breakpoints are set at all exception handlers catch clauses.*\
-within the current scope..*\
-A condition specified for the catch applies to all breakpoints set.*\
-with this command.*\
+	-re "Set breakpoints to catch exceptions that are raised..*
+Argument may be a single exception to catch, multiple exceptions.*
+to catch, or the default exception \"default\".  If no arguments.*
+are given, breakpoints are set at all exception handlers catch clauses.*
+within the current scope..*
+A condition specified for the catch applies to all breakpoints set.*
+with this command.*
 Do \"help breakpoints\" for info on other commands dealing with breakpoints..*$prompt $"\
 			{ pass "help catch" }
 	-re "$prompt $"	{ fail "help catch" }
@@ -265,8 +260,8 @@ Do \"help breakpoints\" for info on other commands dealing with breakpoints..*$p
 # test help cd
 send "help cd\n"
 expect {
-	-re "Set working directory to DIR for debugger and program being debugged..*\
-The change does not take effect for the program being debugged.*\
+	-re "Set working directory to DIR for debugger and program being debugged..*
+The change does not take effect for the program being debugged.*
 until the next time it is started..*$prompt $"\
 			{ pass "help cd" }
 	-re "$prompt $"	{ fail "help cd" }
@@ -277,13 +272,13 @@ until the next time it is started..*$prompt $"\
 # test help clear
 send "help clear\n"
 expect {
-	-re "Clear breakpoint at specified line or function..*\
-Argument may be line number, function name, or \"\*\" and an address..*\
-If line number is specified, all breakpoints in that line are cleared..*\
-If function is specified, breakpoints at beginning of function are cleared..*\
-If an address is specified, breakpoints at that address are cleared..*\
-With no argument, clears all breakpoints in the line that the selected frame.*\
-is executing in..*\
+	-re "Clear breakpoint at specified line or function.*
+Argument may be line number, function name, or .* and an address.*
+If line number is specified, all breakpoints in that line are cleared.*
+If function is specified, breakpoints at beginning of function are cleared.*
+If an address is specified, breakpoints at that address are cleared.*
+With no argument, clears all breakpoints in the line that the selected frame.*
+is executing in..*
 See also the \"delete\" command which clears breakpoints by number..*$prompt $"\
 			{ pass "help clear" }
 	-re "$prompt $"	{ fail "help clear" }
@@ -294,12 +289,12 @@ See also the \"delete\" command which clears breakpoints by number..*$prompt $"\
 # test help commands
 send "help commands\n"
 expect {
-	-re "Set commands to be executed when a breakpoint is hit..*\
-Give breakpoint number as argument after \"commands\"..*\
-With no argument, the targeted breakpoint is the last one set..*\
-The commands themselves follow starting on the next line..*\
-Type a line containing \"end\" to indicate the end of them..*\
-Give \"silent\" as the first line to make the breakpoint silent;.*\
+	-re "Set commands to be executed when a breakpoint is hit..*
+Give breakpoint number as argument after \"commands\"..*
+With no argument, the targeted breakpoint is the last one set..*
+The commands themselves follow starting on the next line..*
+Type a line containing \"end\" to indicate the end of them..*
+Give \"silent\" as the first line to make the breakpoint silent;.*
 then no output is printed when it is hit, except what the commands print..*$prompt $"\
 			{ pass "help commands" }
 	-re "$prompt $"	{ fail "help commands" }
@@ -310,8 +305,8 @@ then no output is printed when it is hit, except what the commands print..*$prom
 # test help condition
 send "help condition\n"
 expect {
-	-re "Specify breakpoint number N to break only if COND is true..*\
-N is an integer; COND is an expression to be evaluated whenever.*\
+	-re "Specify breakpoint number N to break only if COND is true..*
+N is an integer; COND is an expression to be evaluated whenever.*
 breakpoint N is reached.  .*$prompt $"\
 			{ pass "help condition" }
 	-re "$prompt $"	{ fail "help condition" }
@@ -322,8 +317,8 @@ breakpoint N is reached.  .*$prompt $"\
 # test help core-file
 send "help core-file\n"
 expect {
-	-re "Use FILE as core dump for examining memory and registers..*\
-No arg means have no core file.  This command has been superseded by the.*\
+	-re "Use FILE as core dump for examining memory and registers..*
+No arg means have no core file.  This command has been superseded by the.*
 `target core' and `detach' commands..*$prompt $"\
 			{ pass "help core-file" }
 	-re "$prompt $"	{ fail "help core-file" }
@@ -334,15 +329,15 @@ No arg means have no core file.  This command has been superseded by the.*\
 # test help delete "d" abbreviation
 send "help d\n"
 expect {
-	-re "Delete some breakpoints or auto-display expressions..*\
-Arguments are breakpoint numbers with spaces in between..*\
-To delete all breakpoints, give no argument..*\
-Also a prefix command for deletion of other GDB objects..*\
-The \"unset\" command is also an alias for \"delete\"..*\
-List of delete subcommands:.*\
-delete display -- Cancel some expressions to be displayed when program stops.*\
-delete breakpoints -- Delete some breakpoints or auto-display expressions.*\
-Type \"help delete\" followed by delete subcommand name for full documentation..*\
+	-re "Delete some breakpoints or auto-display expressions..*
+Arguments are breakpoint numbers with spaces in between..*
+To delete all breakpoints, give no argument..*
+Also a prefix command for deletion of other GDB objects..*
+The \"unset\" command is also an alias for \"delete\"..*
+List of delete subcommands:.*
+delete display -- Cancel some expressions to be displayed when program stops.*
+delete breakpoints -- Delete some breakpoints or auto-display expressions.*
+Type \"help delete\" followed by delete subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help delete \"d\" abbreviation" }
 	-re "$prompt $"	{ fail "help delete \"d\" abbreviation" }
@@ -353,15 +348,15 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help delete
 send "help delete\n"
 expect {
-	-re "Delete some breakpoints or auto-display expressions..*\
-Arguments are breakpoint numbers with spaces in between..*\
-To delete all breakpoints, give no argument..*\
-Also a prefix command for deletion of other GDB objects..*\
-The \"unset\" command is also an alias for \"delete\"..*\
-List of delete subcommands:.*\
-delete display -- Cancel some expressions to be displayed when program stops.*\
-delete breakpoints -- Delete some breakpoints or auto-display expressions.*\
-Type \"help delete\" followed by delete subcommand name for full documentation..*\
+	-re "Delete some breakpoints or auto-display expressions..*
+Arguments are breakpoint numbers with spaces in between..*
+To delete all breakpoints, give no argument..*
+Also a prefix command for deletion of other GDB objects..*
+The \"unset\" command is also an alias for \"delete\"..*
+List of delete subcommands:.*
+delete display -- Cancel some expressions to be displayed when program stops.*
+delete breakpoints -- Delete some breakpoints or auto-display expressions.*
+Type \"help delete\" followed by delete subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help delete" }
 	-re "$prompt $"	{ fail "help delete" }
@@ -372,10 +367,10 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help data
 send "help data\n"
 expect {
-	-re ".*\
-Examining data..*\
-List of commands:.*\
-Type \"help\" followed by command name for full documentation..*\
+	-re ".*
+Examining data..*
+List of commands:.*
+Type \"help\" followed by command name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help data" }
 	-re "$prompt $"	{ fail "help data" }
@@ -386,10 +381,10 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help define
 send "help define\n"
 expect {
-	-re "Define a new command name.  Command name is argument..*\
-Definition appears on following lines, one command per line..*\
-End with a line of just \"end\"..*\
-Use the \"document\" command to give documentation for the new command..*\
+	-re "Define a new command name.  Command name is argument..*
+Definition appears on following lines, one command per line..*
+End with a line of just \"end\"..*
+Use the \"document\" command to give documentation for the new command..*
 Commands defined in this way do not take arguments..*$prompt $"\
 			{ pass "help define" }
 	-re "$prompt $"	{ fail "help define" }
@@ -400,9 +395,9 @@ Commands defined in this way do not take arguments..*$prompt $"\
 # test help delete breakpoints
 send "help delete breakpoints\n"
 expect {
-	-re "Delete some breakpoints or auto-display expressions..*\
-Arguments are breakpoint numbers with spaces in between..*\
-To delete all breakpoints, give no argument..*\
+	-re "Delete some breakpoints or auto-display expressions..*
+Arguments are breakpoint numbers with spaces in between..*
+To delete all breakpoints, give no argument..*
 This command may be abbreviated \"delete\"..*$prompt $"\
 			{ pass "help delete breakpoints" }
 	-re "$prompt $"	{ fail "help delete breakpoints" }
@@ -413,9 +408,9 @@ This command may be abbreviated \"delete\"..*$prompt $"\
 # test help delete display
 send "help delete display\n"
 expect {
-	-re "Cancel some expressions to be displayed when program stops..*\
-Arguments are the code numbers of the expressions to stop displaying..*\
-No argument means cancel all automatic-display expressions..*\
+	-re "Cancel some expressions to be displayed when program stops..*
+Arguments are the code numbers of the expressions to stop displaying..*
+No argument means cancel all automatic-display expressions..*
 Do \"info display\" to see current list of code numbers..*$prompt $"\
 			{ pass "help delete display" }
 	-re "$prompt $"	{ fail "help delete display" }
@@ -426,8 +421,8 @@ Do \"info display\" to see current list of code numbers..*$prompt $"\
 # test help detach
 send "help detach\n"
 expect {
-	-re "Detach a process or file previously attached..*\
-If a process, it is no longer traced, and it continues its execution.  If you.*\
+	-re "Detach a process or file previously attached..*
+If a process, it is no longer traced, and it continues its execution.  If you.*
 were debugging a file, the file is closed and gdb no longer accesses it..*$prompt $"\
 			{ pass "help detach" }
 	-re "$prompt $"	{ fail "help detach" }
@@ -438,10 +433,10 @@ were debugging a file, the file is closed and gdb no longer accesses it..*$promp
 # test help directory
 send "help directory\n"
 expect {
-	-re "Add directory DIR to beginning of search path for source files..*\
-Forget cached info on source file locations and line positions..*\
-DIR can also be .cwd for the current working directory, or .cdir for the.*\
-directory in which the source file was compiled into object code..*\
+	-re "Add directory DIR to beginning of search path for source files..*
+Forget cached info on source file locations and line positions..*
+DIR can also be .cwd for the current working directory, or .cdir for the.*
+directory in which the source file was compiled into object code..*
 With no argument, reset the search path to .cdir:.cwd, the default..*$prompt $"\
 			{ pass "help directory" }
 	-re "$prompt $"	{ fail "help directory" }
@@ -452,14 +447,14 @@ With no argument, reset the search path to .cdir:.cwd, the default..*$prompt $"\
 # test help disable "dis" abbreviation
 send "help dis\n"
 expect {
-	-re "Disable some breakpoints..*\
-Arguments are breakpoint numbers with spaces in between..*\
-To disable all breakpoints, give no argument..*\
-A disabled breakpoint is not forgotten, but has no effect until reenabled..*\
-List of disable subcommands:.*\
-disable display -- Disable some expressions to be displayed when program stops.*\
-disable breakpoints -- Disable some breakpoints.*\
-Type \"help disable\" followed by disable subcommand name for full documentation..*\
+	-re "Disable some breakpoints..*
+Arguments are breakpoint numbers with spaces in between..*
+To disable all breakpoints, give no argument..*
+A disabled breakpoint is not forgotten, but has no effect until reenabled..*
+List of disable subcommands:.*
+disable display -- Disable some expressions to be displayed when program stops.*
+disable breakpoints -- Disable some breakpoints.*
+Type \"help disable\" followed by disable subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help disable \"dis\" abbreviation" }
 	-re "$prompt $"	{ fail "help disable \"dis\" abbreviation" }
@@ -470,14 +465,14 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help disable "disa" abbreviation
 send "help disa\n"
 expect {
-	-re "Disable some breakpoints..*\
-Arguments are breakpoint numbers with spaces in between..*\
-To disable all breakpoints, give no argument..*\
-A disabled breakpoint is not forgotten, but has no effect until reenabled..*\
-List of disable subcommands:.*\
-disable display -- Disable some expressions to be displayed when program stops.*\
-disable breakpoints -- Disable some breakpoints.*\
-Type \"help disable\" followed by disable subcommand name for full documentation..*\
+	-re "Disable some breakpoints..*
+Arguments are breakpoint numbers with spaces in between..*
+To disable all breakpoints, give no argument..*
+A disabled breakpoint is not forgotten, but has no effect until reenabled..*
+List of disable subcommands:.*
+disable display -- Disable some expressions to be displayed when program stops.*
+disable breakpoints -- Disable some breakpoints.*
+Type \"help disable\" followed by disable subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help disable \"disa\" abbreviation" }
 	-re "$prompt $"	{ fail "help disable \"disa\" abbreviation" }
@@ -488,14 +483,14 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help disable
 send "help disable\n"
 expect {
-	-re "Disable some breakpoints..*\
-Arguments are breakpoint numbers with spaces in between..*\
-To disable all breakpoints, give no argument..*\
-A disabled breakpoint is not forgotten, but has no effect until reenabled..*\
-List of disable subcommands:.*\
-disable display -- Disable some expressions to be displayed when program stops.*\
-disable breakpoints -- Disable some breakpoints.*\
-Type \"help disable\" followed by disable subcommand name for full documentation..*\
+	-re "Disable some breakpoints..*
+Arguments are breakpoint numbers with spaces in between..*
+To disable all breakpoints, give no argument..*
+A disabled breakpoint is not forgotten, but has no effect until reenabled..*
+List of disable subcommands:.*
+disable display -- Disable some expressions to be displayed when program stops.*
+disable breakpoints -- Disable some breakpoints.*
+Type \"help disable\" followed by disable subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help disable" }
 	-re "$prompt $"	{ fail "help disable" }
@@ -506,10 +501,10 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help disable breakpoints
 send "help disable breakpoints\n"
 expect {
-	-re "Disable some breakpoints..*\
-Arguments are breakpoint numbers with spaces in between..*\
-To disable all breakpoints, give no argument..*\
-A disabled breakpoint is not forgotten, but has no effect until reenabled..*\
+	-re "Disable some breakpoints..*
+Arguments are breakpoint numbers with spaces in between..*
+To disable all breakpoints, give no argument..*
+A disabled breakpoint is not forgotten, but has no effect until reenabled..*
 This command may be abbreviated \"disable\"..*$prompt $"\
 			{ pass "help disable breakpoints" }
 	-re "$prompt $"	{ fail "help disable breakpoints" }
@@ -520,9 +515,9 @@ This command may be abbreviated \"disable\"..*$prompt $"\
 # test help disable display
 send "help disable display\n"
 expect {
-	-re "Disable some expressions to be displayed when program stops..*\
-Arguments are the code numbers of the expressions to stop displaying..*\
-No argument means disable all automatic-display expressions..*\
+	-re "Disable some expressions to be displayed when program stops..*
+Arguments are the code numbers of the expressions to stop displaying..*
+No argument means disable all automatic-display expressions..*
 Do \"info display\" to see current list of code numbers..*$prompt $"\
 			{ pass "help disable display" }
 	-re "$prompt $"	{ fail "help disable display" }
@@ -533,9 +528,9 @@ Do \"info display\" to see current list of code numbers..*$prompt $"\
 # test help disassemble
 send "help disassemble\n"
 expect {
-	-re "Disassemble a specified section of memory..*\
-Default is the function surrounding the pc of the selected frame..*\
-With a single argument, the function surrounding that address is dumped..*\
+	-re "Disassemble a specified section of memory..*
+Default is the function surrounding the pc of the selected frame..*
+With a single argument, the function surrounding that address is dumped..*
 Two arguments are taken as a range of memory to dump..*$prompt $"\
 			{ pass "help disassemble" }
 	-re "$prompt $"	{ fail "help disassemble" }
@@ -546,12 +541,12 @@ Two arguments are taken as a range of memory to dump..*$prompt $"\
 # test help display
 send "help display\n"
 expect {
-	-re "Print value of expression EXP each time the program stops..*\
-/FMT may be used before EXP as in the \"print\" command..*\
-/FMT \"i\" or \"s\" or including a size-letter is allowed,.*\
-as in the \"x\" command, and then EXP is used to get the address to examine.*\
-and examining is done as in the \"x\" command..*\
-With no argument, display all currently requested auto-display expressions..*\
+	-re "Print value of expression EXP each time the program stops..*
+/FMT may be used before EXP as in the \"print\" command..*
+/FMT \"i\" or \"s\" or including a size-letter is allowed,.*
+as in the \"x\" command, and then EXP is used to get the address to examine.*
+and examining is done as in the \"x\" command..*
+With no argument, display all currently requested auto-display expressions..*
 Use \"undisplay\" to cancel display requests previously made..*$prompt $"\
 			{ pass "help display" }
 	-re "$prompt $"	{ fail "help display" }
@@ -562,7 +557,7 @@ Use \"undisplay\" to cancel display requests previously made..*$prompt $"\
 # test help do
 send "help do\n"
 expect {
-	-re "Select and print stack frame called by this one..*\
+	-re "Select and print stack frame called by this one..*
 An argument says how many frames down to go..*$prompt $"\
 			{ pass "help do" }
 	-re "$prompt $"	{ fail "help do" }
@@ -573,8 +568,8 @@ An argument says how many frames down to go..*$prompt $"\
 # test help document
 send "help document\n"
 expect {
-	-re "Document a user-defined command..*\
-Give command name as argument.  Give documentation on following lines..*\
+	-re "Document a user-defined command..*
+Give command name as argument.  Give documentation on following lines..*
 End with a line of just \"end\"..*$prompt $"\
 			{ pass "help document" }
 	-re "$prompt $"	{ fail "help document" }
@@ -586,7 +581,7 @@ End with a line of just \"end\"..*$prompt $"\
 # test help down
 send "help down\n"
 expect {
-	-re "Select and print stack frame called by this one..*\
+	-re "Select and print stack frame called by this one..*
 An argument says how many frames down to go..*$prompt $"\
 			{ pass "help down" }
 	-re "$prompt $"	{ fail "help down" }
@@ -597,7 +592,7 @@ An argument says how many frames down to go..*$prompt $"\
 # test help down-silently
 send "help down-silently\n"
 expect {
-	-re "Same as the `down' command, but does not print anything..*\
+	-re "Same as the `down' command, but does not print anything..*
 This is useful in command scripts..*$prompt $"\
 			{ pass "help down-silently" }
 	-re "$prompt $"	{ fail "help down-silently" }
@@ -618,12 +613,12 @@ This is useful in command scripts..*$prompt $"\
 # test help echo
 send "help echo\n"
 expect {
-	-re "Print a constant string.  Give string as argument..*\
-C escape sequences may be used in the argument..*\
-No newline is added at the end of the argument;.*\
-use \".n\" if you want a newline to be printed..*\
-Since leading and trailing whitespace are ignored in command arguments,.*\
-if you want to print some you must use \".\" before leading whitespace.*\
+	-re "Print a constant string.  Give string as argument..*
+C escape sequences may be used in the argument..*
+No newline is added at the end of the argument;.*
+use \".n\" if you want a newline to be printed..*
+Since leading and trailing whitespace are ignored in command arguments,.*
+if you want to print some you must use \".\" before leading whitespace.*
 to be printed or after trailing whitespace..*$prompt $"\
 			{ pass "help echo" }
 	-re "$prompt $"	{ fail "help echo" }
@@ -634,7 +629,7 @@ to be printed or after trailing whitespace..*$prompt $"\
 # test help enable breakpoints delete
 send "help enable breakpoints delete\n"
 expect {
-	-re "Enable breakpoints and delete when hit.  Give breakpoint numbers..*\
+	-re "Enable breakpoints and delete when hit.  Give breakpoint numbers..*
 If a breakpoint is hit while enabled in this fashion, it is deleted..*$prompt $"\
 			{ pass "help enable breakpoints delete" }
 	-re "$prompt $"	{ fail "help enable breakpoints delete" }
@@ -645,8 +640,8 @@ If a breakpoint is hit while enabled in this fashion, it is deleted..*$prompt $"
 # test help enable breakpoints once
 send "help enable breakpoints once\n"
 expect {
-	-re "Enable breakpoints for one hit.  Give breakpoint numbers..*\
-If a breakpoint is hit while enabled in this fashion, it becomes disabled..*\
+	-re "Enable breakpoints for one hit.  Give breakpoint numbers..*
+If a breakpoint is hit while enabled in this fashion, it becomes disabled..*
 See the \"tbreak\" command which sets a breakpoint and enables it once..*$prompt $"\
 			{ pass "help enable breakpoints once" }
 	-re "$prompt $"	{ fail "help enable breakpoints once" }
@@ -657,14 +652,14 @@ See the \"tbreak\" command which sets a breakpoint and enables it once..*$prompt
 # test help enable breakpoints
 send "help enable breakpoints\n"
 expect {
-	-re "Enable some breakpoints..*\
-Give breakpoint numbers \(separated by spaces\) as arguments..*\
-This is used to cancel the effect of the \"disable\" command..*\
-May be abbreviated to simply \"enable\"..*.*\
-List of enable breakpoints subcommands:.*\
-enable breakpoints delete -- Enable breakpoints and delete when hit.*\
-enable breakpoints once -- Enable breakpoints for one hit.*\
-Type \"help enable breakpoints\" followed by enable breakpoints subcommand name for full documentation..*\
+	-re "Enable some breakpoints..*
+Give breakpoint numbers .separated by spaces. as arguments..*
+This is used to cancel the effect of the \"disable\" command..*
+May be abbreviated to simply \"enable\"..*.*
+List of enable breakpoints subcommands:.*
+enable breakpoints delete -- Enable breakpoints and delete when hit.*
+enable breakpoints once -- Enable breakpoints for one hit.*
+Type \"help enable breakpoints\" followed by enable breakpoints subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help enable breakpoints" }
 	-re "$prompt $"	{ fail "help enable breakpoints" }
@@ -675,7 +670,7 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help enable delete
 send "help enable delete\n"
 expect {
-	-re "Enable breakpoints and delete when hit.  Give breakpoint numbers..*\
+	-re "Enable breakpoints and delete when hit.  Give breakpoint numbers..*
 If a breakpoint is hit while enabled in this fashion, it is deleted..*$prompt $"\
 			{ pass "help enable delete" }
 	-re "$prompt $"	{ fail "help enable delete" }
@@ -686,9 +681,9 @@ If a breakpoint is hit while enabled in this fashion, it is deleted..*$prompt $"
 # test help enable display
 send "help enable display\n"
 expect {
-	-re "Enable some expressions to be displayed when program stops..*\
-Arguments are the code numbers of the expressions to resume displaying..*\
-No argument means enable all automatic-display expressions..*\
+	-re "Enable some expressions to be displayed when program stops..*
+Arguments are the code numbers of the expressions to resume displaying..*
+No argument means enable all automatic-display expressions..*
 Do \"info display\" to see current list of code numbers..*$prompt $"\
 			{ pass "help enable display" }
 	-re "$prompt $"	{ fail "help enable display" }
@@ -699,8 +694,8 @@ Do \"info display\" to see current list of code numbers..*$prompt $"\
 # test help enable once
 send "help enable once\n"
 expect {
-	-re "Enable breakpoints for one hit.  Give breakpoint numbers..*\
-If a breakpoint is hit while enabled in this fashion, it becomes disabled..*\
+	-re "Enable breakpoints for one hit.  Give breakpoint numbers..*
+If a breakpoint is hit while enabled in this fashion, it becomes disabled..*
 See the \"tbreak\" command which sets a breakpoint and enables it once..*$prompt $"\
 			{ pass "help enable once" }
 	-re "$prompt $"	{ fail "help enable once" }
@@ -711,16 +706,16 @@ See the \"tbreak\" command which sets a breakpoint and enables it once..*$prompt
 # test help enable
 send "help enable\n"
 expect {
-	-re "Enable some breakpoints..*\
-Give breakpoint numbers \(separated by spaces\) as arguments..*\
-With no subcommand, breakpoints are enabled until you command otherwise..*\
-This is used to cancel the effect of the \"disable\" command..*\
-With a subcommand you can enable temporarily..*\
-List of enable subcommands:.*\
-enable display -- Enable some expressions to be displayed when program stops.*\
-enable once -- Enable breakpoints for one hit.*\
-enable delete -- Enable breakpoints and delete when hit.*\
-Type \"help enable\" followed by enable subcommand name for full documentation..*\
+	-re "Enable some breakpoints..*
+Give breakpoint numbers .separated by spaces. as arguments..*
+With no subcommand, breakpoints are enabled until you command otherwise..*
+This is used to cancel the effect of the \"disable\" command..*
+With a subcommand you can enable temporarily..*
+List of enable subcommands:.*
+enable display -- Enable some expressions to be displayed when program stops.*
+enable once -- Enable breakpoints for one hit.*
+enable delete -- Enable breakpoints and delete when hit.*
+Type \"help enable\" followed by enable subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help enable" }
 	-re "$prompt $"	{ fail "help enable" }
@@ -731,9 +726,9 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help exec-file
 send "help exec-file\n"
 expect {
-	-re "Use FILE as program for getting contents of pure memory..*\
-If FILE cannot be found as specified, your execution directory path.*\
-is searched for a command of that name..*\
+	-re "Use FILE as program for getting contents of pure memory..*
+If FILE cannot be found as specified, your execution directory path.*
+is searched for a command of that name..*
 No arg means have no executable file..*$prompt $"\
 			{ pass "help exec-file" }
 	-re "$prompt $"	{ fail "help exec-file" }
@@ -744,11 +739,11 @@ No arg means have no executable file..*$prompt $"\
 # test help frame "f" abbreviation
 send "help f\n"
 expect {
-	-re "Select and print a stack frame..*\
-With no argument, print the selected stack frame.  \(See also \"info frame\"\)..*\
-An argument specifies the frame to select..*\
-It can be a stack frame number or the address of the frame..*\
-With argument, nothing is printed if input is coming from.*\
+	-re "Select and print a stack frame..*
+With no argument, print the selected stack frame.  .See also \"info frame\".*
+An argument specifies the frame to select..*
+It can be a stack frame number or the address of the frame..*
+With argument, nothing is printed if input is coming from.*
 a command file or a user-defined command..*$prompt $"\
 			{ pass "help frame \"f\" abbreviation" }
 	-re "$prompt $"	{ fail "help frame \"f\" abbreviation" }
@@ -759,11 +754,11 @@ a command file or a user-defined command..*$prompt $"\
 # test help frame
 send "help frame\n"
 expect {
-	-re "Select and print a stack frame..*\
-With no argument, print the selected stack frame.  \(See also \"info frame\"\)..*\
-An argument specifies the frame to select..*\
-It can be a stack frame number or the address of the frame..*\
-With argument, nothing is printed if input is coming from.*\
+	-re "Select and print a stack frame..*
+With no argument, print the selected stack frame.  .See also \"info frame\"...*
+An argument specifies the frame to select..*
+It can be a stack frame number or the address of the frame..*
+With argument, nothing is printed if input is coming from.*
 a command file or a user-defined command..*$prompt $"\
 			{ pass "help frame" }
 	-re "$prompt $"	{ fail "help frame" }
@@ -784,11 +779,11 @@ expect {
 # test help file
 send "help file\n"
 expect {
-	-re "Use FILE as program to be debugged..*\
-It is read for its symbols, for getting the contents of pure memory,.*\
-and it is the program executed when you use the `run' command..*\
-If FILE cannot be found as specified, your execution directory path.*\
-\(.PATH\) is searched for a command of that name..*\
+	-re "Use FILE as program to be debugged..*
+It is read for its symbols, for getting the contents of pure memory,.*
+and it is the program executed when you use the `run' command..*
+If FILE cannot be found as specified, your execution directory path.*
+..PATH. is searched for a command of that name..*
 No arg means to have no executable file and no symbols..*$prompt $"\
 			{ pass "help file" }
 	-re "$prompt $"	{ fail "help file" }
@@ -808,7 +803,7 @@ expect {
 # test help finish
 send "help finish\n"
 expect {
-	-re "Execute until selected stack frame returns..*\
+	-re "Execute until selected stack frame returns..*
 Upon return, the value returned is printed and put in the value history..*$prompt $"\
 			{ pass "help finish" }
 	-re "$prompt $"	{ fail "help finish" }
@@ -819,7 +814,7 @@ Upon return, the value returned is printed and put in the value history..*$promp
 # test help forward-search
 send "help forward-search\n"
 expect {
-	-re "Search for regular expression \(see regex\(3\)\) from last line listed..*$prompt $"\
+	-re "Search for regular expression .see regex.3.. from last line listed..*$prompt $"\
 			{ pass "help forward-search" }
 	-re "$prompt $"	{ fail "help forward-search" }
 	timeout		{ fail "(timeout) help forward-search" }
@@ -859,35 +854,8 @@ expect {
 # test help info "i" abbreviation
 send "help i\n"
 expect {
-	-re "Generic command for showing things about the program being debugged..*\
+	-re "Generic command for showing things about the program being debugged..*
 List of info subcommands:.*
-info set -- Show all GDB settings.*\
-info files -- Names of targets and files being debugged.*\
-info target -- Names of targets and files being debugged.*\
-info sources -- Source files in the program.*\
-info types -- All type names.*\
-info functions -- All function names.*\
-info variables -- All global and static variable names.*\
-info catch -- Exceptions that can be caught in the current stack frame.*\
-info args -- Argument variables of current stack frame.*\
-info locals -- Local variables of current stack frame.*\
-info frame -- All about selected stack frame.*\
-info stack -- Backtrace of the stack.*\
-info line -- Core addresses of the code for a source line.*\
-info source -- Information about the current source file.*\
-(info sharedlibrary -- Status of loaded shared object libraries.*)?\
-info display -- Expressions to display when program stops.*\
-info address -- Describe where variable VAR is stored.*\
-info signals -- What debugger does when program gets various signals.*\
-info terminal -- Print inferior\'s saved terminal status.*\
-info float -- Print the status of the floating point unit.*\
-info program -- Execution status of the program.*\
-info all-registers -- List of all registers and their contents.*\
-info registers -- List of integer registers and their contents.*\
-info warranty -- Various kinds of warranty you do not have.*\
-info copying -- Conditions for redistributing copies of GDB.*\
-info watchpoints -- Synonym for \`\`info breakpoints\'\'.*\
-info breakpoints -- Status of user-settable breakpoints.*\
 Type \"help info\" followed by info subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help info \"i\" abbreviation" }
@@ -899,36 +867,9 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help info
 send "help info\n"
 expect {
-	-re "Generic command for showing things about the program being debugged..*\
-List of info subcommands:.*\
-info set -- Show all GDB settings.*\
-info files -- Names of targets and files being debugged.*\
-info target -- Names of targets and files being debugged.*\
-info sources -- Source files in the program.*\
-info types -- All type names.*\
-info functions -- All function names.*\
-info variables -- All global and static variable names.*\
-info catch -- Exceptions that can be caught in the current stack frame.*\
-info args -- Argument variables of current stack frame.*\
-info locals -- Local variables of current stack frame.*\
-info frame -- All about selected stack frame.*\
-info stack -- Backtrace of the stack.*\
-info line -- Core addresses of the code for a source line.*\
-info source -- Information about the current source file.*\
-(info sharedlibrary -- Status of loaded shared object libraries.*)?\
-info display -- Expressions to display when program stops.*\
-info address -- Describe where variable VAR is stored.*\
-info signals -- What debugger does when program gets various signals.*\
-info terminal -- Print inferior\'s saved terminal status.*\
-info float -- Print the status of the floating point unit.*\
-info program -- Execution status of the program.*\
-info all-registers -- List of all registers and their contents.*\
-info registers -- List of integer registers and their contents.*\
-info warranty -- Various kinds of warranty you do not have.*\
-info copying -- Conditions for redistributing copies of GDB.*\
-info watchpoints -- Synonym for \`\`info breakpoints\'\'.*\
-info breakpoints -- Status of user-settable breakpoints.*\
-Type \"help info\" followed by info subcommand name for full documentation..*\
+	-re "Generic command for showing things about the program being debugged..*
+List of info subcommands:.*
+Type \"help info\" followed by info subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help info" }
 	-re "$prompt $"	{ fail "help info" }
@@ -959,7 +900,7 @@ expect {
 # test help info all-registers
 send "help info all-registers\n"
 expect {
-	-re "List of all registers and their contents, for selected stack frame..*\
+	-re "List of all registers and their contents, for selected stack frame..*
 Register name as argument means describe only that register..*$prompt $"\
 			{ pass "help info all-registers" }
 	-re "$prompt $"	{ fail "help info all-registers" }
@@ -980,7 +921,7 @@ expect {
 # test help info breakpoints
 send "help info breakpoints\n"
 expect {
-	-re "Status of user-settable breakpoints, or breakpoint number NUMBER..*\
+	-re "Status of user-settable breakpoints, or breakpoint number NUMBER..*
 breakpoint set..*$prompt $"\
 			{ pass "help info breakpoints" }
 	-re "$prompt $"	{ fail "help info breakpoints" }
@@ -1041,9 +982,9 @@ expect {
 # test help info files
 send "help info files\n"
 expect {
-	-re "Names of targets and files being debugged..*\
-Shows the entire stack of targets currently in use \(including the exec-file,.*\
-core-file, and process, if any\), as well as the symbol file name..*$prompt $"\
+	-re "Names of targets and files being debugged..*
+Shows the entire stack of targets currently in use .including the exec-file,.*
+core-file, and process, if any., as well as the symbol file name..*$prompt $"\
 			{ pass "help info files" }
 	-re "$prompt $"	{ fail "help info files" }
 	timeout		{ fail "(timeout) help info files" }
@@ -1073,15 +1014,15 @@ expect {
 # test help info line
 send "help info line\n"
 expect {
-	-re "Core addresses of the code for a source line..*\
-Line can be specified as.*\
-  LINENUM, to list around that line in current file,.*\
-  FILE:LINENUM, to list around that line in that file,.*\
-  FUNCTION, to list around beginning of that function,.*\
-  FILE:FUNCTION, to distinguish among like-named static functions..*\
-Default is to describe the last source line that was listed..*\
-This sets the default address for \"x\" to the line's first instruction.*\
-so that \"x.i\" suffices to start examining the machine code..*\
+	-re "Core addresses of the code for a source line..*
+Line can be specified as.*
+  LINENUM, to list around that line in current file,.*
+  FILE:LINENUM, to list around that line in that file,.*
+  FUNCTION, to list around beginning of that function,.*
+  FILE:FUNCTION, to distinguish among like-named static functions..*
+Default is to describe the last source line that was listed..*
+This sets the default address for \"x\" to the line's first instruction.*
+so that \"x.i\" suffices to start examining the machine code..*
 The address is also stored as the value of \"._\"..*$prompt $"\
 			{ pass "help info line" }
 	-re "$prompt $"	{ fail "help info line" }
@@ -1112,7 +1053,7 @@ expect {
 # test help info registers
 send "help info registers\n"
 expect {
-	-re "List of integer registers and their contents, for selected stack frame..*\
+	-re "List of integer registers and their contents, for selected stack frame..*
 Register name as argument means describe only that register..*$prompt $"\
 			{ pass "help info registers" }
 	-re "$prompt $"	{ fail "help info registers" }
@@ -1153,7 +1094,7 @@ expect {
 # test help info signals
 send "help info signals\n"
 expect {
-	-re "What debugger does when program gets various signals..*\
+	-re "What debugger does when program gets various signals..*
 Specify a signal number as argument to print info on that signal only..*$prompt $"\
 			{ pass "help info signals" }
 	-re "$prompt $"	{ fail "help info signals" }
@@ -1184,9 +1125,9 @@ expect {
 # test help info target
 send "help info target\n"
 expect {
-	-re "Names of targets and files being debugged..*\
-Shows the entire stack of targets currently in use \(including the exec-file,.*\
-core-file, and process, if any\), as well as the symbol file name..*$prompt $"\
+	-re "Names of targets and files being debugged..*
+Shows the entire stack of targets currently in use .including the exec-file,.*
+core-file, and process, if any., as well as the symbol file name..*$prompt $"\
 			{ pass "help info target" }
 	-re "$prompt $"	{ fail "help info target" }
 	timeout		{ fail "(timeout) help info target" }
@@ -1246,7 +1187,7 @@ expect {
 # test help inspect
 send "help inspect\n"
 expect {
-	-re "Same as \"print\" command, except that if you are running in the epoch.*\
+	-re "Same as \"print\" command, except that if you are running in the epoch.*
 environment, the value is printed in its own window..*$prompt $"\
 			{ pass "help inspect" }
 	-re "$prompt $"	{ fail "help inspect" }
@@ -1257,8 +1198,8 @@ environment, the value is printed in its own window..*$prompt $"\
 # test help jump
 send "help jump\n"
 expect {
-	-re "Continue program being debugged at specified line or address..*\
-Give as argument either LINENUM or \*ADDR, where ADDR is an expression.*\
+	-re "Continue program being debugged at specified line or address..*
+Give as argument either LINENUM or \[*\]+ADDR, where ADDR is an expression.*
 for an address to start at..*$prompt $"\
 			{ pass "help jump" }
 	-re "$prompt $"	{ fail "help jump" }
@@ -1279,17 +1220,17 @@ expect {
 # test help list "l" abbreviation
 send "help l\n"
 expect {
-	-re "List specified function or line..*\
-With no argument, lists ten more lines after or around previous listing..*\
-\"list -\" lists the ten lines before a previous ten-line listing..*\
-One argument specifies a line, and ten lines are listed around that line..*\
-Two arguments with comma between specify starting and ending lines to list..*\
-Lines can be specified in these ways:.*\
-  LINENUM, to list around that line in current file,.*\
-  FILE:LINENUM, to list around that line in that file,.*\
-  FUNCTION, to list around beginning of that function,.*\
-  FILE:FUNCTION, to distinguish among like-named static functions..*\
-  \*ADDRESS, to list around the line containing that address..*\
+	-re "List specified function or line..*
+With no argument, lists ten more lines after or around previous listing..*
+\"list -\" lists the ten lines before a previous ten-line listing..*
+One argument specifies a line, and ten lines are listed around that line..*
+Two arguments with comma between specify starting and ending lines to list..*
+Lines can be specified in these ways:.*
+  LINENUM, to list around that line in current file,.*
+  FILE:LINENUM, to list around that line in that file,.*
+  FUNCTION, to list around beginning of that function,.*
+  FILE:FUNCTION, to distinguish among like-named static functions..*
+  \[*\]+ADDRESS, to list around the line containing that address..*
 With two args if one is empty it stands for ten lines away from the other arg..*$prompt $"\
 			{ pass "help list \"l\" abbreviation" }
 	-re "$prompt $"	{ fail "help list \"l\" abbreviation" }
@@ -1300,17 +1241,17 @@ With two args if one is empty it stands for ten lines away from the other arg..*
 # test help list
 send "help list\n"
 expect {
-	-re "List specified function or line..*\
-With no argument, lists ten more lines after or around previous listing..*\
-\"list -\" lists the ten lines before a previous ten-line listing..*\
-One argument specifies a line, and ten lines are listed around that line..*\
-Two arguments with comma between specify starting and ending lines to list..*\
-Lines can be specified in these ways:.*\
-  LINENUM, to list around that line in current file,.*\
-  FILE:LINENUM, to list around that line in that file,.*\
-  FUNCTION, to list around beginning of that function,.*\
-  FILE:FUNCTION, to distinguish among like-named static functions..*\
-  \*ADDRESS, to list around the line containing that address..*\
+	-re "List specified function or line..*
+With no argument, lists ten more lines after or around previous listing..*
+\"list -\" lists the ten lines before a previous ten-line listing..*
+One argument specifies a line, and ten lines are listed around that line..*
+Two arguments with comma between specify starting and ending lines to list..*
+Lines can be specified in these ways:.*
+  LINENUM, to list around that line in current file,.*
+  FILE:LINENUM, to list around that line in that file,.*
+  FUNCTION, to list around beginning of that function,.*
+  FILE:FUNCTION, to distinguish among like-named static functions..*
+  \[*\]+ADDRESS, to list around the line containing that address..*
 With two args if one is empty it stands for ten lines away from the other arg..*$prompt $"\
 			{ pass "help list" }
 	-re "$prompt $"	{ fail "help list" }
@@ -1321,7 +1262,7 @@ With two args if one is empty it stands for ten lines away from the other arg..*
 # test help load
 send "help load\n"
 expect {
-	-re "Dynamically load FILE into the running program, and record its symbols.*\
+	-re "Dynamically load FILE into the running program, and record its symbols.*
 for access from GDB..*$prompt $"\
 			{ pass "help load" }
 	-re "$prompt $"	{ fail "help load" }
@@ -1342,10 +1283,10 @@ expect {
 # test help next "n" abbreviation
 send "help n\n"
 expect {
-	-re "Step program, proceeding through subroutine calls..*\
-Like the \"step\" command as long as subroutine calls do not happen;.*\
-when they do, the call is treated as one instruction..*\
-Argument N means do this N times \(or till program stops for another reason\)..*$prompt $"\
+	-re "Step program, proceeding through subroutine calls..*
+Like the \"step\" command as long as subroutine calls do not happen;.*
+when they do, the call is treated as one instruction..*
+Argument N means do this N times .or till program stops for another reason...*$prompt $"\
 			{ pass "help next \"n\" abbreviation" }
 	-re "$prompt $"	{ fail "help next \"n\" abbreviation" }
 	timeout		{ fail "(timeout) help next \"n\" abbreviation" }
@@ -1355,10 +1296,10 @@ Argument N means do this N times \(or till program stops for another reason\)..*
 # test help next
 send "help next\n"
 expect {
-	-re "Step program, proceeding through subroutine calls..*\
-Like the \"step\" command as long as subroutine calls do not happen;.*\
-when they do, the call is treated as one instruction..*\
-Argument N means do this N times \(or till program stops for another reason\)..*$prompt $"\
+	-re "Step program, proceeding through subroutine calls..*
+Like the \"step\" command as long as subroutine calls do not happen;.*
+when they do, the call is treated as one instruction..*
+Argument N means do this N times .or till program stops for another reason...*$prompt $"\
 			{ pass "help next" }
 	-re "$prompt $"	{ fail "help next" }
 	timeout		{ fail "(timeout) help next" }
@@ -1368,8 +1309,8 @@ Argument N means do this N times \(or till program stops for another reason\)..*
 # test help nexti
 send "help ni\n"
 expect {
-	-re "Step one instruction, but proceed through subroutine calls..*\
-Argument N means do this N times \(or till program stops for another reason\)..*$prompt $"\
+	-re "Step one instruction, but proceed through subroutine calls..*
+Argument N means do this N times .or till program stops for another reason...*$prompt $"\
 			{ pass "help nexti" }
 	-re "$prompt $"	{ fail "help nexti" }
 	timeout		{ fail "(timeout) help nexti" }
@@ -1380,9 +1321,9 @@ Argument N means do this N times \(or till program stops for another reason\)..*
 # test help obscure
 send "help obscure\n"
 expect {
-	-re "Obscure features..*\
-List of commands:.*\
-Type \"help\" followed by command name for full documentation..*\
+	-re "Obscure features..*
+List of commands:.*
+Type \"help\" followed by command name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help obscure" }
 	-re "$prompt $"	{ fail "help obscure" }
@@ -1393,7 +1334,7 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help output
 send "help output\n"
 expect {
-	-re "Like \"print\" but don't put in value history and don't print newline..*\
+	-re "Like \"print\" but don't put in value history and don't print newline..*
 This is useful in user-defined commands..*$prompt $"\
 			{ pass "help output" }
 	-re "$prompt $"	{ fail "help output" }
@@ -1404,10 +1345,10 @@ This is useful in user-defined commands..*$prompt $"\
 # test help print "p" abbreviation
 send "help p\n"
 expect {
-	-re "Print value of expression EXP..*\
-Variables accessible are those of the lexical environment of the selected.*\
-EXP may be preceded with /FMT, where FMT is a format letter.*\
-but no count or size letter \(see \"x\" command\)..*$prompt $"\
+	-re "Print value of expression EXP..*
+Variables accessible are those of the lexical environment of the selected.*
+EXP may be preceded with /FMT, where FMT is a format letter.*
+but no count or size letter .see \"x\" command...*$prompt $"\
 			{ pass "help print \"p\" abbreviation" }
 	-re "$prompt $"	{ fail "help print \"p\" abbreviation" }
 	timeout		{ fail "(timeout) help print \"p\" abbreviation" }
@@ -1417,10 +1358,10 @@ but no count or size letter \(see \"x\" command\)..*$prompt $"\
 # test help print
 send "help print\n"
 expect {
-	-re "Print value of expression EXP..*\
-Variables accessible are those of the lexical environment of the selected.*\
-EXP may be preceded with /FMT, where FMT is a format letter.*\
-but no count or size letter \(see \"x\" command\)..*$prompt $"\
+	-re "Print value of expression EXP..*
+Variables accessible are those of the lexical environment of the selected.*
+EXP may be preceded with /FMT, where FMT is a format letter.*
+but no count or size letter .see \"x\" command...*$prompt $"\
 			{ pass "help print" }
 	-re "$prompt $"	{ fail "help print" }
 	timeout		{ fail "(timeout) help print" }
@@ -1430,10 +1371,10 @@ but no count or size letter \(see \"x\" command\)..*$prompt $"\
 # test help path
 send "help path\n"
 expect {
-	-re "Add directory DIR\(s\) to beginning of search path for object files..*\
-.cwd in the path means the current working directory..*\
-This path is equivalent to the .PATH shell variable.  It is a list of.*\
-directories, separated by colons.  These directories are searched to find.*\
+	-re "Add directory DIR.s. to beginning of search path for object files..*
+.cwd in the path means the current working directory..*
+This path is equivalent to the .PATH shell variable.  It is a list of.*
+directories, separated by colons.  These directories are searched to find.*
 fully linked executable files and separately compiled object files as needed..*$prompt $"\
 			{ pass "help path" }
 	-re "$prompt $"	{ fail "help path" }
@@ -1454,7 +1395,7 @@ expect {
 # test help printf
 send "help printf\n"
 expect {
-	-re "printf \"printf format string\", arg1, arg2, arg3, ..., argn.*\
+	-re "printf \"printf format string\", arg1, arg2, arg3, ..., argn.*
 This is useful for formatted output in user-defined commands..*$prompt $"\
 			{ pass "help printf" }
 	-re "$prompt $"	{ fail "help printf" }
@@ -1466,7 +1407,7 @@ This is useful for formatted output in user-defined commands..*$prompt $"\
 # test help printsyms
 #send "help printsyms\n"
 #expect {
-#	-re "Print dump of current symbol definitions to file OUTFILE..*\
+#	-re "Print dump of current symbol definitions to file OUTFILE..*
 #If a SOURCE file is specified, dump only that file's symbols..*$prompt $"\
 #			{ pass "help printsyms" }
 #	-re "$prompt $"	{ fail "help printsyms" }
@@ -1476,10 +1417,7 @@ This is useful for formatted output in user-defined commands..*$prompt $"\
 # test help ptype
 send "help ptype\n"
 expect {
-	-re "Print definition of type TYPE..*\
-Argument may be a type name defined by typedef, or \"struct STRUCTNAME\".*\
-or \"union UNIONNAME\" or \"enum ENUMNAME\"..*\
-The selected stack frame's lexical context is used to look up the name..*$prompt $"\
+	-re "Print definition of type.*$prompt $"\
 			{ pass "help ptype" }
 	-re "$prompt $"	{ fail "help ptype" }
 	timeout		{ fail "(timeout) help ptype" }
@@ -1519,11 +1457,11 @@ expect {
 # test help run "r" abbreviation
 send "help r\n"
 expect {
-	-re "Start debugged program.  You may specify arguments to give it..*\
-Args may include .*, or .*; they are expanded using \"sh\"..*\
-Input and output redirection with \".\", \".\", or \"..\" are also allowed..*\
-With no arguments, uses arguments last specified \(with \"run\" or \"set args\"\)..*\
-To cancel previous arguments and run with no arguments,.*\
+	-re "Start debugged program.  You may specify arguments to give it..*
+Args may include .*, or .*; they are expanded using \"sh\"..*
+Input and output redirection with \".\", \".\", or \"..\" are also allowed..*
+With no arguments, uses arguments last specified .with \"run\" or \"set args\"...*
+To cancel previous arguments and run with no arguments,.*
 use \"set args\" without arguments..*$prompt $"\
 			{ pass "help run \"r\" abbreviation" }
 	-re "$prompt $"	{ fail "help run \"r\" abbreviation" }
@@ -1534,11 +1472,11 @@ use \"set args\" without arguments..*$prompt $"\
 # test help run
 send "help run\n"
 expect {
-	-re "Start debugged program.  You may specify arguments to give it..*\
-Args may include .*, or .*; they are expanded using \"sh\"..*\
-Input and output redirection with \".\", \".\", or \"..\" are also allowed..*\
-With no arguments, uses arguments last specified \(with \"run\" or \"set args\"\)..*\
-To cancel previous arguments and run with no arguments,.*\
+	-re "Start debugged program.  You may specify arguments to give it..*
+Args may include .*, or .*; they are expanded using \"sh\"..*
+Input and output redirection with \".\", \".\", or \"..\" are also allowed..*
+With no arguments, uses arguments last specified .with \"run\" or \"set args\"...*
+To cancel previous arguments and run with no arguments,.*
 use \"set args\" without arguments..*$prompt $"\
 			{ pass "help run" }
 	-re "$prompt $"	{ fail "help run" }
@@ -1559,9 +1497,9 @@ expect {
 # test help return
 send "help return\n"
 expect {
-	-re "Make selected stack frame return to its caller..*\
-Control remains in the debugger, but when you continue.*\
-execution will resume in the frame above the one now selected..*\
+	-re "Make selected stack frame return to its caller..*
+Control remains in the debugger, but when you continue.*
+execution will resume in the frame above the one now selected..*
 If an argument is given, it is an expression for the value to return..*$prompt $"\
 			{ pass "help return" }
 	-re "$prompt $"	{ fail "help return" }
@@ -1572,7 +1510,7 @@ If an argument is given, it is an expression for the value to return..*$prompt $
 # test help reverse-search
 send "help reverse-search\n"
 expect {
-	-re "Search backward for regular expression \(see regex\(3\)\) from last line listed..*$prompt $"\
+	-re "Search backward for regular expression .see regex.3.. from last line listed..*$prompt $"\
 			{ pass "help reverse-search" }
 	-re "$prompt $"	{ fail "help reverse-search" }
 	timeout		{ fail "(timeout) help reverse-search" }
@@ -1582,29 +1520,9 @@ expect {
 # test help running
 send "help running\n"
 expect {
-	-re "Running the program..*\
-List of commands:.*\
-show args -- Show arguments to give program being debugged when it is started.*\
-set environment -- Set environment variable value to give the program.*\
-set args -- Set arguments to give program being debugged when it is started.*\
-handle -- Specify how to handle a signal.*\
-kill -- Kill execution of program being debugged.*\
-run -- Start debugged program.*\
-continue -- Continue program being debugged.*\
-jump -- Continue program being debugged at specified line or address.*\
-until -- Execute until the program reaches a source line greater than the current.*\
-step -- Step program until it reaches a different source line.*\
-next -- Step program.*\
-finish -- Execute until selected stack frame returns.*\
-nexti -- Step one instruction.*\
-stepi -- Step one instruction exactly.*\
-signal -- Continue program giving it signal number SIGNUMBER.*\
-detach -- Detach a process or file previously attached.*\
-attach -- Attach to a process or file outside of GDB.*\
-unset environment -- Cancel environment variable VAR for the program.*\
-tty -- Set terminal for future runs of program being debugged.*\
-target -- Connect to a target machine or process.*\
-Type \"help\" followed by command name for full documentation..*\
+	-re "Running the program..*
+List of commands:.*
+Type \"help\" followed by command name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help running" }
 	-re "$prompt $"	{ fail "help running" }
@@ -1615,8 +1533,8 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help step "s" abbreviation
 send "help s\n"
 expect {
-	-re "Step program until it reaches a different source line..*\
-Argument N means do this N times \(or till program stops for another reason\)..*$prompt $"\
+	-re "Step program until it reaches a different source line..*
+Argument N means do this N times .or till program stops for another reason...*$prompt $"\
 			{ pass "help step \"s\" abbreviation" }
 	-re "$prompt $"	{ fail "help step \"s\" abbreviation" }
 	timeout		{ fail "(timeout) help step \"s\" abbreviation" }
@@ -1626,8 +1544,8 @@ Argument N means do this N times \(or till program stops for another reason\)..*
 # test help step
 send "help step\n"
 expect {
-	-re "Step program until it reaches a different source line..*\
-Argument N means do this N times \(or till program stops for another reason\)..*$prompt $"\
+	-re "Step program until it reaches a different source line..*
+Argument N means do this N times .or till program stops for another reason...*$prompt $"\
 			{ pass "help step" }
 	-re "$prompt $"	{ fail "help step" }
 	timeout		{ fail "(timeout) help step" }
@@ -1637,7 +1555,7 @@ Argument N means do this N times \(or till program stops for another reason\)..*
 # test help search
 send "help search\n"
 expect {
-	-re "Search for regular expression \(see regex\(3\)\) from last line listed..*$prompt $"\
+	-re "Search for regular expression .see regex.3.. from last line listed..*$prompt $"\
 			{ pass "help search" }
 	-re "$prompt $"	{ fail "help search" }
 	timeout		{ fail "(timeout) help search" }
@@ -1647,10 +1565,10 @@ expect {
 # test help section
 send "help section\n"
 expect {
-	-re "Change the base address of section SECTION of the exec file to ADDR..*\
-This can be used if the exec file does not contain section addresses,.*\
-\(such as in the a.out format\), or when the addresses specified in the.*\
-file itself are wrong.  Each section must be changed separately.  The.*\
+	-re "Change the base address of section SECTION of the exec file to ADDR..*
+This can be used if the exec file does not contain section addresses,.*
+.such as in the a.out format., or when the addresses specified in the.*
+file itself are wrong.  Each section must be changed separately.  The.*
 ``info files'' command lists all the sections and their addresses..*$prompt $"\
 			{ pass "help section" }
 	-re "$prompt $"	{ fail "help section" }
@@ -1661,7 +1579,7 @@ file itself are wrong.  Each section must be changed separately.  The.*\
 # test help set args
 send "help set args\n"
 expect {
-	-re "Set arguments to give program being debugged when it is started..*\
+	-re "Set arguments to give program being debugged when it is started..*
 Follow this command with any number of args, to be passed to the program..*$prompt $"\
 			{ pass "help set args" }
 	-re "$prompt $"	{ fail "help set args" }
@@ -1672,11 +1590,11 @@ Follow this command with any number of args, to be passed to the program..*$prom
 # test help set check "c" abbreviation
 send "help set c\n"
 expect {
-	-re "Set the status of the type/range checker.*\
-List of set check subcommands:.*\
-set check range -- Set range checking.*\
-set check type -- Set type checking.*\
-Type \"help set check\" followed by set check subcommand name for full documentation..*\
+	-re "Set the status of the type/range checker.*
+List of set check subcommands:.*
+set check range -- Set range checking.*
+set check type -- Set type checking.*
+Type \"help set check\" followed by set check subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help set check \"c\" abbreviation" }
 	-re "$prompt $"	{ fail "help set check \"c\" abbreviation" }
@@ -1687,11 +1605,11 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help set check "ch" abbreviation
 send "help set ch\n"
 expect {
-	-re "Set the status of the type/range checker.*\
-List of set check subcommands:.*\
-set check range -- Set range checking.*\
-set check type -- Set type checking.*\
-Type \"help set check\" followed by set check subcommand name for full documentation..*\
+	-re "Set the status of the type/range checker.*
+List of set check subcommands:.*
+set check range -- Set range checking.*
+set check type -- Set type checking.*
+Type \"help set check\" followed by set check subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help set check \"ch\" abbreviation" }
 	-re "$prompt $"	{ fail "help set check \"ch\" abbreviation" }
@@ -1702,11 +1620,11 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help set check
 send "help set check\n"
 expect {
-	-re "Set the status of the type/range checker.*\
-List of set check subcommands:.*\
-set check range -- Set range checking.*\
-set check type -- Set type checking.*\
-Type \"help set check\" followed by set check subcommand name for full documentation..*\
+	-re "Set the status of the type/range checker.*
+List of set check subcommands:.*
+set check range -- Set range checking.*
+set check type -- Set type checking.*
+Type \"help set check\" followed by set check subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help set check" }
 	-re "$prompt $"	{ fail "help set check" }
@@ -1717,7 +1635,7 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help set check range
 send "help set check range\n"
 expect {
-	-re "Set range checking.  \(on/warn/off/auto\).*$prompt $"\
+	-re "Set range checking.  .on/warn/off/auto..*$prompt $"\
 			{ pass "help set check range" }
 	-re "$prompt $"	{ fail "help set check range" }
 	timeout		{ fail "(timeout) help set check range" }
@@ -1727,7 +1645,7 @@ expect {
 # test help set check type
 send "help set check type\n"
 expect {
-	-re "Set type checking.  \(on/warn/off/auto\).*$prompt $"\
+	-re "Set type checking.  .on/warn/off/auto..*$prompt $"\
 			{ pass "help set check type" }
 	-re "$prompt $"	{ fail "help set check type" }
 	timeout		{ fail "(timeout) help set check type" }
@@ -1757,9 +1675,9 @@ expect {
 # test help set editing
 send "help set editing\n"
 expect {
-	-re "Set editing of command lines as they are typed..*\
-Use \"on\" to enable to enable the editing, and \"off\" to disable it..*\
-Without an argument, command line editing is enabled.  To edit, use.*\
+	-re "Set editing of command lines as they are typed..*
+Use \"on\" to enable to enable the editing, and \"off\" to disable it..*
+Without an argument, command line editing is enabled.  To edit, use.*
 EMACS-like or VI-like commands like control-P or ESC..*$prompt $"\
 			{ pass "help set editing" }
 	-re "$prompt $"	{ fail "help set editing" }
@@ -1770,9 +1688,9 @@ EMACS-like or VI-like commands like control-P or ESC..*$prompt $"\
 # test help set environment
 send "help set environment\n"
 expect {
-	-re "Set environment variable value to give the program..*\
-Arguments are VAR VALUE where VAR is variable name and VALUE is value..*\
-VALUES of environment variables are uninterpreted strings..*\
+	-re "Set environment variable value to give the program..*
+Arguments are VAR VALUE where VAR is variable name and VALUE is value..*
+VALUES of environment variables are uninterpreted strings..*
 This does not affect the program until the next \"run\" command..*$prompt $"\
 			{ pass "help set environment" }
 	-re "$prompt $"	{ fail "help set environment" }
@@ -1793,7 +1711,7 @@ expect {
 # test help set history expansion
 send "help set history expansion\n"
 expect {
-	-re "Set history expansion on command input..*\
+	-re "Set history expansion on command input..*
 Without an argument, history expansion is enabled..*$prompt $"\
 			{ pass "help set history expansion" }
 	-re "$prompt $"	{ fail "help set history expansion" }
@@ -1804,8 +1722,8 @@ Without an argument, history expansion is enabled..*$prompt $"\
 # test help set history filename
 send "help set history filename\n"
 expect {
-	-re "Set the filename in which to record the command history.*\
- \(the list of previous commands of which a record is kept\)..*$prompt $"\
+	-re "Set the filename in which to record the command history.*
+ .the list of previous commands of which a record is kept...*$prompt $"\
 			{ pass "help set history filename" }
 	-re "$prompt $"	{ fail "help set history filename" }
 	timeout		{ fail "(timeout) help set history filename" }
@@ -1815,8 +1733,8 @@ expect {
 # test help set history save
 send "help set history save\n"
 expect {
-	-re "Set saving of the history record on exit..*\
-Use \"on\" to enable to enable the saving, and \"off\" to disable it..*\
+	-re "Set saving of the history record on exit..*
+Use \"on\" to enable to enable the saving, and \"off\" to disable it..*
 Without an argument, saving is enabled..*$prompt $"\
 			{ pass "help set history save" }
 	-re "$prompt $"	{ fail "help set history save" }
@@ -1827,7 +1745,7 @@ Without an argument, saving is enabled..*$prompt $"\
 # test help set history size
 send "help set history size\n"
 expect {
-	-re "Set the size of the command history, .*\
+	-re "Set the size of the command history, .*
 ie. the number of previous commands to keep a record of..*$prompt $"\
 			{ pass "help set history size" }
 	-re "$prompt $"	{ fail "help set history size" }
@@ -1838,13 +1756,13 @@ ie. the number of previous commands to keep a record of..*$prompt $"\
 # test help set history
 send "help set history\n"
 expect {
-	-re "Generic command for setting command history parameters..*\
-List of set history subcommands:.*\
-set history filename -- Set the filename in which to record the command history.*\
-set history size -- Set the size of the command history.*\
-set history save -- Set saving of the history record on exit.*\
-set history expansion -- Set history expansion on command input.*\
-Type \"help set history\" followed by set history subcommand name for full documentation..*\
+	-re "Generic command for setting command history parameters..*
+List of set history subcommands:.*
+set history filename -- Set the filename in which to record the command history.*
+set history size -- Set the size of the command history.*
+set history save -- Set saving of the history record on exit.*
+set history expansion -- Set history expansion on command input.*
+Type \"help set history\" followed by set history subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help set history" }
 	-re "$prompt $"	{ fail "help set history" }
@@ -1875,20 +1793,10 @@ expect {
 # test help set print "p" abbreviation
 send "help set p\n"
 expect {
-	-re ".*\
-Generic command for setting how things print..*\
-List of set print subcommands:.*\
-set print address -- Set printing of addresses.*\
-set print array -- Set prettyprinting of arrays.*\
-set print union -- Set printing of unions interior to structures.*\
-set print pretty -- Set prettyprinting of structures.*\
-set print elements -- Set limit on string chars or array elements to print.*\
-set print asm-demangle -- Set demangling of C\+\+ names in disassembly listings.*\
-set print sevenbit-strings -- Set printing of 8-bit characters in strings as .nnn.*\
-set print demangle -- Set demangling of encoded C\+\+ names when displaying symbols.*\
-set print object -- Set printing of object's derived type based on vtable info.*\
-set print vtbl -- Set printing of C\+\+ virtual function tables.*\
-Type \"help set print\" followed by set print subcommand name for full documentation..*\
+	-re ".*
+Generic command for setting how things print..*
+List of set print subcommands:.*
+Type \"help set print\" followed by set print subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help set print \"p\" abbreviatio" }
 	-re "$prompt $"	{ fail "help set print \"p\" abbreviatio" }
@@ -1899,20 +1807,10 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help set print "pr" abbreviation
 send "help set pr\n"
 expect {
-	-re ".*\
-Generic command for setting how things print..*\
-List of set print subcommands:.*\
-set print address -- Set printing of addresses.*\
-set print array -- Set prettyprinting of arrays.*\
-set print union -- Set printing of unions interior to structures.*\
-set print pretty -- Set prettyprinting of structures.*\
-set print elements -- Set limit on string chars or array elements to print.*\
-set print asm-demangle -- Set demangling of C\+\+ names in disassembly listings.*\
-set print sevenbit-strings -- Set printing of 8-bit characters in strings as .nnn.*\
-set print demangle -- Set demangling of encoded C\+\+ names when displaying symbols.*\
-set print object -- Set printing of object's derived type based on vtable info.*\
-set print vtbl -- Set printing of C\+\+ virtual function tables.*\
-Type \"help set print\" followed by set print subcommand name for full documentation..*\
+	-re ".*
+Generic command for setting how things print..*
+List of set print subcommands:.*
+Type \"help set print\" followed by set print subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help set print \"pr\" abbreviation" }
 	-re "$prompt $"	{ fail "help set print \"pr\" abbreviation" }
@@ -1923,20 +1821,10 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help set print
 send "help set print\n"
 expect {
-	-re ".*\
-Generic command for setting how things print..*\
-List of set print subcommands:.*\
-set print address -- Set printing of addresses.*\
-set print array -- Set prettyprinting of arrays.*\
-set print union -- Set printing of unions interior to structures.*\
-set print pretty -- Set prettyprinting of structures.*\
-set print elements -- Set limit on string chars or array elements to print.*\
-set print asm-demangle -- Set demangling of C\+\+ names in disassembly listings.*\
-set print sevenbit-strings -- Set printing of 8-bit characters in strings as .nnn.*\
-set print demangle -- Set demangling of encoded C\+\+ names when displaying symbols.*\
-set print object -- Set printing of object's derived type based on vtable info.*\
-set print vtbl -- Set printing of C\+\+ virtual function tables.*\
-Type \"help set print\" followed by set print subcommand name for full documentation..*\
+	-re ".*
+Generic command for setting how things print..*
+List of set print subcommands:.*
+Type \"help set print\" followed by set print subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help set print" }
 	-re "$prompt $"	{ fail "help set print" }
@@ -1967,7 +1855,7 @@ expect {
 # test help set print asm-demangle
 send "help set print asm-demangle\n"
 expect {
-	-re "Set demangling of C\+\+ names in disassembly listings..*$prompt $"\
+	-re "Set demangling of C\[+\]+ names in disassembly listings..*$prompt $"\
 			{ pass "help set print asm-demangle" }
 	-re "$prompt $"	{ fail "help set print asm-demangle" }
 	timeout		{ fail "(timeout) help set print asm-demangle" }
@@ -1977,7 +1865,7 @@ expect {
 # test help set print demangle
 send "help set print demangle\n"
 expect {
-	-re "Set demangling of encoded C\+\+ names when displaying symbols..*$prompt $"\
+	-re "Set demangling of encoded C\[+\]+ names when displaying symbols..*$prompt $"\
 			{ pass "help set print demangle" }
 	-re "$prompt $"	{ fail "help set print demangle" }
 	timeout		{ fail "(timeout) help set print demangle" }
@@ -1987,7 +1875,7 @@ expect {
 # test help set print elements
 send "help set print elements\n"
 expect {
-	-re "Set limit on string chars or array elements to print..*\
+	-re "Set limit on string chars or array elements to print..*
 \"set print elements 0\" causes there to be no limit..*$prompt $"\
 			{ pass "help set print elements" }
 	-re "$prompt $"	{ fail "help set print elements" }
@@ -2038,7 +1926,7 @@ expect {
 # test help set print vtbl
 send "help set print vtbl\n"
 expect {
-	-re "Set printing of C\+\+ virtual function tables..*$prompt $"\
+	-re "Set printing of C\[+\]+ virtual function tables..*$prompt $"\
 			{ pass "help set print vtbl" }
 	-re "$prompt $"	{ fail "help set print vtbl" }
 	timeout		{ fail "(timeout) help set print vtbl" }
@@ -2058,9 +1946,9 @@ expect {
 # test help set radix
 send "help set radix\n"
 expect {
-	-re "Set default input and output number radices.*\
-Use \'set input-radix\' or \'set output-radix\' to independently set each..*\
-Without an argument, sets both radices back to the default value of 10..*\
+	-re "Set default input and output number radices.*
+Use \'set input-radix\' or \'set output-radix\' to independently set each..*
+Without an argument, sets both radices back to the default value of 10..*
 .*$prompt $"\
 			{ pass "help set radix" }
 	-re "Set default input and output number radix..*$prompt $"\
@@ -2083,12 +1971,12 @@ expect {
 # test help set variable
 send "help set variable\n"
 expect {
-	-re ".*\
-Evaluate expression EXP and assign result to variable VAR, using assignment.*\
-syntax appropriate for the current language \(VAR = EXP or VAR := EXP for.*\
-example\).  VAR may be a debugger \"convenience\" variable \(names starting.*\
-with \\\$\), a register \(a few standard names starting with \\\$\), or an actual.*\
-variable in the program being debugged.  EXP is any valid expression.*\
+	-re ".*
+Evaluate expression EXP and assign result to variable VAR, using assignment.*
+syntax appropriate for the current language .VAR = EXP or VAR := EXP for.*
+example..  VAR may be a debugger \"convenience\" variable .names starting.*
+with \\\$., a register .a few standard names starting with \\\$., or an actual.*
+variable in the program being debugged.  EXP is any valid expression.*
 This may usually be abbreviated to simply \"set\"..*$prompt $"\
 			{ pass "help set variable" }
 	-re "$prompt $"	{ fail "help set variable" }
@@ -2141,15 +2029,15 @@ if 0 then {
 if ![istarget "*-*-ultrix*"] then {
     send "help set\n"
     expect {
-	-re ".*\
-Evaluate expression EXP and assign result to variable VAR, using assignment.*\
-syntax appropriate for the current language \(VAR = EXP or VAR := EXP for.*\
-example\).  VAR may be a debugger \"convenience\" variable \(names starting.*\
-with \\\$\), a register \(a few standard names starting with \\\$\), or an actual.*\
-variable in the program being debugged.  EXP is any valid expression.*\
-set listsize -- Set number of source lines gdb will list by default.*\
-Type \"help set\" followed by set subcommand name for full documentation..*\
-Command name abbreviations are allowed if unambiguous..*\
+	-re ".*
+Evaluate expression EXP and assign result to variable VAR, using assignment.*
+syntax appropriate for the current language .VAR = EXP or VAR := EXP for.*
+example..  VAR may be a debugger \"convenience\" variable .names starting.*
+with \\\$., a register .a few standard names starting with \\\$., or an actual.*
+variable in the program being debugged.  EXP is any valid expression.*
+set listsize -- Set number of source lines gdb will list by default.*
+Type \"help set\" followed by set subcommand name for full documentation..*
+Command name abbreviations are allowed if unambiguous..*
 $prompt $"\
 			{ pass "help set" }
 	-re "$prompt $"	{ fail "help set" }
@@ -2161,7 +2049,7 @@ $prompt $"\
 # test help shell
 send "help shell\n"
 expect {
-	-re "Execute the rest of the line as a shell command.  .*\
+	-re "Execute the rest of the line as a shell command.  .*
 With no arguments, run an inferior shell..*$prompt $"\
 			{ pass "help shell" }
 	-re "$prompt $"	{ fail "help shell" }
@@ -2172,7 +2060,7 @@ With no arguments, run an inferior shell..*$prompt $"\
 # test help show args
 send "help show args\n"
 expect {
-	-re "Show arguments to give program being debugged when it is started..*\
+	-re "Show arguments to give program being debugged when it is started..*
 Follow this command with any number of args, to be passed to the program..*$prompt $"\
 			{ pass "help show args" }
 	-re "$prompt $"	{ fail "help show args" }
@@ -2183,11 +2071,11 @@ Follow this command with any number of args, to be passed to the program..*$prom
 # test help show check "c" abbreviation
 send "help show c\n"
 expect {
-	-re "Show the status of the type/range checker.*\
-List of show check subcommands:.*\
-show check range -- Show range checking.*\
-show check type -- Show type checking.*\
-Type \"help show check\" followed by show check subcommand name for full documentation..*\
+	-re "Show the status of the type/range checker.*
+List of show check subcommands:.*
+show check range -- Show range checking.*
+show check type -- Show type checking.*
+Type \"help show check\" followed by show check subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help show check \"c\" abbreviation" }
 	-re "$prompt $"	{ fail "help show check \"c\" abbreviation" }
@@ -2198,11 +2086,11 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help show check
 send "help show check\n"
 expect {
-	-re "Show the status of the type/range checker.*\
-List of show check subcommands:.*\
-show check range -- Show range checking.*\
-show check type -- Show type checking.*\
-Type \"help show check\" followed by show check subcommand name for full documentation..*\
+	-re "Show the status of the type/range checker.*
+List of show check subcommands:.*
+show check range -- Show range checking.*
+show check type -- Show type checking.*
+Type \"help show check\" followed by show check subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help show check" }
 	-re "$prompt $"	{ fail "help show check" }
@@ -2213,7 +2101,7 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help show check range
 send "help show check range\n"
 expect {
-	-re "Show range checking.  \(on/warn/off/auto\).*$prompt $"\
+	-re "Show range checking.  .on/warn/off/auto..*$prompt $"\
 			{ pass "help show check range" }
 	-re "$prompt $"	{ fail "help show check range" }
 	timeout		{ fail "(timeout) help show check range" }
@@ -2223,7 +2111,7 @@ expect {
 # test help show check type
 send "help show check type\n"
 expect {
-	-re "Show type checking.  \(on/warn/off/auto\).*$prompt $"\
+	-re "Show type checking.  .on/warn/off/auto..*$prompt $"\
 			{ pass "help show check type" }
 	-re "$prompt $"	{ fail "help show check type" }
 	timeout		{ fail "(timeout) help show check type" }
@@ -2233,8 +2121,8 @@ expect {
 # test help show commands
 send "help show commands\n"
 expect {
-	-re "Show the the history of commands you typed..*\
-You can supply a command number to start with, or a `\+' to start after.*\
+	-re "Show the the history of commands you typed..*
+You can supply a command number to start with, or a `\[+\]' to start after.*
 the previous command number shown..*$prompt $"\
 			{ pass "help show commands" }
 	-re "$prompt $"	{ fail "help show commands" }
@@ -2265,11 +2153,11 @@ expect {
 # test help show convenience
 send "help show convenience\n"
 expect {
-	-re "Debugger convenience \(\".foo\"\) variables..*\
-These variables are created when you assign them values;.*\
-thus, \"print .foo=1\" gives \".foo\" the value 1.  Values may be any type..*\
-A few convenience variables are given values automatically:.*\
-\"._\"holds the last address examined with \"x\" or \"info lines\",.*\
+	-re "Debugger convenience .\".foo\". variables..*
+These variables are created when you assign them values;.*
+thus, \"print .foo=1\" gives \".foo\" the value 1.  Values may be any type..*
+A few convenience variables are given values automatically:.*
+\"._\"holds the last address examined with \"x\" or \"info lines\",.*
 \".__\" holds the contents of the last address examined with \"x\"..*$prompt $"\
 			{ pass "help show convenience" }
 	-re "$prompt $"	{ fail "help show convenience" }
@@ -2280,8 +2168,8 @@ A few convenience variables are given values automatically:.*\
 # test help show directories
 send "help show directories\n"
 expect {
-	-re "Current search path for finding source files..*\
-.cwd in the path means the current working directory..*\
+	-re "Current search path for finding source files..*
+.cwd in the path means the current working directory..*
 .cdir in the path means the compilation directory of the source file..*$prompt $"\
 			{ pass "help show directories" }
 	-re "$prompt $"	{ fail "help show directories" }
@@ -2292,9 +2180,9 @@ expect {
 # test help show editing
 send "help show editing\n"
 expect {
-	-re "Show editing of command lines as they are typed..*\
-Use \"on\" to enable to enable the editing, and \"off\" to disable it..*\
-Without an argument, command line editing is enabled.  To edit, use.*\
+	-re "Show editing of command lines as they are typed..*
+Use \"on\" to enable to enable the editing, and \"off\" to disable it..*
+Without an argument, command line editing is enabled.  To edit, use.*
 EMACS-like or VI-like commands like control-P or ESC..*$prompt $"\
 			{ pass "help show editing" }
 	-re "$prompt $"	{ fail "help show editing" }
@@ -2305,9 +2193,9 @@ EMACS-like or VI-like commands like control-P or ESC..*$prompt $"\
 # test help show environment
 send "help show environment\n"
 expect {
-	-re "The environment to give the program, or one variable's value..*\
-With an argument VAR, prints the value of environment variable VAR to.*\
-give the program being debugged.  With no arguments, prints the entire.*\
+	-re "The environment to give the program, or one variable's value..*
+With an argument VAR, prints the value of environment variable VAR to.*
+give the program being debugged.  With no arguments, prints the entire.*
 environment to be given to the program..*$prompt $"\
 			{ pass "help show environment" }
 	-re "$prompt $"	{ fail "help show environment" }
@@ -2328,7 +2216,7 @@ expect {
 # test help show history expansion
 send "help show history expansion\n"
 expect {
-	-re "Show history expansion on command input..*\
+	-re "Show history expansion on command input..*
 Without an argument, history expansion is enabled..*$prompt $"\
 			{ pass "help show history expansion" }
 	-re "$prompt $"	{ fail "help show history expansion" }
@@ -2339,8 +2227,8 @@ Without an argument, history expansion is enabled..*$prompt $"\
 # test help show history filename
 send "help show history filename\n"
 expect {
-	-re "Show the filename in which to record the command history.*\
- \(the list of previous commands of which a record is kept\)..*$prompt $"\
+	-re "Show the filename in which to record the command history.*
+ .the list of previous commands of which a record is kept...*$prompt $"\
 			{ pass "help show history filename" }
 	-re "$prompt $"	{ fail "help show history filename" }
 	timeout		{ fail "(timeout) help show history filename" }
@@ -2350,8 +2238,8 @@ expect {
 # test help show history save
 send "help show history save\n"
 expect {
-	-re "Show saving of the history record on exit..*\
-Use \"on\" to enable to enable the saving, and \"off\" to disable it..*\
+	-re "Show saving of the history record on exit..*
+Use \"on\" to enable to enable the saving, and \"off\" to disable it..*
 Without an argument, saving is enabled..*$prompt $"\
 			{ pass "help show history save" }
 	-re "$prompt $"	{ fail "help show history save" }
@@ -2362,7 +2250,7 @@ Without an argument, saving is enabled..*$prompt $"\
 # test help show history size
 send "help show history size\n"
 expect {
-	-re "Show the size of the command history, .*\
+	-re "Show the size of the command history, .*
 ie. the number of previous commands to keep a record of..*$prompt $"\
 			{ pass "help show history size" }
 	-re "$prompt $"	{ fail "help show history size" }
@@ -2373,13 +2261,13 @@ ie. the number of previous commands to keep a record of..*$prompt $"\
 # test help show history
 send "help show history\n"
 expect {
-	-re "Generic command for showing command history parameters..*\
-List of show history subcommands:.*\
-show history filename -- Show the filename in which to record the command history.*\
-show history size -- Show the size of the command history.*\
-show history save -- Show saving of the history record on exit.*\
-show history expansion -- Show history expansion on command input.*\
-Type \"help show history\" followed by show history subcommand name for full documentation..*\
+	-re "Generic command for showing command history parameters..*
+List of show history subcommands:.*
+show history filename -- Show the filename in which to record the command history.*
+show history size -- Show the size of the command history.*
+show history save -- Show saving of the history record on exit.*
+show history expansion -- Show history expansion on command input.*
+Type \"help show history\" followed by show history subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help show history" }
 	-re "$prompt $"	{ fail "help show history" }
@@ -2410,19 +2298,9 @@ expect {
 # test help show print "p" abbreviation
 send "help show p\n"
 expect {
-	-re "Generic command for showing print settings..*\
-List of show print subcommands:.*\
-show print address -- Show printing of addresses.*\
-show print array -- Show prettyprinting of arrays.*\
-show print union -- Show printing of unions interior to structures.*\
-show print pretty -- Show prettyprinting of structures.*\
-show print elements -- Show limit on string chars or array elements to print.*\
-show print asm-demangle -- Show demangling of C\+\+ names in disassembly listings.*\
-show print sevenbit-strings -- Show printing of 8-bit characters in strings as .nnn.*\
-show print demangle -- Show demangling of encoded C\+\+ names when displaying symbols.*\
-show print object -- Show printing of object's derived type based on vtable info.*\
-show print vtbl -- Show printing of C\+\+ virtual function tables.*\
-Type \"help show print\" followed by show print subcommand name for full documentation..*\
+	-re "Generic command for showing print settings..*
+List of show print subcommands:.*
+Type \"help show print\" followed by show print subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help show print \"p\" abbreviation" }
 	-re "$prompt $"	{ fail "help show print \"p\" abbreviation" }
@@ -2433,19 +2311,9 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help show print "pr" abbreviation
 send "help show pr\n"
 expect {
-	-re "Generic command for showing print settings..*\
-List of show print subcommands:.*\
-show print address -- Show printing of addresses.*\
-show print array -- Show prettyprinting of arrays.*\
-show print union -- Show printing of unions interior to structures.*\
-show print pretty -- Show prettyprinting of structures.*\
-show print elements -- Show limit on string chars or array elements to print.*\
-show print asm-demangle -- Show demangling of C\+\+ names in disassembly listings.*\
-show print sevenbit-strings -- Show printing of 8-bit characters in strings as .nnn.*\
-show print demangle -- Show demangling of encoded C\+\+ names when displaying symbols.*\
-show print object -- Show printing of object's derived type based on vtable info.*\
-show print vtbl -- Show printing of C\+\+ virtual function tables.*\
-Type \"help show print\" followed by show print subcommand name for full documentation..*\
+	-re "Generic command for showing print settings..*
+List of show print subcommands:.*
+Type \"help show print\" followed by show print subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help show print \"pr\" abbreviation" }
 	-re "$prompt $"	{ fail "help show print \"pr\" abbreviation" }
@@ -2456,19 +2324,9 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help show print
 send "help show print\n"
 expect {
-	-re "Generic command for showing print settings..*\
-List of show print subcommands:.*\
-show print address -- Show printing of addresses.*\
-show print array -- Show prettyprinting of arrays.*\
-show print union -- Show printing of unions interior to structures.*\
-show print pretty -- Show prettyprinting of structures.*\
-show print elements -- Show limit on string chars or array elements to print.*\
-show print asm-demangle -- Show demangling of C\+\+ names in disassembly listings.*\
-show print sevenbit-strings -- Show printing of 8-bit characters in strings as .nnn.*\
-show print demangle -- Show demangling of encoded C\+\+ names when displaying symbols.*\
-show print object -- Show printing of object's derived type based on vtable info.*\
-show print vtbl -- Show printing of C\+\+ virtual function tables.*\
-Type \"help show print\" followed by show print subcommand name for full documentation..*\
+	-re "Generic command for showing print settings..*
+List of show print subcommands:.*
+Type \"help show print\" followed by show print subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help show print" }
 	-re "$prompt $"	{ fail "help show print" }
@@ -2479,10 +2337,10 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help show paths
 send "help show paths\n"
 expect {
-	-re "Current search path for finding object files..*\
-.cwd in the path means the current working directory..*\
-This path is equivalent to the .PATH shell variable.  It is a list of.*\
-directories, separated by colons.  These directories are searched to find.*\
+	-re "Current search path for finding object files..*
+.cwd in the path means the current working directory..*
+This path is equivalent to the .PATH shell variable.  It is a list of.*
+directories, separated by colons.  These directories are searched to find.*
 fully linked executable files and separately compiled object files as needed..*$prompt $"\
 			{ pass "help show paths" }
 	-re "$prompt $"	{ fail "help show paths" }
@@ -2513,7 +2371,7 @@ expect {
 # test help show print asm-demangle
 send "help show print asm-demangle\n"
 expect {
-	-re "Show demangling of C\+\+ names in disassembly listings..*$prompt $"\
+	-re "Show demangling of C\[+\]+ names in disassembly listings..*$prompt $"\
 			{ pass "help show print asm-demangle" }
 	-re "$prompt $"	{ fail "help show print asm-demangle" }
 	timeout		{ fail "(timeout) help show print asm-demangle" }
@@ -2523,7 +2381,7 @@ expect {
 # test help show print demangle
 send "help show print demangle\n"
 expect {
-	-re "Show demangling of encoded C\+\+ names when displaying symbols..*$prompt $"\
+	-re "Show demangling of encoded C\[+\]+ names when displaying symbols..*$prompt $"\
 			{ pass "help show print demangle" }
 	-re "$prompt $"	{ fail "help show print demangle" }
 	timeout		{ fail "(timeout) help show print demangle" }
@@ -2533,7 +2391,7 @@ expect {
 # test help show print elements
 send "help show print elements\n"
 expect {
-	-re "Show limit on string chars or array elements to print..*\
+	-re "Show limit on string chars or array elements to print..*
 \"set print elements 0\" causes there to be no limit..*$prompt $"\
 			{ pass "help show print elements" }
 	-re "$prompt $"	{ fail "help show print elements" }
@@ -2584,7 +2442,7 @@ expect {
 # test help show print vtbl
 send "help show print vtbl\n"
 expect {
-	-re "Show printing of C\+\+ virtual function tables..*$prompt $"\
+	-re "Show printing of C\[+\]+ virtual function tables..*$prompt $"\
 			{ pass "help show print vtbl" }
 	-re "$prompt $"	{ fail "help show print vtbl" }
 	timeout		{ fail "(timeout) help show print vtbl" }
@@ -2604,8 +2462,8 @@ expect {
 # test help show radix
 send "help show radix\n"
 expect {
-	-re "Show the default input and output number radices.*\
-Use \'show input-radix\' or \'show output-radix\' to independently show each.*\
+	-re "Show the default input and output number radices.*
+Use \'show input-radix\' or \'show output-radix\' to independently show each.*
 $prompt $"\
 			{ pass "help show radix" }
 	-re "Show default input and output number radix..*$prompt $"\
@@ -2628,8 +2486,8 @@ expect {
 # test help show user
 send "help show user\n"
 expect {
-	-re "Show definitions of user defined commands..*\
-Argument is the name of the user defined command..*\
+	-re "Show definitions of user defined commands..*
+Argument is the name of the user defined command..*
 With no argument, show definitions of all user defined commands..*$prompt $"\
 			{ pass "help show user" }
 	-re "$prompt $"	{ fail "help show user" }
@@ -2640,7 +2498,7 @@ With no argument, show definitions of all user defined commands..*$prompt $"\
 # test help show values
 send "help show values\n"
 expect {
-	-re "Elements of value history around item number IDX \(or last ten\)..*$prompt $"\
+	-re "Elements of value history around item number IDX .or last ten...*$prompt $"\
 			{ pass "help show values" }
 	-re "$prompt $"	{ fail "help show values" }
 	timeout		{ fail "(timeout) help show values" }
@@ -2694,11 +2552,11 @@ if ![istarget "rs6000-*-*"] then {
 # test help show
 send "help show\n"
 expect {
-	-re "Generic command for showing things about the debugger..*\
-List of show subcommands:.*\
-show listsize -- Show number of source lines gdb will list by default.*\
-show directories -- Current search path for finding source files.*\
-Type \"help show\" followed by show subcommand name for full documentation..*\
+	-re "Generic command for showing things about the debugger..*
+List of show subcommands:.*
+show listsize -- Show number of source lines gdb will list by default.*
+show directories -- Current search path for finding source files.*
+Type \"help show\" followed by show subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help show" }
 	-re "$prompt $"	{ fail "help show" }
@@ -2710,8 +2568,8 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help step
 send "help step\n"
 expect {
-	-re "Step program until it reaches a different source line..*\
-Argument N means do this N times \(or till program stops for another reason\)..*$prompt $"\
+	-re "Step program until it reaches a different source line..*
+Argument N means do this N times .or till program stops for another reason...*$prompt $"\
 			{ pass "help step" }
 	-re "$prompt $"	{ fail "help step" }
 	timeout		{ fail "(timeout) help step" }
@@ -2720,8 +2578,8 @@ Argument N means do this N times \(or till program stops for another reason\)..*
 # test help stepi "si" abbreviation
 send "help si\n"
 expect {
-	-re "Step one instruction exactly..*\
-Argument N means do this N times \(or till program stops for another reason\)..*$prompt $"\
+	-re "Step one instruction exactly..*
+Argument N means do this N times .or till program stops for another reason...*$prompt $"\
 			{ pass "help stepi \"si\" abbreviation" }
 	-re "$prompt $"	{ fail "help stepi \"si\" abbreviation" }
 	timeout		{ fail "(timeout) help stepi \"si\" abbreviation" }
@@ -2731,8 +2589,8 @@ Argument N means do this N times \(or till program stops for another reason\)..*
 # test help stepi
 send "help stepi\n"
 expect {
-	-re "Step one instruction exactly..*\
-Argument N means do this N times \(or till program stops for another reason\)..*$prompt $"\
+	-re "Step one instruction exactly..*
+Argument N means do this N times .or till program stops for another reason...*$prompt $"\
 			{ pass "help stepi" }
 	-re "$prompt $"	{ fail "help stepi" }
 	timeout		{ fail "(timeout) help stepi" }
@@ -2753,8 +2611,8 @@ expect {
 # vxgdb reads .vxgdbinit
 send "help source\n"
 expect {
-	-re "Read commands from a file named FILE..*\
-Note that the file \".(vx)?gdbinit\" is read automatically in this way.*\
+	-re "Read commands from a file named FILE..*
+Note that the file \".(vx)?gdbinit\" is read automatically in this way.*
 when gdb is started..*$prompt $"\
 			{ pass "help source" }
 	-re "$prompt $"	{ fail "help source" }
@@ -2765,22 +2623,22 @@ when gdb is started..*$prompt $"\
 # test help stack
 send "help stack\n"
 expect {
-	-re "Examining the stack..*\
-The stack is made up of stack frames.  Gdb assigns numbers to stack frames.*\
-counting from zero for the innermost \(currently executing\) frame..*\
-At any time gdb identifies one frame as the \"selected\" frame..*\
-Variable lookups are done with respect to the selected frame..*\
-When the program being debugged stops, gdb selects the innermost frame..*\
-The commands below can be used to select other frames by number or address..*\
-List of commands:.*\
-bt -- Print backtrace of all stack frames.*\
-backtrace -- Print backtrace of all stack frames.*\
-select-frame -- Select a stack frame without printing anything.*\
-frame -- Select and print a stack frame.*\
-down -- Select and print stack frame called by this one.*\
-up -- Select and print stack frame that called this one.*\
-return -- Make selected stack frame return to its caller.*\
-Type \"help\" followed by command name for full documentation..*\
+	-re "Examining the stack..*
+The stack is made up of stack frames.  Gdb assigns numbers to stack frames.*
+counting from zero for the innermost .currently executing. frame..*
+At any time gdb identifies one frame as the \"selected\" frame..*
+Variable lookups are done with respect to the selected frame..*
+When the program being debugged stops, gdb selects the innermost frame..*
+The commands below can be used to select other frames by number or address..*
+List of commands:.*
+bt -- Print backtrace of all stack frames.*
+backtrace -- Print backtrace of all stack frames.*
+select-frame -- Select a stack frame without printing anything.*
+frame -- Select and print a stack frame.*
+down -- Select and print stack frame called by this one.*
+up -- Select and print stack frame that called this one.*
+return -- Make selected stack frame return to its caller.*
+Type \"help\" followed by command name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help stack" }
 	-re "$prompt $"	{ fail "help stack" }
@@ -2791,11 +2649,11 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help status
 send "help status\n"
 expect {
-	-re "Status inquiries..*\
-List of commands:.*\
-show -- Generic command for showing things about the debugger.*\
-info -- Generic command for showing things about the program being debugged.*\
-Type \"help\" followed by command name for full documentation..*\
+	-re "Status inquiries..*
+List of commands:.*
+show -- Generic command for showing things about the debugger.*
+info -- Generic command for showing things about the program being debugged.*
+Type \"help\" followed by command name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help status" }
 	-re "$prompt $"	{ fail "help status" }
@@ -2806,13 +2664,13 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help support
 send "help support\n"
 expect {
-	-re "Support facilities..*\
-List of commands:.*\
-show confirm -- Show whether to confirm potentially dangerous operations.*\
-show history -- Generic command for showing command history parameters.*\
-down-silently -- Same as the `down' command.*\
-up-silently -- Same as the `up' command.*\
-Type \"help\" followed by command name for full documentation..*\
+	-re "Support facilities..*
+List of commands:.*
+show confirm -- Show whether to confirm potentially dangerous operations.*
+show history -- Generic command for showing command history parameters.*
+down-silently -- Same as the `down' command.*
+up-silently -- Same as the `up' command.*
+Type \"help\" followed by command name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help support" }
 	-re "$prompt $"	{ fail "help support" }
@@ -2823,8 +2681,8 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help symbol-file
 send "help symbol-file\n"
 expect {
-	-re "Load symbol table from executable file FILE..*\
-The `file' command can also load symbol tables, as well as setting the file.*\
+	-re "Load symbol table from executable file FILE..*
+The `file' command can also load symbol tables, as well as setting the file.*
 to execute..*$prompt $"\
 			{ pass "help symbol-file" }
 	-re "$prompt $"	{ fail "help symbol-file" }
@@ -2835,7 +2693,7 @@ to execute..*$prompt $"\
 # test help target child
 send "help target child\n"
 expect {
-	-re "Unix child process \(started by the \"run\" command\)..*$prompt $"\
+	-re "Unix child process .started by the \"run\" command...*$prompt $"\
 	    { pass "help target child (non-procfs version)" }
 	-re "Undefined target command: \"child\".  Try \"help target\"..*$prompt $"\
 	    { pass "help target child (procfs version)" }
@@ -2847,7 +2705,7 @@ expect {
 # test help target procfs
 send "help target procfs\n"
 expect {
-	-re "Unix /proc child process \(started by the \"run\" command\)..*$prompt $"\
+	-re "Unix /proc child process .started by the \"run\" command...*$prompt $"\
 	    { pass "help target procfs (procfs version)" }
 	-re "Undefined target command: \"procfs\".  Try \"help target\"..*$prompt $"\
 	    { pass "help target procfs (non-procfs version)" }
@@ -2871,7 +2729,7 @@ expect {
 # test help target exec
 send "help target exec\n"
 expect {
-	-re "Use an executable file as a target..*\
+	-re "Use an executable file as a target..*
 Specify the filename of the executable file..*$prompt $"\
 			{ pass "help target exec" }
 	-re "$prompt $"	{ fail "help target exec" }
@@ -2882,8 +2740,8 @@ Specify the filename of the executable file..*$prompt $"\
 # test help target remote
 send "help target remote\n"
 expect {
-	-re "Use a remote computer via a serial line, using a gdb-specific protocol..*\
-Specify the serial device it is connected to \(e.g. /dev/ttya\)..*$prompt $"\
+	-re "Use a remote computer via a serial line, using a gdb-specific protocol..*
+Specify the serial device it is connected to .e.g. /dev/ttya...*$prompt $"\
 			{ pass "help target remote" }
 	-re "$prompt $"	{ fail "help target remote" }
 	timeout		{ fail "(timeout) help target remote" }
@@ -2894,15 +2752,15 @@ Specify the serial device it is connected to \(e.g. /dev/ttya\)..*$prompt $"\
 # the child process target may be "target child" or "target procfs"
 send "help target\n"
 expect {
-	-re "Connect to a target machine or process..*\
-The first argument is the type or protocol of the target machine..*\
-Remaining arguments are interpreted by the target protocol.  For more.*\
-information on the arguments for a particular protocol, type.*\
-`help target ' followed by the protocol name..*\
-List of target subcommands:.*\
-target remote -- Use a remote computer via a serial line.*\
-target exec -- Use an executable file as a target.*\
-Type \"help target\" followed by target subcommand name for full documentation..*\
+	-re "Connect to a target machine or process..*
+The first argument is the type or protocol of the target machine..*
+Remaining arguments are interpreted by the target protocol.  For more.*
+information on the arguments for a particular protocol, type.*
+`help target ' followed by the protocol name..*
+List of target subcommands:.*
+target remote -- Use a remote computer via a serial line.*
+target exec -- Use an executable file as a target.*
+Type \"help target\" followed by target subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help target" }
 	-re "$prompt $"	{ fail "help target" }
@@ -2913,9 +2771,9 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help tbreak
 send "help tbreak\n"
 expect {
-	-re "Set a temporary breakpoint.  Args like \"break\" command..*\
-Like \"break\" except the breakpoint is only enabled temporarily,.*\
-so it will be disabled when hit.  Equivalent to \"break\" followed.*\
+	-re "Set a temporary breakpoint.  Args like \"break\" command..*
+Like \"break\" except the breakpoint is only enabled temporarily,.*
+so it will be disabled when hit.  Equivalent to \"break\" followed.*
 by using \"enable once\" on the breakpoint number..*$prompt $"\
 			{ pass "help tbreak" }
 	-re "$prompt $"	{ fail "help tbreak" }
@@ -2936,8 +2794,8 @@ expect {
 # test help until "u" abbreviation
 send "help u\n"
 expect {
-	-re "Execute until the program reaches a source line greater than the current.*\
-or a specified line or address or function \(same args as break command\)..*\
+	-re "Execute until the program reaches a source line greater than the current.*
+or a specified line or address or function .same args as break command...*
 Execution will also stop upon exit from the current stack frame..*$prompt $"\
 			{ pass "help until \"u\" abbreviation" }
 	-re "$prompt $"	{ fail "help until \"u\" abbreviation" }
@@ -2948,8 +2806,8 @@ Execution will also stop upon exit from the current stack frame..*$prompt $"\
 # test help until
 send "help until\n"
 expect {
-	-re "Execute until the program reaches a source line greater than the current.*\
-or a specified line or address or function \(same args as break command\)..*\
+	-re "Execute until the program reaches a source line greater than the current.*
+or a specified line or address or function .same args as break command...*
 Execution will also stop upon exit from the current stack frame..*$prompt $"\
 			{ pass "help until" }
 	-re "$prompt $"	{ fail "help until" }
@@ -2960,10 +2818,10 @@ Execution will also stop upon exit from the current stack frame..*$prompt $"\
 # test help undisplay
 send "help undisplay\n"
 expect {
-	-re "Cancel some expressions to be displayed when program stops..*\
-Arguments are the code numbers of the expressions to stop displaying..*\
-No argument means cancel all automatic-display expressions..*\
-\"delete display\" has the same effect as this command..*\
+	-re "Cancel some expressions to be displayed when program stops..*
+Arguments are the code numbers of the expressions to stop displaying..*
+No argument means cancel all automatic-display expressions..*
+\"delete display\" has the same effect as this command..*
 Do \"info display\" to see current list of code numbers..*$prompt $"\
 			{ pass "help undisplay" }
 	-re "$prompt $"	{ fail "help undisplay" }
@@ -2974,7 +2832,7 @@ Do \"info display\" to see current list of code numbers..*$prompt $"\
 # test help unset environment
 send "help unset environment\n"
 expect {
-	-re "Cancel environment variable VAR for the program..*\
+	-re "Cancel environment variable VAR for the program..*
 This does not affect the program until the next \"run\" command..*$prompt $"\
 			{ pass "help unset environment" }
 	-re "$prompt $"	{ fail "help unset environment" }
@@ -2985,10 +2843,10 @@ This does not affect the program until the next \"run\" command..*$prompt $"\
 # test help unset
 send "help unset\n"
 expect {
-	-re "Complement to certain \"set\" commands.*\
-List of unset subcommands:.*\
-unset environment -- Cancel environment variable VAR for the program.*\
-Type \"help unset\" followed by unset subcommand name for full documentation..*\
+	-re "Complement to certain \"set\" commands.*
+List of unset subcommands:.*
+unset environment -- Cancel environment variable VAR for the program.*
+Type \"help unset\" followed by unset subcommand name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help unset" }
 	-re "$prompt $"	{ fail "help unset" }
@@ -2999,7 +2857,7 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help up
 send "help up\n"
 expect {
-	-re "Select and print stack frame that called this one..*\
+	-re "Select and print stack frame that called this one..*
 An argument says how many frames up to go..*$prompt $"\
 			{ pass "help up" }
 	-re "$prompt $"	{ fail "help up" }
@@ -3010,7 +2868,7 @@ An argument says how many frames up to go..*$prompt $"\
 # test help up-silently
 send "help up-silently\n"
 expect {
-	-re "Same as the `up' command, but does not print anything..*\
+	-re "Same as the `up' command, but does not print anything..*
 This is useful in command scripts..*$prompt $"\
 			{ pass "help up-silently" }
 	-re "$prompt $"	{ fail "help up-silently" }
@@ -3021,11 +2879,11 @@ This is useful in command scripts..*$prompt $"\
 # test help user-defined
 send "help user-defined\n"
 expect {
-	-re "User-defined commands..*\
-The commands in this class are those defined by the user..*\
-Use the \"define\" command to define a command..*\
-List of commands:.*\
-Type \"help\" followed by command name for full documentation..*\
+	-re "User-defined commands..*
+The commands in this class are those defined by the user..*
+Use the \"define\" command to define a command..*
+List of commands:.*
+Type \"help\" followed by command name for full documentation..*
 Command name abbreviations are allowed if unambiguous..*$prompt $"\
 			{ pass "help user-defined" }
 	-re "$prompt $"	{ fail "help user-defined" }
@@ -3036,8 +2894,8 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 # test help watch
 send "help watch\n"
 expect {
-	-re "Set a watchpoint for an expression..*\
-A watchpoint stops execution of your program whenever the value of.*\
+	-re "Set a watchpoint for an expression..*
+A watchpoint stops execution of your program whenever the value of.*
 an expression changes..*$prompt $"\
 			{ pass "help watch" }
 	-re "$prompt $"	{ fail "help watch" }
@@ -3058,7 +2916,7 @@ expect {
 # test help where
 send "help where\n"
 expect {
-	-re "Print backtrace of all stack frames, or innermost COUNT frames..*\
+	-re "Print backtrace of all stack frames, or innermost COUNT frames..*
 With a negative argument, print outermost -COUNT frames..*$prompt $"\
 			{ pass "help where" }
 	-re "$prompt $"	{ fail "help where" }
@@ -3069,11 +2927,11 @@ With a negative argument, print outermost -COUNT frames..*$prompt $"\
 # test help x
 send "help x\n"
 expect {
-	-re "Examine memory: x/FMT ADDRESS..*\
-ADDRESS is an expression for the memory address to examine..*\
-FMT is a repeat count followed by a format letter and a size letter..*\
-Defaults for format and size letters are those previously used..*\
-Default count is 1.  Default address is following last thing printed.*\
+	-re "Examine memory: x/FMT ADDRESS..*
+ADDRESS is an expression for the memory address to examine..*
+FMT is a repeat count followed by a format letter and a size letter..*
+Defaults for format and size letters are those previously used..*
+Default count is 1.  Default address is following last thing printed.*
 with this command or \"print\"..*$prompt $"\
 			{ pass "help x" }
 	-re "$prompt $"	{ fail "help x" }
