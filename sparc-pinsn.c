@@ -135,10 +135,6 @@ print_insn (memaddr, stream)
 	      && insn.rs1 == insn.rd)
 	    imm_added_to_rs1 = 1;
 
-	  if (strchr (opcode->args, 'S') != 0)
-	    /* Reject the special case for `set'.
-	       The real `sethi' will match.  */
-	    continue;
 	  if (insn.rs1 != insn.rd
 	      && strchr (opcode->args, 'r') != 0)
 	      /* Can't do simple format if source and dest are different.  */
@@ -360,7 +356,7 @@ print_insn (memaddr, stream)
 	}
     }
 
-  fprintf_filtered ("%#8x", insn.code);
+  printf_filtered ("%#8x", insn.code);
   return sizeof (insn);
 }
 
@@ -427,6 +423,12 @@ compare_opcodes (a, b)
       /* Put the one that isn't an alias first.  */
       return alias_diff;
   }
+
+  /* Except for the above aliases, two "identical" instructions had
+     better have the same opcode.  This is a sanity check on the table.  */
+  if (0 != strcmp (op0->name, op1->name))
+      fprintf (stderr, "Internal error: bad sparc-opcode.h: \"%s\" == \"%s\"\n",
+	op0->name, op1->name);
 
   /* Fewer arguments are preferred.  */
   {

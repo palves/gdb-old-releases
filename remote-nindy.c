@@ -1,7 +1,6 @@
 /* Memory-access and commands for remote NINDY process, for GDB.
-   Copyright (C)  1990 Free Software Foundation, Inc.
-
-   MODIFIED BY CHRIS BENENATI, FOR INTEL CORPORATION, 12/88
+   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Contributed by Intel Corporation.  Modified from remote.c by Chris Benenati.
 
 GDB is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY.  No author or distributor accepts responsibility to anyone
@@ -102,14 +101,14 @@ NINDY ROM monitor at the other end of the line.
 #include <setjmp.h>
 
 #include "defs.h"
-#include "param-no-tm.h"
-#include "tm-i960.h"
+#include "param.h"
 #include "frame.h"
 #include "inferior.h"
 #include "target.h"
 #include "gdbcore.h"
 #include "command.h"
 #include "bfd.h"
+#include "ieee-float.h"
 
 #include "wait.h"
 #include <sys/ioctl.h>
@@ -125,13 +124,14 @@ extern char *getenv();
 extern char *mktemp();
 
 extern char *coffstrip();
-extern void add_file_addr_command ();
+extern void add_syms_addr_command ();
 extern value call_function_by_hand ();
 extern void generic_mourn_inferior ();
 
 extern struct target_ops nindy_ops;
 extern jmp_buf to_top_level;
 extern FILE *instream;
+extern struct ext_format ext_format_i960[];	/* i960-tdep.c */
 
 extern char ninStopWhy ();
 
@@ -190,12 +190,27 @@ cleanup()
 	error("\n\nYou may need to reset the 80960 and/or reload your program.\n");
 }
 
+/* Clean up anything that needs cleaning when losing control.  */
+
+static char *savename;
+
+static void
+nindy_close (quitting)
+     int quitting;
+{
+  if (nindy_fd)
+    close (nindy_fd);
+  nindy_fd = 0;
+
+  if (savename)
+    free (savename);
+  savename = 0;
+}
+
 /* Open a connection to a remote debugger.   
    FIXME, there should be a way to specify the various options that are
    now specified with gdb command-line options.  (baud_rate, old_protocol,
    and initial_brk)  */
-char *savename;
-
 void
 nindy_open (name, from_tty)
     char *name;		/* "/dev/ttyXX", "ttyXX", or "XX": tty to be opened */
@@ -205,17 +220,12 @@ nindy_open (name, from_tty)
   if (!name)
     error_no_arg ("serial port device name");
 
-  if (savename)
-    free (savename);
-  savename = 0;
+  target_preopen (from_tty);
+  
+  nindy_close (0);
 
 	have_regs = regs_changed = 0;
 	dcache_init();
-
-	if ( nindy_fd ){
-		close( nindy_fd );
-		nindy_fd = 0;
-	}
 
 	/* Allow user to interrupt the following -- we could hang if
 	 * there's no NINDY at the other end of the remote tty.
@@ -235,17 +245,15 @@ nindy_open (name, from_tty)
 	target_fetch_registers(-1);
 }
 
+/* User-initiated quit of nindy operations.  */
+
 static void
 nindy_detach (name, from_tty)
      char *name;
      int from_tty;
 {
-  dont_repeat ();
   if (name)
     error ("Too many arguments");
-  if (nindy_fd)
-    close (nindy_fd);
-  nindy_fd = 0;
   pop_target ();
 }
 
@@ -329,14 +337,15 @@ non_dle( buf, n )
 /* Tell the remote machine to resume.  */
 
 void
-nindy_resume (step, signal)
-     int step, signal;
+nindy_resume (step, siggnal)
+     int step, siggnal;
 {
+	if (siggnal != 0 && siggnal != stop_signal)
+	  error ("Can't send signals to remote NINDY targets.");
+
 	dcache_flush();
 	if ( regs_changed ){
-		immediate_quit++;
-		ninRegsPut( registers );
-		immediate_quit--;
+		nindy_store_registers ();
 		regs_changed = 0;
 	}
 	have_regs = 0;
@@ -439,13 +448,13 @@ nindy_wait( status )
 			stop_code = SIGTRAP;
 			break;
 		default:
-			/* The 80960 is not running Unix, and its
-			 * faults/traces do not map nicely into Unix signals.
-			 * Make sure they do not get confused with Unix signals
-			 * by numbering them with values higher than the highest
-			 * legal Unix signal.  code in i960_print_fault() will
-			 * interpret the value for normal_stop.
-			 */
+			/* The target is not running Unix, and its
+			   faults/traces do not map nicely into Unix signals.
+			   Make sure they do not get confused with Unix signals
+			   by numbering them with values higher than the highest
+			   legal Unix signal.  code in i960_print_fault(),
+			   called via PRINT_RANDOM_SIGNAL, will interpret the
+			   value.  */
 			stop_code += NSIG;
 			break;
 		}
@@ -453,78 +462,44 @@ nindy_wait( status )
 	}
 }
 
-
-/* Print out text describing a "signal number" with which the i80960 halted.
- *
- * SEE THE FILE "fault.c" IN THE NINDY MONITOR SOURCE CODE FOR A LIST
- * OF STOP CODES.
- */
-void
-i960_print_fault( signal )
-    int signal;		/* Signal number, as returned by remote_wait() */
-{
-	static char unknown[] = "Unknown fault or trace";
-	static char *sigmsgs[] = {
-		/* FAULTS */
-		"parallel fault",	/* 0x00 */
-		unknown,		/* 0x01 */
-		"operation fault",	/* 0x02 */
-		"arithmetic fault",	/* 0x03 */
-		"floating point fault",	/* 0x04 */
-		"constraint fault",	/* 0x05 */
-		"virtual memory fault",	/* 0x06 */
-		"protection fault",	/* 0x07 */
-		"machine fault",	/* 0x08 */
-		"structural fault",	/* 0x09 */
-		"type fault",		/* 0x0a */
-		"reserved (0xb) fault",	/* 0x0b */
-		"process fault",	/* 0x0c */
-		"descriptor fault",	/* 0x0d */
-		"event fault",		/* 0x0e */
-		"reserved (0xf) fault",	/* 0x0f */
-
-		/* TRACES */
-		"single-step trace",	/* 0x10 */
-		"branch trace",		/* 0x11 */
-		"call trace",		/* 0x12 */
-		"return trace",		/* 0x13 */
-		"pre-return trace",	/* 0x14 */
-		"supervisor call trace",/* 0x15 */
-		"breakpoint trace",	/* 0x16 */
-	};
-#	define NUMMSGS ((int)( sizeof(sigmsgs) / sizeof(sigmsgs[0]) ))
-
-
-	if ( signal == SIGTRAP ){
-		printf( "\nUnexpected breakpoint.\n" );
-		printf( "You should probably re-load your program.\n" );
-
-	} else {
-
-		/* remote_wait() biases the 80960 "signal number" by adding
-		 * NSIG to it, so it won't get confused with any of the Unix
-		 * signals elsewhere in GDB.  We need to "unbias" it before
-		 * using it.
-		 */
-		signal -= NSIG;
-
-		printf( "\nProgram stopped for reason #%d: %s.\n", signal,
-				(signal < NUMMSGS && signal >= 0)?
-				sigmsgs[signal] : unknown );
-		printf( "Proceed at your own risk.\n\n" );
-	}
-}
-
-
 /* Read the remote registers into the block REGS.  */
+
+/* This is the block that ninRegsGet and ninRegsPut handles.  */
+struct nindy_regs {
+  char	local_regs[16 * 4];
+  char	global_regs[16 * 4];
+  char	pcw_acw[2 * 4];
+  char	ip[4];
+  char	tcw[4];
+  char	fp_as_double[4 * 8];
+};
 
 static int
 nindy_fetch_registers(regno)
      int regno;
 {
+  struct nindy_regs nindy_regs;
+  int regnum, inv;
+  double dub;
+
   immediate_quit++;
-  ninRegsGet( (unsigned char *)registers );
+  ninRegsGet( (char *) &nindy_regs );
   immediate_quit--;
+
+  bcopy (nindy_regs.local_regs, &registers[REGISTER_BYTE (R0_REGNUM)], 16*4);
+  bcopy (nindy_regs.global_regs, &registers[REGISTER_BYTE (G0_REGNUM)], 16*4);
+  bcopy (nindy_regs.pcw_acw, &registers[REGISTER_BYTE (PCW_REGNUM)], 2*4);
+  bcopy (nindy_regs.ip, &registers[REGISTER_BYTE (IP_REGNUM)], 1*4);
+  bcopy (nindy_regs.tcw, &registers[REGISTER_BYTE (TCW_REGNUM)], 1*4);
+  for (regnum = FP0_REGNUM; regnum < FP0_REGNUM + 4; regnum++) {
+    dub = unpack_double (builtin_type_double,
+			 &nindy_regs.fp_as_double[8 * (regnum - FP0_REGNUM)],
+			 &inv);
+    /* dub now in host byte order */
+    double_to_ieee_extended (ext_format_i960, &dub,
+			     &registers[REGISTER_BYTE (regnum)]);
+  }
+
   registers_fetched ();
   return 0;
 }
@@ -539,8 +514,31 @@ static int
 nindy_store_registers(regno)
      int regno;
 {
+  struct nindy_regs nindy_regs;
+  int regnum, inv;
+  double dub;
+
+  bcopy (&registers[REGISTER_BYTE (R0_REGNUM)], nindy_regs.local_regs,  16*4);
+  bcopy (&registers[REGISTER_BYTE (G0_REGNUM)], nindy_regs.global_regs, 16*4);
+  bcopy (&registers[REGISTER_BYTE (PCW_REGNUM)], nindy_regs.pcw_acw,     2*4);
+  bcopy (&registers[REGISTER_BYTE (IP_REGNUM)], nindy_regs.ip,           1*4);
+  bcopy (&registers[REGISTER_BYTE (TCW_REGNUM)], nindy_regs.tcw,         1*4);
+  /* Float regs.  Only works on IEEE_FLOAT hosts.  */
+  for (regnum = FP0_REGNUM; regnum < FP0_REGNUM + 4; regnum++) {
+    ieee_extended_to_double (ext_format_i960,
+			     &registers[REGISTER_BYTE (regnum)], &dub);
+    /* dub now in host byte order */
+    /* FIXME-someday, the arguments to unpack_double are backward.
+       It expects a target double and returns a host; we pass the opposite.
+       This mostly works but not quite.  */
+    dub = unpack_double (builtin_type_double, &dub, &inv);
+    /* dub now in target byte order */
+    bcopy ((char *)&dub, &nindy_regs.fp_as_double[8 * (regnum - FP0_REGNUM)],
+	8);
+  }
+
   immediate_quit++;
-  ninRegsPut( registers );
+  ninRegsPut( (char *) &nindy_regs );
   immediate_quit--;
   return 0;
 }
@@ -589,7 +587,6 @@ nindy_xfer_inferior_memory(memaddr, myaddr, len, write)
     = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);
   /* Allocate buffer of that many longwords.  */
   register int *buffer = (int *) alloca (count * sizeof (int));
-  extern int errno;
 
   if (write)
     {
@@ -784,6 +781,9 @@ dcache_poke (addr, data)
   immediate_quit--;
 }
 
+/* The cache itself. */
+struct dcache_block the_cache[DCACHE_SIZE];
+
 /* Initialize the data cache.  */
 static void
 dcache_init ()
@@ -791,8 +791,7 @@ dcache_init ()
   register i;
   register struct dcache_block *db;
 
-  db = (struct dcache_block *) xmalloc (sizeof (struct dcache_block) * 
-					DCACHE_SIZE);
+  db = the_cache;
   dcache_free.next = dcache_free.last = &dcache_free;
   dcache_valid.next = dcache_valid.last = &dcache_valid;
   for (i=0;i<DCACHE_SIZE;i++,db++)
@@ -812,12 +811,10 @@ nindy_create_inferior (execfile, args, env)
   if (args && *args)
     error ("Can't pass arguments to remote NINDY process");
 
-  entry_pt = (int) bfd_get_start_address (exec_bfd);
+  if (execfile == 0 || exec_bfd == 0)
+    error ("No exec file specified");
 
-  /* Now that we have a child process, make it our target.  */
-  /* We might want to do this to rearrange nindy_ops on top of e.g. exec_ops? */
-  unpush_target (&nindy_ops);
-  push_target (&nindy_ops);
+  entry_pt = (int) bfd_get_start_address (exec_bfd);
 
   pid = 42;
 
@@ -928,7 +925,7 @@ nindy_before_main_loop ()
 	/* Now that we have a tty open for talking to the remote machine,
 	   download the executable file if one was specified.  */
 	if ( !setjmp(to_top_level) && exec_bfd ) {
-	      target_add_file (bfd_get_filename (exec_bfd), 1);
+	      target_load (bfd_get_filename (exec_bfd), 1);
 	}
   }
 }
@@ -937,19 +934,25 @@ nindy_before_main_loop ()
 
 struct target_ops nindy_ops = {
 	"nindy", "Remote serial target in i960 NINDY-specific protocol",
-	nindy_open, nindy_detach, nindy_resume, nindy_wait,
+	"Use a remote i960 system running NINDY connected by a serial line.\n\
+Specify the name of the device the serial line is connected to.\n\
+The speed (baud rate), whether to use the old NINDY protocol,\n\
+and whether to send a break on startup, are controlled by options\n\
+specified when you started GDB.",
+	nindy_open, nindy_close,
+	0, nindy_detach, nindy_resume, nindy_wait,
 	nindy_fetch_registers, nindy_store_registers,
 	nindy_prepare_to_store, 0, 0, /* conv_from, conv_to */
 	nindy_xfer_inferior_memory, nindy_files_info,
 	0, 0, /* insert_breakpoint, remove_breakpoint, */
 	0, 0, 0, 0, 0,	/* Terminal crud */
 	nindy_kill,
-	nindy_load,
+	nindy_load, add_syms_addr_command,
 	call_function_by_hand,
 	0, /* lookup_symbol */
 	nindy_create_inferior,
 	nindy_mourn_inferior,
-	0, /* next */
+	process_stratum, 0, /* next */
 	1, 1, 1, 1, 1,	/* all mem, mem, stack, regs, exec */
 	OPS_MAGIC,		/* Always the last thing */
 };

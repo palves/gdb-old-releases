@@ -185,7 +185,7 @@ print_frame_info (fi, level, source, args)
 	{
 	  if (addressprint && mid_statement)
 	    printf_filtered ("0x%x\t", fi->pc);
-	  print_source_lines (sal.symtab, sal.line, sal.line + 1, 1);
+	  print_source_lines (sal.symtab, sal.line, sal.line + 1, 0);
 	}
       current_source_line = max (sal.line - lines_to_list () / 2, 1);
     }
@@ -221,6 +221,8 @@ extern FRAME setup_arbitrary_frame ();
 
 /*
  * Read a frame specification in whatever the appropriate format is.
+ * Call error() if the specification is in any way invalid (i.e.
+ * this function never returns NULL).
  */
 static FRAME
 parse_frame_specification (frame_exp)
@@ -262,6 +264,8 @@ parse_frame_specification (frame_exp)
   switch (numargs)
     {
     case 0:
+      if (selected_frame == NULL)
+	error ("No selected frame.");
       return selected_frame;
       /* NOTREACHED */
     case 1:
@@ -311,8 +315,8 @@ parse_frame_specification (frame_exp)
 }
 
 /* FRAME_ARGS_ADDRESS_CORRECT is just like FRAME_ARGS_ADDRESS except
-   that if it is unsure about the answer, it returns Frame_unknown
-   instead of guessing (this happens on the VAX, for example).
+   that if it is unsure about the answer, it returns 0
+   instead of guessing (this happens on the VAX and i960, for example).
 
    On most machines, we never have to guess about the args address,
    so FRAME_ARGS_ADDRESS{,_CORRECT} are the same.  */
@@ -357,48 +361,56 @@ frame_info (addr_exp)
   calling_frame = get_prev_frame (frame);
 
   if (!addr_exp && selected_frame_level >= 0)
-    printf ("Stack level %d, frame at 0x%x:\n %s = 0x%x",
+    printf_filtered ("Stack level %d, frame at 0x%x:\n %s = 0x%x",
 	    selected_frame_level, FRAME_FP(frame),
 	    reg_names[PC_REGNUM], fi->pc);
   else
-    printf ("Stack frame at 0x%x:\n %s = 0x%x",
+    printf_filtered ("Stack frame at 0x%x:\n %s = 0x%x",
 	    FRAME_FP(frame), reg_names[PC_REGNUM], fi->pc);
 
+  wrap_here ("   ");
   if (funname)
-    printf (" in %s", funname);
+    printf_filtered (" in %s", funname);
+  wrap_here ("   ");
   if (sal.symtab)
-    printf (" (%s line %d)", sal.symtab->filename, sal.line);
-  printf ("; saved %s 0x%x\n", reg_names[PC_REGNUM], FRAME_SAVED_PC (frame));
+    printf_filtered (" (%s:%d)", sal.symtab->filename, sal.line);
+  puts_filtered ("; ");
+  wrap_here ("    ");
+  printf_filtered ("saved %s 0x%x\n", reg_names[PC_REGNUM],
+				      FRAME_SAVED_PC (frame));
   if (calling_frame)
-    printf (" called by frame at 0x%x", FRAME_FP (calling_frame));
+    printf_filtered (" called by frame at 0x%x", FRAME_FP (calling_frame));
   if (fi->next_frame && calling_frame)
-    printf (",");
+    puts_filtered (",");
+  wrap_here ("   ");
   if (fi->next_frame)
-    printf (" caller of frame at 0x%x", fi->next_frame);
+    printf_filtered (" caller of frame at 0x%x", fi->next_frame);
   if (fi->next_frame || calling_frame)
-    printf ("\n");
+    puts_filtered ("\n");
 
   {
-    /* Address of the argument list for this frame, or Frame_unknown.  */
+    /* Address of the argument list for this frame, or 0.  */
     CORE_ADDR arg_list = FRAME_ARGS_ADDRESS_CORRECT (fi);
     /* Number of args for this frame, or -1 if unknown.  */
     int numargs;
 
-    if (arg_list != Frame_unknown)
+    if (arg_list == 0)
+	printf_filtered (" Arglist at unknown address.\n");
+    else
       {
-	printf (" Arglist at 0x%x,", arg_list);
+	printf_filtered (" Arglist at 0x%x,", arg_list);
 
 	FRAME_NUM_ARGS (numargs, fi);
 	if (numargs < 0)
-	  printf (" args: ");
+	  puts_filtered (" args: ");
 	else if (numargs == 0)
-	  printf (" no args.");
+	  puts_filtered (" no args.");
 	else if (numargs == 1)
-	  printf (" 1 arg: ");
+	  puts_filtered (" 1 arg: ");
 	else
-	  printf (" %d args: ", numargs);
+	  printf_filtered (" %d args: ", numargs);
 	print_frame_args (func, fi, numargs, stdout);
-	printf ("\n");
+	puts_filtered ("\n");
       }
   }
 
@@ -406,24 +418,21 @@ frame_info (addr_exp)
   get_frame_saved_regs (fi, &fsr);
   /* The sp is special; what's returned isn't the save address, but
      actually the value of the previous frame's sp.  */
-  printf (" Previous frame's sp is 0x%x\n", fsr.regs[SP_REGNUM]);
+  printf_filtered (" Previous frame's sp is 0x%x\n", fsr.regs[SP_REGNUM]);
   count = 0;
   for (i = 0; i < NUM_REGS; i++)
     if (fsr.regs[i] && i != SP_REGNUM)
       {
-	if (count % 4 != 0)
-	  printf (", ");
+	if (count == 0)
+	  puts_filtered (" Saved registers:\n ");
 	else
-	  {
-	    if (count == 0)
-	      printf (" Saved registers:");
-	    printf ("\n  ");
-	  }
-	printf ("%s at 0x%x", reg_names[i], fsr.regs[i]);
+	  puts_filtered (",");
+	wrap_here (" ");
+	printf_filtered (" %s at 0x%x", reg_names[i], fsr.regs[i]);
 	count++;
       }
   if (count)
-    printf ("\n");
+    puts_filtered ("\n");
 #endif /* Have FRAME_FIND_SAVED_REGS.  */
 }
 
@@ -471,6 +480,9 @@ backtrace_command (count_exp, from_tty)
   register int i;
   register FRAME trailing;
   register int trailing_level;
+
+  if (!target_has_stack)
+    error ("No stack.");
 
   /* The following code must do two things.  First, it must
      set the variable TRAILING to the frame from which we should start
@@ -744,23 +756,22 @@ print_frame_label_vars (frame, this_level_only, stream)
   return values_printed;
 }
 
+/* ARGSUSED */
 static void
 locals_info (args, from_tty)
      char *args;
      int from_tty;
 {
-  if (!target_has_stack)
-    error ("No stack.");
-
+  if (!selected_frame)
+    error ("No frame selected.");
   print_frame_local_vars (selected_frame, stdout);
 }
 
 static void
 catch_info ()
 {
-  if (!target_has_stack)
-    error ("No stack.");
-
+  if (!selected_frame)
+    error ("No frame selected.");
   print_frame_label_vars (selected_frame, 0, stdout);
 }
 
@@ -790,6 +801,7 @@ print_frame_arg_vars (frame, stream)
     {
       sym = BLOCK_SYM (b, i);
       if (SYMBOL_CLASS (sym) == LOC_ARG
+	  || SYMBOL_CLASS (sym) == LOC_LOCAL_ARG
 	  || SYMBOL_CLASS (sym) == LOC_REF_ARG
 	  || SYMBOL_CLASS (sym) == LOC_REGPARM)
 	{
@@ -820,8 +832,8 @@ print_frame_arg_vars (frame, stream)
 static void
 args_info ()
 {
-  if (!target_has_stack)
-    error ("No stack.");
+  if (!selected_frame)
+    error ("No frame selected.");
   print_frame_arg_vars (selected_frame, stdout);
 }
 
@@ -840,14 +852,15 @@ select_frame (frame, level)
     find_pc_symtab (get_frame_info (frame)->pc);
 }
 
-/* Store the selected frame and its level into *FRAMEP and *LEVELP.  */
+/* Store the selected frame and its level into *FRAMEP and *LEVELP.
+   If there is no selected frame, *FRAMEP is set to NULL.  */
 
 void
 record_selected_frame (frameaddrp, levelp)
      FRAME_ADDR *frameaddrp;
      int *levelp;
 {
-  *frameaddrp = FRAME_FP (selected_frame);
+  *frameaddrp = selected_frame ? FRAME_FP (selected_frame) : NULL;
   *levelp = selected_frame_level;
 }
 
@@ -958,6 +971,7 @@ frame_command (level_exp, from_tty)
 /* Select the frame up one or COUNT stack levels
    from the previously selected frame, and print it briefly.  */
 
+/* ARGSUSED */
 static void
 up_silently_command (count_exp, from_tty)
      char *count_exp;
@@ -990,6 +1004,7 @@ up_command (count_exp, from_tty)
 /* Select the frame down one or COUNT stack levels
    from the previously selected frame, and print it briefly.  */
 
+/* ARGSUSED */
 static void
 down_silently_command (count_exp, from_tty)
      char *count_exp;
@@ -1022,8 +1037,16 @@ return_command (retval_exp, from_tty)
      char *retval_exp;
      int from_tty;
 {
-  struct symbol *thisfun = get_frame_function (selected_frame);
-  FRAME_ADDR selected_frame_addr = FRAME_FP (selected_frame);
+  struct symbol *thisfun;
+  FRAME_ADDR selected_frame_addr;
+  CORE_ADDR selected_frame_pc;
+  FRAME frame;
+
+  if (selected_frame == NULL)
+    error ("No selected frame.");
+  thisfun = get_frame_function (selected_frame);
+  selected_frame_addr = FRAME_FP (selected_frame);
+  selected_frame_pc = (get_frame_info (selected_frame))->pc;
 
   /* If interactive, require confirmation.  */
 
@@ -1041,10 +1064,11 @@ return_command (retval_exp, from_tty)
 
   /* Do the real work.  Pop until the specified frame is current.  We
      use this method because the selected_frame is not valid after
-     a POP_FRAME.  Note that this will not work if the selected frame
-     shares it's fp with another frame.  */
+     a POP_FRAME.  The pc comparison makes this work even if the
+     selected frame shares its fp with another frame.  */
 
-  while (selected_frame_addr != FRAME_FP (get_current_frame()))
+  while ( selected_frame_addr != FRAME_FP (frame = get_current_frame())
+       || selected_frame_pc   != (get_frame_info (frame))->pc  )
     POP_FRAME;
 
   /* Then pop that frame.  */

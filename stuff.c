@@ -1,5 +1,5 @@
 /* Program to stuff files into a specially prepared space in kdb.
-   Copyright (C) 1986, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -27,7 +27,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <varargs.h>
 
 extern char *sys_errlist[];
-extern int errno;
 
 main (argc, argv)
      int argc;

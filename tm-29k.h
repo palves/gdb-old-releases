@@ -1,6 +1,6 @@
 /* Parameters for target machine of AMD 29000, for GDB, the GNU debugger.
-   Copyright (C) 1990 Free Software Foundation, Inc.
-   Built by Jim Kingdon for Cygnus Support for AMD.
+   Copyright 1990, 1991 Free Software Foundation, Inc.
+   Contributed by Cygnus Support.  Written by Jim Kingdon.
 
 This file is part of GDB.
 
@@ -590,7 +590,7 @@ extern void pop_frame ();
 
 /* Position of the "const" instruction within CALL_DUMMY in bytes.  */
 #define CONST_INSN (3 * 4)
-#if TARGET_BYTE_ORDER == BYTE_ORDER
+#if TARGET_BYTE_ORDER == HOST_BYTE_ORDER
 #define CALL_DUMMY {0x0400870f, 0x3600827d, 0x157d7d40, 0x03ff60ff,    \
 		    0x02ff60ff, 0xc8008060, 0x70400101, 0x72500101}
 #else /* Byte order differs.  */
@@ -637,3 +637,17 @@ extern void pop_frame ();
    we won't get a SIGSEGV or scribble on data space.  */
 
 #define CALL_DUMMY_LOCATION AFTER_TEXT_END
+
+/* How to translate register numbers in the .stab's into gdb's internal register
+   numbers.  We don't translate them, but we warn if an invalid register
+   number is seen.  Note that FIXME, we use the value "sym" as an implicit
+   argument in printing the error message.  It happens to be available where
+   this macro is used.  (This macro definition appeared in a late revision
+   of gdb-3.91.6 and is not well tested.  Also, it should be a "complaint".) */
+
+#define	STAB_REG_TO_REGNUM(num) \
+	(((num) > LR0_REGNUM + 127) \
+	   ? fprintf(stderr, 	\
+		"Invalid register number %d in symbol table entry for %s\n", \
+	         (num), SYMBOL_NAME (sym)), (num)	\
+	   : (num))

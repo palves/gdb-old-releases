@@ -1,5 +1,5 @@
-/* Low level interface to ptrace, for GDB when running under Unix.
-   Copyright (C) 1988, 1989 Free Software Foundation, Inc.
+/* Low level MIPS interface to ptrace, for GDB when running under Unix.
+   Copyright (C) 1988, 1989, 1991 Free Software Foundation, Inc.
    Contributed by Alessandro Forin(af@cs.cmu.edu) at CMU
    and by Per Bothner(bothner@cs.wisc.edu) at U.Wisconsin.
 
@@ -43,8 +43,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/user.h>		/* After a.out.h  */
 #include <sys/file.h>
 #include <sys/stat.h>
-
-extern int errno;
 
 /* Get all registers from the inferior */
 
@@ -112,22 +110,25 @@ store_inferior_registers (regno)
     }
 }
 
+#if 0
 void
 fetch_core_registers ()
 {
   register int regno;
+  int val;
 
   for (regno = 1; regno < NUM_REGS; regno++) {
     char buf[MAX_REGISTER_RAW_SIZE];
 
     val = bfd_seek (core_bfd, register_addr (regno, 0));
     if (val < 0 || (val = bfd_read (core_bfd, buf, sizeof buf)) < 0) {
-      char * buffer = (char *) alloca (strlen (reg_names[regno]) + 30);
+      char buffer[50];
       strcpy (buffer, "Reading register ");
       strcat (buffer, reg_names[regno]);
-						   
+
       perror_with_name (buffer);
     }
     supply_register (regno, buf);
   }
 }
+#endif /* 0 */

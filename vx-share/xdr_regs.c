@@ -1,13 +1,6 @@
 /* xdr_regs.c - xdr routines for 68k registers */
 
 /* Copyright 1984,1985,1986,1987,1988,1989 Wind River Systems, Inc. */
-/*extern char copyright_wind_river[]; static char *copyright=copyright_wind_river;*/
-
-/*
-modification history
---------------------
-01a,05jun90,llk  extracted from xdr_regs.c.
-*/
 
 /*
 DESCRIPTION
@@ -21,6 +14,68 @@ for the GDB interface for VxWorks.
 #include <xdr_regs.h>
 
 
+#ifdef I80960
+/*******************************************************************************
+*
+* xdr_regs - xdr routine for i960 registers
+*/
+
+bool_t xdr_regs (xdrs, objp)
+    XDR *xdrs;
+    struct regs *objp;
+
+    {
+    if (! xdr_opaque(xdrs, (char *) objp->r_lreg, 16 * sizeof(int)))
+	return(FALSE);
+    if (! xdr_opaque(xdrs, (char *) objp->r_greg, 16 * sizeof(int)))
+	return(FALSE);
+    if (! xdr_opaque(xdrs, (char *) &objp->r_pcw, sizeof(int)))
+	return(FALSE);
+    if (! xdr_opaque(xdrs, (char *) &objp->r_acw, sizeof(int)))
+	return(FALSE);
+    if (! xdr_opaque(xdrs, (char *) &objp->r_tcw, sizeof(int)))
+	return(FALSE);
+
+    return(TRUE);
+    }
+
+/*******************************************************************************
+*
+* xdr_fp_status - xdr routine for i960 floating point registers
+*/
+
+bool_t xdr_fp_status (xdrs, objp)
+    XDR *xdrs;
+    struct fp_status *objp;
+
+    {
+    unsigned int size = 4 * FP_REG_SIZE;
+
+    /* We use xdr_bytes to indicate how many bytes of FP regs there are! */
+    if (! xdr_bytes (xdrs, (char *) objp->fps_regs, &size, 4 * FP_REG_SIZE))
+	return (FALSE);
+    return (TRUE);
+    }
+
+/*******************************************************************************
+*
+* xdr_ext_fp - xdr for a single fp register
+*/
+
+bool_t xdr_ext_fp (xdrs, objp)
+    XDR *xdrs;
+    char *objp;
+
+    {
+    unsigned int size = FP_REG_SIZE;
+
+    if (! xdr_bytes (xdrs, objp, &size, FP_REG_SIZE)) 
+	return(FALSE);
+
+    return(TRUE);
+    }
+#else	/* Must be 68K if it isn't i960 -- for now.  FIXME!  */
+
 /*******************************************************************************
 *
 * xdr_regs - xdr routine for 68k registers
@@ -31,17 +86,18 @@ bool_t xdr_regs (xdrs, objp)
     struct regs *objp;
 
     {
-    if (! xdr_vector(xdrs, (char *) objp->r_dreg, 8, sizeof(int), xdr_int)) 
+    if (! xdr_opaque(xdrs, (char *) objp->r_dreg, 8 * sizeof(int)))
 	return(FALSE);
-    if (! xdr_vector(xdrs, (char *) objp->r_areg, 8, sizeof(int), xdr_int)) 
+    if (! xdr_opaque(xdrs, (char *) objp->r_areg, 8 * sizeof(int)))
 	return(FALSE);
-    if (! xdr_int(xdrs, &objp->r_sr)) 
+    if (! xdr_opaque(xdrs, (char *) &objp->r_sr, sizeof(int)))
 	return(FALSE);
-    if (! xdr_int(xdrs, &objp->r_pc)) 
+    if (! xdr_opaque(xdrs, (char *) &objp->r_pc, sizeof(int)))
 	return(FALSE);
 
     return(TRUE);
     }
+
 /*******************************************************************************
 *
 * xdr_ext_fp - xdr for a single fp register
@@ -155,3 +211,6 @@ bool_t xdr_fpa_regs (xdrs, objp)
 
     return (TRUE);
     }
+
+#endif /* I80960 */
+

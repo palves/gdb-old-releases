@@ -1,11 +1,7 @@
-/*
- * Changes for sun386i by Jean Daniel Fekete (jdf@litp.univ-p6-7.fr)
- * C2V Paris, April 89
- */
-
-/* Machine-dependent code which would otherwise be in inflow.c and core.c,
-   for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
+/* Machine-dependent code for host Sun 386i's for GDB, the GNU debugger.
+   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
+   Changes for sun386i by Jean Daniel Fekete (jdf@litp.univ-p6-7.fr),
+   C2V Paris, April 89.
 
 This file is part of GDB.
 
@@ -22,6 +18,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+#if defined (GDB_TARGET_IS_SUN386)
 
 #include <stdio.h>
 #include "defs.h"
@@ -44,8 +42,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/core.h>
-
-extern int errno;
 
 void
 fetch_inferior_registers ()
@@ -256,3 +252,28 @@ double_to_i387 (from, to)
   asm ("fstpt (%eax)");
   asm ("fwait");
 }
+#else /* Not sun386 target.  */
+
+/* These functions shouldn't be called when we're cross-debugging.  */
+
+void
+fetch_inferior_registers ()
+{
+}
+
+/* ARGSUSED */
+store_inferior_registers (regno)
+     int regno;
+{
+}
+
+/* ARGSUSED */
+void
+fetch_core_registers (core_reg_sect, core_reg_size, which)
+     char *core_reg_sect;
+     unsigned core_reg_size;
+     int which;
+{
+}
+
+#endif /* Not sun386 target.  */

@@ -18,17 +18,21 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include <stdio.h>
 #include "defs.h"
 #include "param.h"
 #include "inferior.h"
 
 #include <sys/ptrace.h>
+#define KERNEL		/* To get floating point reg definitions */
 #include <machine/reg.h>
 
 #include "gdbcore.h"
 
 extern int errno;
 
+#if defined (GDB_TARGET_IS_SUN3)
+/* All of this stuff is only relevant if both host and target are sun3.  */
 void
 fetch_inferior_registers ()
 {
@@ -95,39 +99,62 @@ store_inferior_registers (regno)
 /* Machine-dependent code for pulling registers out of a Sun-3 core file. */
 
 void
-fetch_core_registers (core_reg_sect, core_reg_size)
+fetch_core_registers (core_reg_sect, core_reg_size, which)
      char *core_reg_sect;
      unsigned core_reg_size;
+     int which;
 {
   extern char registers[];
   struct regs *regs = (struct regs *) core_reg_sect;
 
-  if (core_reg_size < sizeof (struct regs))
-    error ("Can't find registers in core file");
+  if (which == 0) {
+    if (core_reg_size < sizeof (struct regs))
+      error ("Can't find registers in core file");
 
-  bcopy ((char *)regs, registers, 16 * 4);
-  supply_register (PS_REGNUM, regs->r_ps);
-  supply_register (PC_REGNUM, regs->r_pc);
+    bcopy ((char *)regs, registers, 16 * 4);
+    supply_register (PS_REGNUM, &regs->r_ps);
+    supply_register (PC_REGNUM, &regs->r_pc);
 
-#ifdef FIXME
-Floating point regs not handled yet in BFD GDB;
-  core_hdr corestr;
+  } else if (which == 2) {
+
+#define fpustruct  ((struct fpu *) core_reg_sect)
+
+    if (core_reg_size >= sizeof (struct fpu))
+      {
 #ifdef FP0_REGNUM
-#ifdef FPU
-  bcopy (corestr.c_fpu.f_fpstatus.fps_regs,
-	&registers[REGISTER_BYTE (FP0_REGNUM)],
-	sizeof corestr.c_fpu.f_fpstatus.fps_regs);
-  bcopy (&corestr.c_fpu.f_fpstatus.fps_control,
-	&registers[REGISTER_BYTE (FPC_REGNUM)],
-	sizeof corestr.c_fpu.f_fpstatus - sizeof corestr.c_fpu.f_fpstatus.fps_regs);
-#else
-  bcopy (corestr.c_fpstatus.fps_regs,
-	 &registers[REGISTER_BYTE (FP0_REGNUM)],
-	 sizeof corestr.c_fpstatus.fps_regs);
-  bcopy (&corestr.c_fpstatus.fps_control,
-	 &registers[REGISTER_BYTE (FPC_REGNUM)],
-	 sizeof corestr.c_fpstatus - sizeof corestr.c_fpstatus.fps_regs);
+	bcopy (fpustruct->f_fpstatus.fps_regs,
+	      &registers[REGISTER_BYTE (FP0_REGNUM)],
+	      sizeof fpustruct->f_fpstatus.fps_regs);
+	bcopy (&fpustruct->f_fpstatus.fps_control,
+	      &registers[REGISTER_BYTE (FPC_REGNUM)],
+	      sizeof fpustruct->f_fpstatus - 
+		sizeof fpustruct->f_fpstatus.fps_regs);
 #endif
-#endif
-#endif FIXME
+      }
+    else
+      fprintf (stderr, "Couldn't read float regs from core file\n");
+  }
 }
+#else /* Not sun3 target.  */
+/* These functions shouldn't be called when we're cross-debugging.  */
+
+void
+fetch_inferior_registers ()
+{
+}
+
+/* ARGSUSED */
+store_inferior_registers (regno)
+     int regno;
+{
+}
+
+/* ARGSUSED */
+void
+fetch_core_registers (core_reg_sect, core_reg_size, which)
+     char *core_reg_sect;
+     unsigned core_reg_size;
+     int which;
+{
+}
+#endif /* Not sun3 target.  */

@@ -1,5 +1,5 @@
-# Intel 386 running System V release 2
-# Copyright (C) 1990 Free Software Foundation, Inc.
+# Intel 386 running System V release 3.2
+# Copyright (C) 1991 Free Software Foundation, Inc.
 
 # This file is part of GDB.
 
@@ -22,3 +22,6 @@ XM_FILE= xm-i386v32.h
 XM_CLIBS= -lPW
 SYSV_DEFINE=-DSYSV
 REGEX=regex.o
+REGEX1=regex.o
+# for gmalloc.c
+XM_CFLAGS= -Dgetpagesize()=4096

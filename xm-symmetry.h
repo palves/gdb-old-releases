@@ -30,7 +30,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define PTRACE_DETACH XPT_UNDEBUG
 #define ATTACH_DETACH  */
 
-#define BYTE_ORDER LITTLE_ENDIAN
+#define HOST_BYTE_ORDER LITTLE_ENDIAN
 
 /* Get rid of any system-imposed stack limit if possible.  */
 

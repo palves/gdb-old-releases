@@ -46,6 +46,7 @@ LOCAL bool_t xdr_fp_status_ptr(xdrs,objp)
 	    xdr_fp_status));
     } /* xdr_fp_status_ptr */
 
+#ifndef I80960
 /********************************************************************
 *
 * xdr_fpa_regs_ptr - 
@@ -64,6 +65,7 @@ LOCAL bool_t xdr_fpa_regs_ptr(xdrs,objp)
     else
 	return(TRUE);
     } /* xdr_fpa_regs_ptr */
+#endif
 
 /********************************************************************
 *
@@ -96,7 +98,9 @@ bool_t xdr_ptrace_info(xdrs,objp)
 	{
 	    { (int) REGS, xdr_regs_ptr },
 	    { (int) FPREGS, xdr_fp_status_ptr },
+#ifndef I80960
 	    { (int) FPAREGS, xdr_fpa_regs_ptr },
+#endif
 	    { (int) DATA, xdr_c_bytes_ptr },
 	    { __dontcare__, NULL }
 	};

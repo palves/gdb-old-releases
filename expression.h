@@ -34,6 +34,10 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 enum exp_opcode
 {
+  /* Used when it's necessary to pass an opcode which will be ignored,
+     or to catch uninitialized values.  */
+  OP_NULL,
+
 /* BINOP_... operate on two values computed by following subexpressions,
    replacing them by one result value.  They take no immediate arguments.  */
   BINOP_ADD,		/* + */

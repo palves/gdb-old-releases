@@ -28,9 +28,11 @@ int fclose ();
 #include "target.h"
 #include "breakpoint.h"
 
-#include <getopt.h>
-#include <readline/readline.h>
-#include <readline/history.h>
+#include "getopt.h"
+
+/* readline include files */
+#include "readline.h"
+#include "history.h"
 
 /* readline defines this.  */
 #undef savestring
@@ -67,6 +69,8 @@ int original_stack_limit;
 #define	GDBINIT_FILENAME	".gdbinit"
 #endif
 char gdbinit[] = GDBINIT_FILENAME;
+
+#define	ALL_CLEANUPS	((struct cleanup *)0)
 
 /* Version number of GDB, as a string.  */
 
@@ -133,10 +137,6 @@ char *current_directory;
 /* The directory name is actually stored here (usually).  */
 static char dirbuf[MAXPATHLEN];
 
-/* Nonzero if we should refrain from using an X window.  */
-
-int inhibit_windows = 0;
-
 /* Function to call before reading a command, if nonzero.
    The function receives two args: an input stream,
    and a prompt string.  */
@@ -197,6 +197,15 @@ char *baud_rate;
 #define STOP_SIGNAL SIGTSTP
 #endif
 #endif
+
+/* Some System V have job control but not sigsetmask(). */
+#if !defined (HAVE_SIGSETMASK)
+#define HAVE_SIGSETMASK !defined (USG)
+#endif
+
+#if !HAVE_SIGSETMASK
+#define sigsetmask(n)
+#endif
 
 /* This is how `error' returns to command level.  */
 
@@ -210,11 +219,11 @@ return_to_top_level ()
   bpstat_clear_actions(stop_bpstat);	/* Clear queued breakpoint commands */
   clear_momentary_breakpoints ();
   disable_current_display ();
-  do_cleanups (0);
+  do_cleanups (ALL_CLEANUPS);
   longjmp (to_top_level, 1);
 }
 
-/* Call FUNC with arg ARG, catching any errors.
+/* Call FUNC with arg ARGS, catching any errors.
    If there is no error, return the value returned by FUNC.
    If there is an error, return zero after printing ERRSTRING
     (which is in addition to the specific error message already printed).  */
@@ -237,7 +246,8 @@ catch_errors (func, args, errstring)
     val = (*func) (args);
   else
     {
-      fprintf (stderr, "%s\n", errstring);
+      if (errstring)
+	fprintf (stderr, "%s\n", errstring);
       val = 0;
     }
 
@@ -539,10 +549,14 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
 	  init_source_path ();
 	}
     }
+  do_cleanups (ALL_CLEANUPS);
+
   for (i = 0; i < ndir; i++)
     if (!setjmp (to_top_level))
       directory_command (dirarg[i], 0);
   free (dirarg);
+  do_cleanups (ALL_CLEANUPS);
+
   if (execarg != NULL
       && symarg != NULL
       && strcmp (execarg, symarg) == 0)
@@ -564,15 +578,19 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
 	if (!setjmp (to_top_level))
 	  symbol_file_command (symarg, !batch);
     }
+  do_cleanups (ALL_CLEANUPS);
+
   if (corearg != NULL)
     if (!setjmp (to_top_level))
       core_file_command (corearg, !batch);
     else if (!setjmp (to_top_level))
       attach_command (corearg, !batch);
+  do_cleanups (ALL_CLEANUPS);
 
   if (ttyarg != NULL)
     if (!setjmp (to_top_level))
       tty_command (ttyarg, !batch);
+  do_cleanups (ALL_CLEANUPS);
 
 #ifdef ADDITIONAL_OPTION_HANDLER
   ADDITIONAL_OPTION_HANDLER;
@@ -594,6 +612,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
 	if (!inhibit_gdbinit && access (homeinit, R_OK) == 0)
 	  if (!setjmp (to_top_level))
 	    source_command (homeinit, 0);
+	do_cleanups (ALL_CLEANUPS);
 
 	/* Do stats; no need to do them elsewhere since we'll only
 	   need them if homedir is set.  Make sure that they are
@@ -618,6 +637,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
       if (!inhibit_gdbinit && access (gdbinit, R_OK) == 0)
 	if (!setjmp (to_top_level))
 	  source_command (gdbinit, 0);
+	do_cleanups (ALL_CLEANUPS);
   }
 
   for (i = 0; i < ncmd; i++)
@@ -627,6 +647,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
 	  read_command_file (stdin);
 	else
 	  source_command (cmdarg[i], !batch);
+	do_cleanups (ALL_CLEANUPS);
       }
   free (cmdarg);
 
@@ -649,6 +670,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
     {
       if (!setjmp (to_top_level))
 	{
+	  do_cleanups (ALL_CLEANUPS);		/* Do complete cleanup */
 	  command_loop ();
           quit_command ((char *)0, instream == stdin);
 	}
@@ -713,8 +735,8 @@ execute_command (p, from_tty)
 }
 
 /* ARGSUSED */
-static void
-do_nothing (foo)
+void
+command_loop_marker (foo)
      int foo;
 {
 }
@@ -726,6 +748,7 @@ command_loop ()
 {
   struct cleanup *old_chain;
   char *command;
+  int stdin_is_tty = ISATTY (stdin);
 
   while (!feof (instream))
     {
@@ -733,9 +756,9 @@ command_loop ()
 	(*window_hook) (instream, prompt);
 
       quit_flag = 0;
-      if (instream == stdin && ISATTY (stdin))
+      if (instream == stdin && stdin_is_tty)
 	reinitialize_more_filter ();
-      old_chain = make_cleanup (do_nothing, 0);
+      old_chain = make_cleanup (command_loop_marker, 0);
       command = command_line_input (instream == stdin ? prompt : 0,
 				      instream == stdin);
       if (command == 0)
@@ -1057,6 +1080,11 @@ catch_termination (sig)
 #endif
 
 /* Initialize signal handlers. */
+static void
+do_nothing ()
+{
+}
+
 static void
 init_signals ()
 {
@@ -1429,6 +1457,7 @@ error_no_arg (why)
   error ("Argument required (%s).", why);
 }
 
+/* ARGSUSED */
 static void
 help_command (command, from_tty)
      char *command;
@@ -1558,8 +1587,9 @@ GDB is free software and you are welcome to distribute copies of it\n\
  under certain conditions; type \"info copying\" to see the conditions.\n");
 }
 
+/* ARGSUSED */
 static void
-version_info (args, from_tty)
+show_version (args, from_tty)
      char *args;
      int from_tty;
 {
@@ -1582,7 +1612,7 @@ quit_command (args, from_tty)
      char *args;
      int from_tty;
 {
-  if (have_inferior_p ())
+  if (inferior_pid != 0 && target_has_execution)
     {
       if (query ("The program is running.  Quit anyway? "))
 	{
@@ -1603,6 +1633,7 @@ input_from_terminal_p ()
   return (instream == stdin) & caution;
 }
 
+/* ARGSUSED */
 static void
 pwd_command (args, from_tty)
      char *args;
@@ -1625,6 +1656,10 @@ cd_command (dir, from_tty)
 {
   int len;
   int change;
+
+  /* If the new directory is absolute, repeat is a no-op; if relative,
+     repeat might be useful but is more likely to be a mistake.  */
+  dont_repeat ();
 
   if (dir == 0)
     error_no_arg ("new working directory");
@@ -1674,10 +1709,13 @@ cd_command (dir, from_tty)
   if (chdir (dir) < 0)
     perror_with_name (dir);
 
+  forget_cached_source_info ();
+
   if (from_tty)
     pwd_command ((char *) 0, 1);
 }
 
+/* ARGSUSED */
 static void
 source_command (args, from_tty)
      char *args;
@@ -1731,6 +1769,7 @@ echo_command (text, from_tty)
 	else
 	  fputc (c, stdout);
       }
+  fflush (stdout);
 }
 
 /* ARGSUSED */
@@ -1748,10 +1787,10 @@ dump_me_command (args, from_tty)
 
 /* Functions to manipulate command line editing control variables.  */
 
-/* Number of commands to print in each call to editing_info.  */
+/* Number of commands to print in each call to show_commands.  */
 #define Hist_print 10
 static void
-editing_info (args, from_tty)
+show_commands (args, from_tty)
      char *args;
      int from_tty;
 {
@@ -1766,10 +1805,7 @@ editing_info (args, from_tty)
      than the number of the last command).  Relative to history_base.  */
   int hist_len;
 
-  struct _hist_entry {
-    char *line;
-    char *data;
-  } *history_get();
+  struct _hist_entry *history_get();
   extern int history_base;
 
 #if 0
@@ -1855,6 +1891,7 @@ editing_info (args, from_tty)
 }
 
 /* Called by do_setshow_command.  */
+/* ARGSUSED */
 static void
 set_history_size_command (args, from_tty, c)
      char *args;
@@ -1867,6 +1904,7 @@ set_history_size_command (args, from_tty, c)
     stifle_history (history_size);
 }
 
+/* ARGSUSED */
 static void
 set_history (args, from_tty)
      char *args;
@@ -1876,17 +1914,19 @@ set_history (args, from_tty)
   help_list (sethistlist, "set history ", -1, stdout);
 }
 
+/* ARGSUSED */
 static void
 show_history (args, from_tty)
      char *args;
      int from_tty;
 {
-  cmd_show_list (showhistlist, from_tty);
+  cmd_show_list (showhistlist, from_tty, "");
 }
 
 int info_verbose = 0;		/* Default verbose msgs off */
 
 /* Called by do_setshow_command.  An elaborate joke.  */
+/* ARGSUSED */
 static void 
 set_verbose (args, from_tty, c)
      char *args;
@@ -2087,7 +2127,7 @@ Without an argument, history expansion is enabled.", &sethistlist),
      &showhistlist);
 
   add_show_from_set
-    (add_set_cmd ("write", no_class, var_boolean, (char *)&write_history_p,
+    (add_set_cmd ("save", no_class, var_boolean, (char *)&write_history_p,
 	   "Set saving of the history record on exit.\n\
 Use \"on\" to enable to enable the saving, and \"off\" to disable it.\n\
 Without an argument, saving is enabled.", &sethistlist),
@@ -2106,11 +2146,10 @@ ie. the number of previous commands to keep a record of.", &sethistlist);
      &showhistlist);
 
   add_show_from_set
-    (add_set_cmd ("caution", class_support, var_boolean,
+    (add_set_cmd ("confirm", class_support, var_boolean,
 		  (char *)&caution,
-	   "Set expected caution of user.\n\
-If on (the default), more warnings are printed, and the user is asked whether\n\
-they really want to do various major commands.", &setlist),
+		  "Set whether to confirm potentially dangerous operations.",
+		  &setlist),
      &showlist);
 
   add_prefix_cmd ("info", class_info, info_command,
@@ -2124,7 +2163,9 @@ they really want to do various major commands.", &setlist),
   /* Another way to get at the same thing.  */
   add_info ("set", show_command, "Show all GDB settings.");
 
-  add_info ("editing", editing_info, "Status of command editor.");
+  add_cmd ("commands", no_class, show_commands, "Status of command editor.",
+	   &showlist);
 
-  add_info ("version", version_info, "Report what version of GDB this is.");
+  add_cmd ("version", no_class, show_version,
+	   "Report what version of GDB this is.", &showlist);
 }

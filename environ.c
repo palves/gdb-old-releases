@@ -20,9 +20,8 @@
 
 #include "environ.h"
 #include <string.h>
+#include "defs.h" /* For strsave().  */
 
-extern char *xmalloc ();
-extern char *xrealloc ();
 extern void free ();
 
 /* Return a new environment object.  */
@@ -151,6 +150,16 @@ set_in_environ (e, var, value)
   strcat (s, "=");
   strcat (s, value);
   vector[i] = s;
+
+  /* Certain variables get exported back to the parent (e.g. our) 
+     environment, too.  */
+  if (!strcmp(var, "PATH")			/* Object file location */
+   || !strcmp (var, "G960BASE") 		/* Intel 960 downloads */
+   || !strcmp (var, "G960BIN") 			/* Intel 960 downloads */
+   || !strcmp (var, "GNUTARGET")		/* BFD object file type */
+				) {
+    putenv (strsave (s));
+  }
   return;
 }
 

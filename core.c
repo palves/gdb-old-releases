@@ -31,6 +31,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcore.h"
 
 extern int xfer_memory ();
+extern void child_attach (), child_create_inferior ();
 
 extern int sys_nerr;
 extern char *sys_errlist[];
@@ -55,15 +56,19 @@ extern struct target_ops core_ops;
 /* Discard all vestiges of any previous core file
    and mark data and stack spaces as empty.  */
 
+/* ARGSUSED */
 void
-cleanup_core ()
+core_close (quitting)
+     int quitting;
 {
   if (core_bfd) {
     free (bfd_get_filename (core_bfd));
     bfd_close (core_bfd);
     core_bfd = NULL;
+#ifdef CLEAR_SOLIB
+    CLEAR_SOLIB ();
+#endif
   }
-  unpush_target (&core_ops);
 }
 
 /* This routine opens and sets up the core file bfd */
@@ -78,7 +83,9 @@ core_open (filename, from_tty)
   struct cleanup *old_chain;
   char *temp;
   bfd *temp_bfd;
+  int ontop;
 
+  target_preopen (from_tty);
   if (!filename)
     {
       error (core_bfd? 
@@ -109,10 +116,9 @@ core_open (filename, from_tty)
   /* Looks semi-reasonable.  Toss the old core file and work on the new.  */
 
   discard_cleanups (old_chain);		/* Don't free filename any more */
-  if (core_bfd)
-    cleanup_core ();
+  unpush_target (&core_ops);
   core_bfd = temp_bfd;
-  old_chain = make_cleanup (cleanup_core, core_bfd);
+  old_chain = make_cleanup (core_close, core_bfd);
 
   validate_files ();
 
@@ -121,10 +127,8 @@ core_open (filename, from_tty)
     error ("Can't find sections in `%s': %s", bfd_get_filename(core_bfd),
 	   bfd_errmsg (bfd_error));
 
-  push_target (&core_ops);
-
-  /* Fetch all registers from core file */
-  target_fetch_registers (-1);
+  ontop = !push_target (&core_ops);
+  make_cleanup (unpush_target, &core_ops);
 
   p = bfd_core_file_failing_command (core_bfd);
   if (p)
@@ -135,11 +139,23 @@ core_open (filename, from_tty)
     printf ("Program terminated with signal %d, %s.\n", siggy,
 	    siggy < NSIG ? sys_siglist[siggy] : "(undocumented)");
 
-  set_current_frame ( create_new_frame (read_register (FP_REGNUM),
-					read_pc ()));
-  select_frame (get_current_frame (), 0);
-  /* FIXME, handle shared library reading here.  */
-  print_sel_frame (0);	/* Print the top frame and source line */
+  if (ontop) {
+    /* Fetch all registers from core file */
+    target_fetch_registers (-1);
+    /* Add symbols for any shared libraries that were in use */
+#ifdef SOLIB_ADD
+    SOLIB_ADD (NULL, from_tty);
+#endif
+    /* Now, set up the frame cache, and print the top of stack */
+    set_current_frame ( create_new_frame (read_register (FP_REGNUM),
+					  read_pc ()));
+    select_frame (get_current_frame (), 0);
+    print_sel_frame (0);	/* Print the top frame and source line */
+  } else {
+    printf (
+"Warning: you won't be able to access this core file until you terminate\n\
+your %s; do ``info files''\n", current_target->to_longname);
+  }
 
   discard_cleanups (old_chain);
 }
@@ -149,10 +165,9 @@ core_detach (args, from_tty)
      char *args;
      int from_tty;
 {
-  dont_repeat ();
   if (args)
     error ("Too many arguments");
-  cleanup_core();
+  unpush_target (&core_ops);
   if (from_tty)
     printf ("No core file now.\n");
 }
@@ -164,6 +179,7 @@ core_file_command (filename, from_tty)
      char *filename;
      int from_tty;
 {
+  dont_repeat ();			/* Either way, seems bogus. */
   if (!filename)
     core_detach (filename, from_tty);
   else
@@ -234,12 +250,6 @@ get_exec_file (err)
   error ("No executable file specified.\n\
 Use the \"file\" or \"exec-file\" command.");
   return NULL;
-}
-
-int
-have_core_file_p ()
-{
-  return core_bfd != NULL;
 }
 
 static void
@@ -369,15 +379,23 @@ core_xfer_memory (memaddr, myaddr, len, write)
      int len;
      int write;
 {
-  return xfer_memory (memaddr, myaddr, len, write,
+  int res;
+  res = xfer_memory (memaddr, myaddr, len, write,
 		      core_bfd, core_sections, core_sections_end);
+#ifdef SOLIB_XFER_MEMORY
+  if (res == 0)
+    res = SOLIB_XFER_MEMORY (memaddr, myaddr, len, write);
+#endif
+  return res;
 }
 
 /* Get the registers out of a core file.  This is the machine-
    independent part.  Fetch_core_registers is the machine-dependent
    part, typically implemented in the xm-file for each architecture.  */
 
-static int
+/* We just get all the registers, so we don't use regno.  */
+/* ARGSUSED */
+static void
 get_core_registers (regno)
      int regno;
 {
@@ -391,28 +409,46 @@ get_core_registers (regno)
   if (bfd_get_section_contents (core_bfd, reg_sec, the_regs,
 				(unsigned)0, size))
     {
-      fetch_core_registers (the_regs, size);
-      registers_fetched();
+      fetch_core_registers (the_regs, size, 0);
     }
   else
     {
       fprintf (stderr, "Couldn't fetch registers from core file: %s\n",
 	       bfd_errmsg (bfd_error));
     }
-  return 0;  /* FIXME, what result goes here?  */
+
+  /* Now do it again for the float registers, if they exist.  */
+  reg_sec = bfd_get_section_by_name (core_bfd, ".reg2");
+  if (reg_sec) {
+    size = bfd_section_size (core_bfd, reg_sec);
+    the_regs = alloca (size);
+    if (bfd_get_section_contents (core_bfd, reg_sec, the_regs,
+				  (unsigned)0, size))
+      {
+	fetch_core_registers (the_regs, size, 2);
+      }
+    else
+      {
+	fprintf (stderr, "Couldn't fetch register set 2 from core file: %s\n",
+		 bfd_errmsg (bfd_error));
+      }
+  }
+  registers_fetched();
 }
 
 struct target_ops core_ops = {
 	"core", "Local core dump file",
-	core_open, core_detach, 0, 0, /* resume, wait */
+	"Use a core file as a target.  Specify the filename of the core file.",
+	core_open, core_close,
+	child_attach, core_detach, 0, 0, /* resume, wait */
 	get_core_registers, 
 	0, 0, 0, 0, /* store_regs, prepare_to_store, conv_to, conv_from */
 	core_xfer_memory, core_files_info,
 	0, 0, /* core_insert_breakpoint, core_remove_breakpoint, */
 	0, 0, 0, 0, 0, /* terminal stuff */
-	0, 0, 0, 0, /* kill, add_file, call fn, lookup sym */
-	0, 0, /* create_inferior */
-	0, /* next */
+	0, 0, 0, 0, 0, /* kill, load, add_syms, call fn, lookup sym */
+	child_create_inferior, 0, /* mourn_inferior */
+	core_stratum, 0, /* next */
 	0, 1, 1, 1, 0,	/* all mem, mem, stack, regs, exec */
 	OPS_MAGIC,		/* Always the last thing */
 };

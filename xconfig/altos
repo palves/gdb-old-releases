@@ -17,7 +17,8 @@
 # along with GDB; see the file COPYING.  If not, write to
 # the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
-XDEPFILES= m68k-xdep.o infptrace.o altos-xdep.o
+XDEPFILES= infptrace.o altos-xdep.o
 XM_FILE= xm-altos.h
 REGEX=regex.o
+REGEX1=regex.o
 SYSV_DEFINE=-DSYSV

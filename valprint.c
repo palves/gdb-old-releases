@@ -61,6 +61,20 @@ char **float_type_table;
 /* Print repeat counts if there are more than this
    many repetitions of an element in an array.  */
 #define	REPEAT_COUNT_THRESHOLD	10
+
+/* Define a mess of print controls.  */
+
+int prettyprint;	/* Controls pretty printing of structures */
+int vtblprint;		/* Controls printing of vtbl's */
+int unionprint;		/* Controls printing of nested unions.  */
+int arrayprint;		/* Controls pretty printing of arrays.  */
+int addressprint;	/* Controls pretty printing of addresses.  */
+int objectprint;	/* Controls looking up an object's derived type
+			   using what we find in its vtables.  */
+
+struct obstack dont_print_obstack;
+
+static void cplus_val_print ();
 
 /* Print the character string STRING, printing at most LENGTH characters.
    Printing stops early if the number hits print_max; repeat counts
@@ -179,7 +193,6 @@ print_floating (valaddr, type, stream)
 
   {
     long low, high;
-    long *arg = (long *)valaddr;
     /* Is the sign bit 0?  */
     int nonnegative;
     /* Is it is a NaN (i.e. the exponent is all ones and
@@ -189,7 +202,7 @@ print_floating (valaddr, type, stream)
     if (len == sizeof (float))
       {
 	/* It's single precision. */
-	low = *arg;
+	bcopy (valaddr, &low, sizeof (low));
 	/* target -> host.  */
 	SWAP_TARGET_AND_HOST (&low, sizeof (float));
 	nonnegative = low >= 0;
@@ -203,9 +216,11 @@ print_floating (valaddr, type, stream)
 	/* It's double precision.  Get the high and low words.  */
 
 #if TARGET_BYTE_ORDER == BIG_ENDIAN
-	  low = arg[1], high = arg[0];
+	  bcopy (valaddr+4, &low,  sizeof (low));
+	  bcopy (valaddr+0, &high, sizeof (high));
 #else
-	  low = arg[0], high = arg[1];
+	  bcopy (valaddr+0, &low,  sizeof (low));
+	  bcopy (valaddr+4, &high, sizeof (high));
 #endif
 	  SWAP_TARGET_AND_HOST (&low, sizeof (low));
 	  SWAP_TARGET_AND_HOST (&high, sizeof (high));
@@ -276,12 +291,17 @@ value_print (val, stream, format, pretty)
 {
   register unsigned int i, n, typelen;
 
+  if (val == 0)
+    {
+      printf_filtered ("<address of value unknown>");
+      return 0;
+    }
   if (VALUE_OPTIMIZED_OUT (val))
     {
       printf_filtered ("<value optimized out>");
       return 0;
     }
-  
+
   /* A "repeated" value really contains several values in a row.
      They are made by the @ operator.
      Print such values as if they were arrays.  */
@@ -348,34 +368,34 @@ value_print (val, stream, format, pretty)
     }
   else
     {
+      struct type *type = VALUE_TYPE (val);
+
       /* If it is a pointer, indicate what it points to.
 
 	 Print type also if it is a reference.
 
          C++: if it is a member pointer, we will take care
 	 of that when we print it.  */
-      if (TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_PTR
-	  || TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_REF)
+      if (TYPE_CODE (type) == TYPE_CODE_PTR
+	  || TYPE_CODE (type) == TYPE_CODE_REF)
 	{
 	  /* Hack:  remove (char *) for char strings.  Their
 	     type is indicated by the quoted string anyway. */
-          if (TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_PTR
-	    && TYPE_LENGTH   (TYPE_TARGET_TYPE (VALUE_TYPE (val)))
-			 == sizeof(char)
-	    && TYPE_CODE     (TYPE_TARGET_TYPE (VALUE_TYPE (val)))
-			 == TYPE_CODE_INT
-	    && !TYPE_UNSIGNED (TYPE_TARGET_TYPE (VALUE_TYPE (val))))
+          if (TYPE_CODE (type) == TYPE_CODE_PTR
+	      && TYPE_LENGTH (TYPE_TARGET_TYPE (type)) == sizeof(char)
+	      && TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_INT
+	      && !TYPE_UNSIGNED (TYPE_TARGET_TYPE (type)))
 	    {
 		/* Print nothing */
 	    }
 	  else
 	    {
 	      fprintf_filtered (stream, "(");
-	      type_print (VALUE_TYPE (val), "", stream, -1);
+	      type_print (type, "", stream, -1);
 	      fprintf_filtered (stream, ") ");
 	    }
 	}
-      return val_print (VALUE_TYPE (val), VALUE_CONTENTS (val),
+      return val_print (type, VALUE_CONTENTS (val),
 			VALUE_ADDRESS (val), stream, format, 1, 0, pretty);
     }
 }
@@ -399,28 +419,20 @@ static int
 is_vtbl_member(type)
      struct type *type;
 {
-  if (TYPE_CODE (type) == TYPE_CODE_PTR
-      && TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_ARRAY
-      && TYPE_CODE (TYPE_TARGET_TYPE (TYPE_TARGET_TYPE (type))) == TYPE_CODE_STRUCT)
+  if (TYPE_CODE (type) == TYPE_CODE_PTR)
+    type = TYPE_TARGET_TYPE (type);
+  else
+    return 0;
+
+  if (TYPE_CODE (type) == TYPE_CODE_ARRAY
+      && TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_STRUCT)
     /* Virtual functions tables are full of pointers to virtual functions.  */
-    return is_vtbl_ptr_type (TYPE_TARGET_TYPE (TYPE_TARGET_TYPE (type)));
+    return is_vtbl_ptr_type (TYPE_TARGET_TYPE (type));
   return 0;
 }
 
-/* Define a mess of print controls.  */
-
-int prettyprint;	/* Controls pretty printing of structures */
-int vtblprint;		/* Controls printing of vtbl's */
-int unionprint;		/* Controls printing of nested unions.  */
-int arrayprint;		/* Controls pretty printing of arrays.  */
-int addressprint;	/* Controls pretty printing of addresses.  */
-
-struct obstack dont_print_obstack;
-
-static void cplus_val_print ();
-
-/* Subroutine of cplus_val_print and val_print to print out
-   a structure's fields.
+/* Mutually recursive subroutines of cplus_val_print and val_print to print out
+   a structure's fields: val_print_fields and cplus_val_print.
 
    TYPE, VALADDR, STREAM, RECURSE, and PRETTY have the
    same meanings as in cplus_val_print and val_print.
@@ -428,10 +440,11 @@ static void cplus_val_print ();
    DONT_PRINT is an array of baseclass types that we
    should not print, or zero if called from top level.  */
 static void
-val_print_fields (type, valaddr, stream, recurse, pretty, dont_print)
+val_print_fields (type, valaddr, stream, format, recurse, pretty, dont_print)
      struct type *type;
      char *valaddr;
      FILE *stream;
+     char format;
      int recurse;
      enum val_prettyprint pretty;
      struct type **dont_print;
@@ -445,7 +458,7 @@ val_print_fields (type, valaddr, stream, recurse, pretty, dont_print)
   /* Print out baseclasses such that we don't print
      duplicates of virtual baseclasses.  */
   if (n_baseclasses > 0)
-    cplus_val_print (type, valaddr, 0, stream, 0, 0, recurse+1, pretty, dont_print);
+    cplus_val_print (type, valaddr, stream, format, recurse+1, pretty, dont_print);
 
   if (!len && n_baseclasses == 1)
     fprintf_filtered (stream, "<No data fields>");
@@ -498,26 +511,21 @@ val_print_fields (type, valaddr, stream, recurse, pretty, dont_print)
 	    }
 	  if (TYPE_FIELD_PACKED (type, i))
 	    {
-	      LONGEST val;
-	      char *valp = (char *) & val;
+	      value v;
 
-	      val = unpack_field_as_long (type, valaddr, i);
+	      /* Bitfields require special handling, especially due to byte
+		 order problems.  */
+	      v = value_from_long (TYPE_FIELD_TYPE (type, i),
+				   unpack_field_as_long (type, valaddr, i));
 
-	      /* Since we have moved the bitfield into a long,
-		 if it is declared with a smaller type, we need to
-		 offset its address *in gdb* to match the type we
-		 are passing to val_print.  */
-#if BYTE_ORDER == BIG_ENDIAN	/* on host! */
-	      valp += sizeof val - TYPE_LENGTH (TYPE_FIELD_TYPE (type, i));
-#endif
-	      val_print (TYPE_FIELD_TYPE (type, i), valp, 0,
-			 stream, 0, 0, recurse + 1, pretty);
+	      val_print (TYPE_FIELD_TYPE (type, i), VALUE_CONTENTS (v), 0,
+			 stream, format, 0, recurse + 1, pretty);
 	    }
 	  else
 	    {
 	      val_print (TYPE_FIELD_TYPE (type, i), 
 			 valaddr + TYPE_FIELD_BITPOS (type, i) / 8,
-			 0, stream, 0, 0, recurse + 1, pretty);
+			 0, stream, format, 0, recurse + 1, pretty);
 	    }
 	}
       if (pretty)
@@ -533,14 +541,11 @@ val_print_fields (type, valaddr, stream, recurse, pretty, dont_print)
    baseclasses.  */
 
 static void
-cplus_val_print (type, valaddr, address, stream, format,
-		 deref_ref, recurse, pretty, dont_print)
+cplus_val_print (type, valaddr, stream, format, recurse, pretty, dont_print)
      struct type *type;
      char *valaddr;
-     CORE_ADDR address;
      FILE *stream;
      char format;
-     int deref_ref;
      int recurse;
      enum val_prettyprint pretty;
      struct type **dont_print;
@@ -563,6 +568,7 @@ cplus_val_print (type, valaddr, address, stream, format,
   for (i = 0; i < n_baseclasses; i++)
     {
       char *baddr;
+      int err;
 
       if (BASETYPE_VIA_VIRTUAL (type, i))
 	{
@@ -579,8 +585,8 @@ cplus_val_print (type, valaddr, address, stream, format,
 	  obstack_ptr_grow (&dont_print_obstack, TYPE_BASECLASS (type, i));
 	}
 
-      baddr = baseclass_addr (type, i, valaddr, 0);
-      if (baddr == 0)
+      baddr = baseclass_addr (type, i, valaddr, 0, &err);
+      if (err == 0 && baddr == 0)
 	error ("could not find virtual baseclass `%s'\n",
 	       type_name_no_tag (TYPE_BASECLASS (type, i)));
 
@@ -590,8 +596,12 @@ cplus_val_print (type, valaddr, address, stream, format,
       fputs_filtered ("<", stream);
       fputs_filtered (type_name_no_tag (TYPE_BASECLASS (type, i)), stream);
       fputs_filtered ("> = ", stream);
-      val_print_fields (TYPE_BASECLASS (type, i), baddr, stream, recurse,
-			pretty, (struct type **)obstack_base (&dont_print_obstack));
+      if (err != 0)
+	fprintf_filtered (stream, "<invalid address 0x%x>", baddr);
+      else
+	val_print_fields (TYPE_BASECLASS (type, i), baddr, stream, format,
+			  recurse, pretty,
+			  (struct type **)obstack_base (&dont_print_obstack));
     flush_it:
       ;
     }
@@ -659,6 +669,10 @@ val_print (type, valaddr, address, stream, format,
   switch (TYPE_CODE (type))
     {
     case TYPE_CODE_ARRAY:
+      /* FIXME: TYPE_LENGTH (type) is unsigned and therefore always
+	 0.  Is "> 0" meant? I'm not sure what an "array of
+	 unspecified length" (mentioned in the comment for the else-part
+	 of this if) is.  */
       if (TYPE_LENGTH (type) >= 0
 	  && TYPE_LENGTH (TYPE_TARGET_TYPE (type)) > 0)
 	{
@@ -676,7 +690,17 @@ val_print (type, valaddr, address, stream, format,
 	    {
 	      unsigned int things_printed = 0;
 	      
-	      for (i = 0; i < len && things_printed < print_max; i++)
+	      /* If this is a virtual function table, print the 0th
+		 entry specially, and the rest of the members normally.  */
+	      if (is_vtbl_ptr_type (elttype))
+		{
+		  fprintf_filtered (stream, "%d vtable entries", len-1);
+		  i = 1;
+		}
+	      else
+		i = 0;
+
+	      for (; i < len && things_printed < print_max; i++)
 		{
 		  /* Position of the array element we are examining to see
 		     whether it is repeated.  */
@@ -742,9 +766,11 @@ val_print (type, valaddr, address, stream, format,
 	  struct fn_field *f;
 	  int j, len2;
 	  char *kind = "";
+	  CORE_ADDR addr;
 
-	  val = unpack_long (builtin_type_int, valaddr);
-	  if (val < 128)
+	  addr = unpack_pointer (lookup_pointer_type (builtin_type_void),
+				valaddr);
+	  if (addr < 128)
 	    {
 	      len = TYPE_NFN_FIELDS (domain);
 	      for (i = 0; i < len; i++)
@@ -755,7 +781,7 @@ val_print (type, valaddr, address, stream, format,
 		  for (j = 0; j < len2; j++)
 		    {
 		      QUIT;
-		      if (TYPE_FN_FIELD_VOFFSET (f, j) == val)
+		      if (TYPE_FN_FIELD_VOFFSET (f, j) == addr)
 			{
 			  kind = "virtual";
 			  goto common;
@@ -765,7 +791,7 @@ val_print (type, valaddr, address, stream, format,
 	    }
 	  else
 	    {
-	      struct symbol *sym = find_pc_function ((CORE_ADDR) val);
+	      struct symbol *sym = find_pc_function (addr);
 	      if (sym == 0)
 		error ("invalid pointer to member function");
 	      len = TYPE_NFN_FIELDS (domain);
@@ -801,7 +827,7 @@ val_print (type, valaddr, address, stream, format,
 	    }
 	  fprintf_filtered (stream, "(");
   	  type_print (type, "", stream, -1);
-	  fprintf_filtered (stream, ") %d", (int) val >> 3);
+	  fprintf_filtered (stream, ") %d", (int) addr >> 3);
 	}
       else if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_MEMBER)
 	{
@@ -849,18 +875,19 @@ val_print (type, valaddr, address, stream, format,
 	}
       else
 	{
+	  CORE_ADDR addr = unpack_pointer (type, valaddr);
 	  elttype = TYPE_TARGET_TYPE (type);
 
 	  if (TYPE_CODE (elttype) == TYPE_CODE_FUNC)
 	    {
 	      /* Try to print what function it points to.  */
-	      print_address_demangle (*(int *) valaddr, stream, demangle);
+	      print_address_demangle (addr, stream, demangle);
 	      /* Return value is irrelevant except for string pointers.  */
 	      return 0;
 	    }
 
 	  if (addressprint && format != 's')
-	    fprintf_filtered (stream, "0x%x", * (int *) valaddr);
+	    fprintf_filtered (stream, "0x%x", addr);
 
 	  /* For a pointer to char or unsigned char,
 	     also print the string pointed to, unless pointer is null.  */
@@ -868,7 +895,7 @@ val_print (type, valaddr, address, stream, format,
 	  if (TYPE_LENGTH (elttype) == 1 
 	      && TYPE_CODE (elttype) == TYPE_CODE_INT
 	      && (format == 0 || format == 's')
-	      && unpack_long (type, valaddr) != 0
+	      && addr != 0
 	      /* If print_max is UINT_MAX, the alloca below will fail.
 	         In that case don't try to print the string.  */
 	      && print_max < UINT_MAX)
@@ -877,8 +904,7 @@ val_print (type, valaddr, address, stream, format,
 	      int errcode = 0;
 	      
 	      /* Get first character.  */
-	      errcode = target_read_memory
-		( (CORE_ADDR) unpack_long (type, valaddr), &c, 1);
+	      errcode = target_read_memory (addr, (char *)&c, 1);
 	      if (errcode != 0)
 		{
 		  /* First address out of bounds.  */
@@ -906,9 +932,7 @@ val_print (type, valaddr, address, stream, format,
 		     the end of the address space, it might not work.
 		     FIXME.  */
 		  QUIT;
-		  errcode = target_read_memory
-		    ((CORE_ADDR) unpack_long (type, valaddr),
-		    string, print_max);
+		  errcode = target_read_memory (addr, string, print_max);
 		  if (errcode != 0)
 		      force_ellipses = 0;
 		  else 
@@ -932,16 +956,16 @@ val_print (type, valaddr, address, stream, format,
 		      fprintf_filtered (stream,
 					(" <Address 0x%x out of bounds>"
 					 + first_addr_err),
-					(*(int *) valaddr) + i);
+					addr + i);
 		    }
 		  else
 		    {
 		      if (errcode >= sys_nerr || errcode < 0)
 			error ("Error reading memory address 0x%x: unknown error (%d).",
-			       (*(int *)valaddr) + i, errcode);
+			       addr + i, errcode);
 		      else
 			error ("Error reading memory address 0x%x: %s.",
-			       (*(int *)valaddr) + i, sys_errlist[errcode]);
+			       addr + i, sys_errlist[errcode]);
 		    }
 		}
 
@@ -950,7 +974,7 @@ val_print (type, valaddr, address, stream, format,
 	  else /* print vtbl's nicely */
  	  if (is_vtbl_member(type))
   	    {
-	      int vt_address = *(int *)valaddr;		/* FIXME */
+	      CORE_ADDR vt_address = unpack_pointer (type, valaddr);
 
 	      int vt_index = find_pc_misc_function (vt_address);
 	      if (vt_index >= 0
@@ -963,11 +987,11 @@ val_print (type, valaddr, address, stream, format,
 		}
 	      if (vtblprint)
 	        {
-		  value val;
+		  value vt_val;
 
-		  val = value_at (TYPE_TARGET_TYPE (type), *((int *)valaddr));
-		  val_print (VALUE_TYPE (val), VALUE_CONTENTS (val),
-			     VALUE_ADDRESS (val), stream, format,
+		  vt_val = value_at (TYPE_TARGET_TYPE (type), vt_address);
+		  val_print (VALUE_TYPE (vt_val), VALUE_CONTENTS (vt_val),
+			     VALUE_ADDRESS (vt_val), stream, format,
 			     deref_ref, recurse + 1, pretty);
 		  if (pretty)
 		    {
@@ -990,7 +1014,8 @@ val_print (type, valaddr, address, stream, format,
     case TYPE_CODE_REF:
       if (addressprint)
         {
-	  fprintf_filtered (stream, "@0x%x", * (int *) valaddr);
+	  fprintf_filtered (stream, "@0x%lx",
+	  		    unpack_long (builtin_type_int, valaddr));
 	  if (deref_ref)
 	    fputs_filtered (": ", stream);
         }
@@ -999,9 +1024,13 @@ val_print (type, valaddr, address, stream, format,
 	{
 	  if (TYPE_CODE (TYPE_TARGET_TYPE (type)) != TYPE_CODE_UNDEF)
 	    {
-	      value val = value_at (TYPE_TARGET_TYPE (type), * (int *) valaddr);
-	      val_print (VALUE_TYPE (val), VALUE_CONTENTS (val),
-			 VALUE_ADDRESS (val), stream, format,
+	      value deref_val =
+		value_at
+		  (TYPE_TARGET_TYPE (type),
+		   unpack_pointer (lookup_pointer_type (builtin_type_void),
+				   valaddr));
+	      val_print (VALUE_TYPE (deref_val), VALUE_CONTENTS (deref_val),
+			 VALUE_ADDRESS (deref_val), stream, format,
 			 deref_ref, recurse + 1, pretty);
 	    }
 	  else
@@ -1020,12 +1049,12 @@ val_print (type, valaddr, address, stream, format,
       if (vtblprint && is_vtbl_ptr_type(type))
 	{
           /* Print the unmangled name if desired.  */
-	  print_address_demangle(*((int *) (valaddr +
+	  print_address_demangle(*((int *) (valaddr +	/* FIXME bytesex */
 	      TYPE_FIELD_BITPOS (type, VTBL_FNADDR_OFFSET) / 8)),
 	      stream, demangle);
 	  break;
 	}
-      val_print_fields (type, valaddr, stream, recurse, pretty, 0);
+      val_print_fields (type, valaddr, stream, format, recurse, pretty, 0);
       break;
 
     case TYPE_CODE_ENUM:
@@ -1045,7 +1074,11 @@ val_print (type, valaddr, address, stream, format,
       if (i < len)
 	fputs_filtered (TYPE_FIELD_NAME (type, i), stream);
       else
-	fprintf_filtered (stream, "%d", (int) val);
+#ifdef LONG_LONG
+	fprintf_filtered (stream, "%lld", val);
+#else
+	fprintf_filtered (stream, "%ld", val);
+#endif
       break;
 
     case TYPE_CODE_FUNC:
@@ -1079,7 +1112,8 @@ val_print (type, valaddr, address, stream, format,
 	      char *p;
 	      /* Pointer to first (i.e. lowest address) nonzero character.  */
 	      char *first_addr;
-	      unsigned len = TYPE_LENGTH (type);
+	      len = TYPE_LENGTH (type);
+
 #if TARGET_BYTE_ORDER == BIG_ENDIAN
 	      for (p = valaddr;
 		   len > sizeof (LONGEST)
@@ -1353,10 +1387,13 @@ type_print_varspec_prefix (type, stream, show, passed_a_ptr)
 	fprintf (stream, "(");
       type_print_varspec_prefix (TYPE_TARGET_TYPE (type), stream, 0,
 				 0);
-      fprintf_filtered (stream, " ");
-      type_print_base (TYPE_DOMAIN_TYPE (type), stream, 0,
-		       passed_a_ptr);
-      fprintf_filtered (stream, "::");
+      if (passed_a_ptr)
+	{
+	  fprintf_filtered (stream, " ");
+	  type_print_base (TYPE_DOMAIN_TYPE (type), stream, 0,
+			   passed_a_ptr);
+	  fprintf_filtered (stream, "::");
+	}
       break;
 
     case TYPE_CODE_REF:
@@ -1417,8 +1454,8 @@ type_print_varspec_suffix (type, stream, show, passed_a_ptr)
 	fprintf_filtered (stream, ")");
       
       fprintf_filtered (stream, "[");
-      if (TYPE_LENGTH (type) >= 0
-	  && TYPE_LENGTH (TYPE_TARGET_TYPE (type)) > 0)
+      if (/* always true */ /* TYPE_LENGTH (type) >= 0
+	  && */ TYPE_LENGTH (TYPE_TARGET_TYPE (type)) > 0)
 	fprintf_filtered (stream, "%d",
 			  (TYPE_LENGTH (type)
 			   / TYPE_LENGTH (TYPE_TARGET_TYPE (type))));
@@ -1451,8 +1488,10 @@ type_print_varspec_suffix (type, stream, show, passed_a_ptr)
 	      type_print_1 (args[i], "", stream, -1, 0);
 	      if (args[i+1] == 0)
 		fprintf_filtered (stream, "...");
-	      else if (args[i+1]->code != TYPE_CODE_VOID)
+	      else if (args[i+1]->code != TYPE_CODE_VOID) {
 		fprintf_filtered (stream, ",");
+		wrap_here ("    ");
+	      }
 	    }
 	  fprintf_filtered (stream, ")");
 	}
@@ -1512,6 +1551,7 @@ type_print_base (type, stream, show, level)
 
   QUIT;
 
+  wrap_here ("    ");
   if (type == 0)
     {
       fprintf_filtered (stream, "type unknown");
@@ -1546,13 +1586,12 @@ type_print_base (type, stream, show, level)
 	{
 	  fputs_filtered (name, stream);
 	  fputs_filtered (" ", stream);
+	  wrap_here ("    ");
 	}
       if (show < 0)
 	fprintf_filtered (stream, "{...}");
       else
 	{
-	  int i;
-
 	  check_stub_type (type);
 	  
 	  type_print_derivation_info (stream, type);
@@ -1617,7 +1656,15 @@ type_print_base (type, stream, show, level)
 		    fprintf_filtered (stream, "virtual ");
 		  else if (TYPE_FN_FIELD_STATIC_P (f, j))
 		    fprintf_filtered (stream, "static ");
-		  type_print (TYPE_TARGET_TYPE (TYPE_FN_FIELD_TYPE (f, j)), "", stream, 0);
+		  if (TYPE_TARGET_TYPE (TYPE_FN_FIELD_TYPE (f, j)) == 0)
+		    {
+		      /* Keep GDB from crashing here.  */
+		      fprintf (stream, "<undefined type> %s;\n",
+			       TYPE_FN_FIELD_PHYSNAME (f, j));
+		      break;
+		    }
+		  else
+		    type_print (TYPE_TARGET_TYPE (TYPE_FN_FIELD_TYPE (f, j)), "", stream, 0);
 		  if (TYPE_FLAGS (TYPE_FN_FIELD_TYPE (f, j)) & TYPE_FLAG_STUB)
 		    {
 		      /* Build something we can demangle.  */
@@ -1671,6 +1718,7 @@ type_print_base (type, stream, show, level)
 	  fputs_filtered (name, stream);
 	  fputs_filtered (" ", stream);
 	}
+      wrap_here ("    ");
       if (show < 0)
 	fprintf_filtered (stream, "{...}");
       else
@@ -1682,6 +1730,7 @@ type_print_base (type, stream, show, level)
 	    {
 	      QUIT;
 	      if (i) fprintf_filtered (stream, ", ");
+	      wrap_here ("    ");
 	      fputs_filtered (TYPE_FIELD_NAME (type, i), stream);
 	      if (lastval != TYPE_FIELD_BITPOS (type, i))
 		{
@@ -1732,10 +1781,12 @@ type_print_base (type, stream, show, level)
     }
 }
 
+#if 0
 /* Validate an input or output radix setting, and make sure the user
    knows what they really did here.  Radix setting is confusing, e.g.
    setting the input radix to "10" never changes it!  */
 
+/* ARGSUSED */
 static void
 set_input_radix (args, from_tty, c)
      char *args;
@@ -1748,7 +1799,9 @@ set_input_radix (args, from_tty, c)
     printf_filtered ("Input radix set to decimal %d, hex %x, octal %o\n",
 	radix, radix, radix);
 }
+#endif
 
+/* ARGSUSED */
 static void
 set_output_radix (args, from_tty, c)
      char *args;
@@ -1800,49 +1853,88 @@ set_radix (arg, from_tty, c)
   set_output_radix (arg, 0, c);
 }
 
+struct cmd_list_element *setprintlist = NULL;
+struct cmd_list_element *showprintlist = NULL;
+
+/*ARGSUSED*/
+static void
+set_print (arg, from_tty)
+     char *arg;
+     int from_tty;
+{
+  printf (
+"\"set print\" must be followed by the name of a print subcommand.\n");
+  help_list (setprintlist, "set print ", -1, stdout);
+}
+
+/*ARGSUSED*/
+static void
+show_print (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  cmd_show_list (showprintlist, from_tty, "");
+}
+
 void
 _initialize_valprint ()
 {
   struct cmd_list_element *c;
 
+  add_prefix_cmd ("print", no_class, set_print,
+		  "Generic command for setting how things print.",
+		  &setprintlist, "set print ", 0, &setlist);
+  add_alias_cmd ("p", "print", no_class, 1, &setlist); 
+  add_alias_cmd ("pr", "print", no_class, 1, &setlist); /* prefer set print
+														   to     set prompt */
+  add_prefix_cmd ("print", no_class, show_print,
+		  "Generic command for showing print settings.",
+		  &showprintlist, "show print ", 0, &showlist);
+  add_alias_cmd ("p", "print", no_class, 1, &showlist); 
+  add_alias_cmd ("pr", "print", no_class, 1, &showlist); 
+
   add_show_from_set
-    (add_set_cmd ("array-max", class_vars, var_uinteger, (char *)&print_max,
+    (add_set_cmd ("elements", no_class, var_uinteger, (char *)&print_max,
 		  "Set limit on string chars or array elements to print.\n\
-\"set array-max 0\" causes there to be no limit.",
-		  &setlist),
-     &showlist);
+\"set print elements 0\" causes there to be no limit.",
+		  &setprintlist),
+     &showprintlist);
 
   add_show_from_set
-    (add_set_cmd ("prettyprint", class_support, var_boolean, (char *)&prettyprint,
+    (add_set_cmd ("pretty", class_support, var_boolean, (char *)&prettyprint,
 		  "Set prettyprinting of structures.",
-		  &setlist),
-     &showlist);
-
-  add_alias_cmd ("pp", "prettyprint", class_support, 1, &setlist);
+		  &setprintlist),
+     &showprintlist);
 
   add_show_from_set
-    (add_set_cmd ("unionprint", class_support, var_boolean, (char *)&unionprint,
+    (add_set_cmd ("union", class_support, var_boolean, (char *)&unionprint,
 		  "Set printing of unions interior to structures.",
-		  &setlist),
-     &showlist);
+		  &setprintlist),
+     &showprintlist);
   
   add_show_from_set
-    (add_set_cmd ("vtblprint", class_support, var_boolean, (char *)&vtblprint,
+    (add_set_cmd ("vtbl", class_support, var_boolean, (char *)&vtblprint,
 		  "Set printing of C++ virtual function tables.",
-		  &setlist),
-     &showlist);
+		  &setprintlist),
+     &showprintlist);
 
   add_show_from_set
-    (add_set_cmd ("arrayprint", class_support, var_boolean, (char *)&arrayprint,
+    (add_set_cmd ("array", class_support, var_boolean, (char *)&arrayprint,
 		  "Set prettyprinting of arrays.",
-		  &setlist),
-     &showlist);
+		  &setprintlist),
+     &showprintlist);
 
   add_show_from_set
-    (add_set_cmd ("addressprint", class_support, var_boolean, (char *)&addressprint,
+    (add_set_cmd ("object", class_support, var_boolean, (char *)&objectprint,
+	  "Set printing of object's derived type based on vtable info.",
+		  &setprintlist),
+     &showprintlist);
+
+  add_show_from_set
+    (add_set_cmd ("address", class_support, var_boolean, (char *)&addressprint,
 		  "Set printing of addresses.",
-		  &setlist),
-     &showlist);
+		  &setprintlist),
+     &showprintlist);
 
 #if 0
   /* The "show radix" cmd isn't good enough to show two separate values.
@@ -1876,6 +1968,7 @@ _initialize_valprint ()
   vtblprint = 0;
   arrayprint = 0;
   addressprint = 1;
+  objectprint = 0;
 
   print_max = 200;
 

@@ -41,7 +41,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
  * This file and blockframe.c are the only places which are allowed to
  * use the equivalence between FRAME and struct frame_info *.  EXCEPTION:
  * value.h uses CORE_ADDR instead of FRAME_ADDR because the compiler
- * will accept that in the absense of this file.
+ * will accept that in the absence of this file.
  */
 typedef struct frame_info *FRAME;
 typedef CORE_ADDR	FRAME_ADDR;
@@ -98,6 +98,7 @@ extern struct frame_info *get_prev_frame_info ();
 
 extern FRAME create_new_frame ();
 extern void  flush_cached_frames ();
+extern void reinit_frame_cache ();
 
 extern void get_frame_saved_regs ();
 
@@ -125,6 +126,4 @@ extern void print_sel_frame ();
 extern void select_frame ();
 extern void record_selected_frame ();
 
-/* Generic pointer value indicating "I don't know."  */
-#define Frame_unknown (CORE_ADDR)-1
 #endif /* frame.h not already included.  */

@@ -19,7 +19,9 @@
 /* This is for g++ 1.36.1 (November 6 version). It will probably
    require changes for any other version.
 
-   Modified for g++ 1.36.2 (November 18 version).  */
+   Modified for g++ 1.36.2 (November 18 version).
+
+   Modified for g++ 1.90.06 (December 31 version).  */
 
 /* This file exports one function
 
@@ -55,6 +57,10 @@
 #include <stdio.h>
 #include <ctype.h>
 
+/* GDB-specific, FIXME.  */
+#include "defs.h"
+#include "param.h"
+
 #ifdef USG
 #include <memory.h>
 #include <string.h>
@@ -64,6 +70,13 @@
 #define memcmp(s1, s2, n) bcmp ((s2), (s1), (n))
 #define strchr index 
 #define strrchr rindex
+#endif
+
+/* This is '$' on systems where the assembler can deal with that.
+   Where the assembler can't, it's '.' (but on many systems '.' is
+   used for other things).  */
+#if !defined (CPLUS_MARKER)
+#define CPLUS_MARKER '$'
 #endif
 
 #ifndef __STDC__
@@ -77,8 +90,10 @@ extern char *cplus_demangle ();
 #endif
 
 #ifdef __STDC__
-extern char *xmalloc (int);
-extern char *xrealloc (char *, int);
+/* GDB prototypes these as void* in defs.h, so we better too, at least
+   as long as we're including defs.h.  */
+extern void *xmalloc (int);
+extern void *xrealloc (char *, int);
 extern void free (char *);
 #else
 extern char *xmalloc ();
@@ -90,12 +105,14 @@ static char **typevec = 0;
 static int ntypes = 0;
 static int typevec_size = 0;
 
-static struct {
+const static struct {
   const char *in;
   const char *out;
 } optable[] = {
-  "new", " new",
-  "delete", " delete",
+  "nw", " new",			/* new (1.92) */
+  "dl", " delete",		/* new (1.92) */
+  "new", " new",		/* old (1.91, and 1.x) */
+  "delete", " delete",		/* old (1.91, and 1.x) */
   "ne", "!=",
   "eq", "==",
   "ge", ">=",
@@ -127,6 +144,7 @@ static struct {
   "method_call", "->()",
   "addr", "&",		/* unary & */
   "array", "[]",
+  "compound", ",",
   "nop", "",			/* for operator= */
 };
 
@@ -181,6 +199,23 @@ static void munge_function_name ();
 static void remember_type ();
 #endif
 
+/* Takes operator name as e.g. "++" and returns mangled
+   operator name (e.g. "postincrement_expr"), or NULL if not found.  */
+char *
+cplus_mangle_opname (opname)
+     char *opname;
+{
+  int i, len = strlen (opname);
+
+  for (i = 0; i < sizeof (optable)/sizeof (optable[0]); i++)
+    {
+      if (strlen (optable[i].out) == len
+	  && memcmp (optable[i].out, opname, len) == 0)
+	return (char *)optable[i].in;
+    }
+  return 0;
+}
+
 char *
 cplus_demangle (type, arg_mode)
      const char *type;
@@ -212,7 +247,7 @@ cplus_demangle (type, arg_mode)
   if (*p == '\0')
     {
       /* destructor */
-      if (type[0] == '_' && type[1] == '$' && type[2] == '_')
+      if (type[0] == '_' && type[1] == CPLUS_MARKER && type[2] == '_')
 	{
 	  int n = (strlen (type) - 3)*2 + 3 + 2 + 1;
 	  char *tem = (char *) xmalloc (n);
@@ -223,7 +258,7 @@ cplus_demangle (type, arg_mode)
 	  return tem;
 	}
       /* static data member */
-      if (*type != '_' && (p = strchr (type, '$')) != NULL)
+      if (*type != '_' && (p = strchr (type, CPLUS_MARKER)) != NULL)
 	{
 	  int n = strlen (type) + 2;
 	  char *tem = (char *) xmalloc (n);
@@ -233,7 +268,7 @@ cplus_demangle (type, arg_mode)
 	  return tem;
 	}
       /* virtual table "_vt$" */
-      if (type[0] == '_' && type[1] == 'v' && type[2] == 't' && type[3] == '$')
+      if (type[0] == '_' && type[1] == 'v' && type[2] == 't' && type[3] == CPLUS_MARKER)
 	{
 	  int n = strlen (type + 4) + 14 + 1;
 	  char *tem = (char *) xmalloc (n);
@@ -403,6 +438,15 @@ do_type (type, result, arg_mode)
       int member;
       switch (**type)
 	{
+	case 'Q':
+	  n = (*type)[1] - '0';
+	  if (n < 0 || n > 9)
+	    success = 0;
+	  *type += 2;
+	  while (n-- > 0)
+	    do_type (type, result, arg_mode);
+	  break;
+
 	case 'P':
 	  *type += 1;
 	  string_prepend (&decl, "*");
@@ -810,7 +854,7 @@ munge_function_name (name, arg_mode)
      int arg_mode;
 {
   if (!string_empty (name) && name->p - name->b >= 3 
-      && name->b[0] == 'o' && name->b[1] == 'p' && name->b[2] == '$')
+      && name->b[0] == 'o' && name->b[1] == 'p' && name->b[2] == CPLUS_MARKER)
     {
       int i;
       /* see if it's an assignment expression */

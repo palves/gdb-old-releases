@@ -1,5 +1,5 @@
 /* Interface to bare machine for GDB running as kernel debugger.
-   Copyright (C) 1986, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -128,7 +128,6 @@ open (filename, modes)
      int modes;
 {
   register char *next;
-  extern int errno;
 
   if (modes)
     {
@@ -192,8 +191,6 @@ fclose (desc)
 fstat (desc, statbuf)
      struct stat *statbuf;
 {
-  extern int errno;
-
   if (desc != sourcedesc)
     {
       errno = EBADF;
@@ -209,7 +206,6 @@ myread (desc, destptr, size, filename)
      char *filename;
 {
   int len = min (sourceleft, size);
-  extern int errno;
 
   if (desc != sourcedesc)
     {
@@ -227,7 +223,6 @@ fread (bufp, numelts, eltsize, stream)
 {
   register int elts = min (numelts, sourceleft / eltsize);
   register int len = elts * eltsize;
-  extern int errno;
 
   if (stream != sourcedesc)
     {
@@ -244,7 +239,6 @@ int
 fgetc (desc)
      int desc;
 {
-  extern int errno;
 
   if (desc == (int) stdin)
     return tty_input ();
@@ -264,7 +258,6 @@ lseek (desc, pos)
      int desc;
      int pos;
 {
-  extern int errno;
 
   if (desc != sourcedesc)
     {

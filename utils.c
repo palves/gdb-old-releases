@@ -1,5 +1,5 @@
 /* General utility routines for GDB, the GNU debugger.
-   Copyright (C) 1986, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1989, 1990, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -94,6 +94,12 @@ int demangle = 1;
    DEMANGLE is zero, names are printed raw, i.e. DEMANGLE controls.  */
 
 int asm_demangle = 0;
+
+/* Nonzero means that strings with character values >0x7F should be printed
+   as octal escapes.  Zero means just print the value (e.g. it's an
+   international character, and the terminal or window can cope.)  */
+
+int sevenbit_strings = 0;
 
 /* Add a new cleanup to the cleanup_chain,
    and return the previous chain pointer
@@ -266,6 +272,7 @@ void
 init_malloc ()
 {
   mcheck (malloc_botch);
+  mtrace ();
 }
 #endif /* Have mcheck().  */
 
@@ -319,7 +326,6 @@ perror_with_name (string)
 {
   extern int sys_nerr;
   extern char *sys_errlist[];
-  extern int errno;
   char *err;
   char *combined;
 
@@ -374,6 +380,7 @@ void
 quit ()
 {
   target_terminal_ours ();
+  wrap_here ((char *)0);		/* Force out any pending output */
 #ifdef HAVE_TERMIO
   ioctl (fileno (stdout), TCFLSH, 1);
 #else /* not HAVE_TERMIO */
@@ -440,6 +447,16 @@ savestring (ptr, size)
   bcopy (ptr, p, size);
   p[size] = 0;
   return p;
+}
+
+/* The "const" is so it compiles under DGUX (which prototypes strsave
+   in <string.h>.  FIXME: This should be named "xstrsave", shouldn't it?
+   Doesn't real strsave return NULL if out of memory?  */
+char *
+strsave (ptr)
+     const char *ptr;
+{
+  return savestring (ptr, strlen (ptr));
 }
 
 char *
@@ -603,7 +620,8 @@ printchar (ch, stream, quoter)
      int quoter;
 {
   register int c = ch;
-  if (c < 040 || c >= 0177)
+
+  if (c < 040 || (sevenbit_strings && c >= 0177))
     switch (c)
       {
       case '\n':
@@ -679,8 +697,9 @@ lines_to_list ()
   return 10;
 }
 
+/* ARGSUSED */
 static void 
-set_screen_width_command (args, from_tty, c)
+set_width_command (args, from_tty, c)
      char *args;
      int from_tty;
      struct cmd_list_element *c;
@@ -718,7 +737,12 @@ reinitialize_more_filter ()
    If INDENT is nonzero, it is a string to be printed to indent the
    wrapped part on the next line.  INDENT must remain accessible until
    the next call to wrap_here() or until a newline is printed through
-   fputs_filtered().  INDENT should not contain tabs, as that
+   fputs_filtered().
+
+   If the line is already overfull, we immediately print a newline and
+   the indentation, and disable further wrapping.
+
+   INDENT should not contain tabs, as that
    will mess up the char count on the next line.  FIXME.  */
 
 void
@@ -732,8 +756,17 @@ wrap_here(indent)
     }
   wrap_pointer = wrap_buffer;
   wrap_buffer[0] = '\0';
-  wrap_column = chars_printed;
-  wrap_indent = indent;
+  if (chars_printed >= chars_per_line)
+    {
+      puts_filtered ("\n");
+      puts_filtered (indent);
+      wrap_column = 0;
+    }
+  else
+    {
+      wrap_column = chars_printed;
+      wrap_indent = indent;
+    }
 }
 
 /* Like fputs but pause after every screenful, and can wrap at points
@@ -826,7 +859,9 @@ fputs_filtered (linebuffer, stream)
 		  /* FIXME, this strlen is what prevents wrap_indent from
 		     containing tabs.  However, if we recurse to print it
 		     and count its chars, we risk trouble if wrap_indent is
-		     longer than (the user settable) chars_per_line.  */
+		     longer than (the user settable) chars_per_line. 
+		     Note also that this can set chars_printed > chars_per_line
+		     if we are printing a long string.  */
 		  chars_printed = strlen (wrap_indent)
 				+ (save_chars - wrap_column);
 		  wrap_pointer = wrap_buffer;	/* Reset buffer */
@@ -839,7 +874,7 @@ fputs_filtered (linebuffer, stream)
       if (*lineptr == '\n')
 	{
 	  chars_printed = 0;
-	  wrap_here ("");	/* Spit out chars, cancel further wraps */
+	  wrap_here ((char *)0);  /* Spit out chars, cancel further wraps */
 	  lines_printed++;
 	  putc ('\n', stream);
 	  lineptr++;
@@ -864,7 +899,8 @@ fputs_demangled (linebuffer, stream, arg_mode)
 #endif
 #define SYMBOL_MAX 1024
 
-#define SYMBOL_CHAR(c) (isascii(c) && (isalnum(c) || (c) == '_' || (c) == '$'))
+#define SYMBOL_CHAR(c) (isascii(c) \
+  && (isalnum(c) || (c) == '_' || (c) == CPLUS_MARKER))
 
   char buf[SYMBOL_MAX+1];
 # define SLOP 5		/* How much room to leave in buf */
@@ -1169,29 +1205,38 @@ struct queue *item;
 }
 #endif /* QUEUE_MISSING */
 
+/* Simple implementation of strstr, since some implementations lack it. */
+char *
+strstr (in, find)
+     const char *in, *find;
+{
+  register const char *p = in - 1;
+
+  while (0 != (p = strchr (p+1, *find))) {
+    if (strcmp (p, find))
+      return (char *)p;
+  }
+  return 0;
+}
+
 void
 _initialize_utils ()
 {
   struct cmd_list_element *c;
 
-  c = add_set_cmd ("screen-width", class_support, var_uinteger, 
+  c = add_set_cmd ("width", class_support, var_uinteger, 
 		  (char *)&chars_per_line,
 		  "Set number of characters gdb thinks are in a line.",
 		  &setlist);
   add_show_from_set (c, &showlist);
-  c->function = set_screen_width_command;
+  c->function = set_width_command;
 
   add_show_from_set
-    (add_set_cmd ("screen-height", class_support,
+    (add_set_cmd ("height", class_support,
 		  var_uinteger, (char *)&lines_per_page,
 		  "Set number of lines gdb thinks are in a page.", &setlist),
      &showlist);
   
-#if 0
-  add_info ("screensize", screensize_info,
-	    "Show gdb's current notion of the size of the output screen.");
-#endif /* 0 */
-
   /* These defaults will be used if we are unable to get the correct
      values from termcap.  */
   lines_per_page = 24;
@@ -1231,19 +1276,26 @@ _initialize_utils ()
       }
   }
 
-  set_screen_width_command ((char *)NULL, 0, c);
+  set_width_command ((char *)NULL, 0, c);
 
   add_show_from_set
     (add_set_cmd ("demangle", class_support, var_boolean, 
 		  (char *)&demangle,
 		"Set demangling of encoded C++ names when displaying symbols.",
-		  &setlist),
-     &showlist);
+		  &setprintlist),
+     &showprintlist);
+
+  add_show_from_set
+    (add_set_cmd ("sevenbit-strings", class_support, var_boolean, 
+		  (char *)&sevenbit_strings,
+   "Set printing of 8-bit characters in strings as \\nnn.",
+		  &setprintlist),
+     &showprintlist);
 
   add_show_from_set
     (add_set_cmd ("asm-demangle", class_support, var_boolean, 
 		  (char *)&asm_demangle,
 	"Set demangling of C++ names in disassembly listings.",
-		  &setlist),
-     &showlist);
+		  &setprintlist),
+     &showprintlist);
 }

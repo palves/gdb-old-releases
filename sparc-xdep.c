@@ -37,6 +37,18 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 extern char register_valid[];
 
+/* We don't store all registers immediately when requested, since they
+   get sent over in large chunks anyway.  Instead, we accumulate most
+   of the changes and send them over once.  "deferred_stores" keeps
+   track of which sets of registers we have locally-changed copies of,
+   so we only need send the groups that have changed.  */
+
+#define	INT_REGS	1
+#define	STACK_REGS	2
+#define	FP_REGS		4
+
+int deferred_stores = 0;	/* Cumulates stores we want to do eventually. */
+
 /* Fetch one or more registers from the inferior.  REGNO == -1 to get
    them all.  We actually fetch more than requested, when convenient,
    marking them as valid so we won't fetch them again.  */
@@ -127,11 +139,6 @@ fetch_inferior_registers (regno)
 /* Store our register values back into the inferior.
    If REGNO is -1, do this for all registers.
    Otherwise, REGNO specifies which register (so we can save time).  */
-
-#define	INT_REGS	1
-#define	STACK_REGS	2
-#define	FP_REGS		4
-int deferred_stores = 0;	/* Cumulates stores we want to do eventually. */
 
 int
 store_inferior_registers (regno)
@@ -238,52 +245,61 @@ store_inferior_registers (regno)
 }
 
 void
-fetch_core_registers (core_reg_sect, core_reg_size)
+fetch_core_registers (core_reg_sect, core_reg_size, which)
   char *core_reg_sect;
   unsigned core_reg_size;
+  int which;
 {
+
+  if (which == 0) {
+
+    /* Integer registers */
+
 #define gregs ((struct regs *)core_reg_sect)
-#define fpuregs  ((struct fpu *) (gregs+1))	/* After gen'l regs */
+    /* G0 *always* holds 0.  */
+    *(int *)&registers[REGISTER_BYTE (0)] = 0;
 
-  /* G0 *always* holds 0.  */
-  *(int *)&registers[REGISTER_BYTE (0)] = 0;
+    /* The globals and output registers.  */
+    bcopy (&gregs->r_g1, 
+	   &registers[REGISTER_BYTE (G1_REGNUM)],
+	   15 * REGISTER_RAW_SIZE (G1_REGNUM));
+    *(int *)&registers[REGISTER_BYTE (PS_REGNUM)] = gregs->r_ps;
+    *(int *)&registers[REGISTER_BYTE (PC_REGNUM)] = gregs->r_pc;
+    *(int *)&registers[REGISTER_BYTE (NPC_REGNUM)] = gregs->r_npc;
+    *(int *)&registers[REGISTER_BYTE (Y_REGNUM)] = gregs->r_y;
 
-  /* The globals and output registers.  */
-  bcopy (&gregs->r_g1, 
-	 &registers[REGISTER_BYTE (G1_REGNUM)],
-	 15 * REGISTER_RAW_SIZE (G1_REGNUM));
-  *(int *)&registers[REGISTER_BYTE (PS_REGNUM)] = gregs->r_ps;
-  *(int *)&registers[REGISTER_BYTE (PC_REGNUM)] = gregs->r_pc;
-  *(int *)&registers[REGISTER_BYTE (NPC_REGNUM)] = gregs->r_npc;
-  *(int *)&registers[REGISTER_BYTE (Y_REGNUM)] = gregs->r_y;
-
-  /* My best guess at where to get the locals and input
-     registers is exactly where they usually are, right above
-     the stack pointer.  If the core dump was caused by a bus error
-     from blowing away the stack pointer (as is possible) then this
-     won't work, but it's worth the try. */
-  {
-    int sp;
-
-    sp = *(int *)&registers[REGISTER_BYTE (SP_REGNUM)];
-    if (0 != target_read_memory (sp, &registers[REGISTER_BYTE (L0_REGNUM)], 
-			16 * REGISTER_RAW_SIZE (L0_REGNUM)))
-      {
-        /* fprintf so user can still use gdb */
-        fprintf (stderr,
-	         "Couldn't read input and local registers from core file\n");
-      }
-  }
-
-  if (core_reg_size >= (sizeof (struct regs) + sizeof (struct fpu)))
+    /* My best guess at where to get the locals and input
+       registers is exactly where they usually are, right above
+       the stack pointer.  If the core dump was caused by a bus error
+       from blowing away the stack pointer (as is possible) then this
+       won't work, but it's worth the try. */
     {
-      bcopy (fpuregs->fpu_regs,
-	     &registers[REGISTER_BYTE (FP0_REGNUM)],
-	     sizeof (fpuregs->fpu_regs));
-      bcopy (&fpuregs->fpu_fsr,
-	     &registers[REGISTER_BYTE (FPS_REGNUM)],
-	     sizeof (FPU_FSR_TYPE));
+      int sp;
+
+      sp = *(int *)&registers[REGISTER_BYTE (SP_REGNUM)];
+      if (0 != target_read_memory (sp, &registers[REGISTER_BYTE (L0_REGNUM)], 
+			  16 * REGISTER_RAW_SIZE (L0_REGNUM)))
+	{
+	  /* fprintf so user can still use gdb */
+	  fprintf (stderr,
+		   "Couldn't read input and local registers from core file\n");
+	}
     }
-  else
-    fprintf (stderr, "Couldn't read float regs from core file\n");
+  } else if (which == 2) {
+
+    /* Floating point registers */
+
+#define fpuregs  ((struct fpu *) core_reg_sect)
+    if (core_reg_size >= sizeof (struct fpu))
+      {
+	bcopy (fpuregs->fpu_regs,
+	       &registers[REGISTER_BYTE (FP0_REGNUM)],
+	       sizeof (fpuregs->fpu_regs));
+	bcopy (&fpuregs->fpu_fsr,
+	       &registers[REGISTER_BYTE (FPS_REGNUM)],
+	       sizeof (FPU_FSR_TYPE));
+      }
+    else
+      fprintf (stderr, "Couldn't read float regs from core file\n");
+  }
 }

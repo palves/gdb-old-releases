@@ -212,7 +212,9 @@ print_insn_arg (d, buffer, p, addr, stream)
 
     case 'Q':
       val = fetch_arg (buffer, place, 3);
-      if (val == 0) val = 8;
+      /* 0 means 8, except for the bkpt instruction... */
+      if (val == 0 && d[1] != 's')
+	val = 8;
       fprintf_filtered (stream, "#%d", val);
       break;
 

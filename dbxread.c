@@ -1,5 +1,5 @@
 /* Read dbx symbol tables and convert to internal format, for GDB.
-   Copyright (C) 1986, 1987, 1988, 1989, 1990 Free Software Foundation, Inc.
+   Copyright (C) 1986-1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -347,11 +347,6 @@ struct pending_block *pending_blocks;
 extern CORE_ADDR startup_file_start;	/* From blockframe.c */
 extern CORE_ADDR startup_file_end;	/* From blockframe.c */
 
-/* The BFD for this file -- only good while we're actively reading
-   symbols into a psymtab or a symtab.  */
-
-static bfd *symfile_bfd;
-
 /* Global variable which, when set, indicates that we are processing a
    .o file compiled with gcc */
 
@@ -405,10 +400,13 @@ struct complaint lbrac_rbrac_complaint =
   {"block start larger than block end", 0, 0};
 
 struct complaint const_vol_complaint =
-  {"const/volatile indicator missing, got %c", 0, 0};
+  {"const/volatile indicator missing, got '%c'", 0, 0};
 
 struct complaint error_type_complaint =
   {"C++ type mismatch between compiler and debugger", 0, 0};
+
+struct complaint invalid_member_complaint =
+  {"invalid (minimal) member type data format at symtab pos %d.", 0, 0};
 
 /* Support for Sun changes to dbx symbol format */
 
@@ -673,6 +671,7 @@ dbx_create_type ()
 
   bzero (type, sizeof (struct type));
   TYPE_VPTR_FIELDNO (type) = -1;
+  TYPE_VPTR_BASETYPE (type) = 0;
   return type;
 }
 
@@ -770,7 +769,9 @@ really_free_pendings (foo)
      int foo;
 {
   struct pending *next, *next1;
+#if 0
   struct pending_block *bnext, *bnext1;
+#endif
 
   for (next = free_pendings; next; next = next1)
     {
@@ -779,11 +780,13 @@ really_free_pendings (foo)
     }
   free_pendings = 0;
 
+#if 0 /* Now we make the links in the symbol_obstack, so don't free them.  */
   for (bnext = pending_blocks; bnext; bnext = bnext1)
     {
       bnext1 = bnext->next;
       free (bnext);
     }
+#endif
   pending_blocks = 0;
 
   for (next = file_symbols; next; next = next1)
@@ -791,11 +794,14 @@ really_free_pendings (foo)
       next1 = next->next;
       free (next);
     }
+  file_symbols = 0;
+
   for (next = global_symbols; next; next = next1)
     {
       next1 = next->next;
       free (next);
     }
+  global_symbols = 0;
 }
 
 /* Take one of the lists of symbols and make a block from it.
@@ -1126,7 +1132,7 @@ end_symtab (end_addr)
      file_symbols is still good).  */
   cleanup_undefined_types ();
 
-  /* Finish defining all the blocks of this symtab.  */
+  /* Define the STATIC_BLOCK and GLOBAL_BLOCK, and build the blockvector.  */
   finish_block (0, &file_symbols, 0, last_source_start_addr, end_addr);
   finish_block (0, &global_symbols, 0, last_source_start_addr, end_addr);
   blockvector = make_blockvector ();
@@ -1164,10 +1170,10 @@ end_symtab (end_addr)
       symtab->language = language_unknown;
       symtab->fullname = NULL;
 
-      /* If there is already a symtab for a file of this name, remove it,
-	 and clear out other dependent data structures such as
-	 breakpoints.  This happens in VxWorks maybe?  -gnu@cygnus */
-      free_named_symtab (symtab->filename);
+      /* There should never already be a symtab for this name, since
+	 any prev dups have been removed when the psymtab was read in.
+  	 FIXME, there ought to be a way to check this here.  */
+      /* FIXME blewit |= free_named_symtabs (symtab->filename);  */
 
       /* Link the new symtab into the list of such.  */
       symtab->next = symtab_list;
@@ -1248,6 +1254,11 @@ record_misc_function (name, address, type)
 			     address, misc_type);
 }
 
+/* The BFD for this file -- only good while we're actively reading
+   symbols into a psymtab or a symtab.  */
+
+static bfd *symfile_bfd;
+
 /* Scan and build partial symbols for a symbol file.
    We have been initialized by a call to dbx_symfile_init, which 
    put all the relevant info into a "struct dbx_symfile_info"
@@ -1278,8 +1289,11 @@ dbx_symfile_read (sf, addr, mainline)
   if (mainline) {
     symfile_string_table = info->stringtab;
     symfile_string_table_size = info->stringtab_size;
-    init_psymbol_list (info->symcount);
   }
+
+  /* If we are reinitializing, or if we have never loaded syms yet, init */
+  if (mainline || global_psymbols.size == 0 || static_psymbols.size == 0)
+    init_psymbol_list (info->symcount);
 
   symfile_bfd = sym_bfd;		/* Kludge for SWAP_SYMBOL */
 
@@ -1302,6 +1316,14 @@ dbx_symfile_read (sf, addr, mainline)
   /* Go over the misc symbol bunches and install them in vector.  */
 
   condense_misc_bunches (!mainline);
+
+  /* Free up any memory we allocated for ourselves.  */
+
+  if (!mainline) {
+    free (info->stringtab);	/* Stringtab is only saved for mainline */
+  }
+  free (info);
+  sf->sym_private = 0;		/* Zap pointer to our (now gone) info struct */
 
   /* Call to select_source_symtab used to be here; it was using too
      much time.  I'll make sure that list_sources can handle the lack
@@ -1373,7 +1395,7 @@ dbx_symfile_init (sf)
   bfd *sym_bfd = sf->sym_bfd;
   char *name = bfd_get_filename (sym_bfd);
   struct dbx_symfile_info *info;
-  char size_temp[sizeof (long)];
+  unsigned char size_temp[4];
 
   /* Allocate struct to keep track of the symfile */
   sf->sym_private = xmalloc (sizeof (*info));   /* FIXME storage leak */
@@ -1389,7 +1411,7 @@ dbx_symfile_init (sf)
   info->text_sect = bfd_get_section_by_name (sym_bfd, ".text");
   if (!info->text_sect)
     abort();
-  info->symcount = bfd_get_symcount_upper_bound(sym_bfd);   /* It's exact for a.out */
+  info->symcount = bfd_get_symcount (sym_bfd);
 
   /* Read the string table size and check it for bogosity.  */
   val = lseek (desc, STRING_TABLE_OFFSET, L_SET);
@@ -1490,14 +1512,19 @@ next_symbol_text ()
   return symbuf[symbuf_idx++].n_un.n_strx + stringtab_global;
 }
 
-/*
- * Initializes storage for all of the partial symbols that will be
- * created by read_dbx_symtab and subsidiaries.
- */
+/* Initializes storage for all of the partial symbols that will be
+   created by read_dbx_symtab and subsidiaries.  */
+
 static void
 init_psymbol_list (total_symbols)
      int total_symbols;
 {
+  /* Free any previously allocated psymbol lists.  */
+  if (global_psymbols.list)
+    free (global_psymbols.list);
+  if (static_psymbols.list)
+    free (static_psymbols.list);
+
   /* Current best guess is that there are approximately a twentieth
      of the total symbols (in a debugging file) are global or static
      oriented symbols */
@@ -1509,10 +1536,9 @@ init_psymbol_list (total_symbols)
     xmalloc (static_psymbols.size * sizeof (struct partial_symbol));
 }
 
-/*
- * Initialize the list of bincls to contain none and have some
- * allocated.
- */
+/* Initialize the list of bincls to contain none and have some
+   allocated.  */
+
 static void
 init_bincl_list (number)
      int number;
@@ -1522,9 +1548,8 @@ init_bincl_list (number)
       xmalloc (bincls_allocated * sizeof(struct header_file_location));
 }
 
-/*
- * Add a bincl to the list.
- */
+/* Add a bincl to the list.  */
+
 static void
 add_bincl_to_list (pst, name, instance)
      struct partial_symtab *pst;
@@ -1545,11 +1570,10 @@ add_bincl_to_list (pst, name, instance)
   next_bincl++->name = name;
 }
 
-/*
- * Given a name, value pair, find the corresponding
- * bincl in the list.  Return the partial symtab associated
- * with that header_file_location.
- */
+/* Given a name, value pair, find the corresponding
+   bincl in the list.  Return the partial symtab associated
+   with that header_file_location.  */
+
 struct partial_symtab *
 find_corresponding_bincl_psymtab (name, instance)
      char *name;
@@ -1565,9 +1589,8 @@ find_corresponding_bincl_psymtab (name, instance)
   return (struct partial_symtab *) 0;
 }
 
-/*
- * Free the storage allocated for the bincl list.
- */
+/* Free the storage allocated for the bincl list.  */
+
 static void
 free_bincl_list ()
 {
@@ -1632,7 +1655,7 @@ ADD_PSYMBOL_TO_PLIST(NAME, NAMELENGTH, NAMESPACE, CLASS, PLIST, VALUE)
    of symbols in the symbol table.  All symbol names are given as
    offsets relative to STRINGTAB.  STRINGTAB_SIZE is the size of
    STRINGTAB.  SYMFILE_NAME is the name of the file we are reading from
-   and ADDR is the address (if incremental) or 0 (if not).  */
+   and ADDR is its relocated address (if incremental) or 0 (if not).  */
 
 static void
 read_dbx_symtab (symfile_name, addr,
@@ -1722,7 +1745,7 @@ read_dbx_symtab (symfile_name, addr,
       SWAP_SYMBOL (bufp);
 
       /* Ok.  There is a lot of code duplicated in the rest of this
-         switch statiement (for efficiency reasons).  Since I don't
+         switch statement (for efficiency reasons).  Since I don't
          like duplicating code, I will do my penance here, and
          describe the code which is duplicated:
 
@@ -1804,6 +1827,7 @@ read_dbx_symtab (symfile_name, addr,
 
 	  SET_NAMESTRING();
 
+	bss_ext_symbol:
 	  record_misc_function (namestring, bufp->n_value,
 				bufp->n_type); /* Always */
 
@@ -1857,8 +1881,10 @@ read_dbx_symtab (symfile_name, addr,
 	  bufp->n_value += addr;		/* Relocate */
 	  SET_NAMESTRING ();
 	  /* Check for __DYNAMIC, which is used by Sun shared libraries. 
-	     Record it even if it's local, not global, so we can find it.  */
-	  if (namestring[8] == 'C' && (strcmp ("__DYNAMIC", namestring) == 0))
+	     Record it even if it's local, not global, so we can find it.
+	     Same with virtual function tables, both global and static.  */
+	  if ((namestring[8] == 'C' && (strcmp ("__DYNAMIC", namestring) == 0))
+	      || VTBL_PREFIX_P ((namestring+HASH_OFFSET)))
 	    {
 	      /* Not really a function here, but... */
 	      record_misc_function (namestring, bufp->n_value,
@@ -1866,14 +1892,31 @@ read_dbx_symtab (symfile_name, addr,
 	  }
 	  continue;
 
+	case N_UNDF | N_EXT:
+	  if (bufp->n_value != 0) {
+	    /* This is a "Fortran COMMON" symbol.  See if the target
+	       environment knows where it has been relocated to.  */
+
+	    CORE_ADDR reladdr;
+
+	    SET_NAMESTRING();
+	    if (target_lookup_symbol (namestring, &reladdr)) {
+	      continue;		/* Error in lookup; ignore symbol for now.  */
+	    }
+	    bufp->n_type ^= (N_BSS^N_UNDF);	/* Define it as a bss-symbol */
+	    bufp->n_value = reladdr;
+	    goto bss_ext_symbol;
+	  }
+	  continue;	/* Just undefined, not COMMON */
+
 	    /* Lots of symbol types we can just ignore.  */
 
 	case N_UNDF:
-	case N_UNDF | N_EXT:
 	case N_ABS:
 	case N_BSS:
 	case N_NBDATA:
 	case N_NBBSS:
+	  continue;
 
 	  /* Keep going . . .*/
 
@@ -1977,12 +2020,15 @@ read_dbx_symtab (symfile_name, addr,
 	  /* In C++, one may expect the same filename to come round many
 	     times, when code is coming alternately from the main file
 	     and from inline functions in other files. So I check to see
-	     if this is a file we've seen before.
+	     if this is a file we've seen before -- either the main
+	     source file, or a previously included file.
 
 	     This seems to be a lot of time to be spending on N_SOL, but
 	     things like "break expread.y:435" need to work (I
 	     suppose the psymtab_include_list could be hashed or put
 	     in a binary tree, if profiling shows this is a major hog).  */
+	  if (!strcmp (namestring, pst->filename))
+	    continue;
 	  {
 	    register int i;
 	    for (i = 0; i < includes_used; i++)
@@ -2171,6 +2217,17 @@ read_dbx_symtab (symfile_name, addr,
 				   static_psymbols, bufp->n_value);
 	      continue;
 
+	      /* Global functions were ignored here, but now they
+	         are put into the global psymtab like one would expect.
+		 They're also in the misc fn vector... 
+		 FIXME, why did it used to ignore these?  That broke
+		 "i fun" on these functions.  */
+	    case 'F':
+	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
+				   VAR_NAMESPACE, LOC_BLOCK,
+				   global_psymbols, bufp->n_value);
+	      continue;
+
 	      /* Two things show up here (hopefully); static symbols of
 		 local scope (static used inside braces) or extensions
 		 of structure symbols.  We can ignore both.  */
@@ -2186,10 +2243,6 @@ read_dbx_symtab (symfile_name, addr,
 	    case '7':
 	    case '8':
 	    case '9':
-	      /* Global functions are ignored here.  I'm not
-		 sure what psymtab they go into (or just the misc
-		 function vector).  */
-	    case 'F':
 	      continue;
 
 	    default:
@@ -2274,6 +2327,7 @@ read_dbx_symtab (symfile_name, addr,
 	case N_PSYM:
 	case N_LBRAC:
 	case N_RBRAC:
+	case N_NSYMS:		/* Ultrix 4.0: symbol count */
 	  /* These symbols aren't interesting; don't worry about them */
 
 	  continue;
@@ -2287,7 +2341,8 @@ read_dbx_symtab (symfile_name, addr,
     }
 
   /* If there's stuff to be cleaned up, clean it up.  */
-  if (entry_point < bufp->n_value
+  if (nlistlen > 0				/* We have some syms */
+      && entry_point < bufp->n_value
       && entry_point >= last_o_file_start)
     {
       startup_file_start = last_o_file_start;
@@ -2432,12 +2487,15 @@ end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
 				strlen (include_list[i]) + 1);
       strcpy (subpst->filename, include_list[i]);
 
+      subpst->symfile_name = pst->symfile_name;
+      subpst->addr = pst->addr;
       subpst->ldsymoff =
 	subpst->ldsymlen =
 	  subpst->textlow =
 	    subpst->texthigh = 0;
-      subpst->readin = 0;
 
+      /* We could save slight bits of space by only making one of these,
+	 shared by the entire set of include files.  FIXME-someday.  */
       subpst->dependencies = (struct partial_symtab **)
 	obstack_alloc (psymbol_obstack,
 		       sizeof (struct partial_symtab *));
@@ -2449,6 +2507,10 @@ end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
 	  subpst->statics_offset =
 	    subpst->n_static_syms = 0;
 
+      subpst->readin = 0;
+      subpst->symtab = 0;
+      subpst->read_symtab = dbx_psymtab_to_symtab;
+
       subpst->next = partial_symtab_list;
       partial_symtab_list = subpst;
     }
@@ -2456,6 +2518,11 @@ end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
   /* Sort the global list; don't sort the static list */
   qsort (global_psymbols.list + pst->globals_offset, pst->n_global_syms,
 	 sizeof (struct partial_symbol), compare_psymbols);
+
+  /* If there is already a psymtab or symtab for a file of this name, remove it.
+     (If there is a symtab, more drastic things also happen.)
+     This happens in VxWorks.  */
+  free_named_symtabs (pst->filename);
 
   /* Put the psymtab on the psymtab list */
   pst->next = partial_symtab_list;
@@ -2583,7 +2650,7 @@ dbx_psymtab_to_symtab (pst)
 
       /* We keep the string table for symfile resident in memory, but
 	 not the string table for any other symbol files.  */
-      if (0 != strcmp(pst->symfile_name, symfile))
+      if ((symfile == 0) || 0 != strcmp(pst->symfile_name, symfile))
 	{
 	  /* Read in the string table */
 
@@ -2815,8 +2882,7 @@ read_ofile_symtab (desc, stringtab, stringtab_size, sym_offset,
 	{
 	  /* N_CATCH is not fixed up by the linker, and unfortunately,
 	     there's no other place to put it in the .stab map.  */
-	  /* FIXME, do we also have to add OFFSET or something? -- gnu@cygnus */
-	  bufp->n_value += text_offset;
+	  bufp->n_value += text_offset + offset;
 	}
       else if (type == N_TEXT || type == N_DATA || type == N_BSS)
 	bufp->n_value += offset;
@@ -2829,7 +2895,7 @@ read_ofile_symtab (desc, stringtab, stringtab_size, sym_offset,
 
       if (type & N_STAB)
 	{
-	  short desc = bufp->n_desc;
+	  short bufp_n_desc = bufp->n_desc;
 	  unsigned long valu = bufp->n_value;
 
 	  /* Check for a pair of N_SO symbols.  */
@@ -2853,15 +2919,15 @@ read_ofile_symtab (desc, stringtab, stringtab_size, sym_offset,
 			   bufp->n_un.n_strx);
 		  namestring2 = bufp->n_un.n_strx + stringtab;
 
-		  process_symbol_pair (N_SO, desc, valu, namestring,
+		  process_symbol_pair (N_SO, bufp_n_desc, valu, namestring,
 				       N_SO, bufp->n_desc, bufp->n_value,
 				       namestring2);
 		}
 	      else
-		process_one_symbol(type, desc, valu, namestring);
+		process_one_symbol(type, bufp_n_desc, valu, namestring);
 	    }
 	  else
-	    process_one_symbol (type, desc, valu, namestring);
+	    process_one_symbol (type, bufp_n_desc, valu, namestring);
 	}
       /* We skip checking for a new .o or -l file; that should never
          happen in this routine. */
@@ -2963,7 +3029,7 @@ process_one_symbol (type, desc, valu, name)
       if (!colon_pos++
 	  || (*colon_pos != 'f' && *colon_pos != 'F'))
 	{
-	  define_symbol (valu, name, desc);
+	  define_symbol (valu, name, desc, type);
 	  break;
 	}
 
@@ -2983,13 +3049,13 @@ process_one_symbol (type, desc, valu, name)
       new = &context_stack[context_stack_depth++];
       new->old_blocks = pending_blocks;
       new->start_addr = valu;
-      new->name = define_symbol (valu, name, desc);
+      new->name = define_symbol (valu, name, desc, type);
       local_symbols = 0;
       break;
 
     case N_CATCH:
       /* Record the address at which this catch takes place.  */
-      define_symbol (valu, name, desc);
+      define_symbol (valu, name, desc, type);
       break;
 
     case N_EHDECL:
@@ -3186,7 +3252,7 @@ process_one_symbol (type, desc, valu, name)
 
     default:
       if (name)
-	define_symbol (valu, name, desc);
+	define_symbol (valu, name, desc, type);
     }
 }
 
@@ -3222,21 +3288,18 @@ read_type_number (pp, typenums)
 static char *type_synonym_name;
 
 static struct symbol *
-define_symbol (valu, string, desc)
+define_symbol (valu, string, desc, type)
      unsigned int valu;
      char *string;
      int desc;
+     int type;
 {
-  register struct symbol *sym
-    = (struct symbol *) obstack_alloc (symbol_obstack, sizeof (struct symbol));
+  register struct symbol *sym;
   char *p = (char *) strchr (string, ':');
   int deftype;
   int synonym = 0;
   register int i;
 
-  /* GCC 2.x puts the line number in desc.  */
-  sym->line = desc;
-  
   /* Ignore syms with empty names.  */
   if (string[0] == 0)
     return 0;
@@ -3244,6 +3307,16 @@ define_symbol (valu, string, desc)
   /* Ignore old-style symbols from cc -go  */
   if (p == 0)
     return 0;
+
+  sym = (struct symbol *)obstack_alloc (symbol_obstack, sizeof (struct symbol));
+
+  if (processing_gcc_compilation) {
+    /* GCC 2.x puts the line number in desc.  SunOS apparently puts in the
+       number of bytes occupied by a type or object, which we ignore.  */
+    SYMBOL_LINE(sym) = desc;
+  } else {
+    SYMBOL_LINE(sym) = 0;			/* unknown */
+  }
 
   if (string[0] == CPLUS_MARKER)
     {
@@ -3311,12 +3384,14 @@ define_symbol (valu, string, desc)
 	case 'r':
 	  {
 	    double d = atof (p);
-	    char *valu;
+	    char *dbl_valu;
 
 	    SYMBOL_TYPE (sym) = builtin_type_double;
-	    valu = (char *) obstack_alloc (symbol_obstack, sizeof (double));
-	    bcopy (&d, valu, sizeof (double));
-	    SYMBOL_VALUE_BYTES (sym) = valu;
+	    dbl_valu =
+	      (char *) obstack_alloc (symbol_obstack, sizeof (double));
+	    bcopy (&d, dbl_valu, sizeof (double));
+	    SWAP_TARGET_AND_HOST (dbl_valu, sizeof (double));
+	    SYMBOL_VALUE_BYTES (sym) = dbl_valu;
 	    SYMBOL_CLASS (sym) = LOC_CONST_BYTES;
 	  }
 	  break;
@@ -3366,7 +3441,7 @@ define_symbol (valu, string, desc)
     }
   else
     {
-      struct type *type;
+      struct type *type_read;
       synonym = *p == 't';
 
       if (synonym)
@@ -3376,13 +3451,13 @@ define_symbol (valu, string, desc)
 					    strlen (SYMBOL_NAME (sym)));
 	}
 
-      type = read_type (&p);
+      type_read = read_type (&p);
 
       if ((deftype == 'F' || deftype == 'f')
-	  && TYPE_CODE (type) != TYPE_CODE_FUNC)
-	SYMBOL_TYPE (sym) = lookup_function_type (type);
+	  && TYPE_CODE (type_read) != TYPE_CODE_FUNC)
+	SYMBOL_TYPE (sym) = lookup_function_type (type_read);
       else
-	SYMBOL_TYPE (sym) = type;
+	SYMBOL_TYPE (sym) = type_read;
     }
 
   switch (deftype)
@@ -3431,7 +3506,12 @@ define_symbol (valu, string, desc)
       break;
 
     case 'p':
-      SYMBOL_CLASS (sym) = LOC_ARG;
+      /* Normally this is a parameter, a LOC_ARG.  On the i960, it
+	 can also be a LOC_LOCAL_ARG depending on symbol type.  */
+#ifndef DBX_PARM_SYMBOL_CLASS
+#define	DBX_PARM_SYMBOL_CLASS(type)	LOC_ARG
+#endif
+      SYMBOL_CLASS (sym) = DBX_PARM_SYMBOL_CLASS (type);
       SYMBOL_VALUE (sym) = valu;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
       add_symbol_to_list (sym, &local_symbols);
@@ -3892,17 +3972,9 @@ read_type (pp)
 
     case '*':
       type1 = read_type (pp);
-      if (TYPE_POINTER_TYPE (type1))
-	{
-	  type = TYPE_POINTER_TYPE (type1);
-	  if (typenums[0] != -1)
-	    *dbx_lookup_type (typenums) = type;
-	}
-      else
-	{
-	  type = dbx_alloc_type (typenums);
-	  smash_to_pointer_type (type, type1);
-	}
+      type = lookup_pointer_type (type1);
+      if (typenums[0] != -1)
+	*dbx_lookup_type (typenums) = type;
       break;
 
     case '@':
@@ -3930,12 +4002,10 @@ read_type (pp)
 	  *pp += 1;
 	  return_type = read_type (pp);
 	  if (*(*pp)++ != ';')
-	    error ("invalid (minimal) member type data format, at symtab pos %d.",
-		   symnum);
-	  type = dbx_alloc_type (typenums);
-	  smash_to_function_type (type, return_type);
-	  TYPE_CODE (type) = TYPE_CODE_METHOD;
-	  TYPE_FLAGS (type) |= TYPE_FLAG_STUB;
+	    complain (&invalid_member_complaint, symnum);
+	  type = allocate_stub_method (return_type);
+	  if (typenums[0] != -1)
+	    *dbx_lookup_type (typenums) = type;
 	}
       else
 	{
@@ -3956,32 +4026,16 @@ read_type (pp)
 
     case '&':
       type1 = read_type (pp);
-      if (TYPE_REFERENCE_TYPE (type1))
-	{
-	  type = TYPE_REFERENCE_TYPE (type1);
-	  if (typenums[0] != -1)
-	    *dbx_lookup_type (typenums) = type;
-	}
-      else
-	{
-	  type = dbx_alloc_type (typenums);
-	  smash_to_reference_type (type, type1);
-	}
+      type = lookup_reference_type (type1);
+      if (typenums[0] != -1)
+	*dbx_lookup_type (typenums) = type;
       break;
 
     case 'f':
       type1 = read_type (pp);
-      if (TYPE_FUNCTION_TYPE (type1))
-	{
-	  type = TYPE_FUNCTION_TYPE (type1);
-	  if (typenums[0] != -1)
-	    *dbx_lookup_type (typenums) = type;
-	}
-      else
-	{
-	  type = dbx_alloc_type (typenums);
-	  smash_to_function_type (type, type1);
-	}
+      type = lookup_function_type (type1);
+      if (typenums[0] != -1)
+	*dbx_lookup_type (typenums) = type;
       break;
 
     case 'r':
@@ -4089,7 +4143,7 @@ virtual_context (for_type, type, name, fn_type, offset)
 	      return TYPE_FN_FIELD_FCONTEXT (f, j);
 	}
     }
-  for (i = TYPE_N_BASECLASSES (type); i > 0; i--)
+  for (i = TYPE_N_BASECLASSES (type) - 1; i >= 0; i--)
     {
       basetype = virtual_context (for_type, TYPE_BASECLASS (type, i), name,
 				  fn_type, offset);
@@ -4284,7 +4338,8 @@ read_struct_type (pp, type)
 	  /* Special GNU C++ name.  */
 	  if (*++p == 'v')
 	    {
-	      char *prefix, *name;	/* FIXME: NAME never set! */
+	      const char *prefix;
+	      char *name = 0;
 	      struct type *context;
 
 	      switch (*++p)
@@ -4304,6 +4359,7 @@ read_struct_type (pp, type)
 		{
 		  if (name == 0)
 		    error ("type name unknown at symtab pos %d.", symnum);
+		  /* FIXME-tiemann: when is `name' ever non-0?  */
 		  TYPE_NAME (context) = obsavestring (name, p - name - 1);
 		}
 	      list->field.name = obconcat (prefix, type_name_no_tag (context), "");
@@ -4377,7 +4433,9 @@ read_struct_type (pp, type)
       list->field.bitsize = read_number (pp, ';');
 
 #if 0
-      /* FIXME tiemann: what is the story here?  What does the compiler
+      /* FIXME-tiemann: Can't the compiler put out something which
+	 lets us distinguish these? (or maybe just not put out anything
+	 for the field).  What is the story here?  What does the compiler
 	really do?  Also, patch gdb.texinfo for this case; I document
 	it as a possible problem there.  Search for "DBX-style".  */
 
@@ -4477,6 +4535,7 @@ read_struct_type (pp, type)
 	{
 	  int i;
 	  struct next_fnfield *sublist = 0;
+	  struct type *look_ahead_type = NULL;
 	  int length = 0;
 	  struct next_fnfieldlist *new_mainlist =
 	    (struct next_fnfieldlist *)alloca (sizeof (struct next_fnfieldlist));
@@ -4491,8 +4550,8 @@ read_struct_type (pp, type)
 	      /* This lets the user type "break operator+".
 	         We could just put in "+" as the name, but that wouldn't
 		 work for "*".  */
-	      static char opname[32] = "operator";
-	      char *o = opname + 8;
+	      static char opname[32] = {'o', 'p', CPLUS_MARKER};
+	      char *o = opname + 3;
 
 	      /* Skip past '::'.  */
 	      p += 2;
@@ -4517,12 +4576,20 @@ read_struct_type (pp, type)
 		(struct next_fnfield *)alloca (sizeof (struct next_fnfield));
 
 	      /* Check for and handle cretinous dbx symbol name continuation!  */
-	      if (**pp == '\\') *pp = next_symbol_text ();
+	      if (look_ahead_type == NULL) /* Normal case. */
+		{
+		  if (**pp == '\\') *pp = next_symbol_text ();
 
-	      new_sublist->fn_field.type = read_type (pp);
-	      if (**pp != ':')
-		/* Invalid symtab info for method.  */
-		return error_type (pp);
+		  new_sublist->fn_field.type = read_type (pp);
+		  if (**pp != ':')
+		    /* Invalid symtab info for method.  */
+		    return error_type (pp);
+	        }
+	      else
+		{ /* g++ version 1 kludge */
+		  new_sublist->fn_field.type = look_ahead_type;
+		  look_ahead_type = NULL;
+	        }
 
 	      *pp += 1;
 	      p = *pp;
@@ -4533,7 +4600,7 @@ read_struct_type (pp, type)
 	      *pp = p + 1;
 	      new_sublist->visibility = *(*pp)++ - '0';
 	      if (**pp == '\\') *pp = next_symbol_text ();
-	      /* FIXME: tiemann needs to add const/volatile info
+	      /* FIXME-tiemann: need to add const/volatile info
 		 to the methods.  For now, just skip the char.
 		 In future, here's what we need to implement:
 
@@ -4543,8 +4610,12 @@ read_struct_type (pp, type)
 		 D for `const volatile' member functions.  */
 	      if (**pp == 'A' || **pp == 'B' || **pp == 'C' || **pp == 'D')
 	        (*pp)++;
+#if 0
+	      /* This probably just means we're processing a file compiled
+		 with g++ version 1.  */
 	      else
 	        complain(&const_vol_complaint, **pp);
+#endif /* 0 */
 
 	      switch (*(*pp)++)
 		{
@@ -4559,14 +4630,29 @@ read_struct_type (pp, type)
 		  new_sublist->fn_field.voffset =
 		      (0x7fffffff & read_number (pp, ';')) + 1;
 
-		  /* Figure out from whence this virtual function came.
-		     It may belong to virtual function table of
-		     one of its baseclasses.  */
-		  new_sublist->fn_field.fcontext = read_type (pp);
-		  if (**pp != ';')
-		    error_type (pp);
+		  if (**pp == '\\') *pp = next_symbol_text ();
+
+		  if (**pp == ';' || **pp == '\0')
+		    /* Must be g++ version 1.  */
+		    new_sublist->fn_field.fcontext = 0;
 		  else
-		    ++*pp;
+		    {
+		      /* Figure out from whence this virtual function came.
+			 It may belong to virtual function table of
+			 one of its baseclasses.  */
+		      look_ahead_type = read_type (pp);
+		      if (**pp == ':')
+			{ /* g++ version 1 overloaded methods. */ }
+		      else
+			{
+			  new_sublist->fn_field.fcontext = look_ahead_type;
+			  if (**pp != ';')
+			    return error_type (pp);
+			  else
+			    ++*pp;
+			  look_ahead_type = NULL;
+		        }
+		    }
 		  break;
 
 		case '?':
@@ -4577,6 +4663,7 @@ read_struct_type (pp, type)
 		  /* **pp == '.'.  */
 		  /* normal member function.  */
 		  new_sublist->fn_field.voffset = 0;
+		  new_sublist->fn_field.fcontext = 0;
 		  break;
 		}
 
@@ -4584,7 +4671,7 @@ read_struct_type (pp, type)
 	      sublist = new_sublist;
 	      length++;
 	    }
-	  while (**pp != ';' && *pp != '\0');
+	  while (**pp != ';' && **pp != '\0');
 
 	  *pp += 1;
 
@@ -4678,7 +4765,14 @@ read_struct_type (pp, type)
 	  if (type == t)
 	    {
 	      if (TYPE_FIELD_NAME (t, TYPE_N_BASECLASSES (t)) == 0)
-		TYPE_VPTR_FIELDNO (type) = i = TYPE_N_BASECLASSES (t);
+		{
+		  /* FIXME-tiemann: what's this?  */
+#if 0
+		  TYPE_VPTR_FIELDNO (type) = i = TYPE_N_BASECLASSES (t);
+#else
+		  error_type (pp);
+#endif
+		}
 	      else for (i = TYPE_NFIELDS (t) - 1; i >= TYPE_N_BASECLASSES (t); --i)
 		if (! strncmp (TYPE_FIELD_NAME (t, i), vptr_name, 
 			sizeof (vptr_name) -1))
@@ -4694,16 +4788,6 @@ read_struct_type (pp, type)
 	    TYPE_VPTR_FIELDNO (type) = TYPE_VPTR_FIELDNO (t);
 	  *pp = p + 1;
 	}
-      else
-	{
-	  TYPE_VPTR_BASETYPE (type) = 0;
-	  TYPE_VPTR_FIELDNO (type) = -1;
-	}
-    }
-  else
-    {
-      TYPE_VPTR_BASETYPE (type) = 0;
-      TYPE_VPTR_FIELDNO (type) = -1;
     }
 
   return type;
@@ -5041,6 +5125,12 @@ read_range_type (pp, typenums)
 	  nbits = n2bits;
 	}
 
+      /* Check for "long long".  */
+      if (got_signed && nbits == TARGET_LONG_LONG_BIT)
+	return builtin_type_long_long;
+      if (got_unsigned && nbits == TARGET_LONG_LONG_BIT)
+	return builtin_type_unsigned_long_long;
+
       if (got_signed || got_unsigned)
 	{
 	  result_type = (struct type *) obstack_alloc (symbol_obstack,
@@ -5299,11 +5389,31 @@ fix_common_block (sym, valu)
     }
 }
 
+/* Register our willingness to decode symbols for SunOS and a.out and
+   b.out files handled by BFD... */
+static struct sym_fns sunos_sym_fns = {"sunOs", 6,
+              dbx_new_init, dbx_symfile_init,
+              dbx_symfile_read, dbx_symfile_discard};
+
+static struct sym_fns aout_sym_fns = {"a.out", 5,
+              dbx_new_init, dbx_symfile_init,
+              dbx_symfile_read, dbx_symfile_discard};
+
+static struct sym_fns bout_sym_fns = {"b.out", 5,
+              dbx_new_init, dbx_symfile_init,
+              dbx_symfile_read, dbx_symfile_discard};
+
 void
 _initialize_dbxread ()
 {
+  add_symtab_fns(&sunos_sym_fns);
+  add_symtab_fns(&aout_sym_fns);
+  add_symtab_fns(&bout_sym_fns);
+
   undef_types_allocated = 20;
   undef_types_length = 0;
   undef_types = (struct type **) xmalloc (undef_types_allocated *
 					  sizeof (struct type *));
+
+  dbx_new_init ();
 }

@@ -27,6 +27,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "value.h"
 #include "symfile.h"
 #include "gdbcmd.h"
+#include "regex.h"
 
 #include <obstack.h>
 #include <assert.h>
@@ -49,6 +50,8 @@ extern void select_source_symtab ();
 static int find_line_common ();
 struct partial_symtab *lookup_partial_symtab ();
 static struct partial_symbol *lookup_partial_symbol ();
+static struct partial_symbol *lookup_demangled_partial_symbol ();
+static struct symbol *lookup_demangled_block_symbol ();
 
 /* These variables point to the objects
    representing the predefined C data types.  */
@@ -58,16 +61,12 @@ struct type *builtin_type_char;
 struct type *builtin_type_short;
 struct type *builtin_type_int;
 struct type *builtin_type_long;
-#ifdef LONG_LONG
 struct type *builtin_type_long_long;
-#endif
 struct type *builtin_type_unsigned_char;
 struct type *builtin_type_unsigned_short;
 struct type *builtin_type_unsigned_int;
 struct type *builtin_type_unsigned_long;
-#ifdef LONG_LONG
 struct type *builtin_type_unsigned_long_long;
-#endif
 struct type *builtin_type_float;
 struct type *builtin_type_double;
 struct type *builtin_type_error;
@@ -228,11 +227,12 @@ check_stub_type(type)
       struct symbol *sym;
       if (name == 0)
 	{
-	  complain (&stub_noname_complaint, 0, 0);
+	  complain (&stub_noname_complaint, 0);
 	  return;
 	}
-      if (sym = lookup_symbol (name, 0, STRUCT_NAMESPACE, 0, 
-			       (struct symtab **)NULL) )
+      sym = lookup_symbol (name, 0, STRUCT_NAMESPACE, 0, 
+			   (struct symtab **)NULL);
+      if (sym)
 	bcopy (SYMBOL_TYPE(sym), type, sizeof (struct type));
     }
 }
@@ -383,12 +383,14 @@ lookup_enum (name, block)
 }
 
 /* Given a type TYPE, lookup the type of the component of type named
-   NAME.  */
+   NAME.  
+   If NOERR is nonzero, return zero if NAME is not suitably defined.  */
 
 struct type *
-lookup_struct_elt_type (type, name)
+lookup_struct_elt_type (type, name, noerr)
      struct type *type;
      char *name;
+     int noerr;
 {
   int i;
 
@@ -402,10 +404,27 @@ lookup_struct_elt_type (type, name)
       error (" is not a structure or union type.");
     }
 
-  for (i = TYPE_NFIELDS (type) - 1; i >= TYPE_N_BASECLASSES (type); i--)
-    if (!strcmp (TYPE_FIELD_NAME (type, i), name))
-      return TYPE_FIELD_TYPE (type, i);
+  check_stub_type (type);
 
+  for (i = TYPE_NFIELDS (type) - 1; i >= TYPE_N_BASECLASSES (type); i--)
+    {
+      char *t_field_name = TYPE_FIELD_NAME (type, i);
+
+      if (t_field_name && !strcmp (t_field_name, name))
+	return TYPE_FIELD_TYPE (type, i);
+    }
+  /* OK, it's not in this class.  Recursively check the baseclasses.  */
+  for (i = TYPE_N_BASECLASSES (type) - 1; i >= 0; i--)
+    {
+      struct type *t = lookup_struct_elt_type (TYPE_BASECLASS (type, i),
+					       name, 0);
+      if (t != NULL)
+	return t;
+    }
+
+  if (noerr)
+    return NULL;
+  
   target_terminal_ours ();
   fflush (stdout);
   fprintf (stderr, "Type ");
@@ -535,6 +554,29 @@ lookup_member_type (type, domain)
 
   return mtype;
 }
+
+/* Allocate a stub method whose return type is
+   TYPE.  We will fill in arguments later.  This always
+   returns a fresh type.  If we unify this type with
+   an existing type later, the storage allocated
+   here can be freed.  */
+struct type *
+allocate_stub_method (type)
+     struct type *type;
+{
+  struct type *mtype = (struct type *)xmalloc (sizeof (struct type));
+  bzero (mtype, sizeof (struct type));
+  TYPE_MAIN_VARIANT (mtype) = mtype;
+  TYPE_TARGET_TYPE (mtype) = type;
+  TYPE_FLAGS (mtype) = TYPE_FLAG_STUB;
+  TYPE_CODE (mtype) = TYPE_CODE_METHOD;
+  TYPE_LENGTH (mtype) = 1;
+  return mtype;
+}
+
+/* Lookup a method type returning type TYPE, belonging
+   to class DOMAIN, and taking a list of arguments ARGS.
+   If one is not found, allocate a new one.  */
 
 struct type *
 lookup_method_type (type, domain, args)
@@ -728,35 +770,6 @@ create_array_type (element_type, number)
 }
 
 
-/* Smash TYPE to be a type of pointers to TO_TYPE.
-   If TO_TYPE is not permanent and has no pointer-type yet,
-   record TYPE as its pointer-type.  */
-
-void
-smash_to_pointer_type (type, to_type)
-     struct type *type, *to_type;
-{
-  int type_permanent = (TYPE_FLAGS (type) & TYPE_FLAG_PERM);
-  
-  bzero (type, sizeof (struct type));
-  TYPE_TARGET_TYPE (type) = to_type;
-  /* We assume the machine has only one representation for pointers!  */
-  TYPE_LENGTH (type) = sizeof (char *);
-  TYPE_CODE (type) = TYPE_CODE_PTR;
-
-  TYPE_MAIN_VARIANT (type) = type;
-
-  if (type_permanent)
-    TYPE_FLAGS (type) |= TYPE_FLAG_PERM;
-
-  if (TYPE_POINTER_TYPE (to_type) == 0
-      && (!(TYPE_FLAGS (to_type) & TYPE_FLAG_PERM)
-	  || type_permanent))
-    {
-      TYPE_POINTER_TYPE (to_type) = type;
-    }
-}
-
 /* Smash TYPE to be a type of members of DOMAIN with type TO_TYPE.  */
 
 void
@@ -790,62 +803,6 @@ smash_to_method_type (type, domain, to_type, args)
   TYPE_CODE (type) = TYPE_CODE_METHOD;
 
   TYPE_MAIN_VARIANT (type) = lookup_method_type (domain, to_type, args);
-}
-
-/* Smash TYPE to be a type of reference to TO_TYPE.
-   If TO_TYPE is not permanent and has no pointer-type yet,
-   record TYPE as its pointer-type.  */
-
-void
-smash_to_reference_type (type, to_type)
-     struct type *type, *to_type;
-{
-  int type_permanent = (TYPE_FLAGS (type) & TYPE_FLAG_PERM);
-
-  bzero (type, sizeof (struct type));
-  TYPE_TARGET_TYPE (type) = to_type;
-  /* We assume the machine has only one representation for pointers!  */
-  TYPE_LENGTH (type) = sizeof (char *);
-  TYPE_CODE (type) = TYPE_CODE_REF;
-
-  TYPE_MAIN_VARIANT (type) = type;
-
-  if (type_permanent)
-    TYPE_FLAGS (type) |= TYPE_FLAG_PERM;
-
-  if (TYPE_REFERENCE_TYPE (to_type) == 0
-      && (!(TYPE_FLAGS (to_type) & TYPE_FLAG_PERM)
-	  || type_permanent))
-    {
-      TYPE_REFERENCE_TYPE (to_type) = type;
-    }
-}
-
-/* Smash TYPE to be a type of functions returning TO_TYPE.
-   If TO_TYPE is not permanent and has no function-type yet,
-   record TYPE as its function-type.  */
-
-void
-smash_to_function_type (type, to_type)
-     struct type *type, *to_type;
-{
-  int type_permanent = (TYPE_FLAGS (type) & TYPE_FLAG_PERM);
-
-  bzero (type, sizeof (struct type));
-  TYPE_TARGET_TYPE (type) = to_type;
-  TYPE_LENGTH (type) = 1;
-  TYPE_CODE (type) = TYPE_CODE_FUNC;
-  TYPE_NFIELDS (type) = 0;
-
-  if (type_permanent)
-    TYPE_FLAGS (type) |= TYPE_FLAG_PERM;
-
-  if (TYPE_FUNCTION_TYPE (to_type) == 0
-      && (!(TYPE_FLAGS (to_type) & TYPE_FLAG_PERM)
-	  || type_permanent))
-    {
-      TYPE_FUNCTION_TYPE (to_type) = type;
-    }
 }
 
 /* Find which partial symtab on the partial_symtab_list contains
@@ -939,7 +896,7 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
 	      for (s = symtab_list; s; s = s->next)
 		{
 		  bv = BLOCKVECTOR (s);
-		  b = BLOCKVECTOR_BLOCK (bv, 0);
+		  b = BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK);
 		  if (BLOCK_START (b) <= BLOCK_START (block)
 		      && BLOCK_END (b) > BLOCK_START (block))
 		    break;
@@ -951,6 +908,37 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
 	}
       block = BLOCK_SUPERBLOCK (block);
     }
+
+  /* But that doesn't do any demangling for the STATIC_BLOCK.
+     I'm not sure whether demangling is needed in the case of
+     nested function in inner blocks; if so this needs to be changed.
+     
+     Don't need to mess with the psymtabs; if we have a block,
+     that file is read in.  If we don't, then we deal later with
+     all the psymtab stuff that needs checking.  */
+  if (namespace == VAR_NAMESPACE && block != NULL)
+    {
+      struct block *b;
+      /* Find the right symtab.  */
+      for (s = symtab_list; s; s = s->next)
+	{
+	  bv = BLOCKVECTOR (s);
+	  b = BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK);
+	  if (BLOCK_START (b) <= BLOCK_START (block)
+	      && BLOCK_END (b) > BLOCK_START (block))
+	    {
+	      sym = lookup_demangled_block_symbol (b, name);
+	      if (sym)
+		{
+		  block_found = b;
+		  if (symtab != NULL)
+		    *symtab = s;
+		  return sym;
+		}
+	    }
+	}
+    }
+
 
   /* C++: If requested to do so by the caller, 
      check to see if NAME is a field of `this'. */
@@ -974,7 +962,7 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
   for (s = symtab_list; s; s = s->next)
     {
       bv = BLOCKVECTOR (s);
-      block = BLOCKVECTOR_BLOCK (bv, 0);
+      block = BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK);
       sym = lookup_block_symbol (block, name, namespace);
       if (sym) 
 	{
@@ -1021,7 +1009,7 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
 	  if (s)
 	    {
 	      bv = BLOCKVECTOR (s);
-	      block = BLOCKVECTOR_BLOCK (bv, 0);
+	      block = BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK);
 	      sym = lookup_block_symbol (block, misc_function_vector[ind].name,
 				         namespace);
 	      /* sym == 0 if symbol was found in the misc_function_vector
@@ -1049,7 +1037,7 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
       {
 	s = PSYMTAB_TO_SYMTAB(ps);
 	bv = BLOCKVECTOR (s);
-	block = BLOCKVECTOR_BLOCK (bv, 0);
+	block = BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK);
 	sym = lookup_block_symbol (block, name, namespace);
 	if (!sym)
 	  fatal ("Internal: global symbol found in psymtab but not in symtab");
@@ -1065,7 +1053,7 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
   for (s = symtab_list; s; s = s->next)
     {
       bv = BLOCKVECTOR (s);
-      block = BLOCKVECTOR_BLOCK (bv, 1);
+      block = BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK);
       sym = lookup_block_symbol (block, name, namespace);
       if (sym) 
 	{
@@ -1081,7 +1069,7 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
       {
 	s = PSYMTAB_TO_SYMTAB(ps);
 	bv = BLOCKVECTOR (s);
-	block = BLOCKVECTOR_BLOCK (bv, 1);
+	block = BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK);
 	sym = lookup_block_symbol (block, name, namespace);
 	if (!sym)
 	  fatal ("Internal: static symbol found in psymtab but not in symtab");
@@ -1090,9 +1078,112 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
 	return sym;
       }
 
+  /* Now search all per-file blocks for static mangled symbols.
+     Do the symtabs first, then check the psymtabs.  */
+
+  if (namespace ==  VAR_NAMESPACE)
+    {
+      for (s = symtab_list; s; s = s->next)
+	{
+	  bv = BLOCKVECTOR (s);
+	  block = BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK);
+	  sym = lookup_demangled_block_symbol (block, name);
+	  if (sym) 
+	    {
+	      block_found = block;
+	      if (symtab != NULL)
+		*symtab = s;
+	      return sym;
+	    }
+	}
+
+      for (ps = partial_symtab_list; ps; ps = ps->next)
+	if (!ps->readin && lookup_demangled_partial_symbol (ps, name))
+	  {
+	    s = PSYMTAB_TO_SYMTAB(ps);
+	    bv = BLOCKVECTOR (s);
+	    block = BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK);
+	    sym = lookup_demangled_block_symbol (block, name);
+	    if (!sym)
+	      fatal ("Internal: static symbol found in psymtab but not in symtab");
+	    if (symtab != NULL)
+	      *symtab = s;
+	    return sym;
+	  }
+    }
+
   if (symtab != NULL)
     *symtab = NULL;
   return 0;
+}
+
+/* Look for a static demangled symbol in block BLOCK.  */
+
+static struct symbol *
+lookup_demangled_block_symbol (block, name)
+     register struct block *block;
+     char *name;
+{
+  register int bot, top, inc;
+  register struct symbol *sym;
+
+  bot = 0;
+  top = BLOCK_NSYMS (block);
+  inc = name[0];
+
+  while (bot < top)
+    {
+      sym = BLOCK_SYM (block, bot);
+      if (SYMBOL_NAME (sym)[0] == inc
+	  && SYMBOL_NAMESPACE (sym) == VAR_NAMESPACE)
+	{
+	  char *demangled = cplus_demangle(SYMBOL_NAME (sym), -1);
+	  if (demangled != NULL)
+	    {
+	      int cond = strcmp (demangled, name);
+	      free (demangled);
+	      if (!cond)
+	        return sym;
+	    }
+	}
+      bot++;
+    }
+
+  return 0;
+}
+
+/* Look, in partial_symtab PST, for static mangled symbol NAME. */
+
+static struct partial_symbol *
+lookup_demangled_partial_symbol (pst, name)
+     struct partial_symtab *pst;
+     char *name;
+{
+  struct partial_symbol *start, *psym;
+  int length = pst->n_static_syms;
+  register int inc = name[0];
+
+  if (!length)
+    return (struct partial_symbol *) 0;
+  
+  start = static_psymbols.list + pst->statics_offset;
+  for (psym = start; psym < start + length; psym++)
+    {
+      if (SYMBOL_NAME (psym)[0] == inc
+	  && SYMBOL_NAMESPACE (psym) == VAR_NAMESPACE)
+	{
+	  char *demangled = cplus_demangle(SYMBOL_NAME (psym), -1);
+	  if (demangled != NULL)
+	    {
+	      int cond = strcmp (demangled, name);
+	      free (demangled);
+	      if (!cond)
+	        return psym;
+	    }
+	}
+    }
+
+  return (struct partial_symbol *) 0;
 }
 
 /* Look, in partial_symtab PST, for symbol NAME.  Check the global
@@ -1241,6 +1332,7 @@ lookup_block_symbol (block, name, namespace)
 	  && SYMBOL_NAMESPACE (sym) == namespace)
 	{
 	  if (SYMBOL_CLASS (sym) == LOC_ARG
+	      || SYMBOL_CLASS (sym) == LOC_LOCAL_ARG
 	      || SYMBOL_CLASS (sym) == LOC_REF_ARG
 	      || SYMBOL_CLASS (sym) == LOC_REGPARM)
 	    parameter_sym = sym;
@@ -1281,7 +1373,7 @@ find_pc_symtab (pc)
   for (s = symtab_list; s; s = s->next)
     {
       bv = BLOCKVECTOR (s);
-      b = BLOCKVECTOR_BLOCK (bv, 0);
+      b = BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK);
       if (BLOCK_START (b) <= pc
 	  && BLOCK_END (b) > pc)
 	break;
@@ -1423,7 +1515,7 @@ find_pc_line (pc, notcurrent)
     {
       val.symtab = alt_symtab;
       val.line = alt_line - 1;
-      val.pc = BLOCK_END (BLOCKVECTOR_BLOCK (bv, 0));
+      val.pc = BLOCK_END (BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK));
       val.end = alt_pc;
     }
   else
@@ -1433,7 +1525,7 @@ find_pc_line (pc, notcurrent)
       val.pc = best_pc;
       val.end = (best_end ? best_end
 		   : (alt_pc ? alt_pc
-		      : BLOCK_END (BLOCKVECTOR_BLOCK (bv, 0))));
+		      : BLOCK_END (BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK))));
     }
   return val;
 }
@@ -1455,7 +1547,7 @@ find_line_pc (symtab, line)
     return 0;
   l = LINETABLE (symtab);
   ind = find_line_common(l, line, &dummy);
-  return ind ? l->item[ind].pc : 0;
+  return (ind >= 0) ? l->item[ind].pc : 0;
 }
 
 /* Find the range of pc values in a line.
@@ -1479,7 +1571,7 @@ find_line_pc_range (symtab, thisline, startptr, endptr)
 
   l = LINETABLE (symtab);
   ind = find_line_common (l, thisline, &exact_match);
-  if (ind)
+  if (ind >= 0)
     {
       *startptr = l->item[ind].pc;
       /* If we have not seen an entry for the specified line,
@@ -1502,7 +1594,7 @@ find_line_pc_range (symtab, thisline, startptr, endptr)
 
 /* Given a line table and a line number, return the index into the line
    table for the pc of the nearest line whose number is >= the specified one.
-   Return 0 if none is found.  The value is never zero is it is an index.
+   Return -1 if none is found.  The value is >= 0 if it is an index.
 
    Set *EXACT_MATCH nonzero if the value returned is an exact match.  */
 
@@ -1519,11 +1611,11 @@ find_line_common (l, lineno, exact_match)
      or 0 if none has been seen so far.
      BEST_INDEX identifies the item for it.  */
 
-  int best_index = 0;
+  int best_index = -1;
   int best = 0;
 
   if (lineno <= 0)
-    return 0;
+    return -1;
 
   len = l->nitems;
   for (i = 0; i < len; i++)
@@ -1561,6 +1653,81 @@ find_pc_line_pc_range (pc, startptr, endptr)
   return sal.symtab != 0;
 }
 
+/* If P is of the form "operator[ \t]+..." where `...' is
+   some legitimate operator text, return a pointer to the
+   beginning of the substring of the operator text.
+   Otherwise, return "".  */
+static char *
+operator_chars (p, end)
+     char *p;
+     char **end;
+{
+  *end = "";
+  if (strncmp (p, "operator", 8))
+    return *end;
+  p += 8;
+
+  /* Don't get faked out by `operator' being part of a longer
+     identifier.  */
+  if ((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z')
+      || *p == '_' || *p == '$' || *p == '\0')
+    return *end;
+
+  /* Allow some whitespace between `operator' and the operator symbol.  */
+  while (*p == ' ' || *p == '\t')
+    p++;
+
+  switch (*p)
+    {
+    case '!':
+    case '=':
+    case '*':
+    case '/':
+    case '%':
+    case '^':
+      if (p[1] == '=')
+	*end = p+2;
+      else
+	*end = p+1;
+      return p;
+    case '<':
+    case '>':
+    case '+':
+    case '-':
+    case '&':
+    case '|':
+      if (p[1] == '=' || p[1] == p[0])
+	*end = p+2;
+      else
+	*end = p+1;
+      return p;
+    case '~':
+    case ',':
+      *end = p+1;
+      return p;
+    case '(':
+      if (p[1] != ')')
+	error ("`operator ()' must be specified without whitespace in `()'");
+      *end = p+2;
+      return p;
+    case '?':
+      if (p[1] != ':')
+	error ("`operator ?:' must be specified without whitespace in `?:'");
+      *end = p+2;
+      return p;
+    case '[':
+      if (p[1] != ']')
+	error ("`operator []' must be specified without whitespace in `[]'");
+      *end = p+2;
+      return p;
+    default:
+      error ("`operator %s' not supported", p);
+      break;
+    }
+  *end = "";
+  return *end;
+}
+
 /* Recursive helper function for decode_line_1.
  * Look for methods named NAME in type T.
  * Return number of matches.
@@ -1688,6 +1855,7 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line)
   struct symtabs_and_lines values;
   struct symtab_and_line val;
   register char *p, *p1;
+  char *q, *q1;
   register struct symtab *s;
 
   register struct symbol *sym;
@@ -1736,6 +1904,7 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line)
     }
   while (p[0] == ' ' || p[0] == '\t') p++;
 
+  q = operator_chars (*argptr, &q1);
   if (p[0] == ':')
     {
 
@@ -1765,9 +1934,23 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line)
 		 Find the next token (everything up to end or next whitespace). */
 	      p = *argptr;
 	      while (*p && *p != ' ' && *p != '\t' && *p != ',' && *p !=':') p++;
-	      copy = (char *) alloca (p - *argptr + 1);
-	      bcopy (*argptr, copy, p - *argptr);
-	      copy[p - *argptr] = '\0';
+	      q = operator_chars (*argptr, &q1);
+
+	      copy = (char *) alloca (p - *argptr + 1 + (q1 - q));
+	      if (q1 - q)
+		{
+		  copy[0] = 'o';
+		  copy[1] = 'p';
+		  copy[2] = CPLUS_MARKER;
+		  bcopy (q, copy + 3, q1 - q);
+		  copy[3 + (q1 - q)] = '\0';
+		  p = q1;
+		}
+	      else
+		{
+		  bcopy (*argptr, copy, p - *argptr);
+		  copy[p - *argptr] = '\0';
+		}
 
 	      /* no line number may be specified */
 	      while (*p == ' ' || *p == '\t') p++;
@@ -1823,7 +2006,19 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line)
 		  return decode_line_2 (sym_arr, i1, funfirstline);
 		}
 	      else
-		error ("that class does not have any method named %s",copy);
+		{
+		  char *tmp;
+
+		  if (OPNAME_PREFIX_P (copy))
+		    {
+		      tmp = (char *)alloca (strlen (copy+3) + 9);
+		      strcpy (tmp, "operator ");
+		      strcat (tmp, copy+3);
+		    }
+		  else
+		    tmp = copy;
+		  error ("that class does not have any method named %s", tmp);
+		}
 	    }
 	  else
 	    /* The quotes are important if copy is empty.  */
@@ -1835,9 +2030,21 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line)
       /* Extract the file name.  */
       p1 = p;
       while (p != *argptr && p[-1] == ' ') --p;
-      copy = (char *) alloca (p - *argptr + 1);
-      bcopy (*argptr, copy, p - *argptr);
-      copy[p - *argptr] = 0;
+      copy = (char *) alloca (p - *argptr + 1 + (q1 - q));
+      if (q1 - q)
+	{
+	  copy[0] = 'o';
+	  copy[1] = 'p';
+	  copy[2] = CPLUS_MARKER;
+	  bcopy (q, copy + 3, q1-q);
+	  copy[3 + (q1-q)] = 0;
+	  p = q1;
+	}
+      else
+	{
+	  bcopy (*argptr, copy, p - *argptr);
+	  copy[p - *argptr] = 0;
+	}
 
       /* Find that file's data.  */
       s = lookup_symtab (copy);
@@ -1934,7 +2141,7 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line)
      If file specified, use that file's per-file block to start with.  */
 
   sym = lookup_symbol (copy,
-		       (s ? BLOCKVECTOR_BLOCK (BLOCKVECTOR (s), 1)
+		       (s ? BLOCKVECTOR_BLOCK (BLOCKVECTOR (s), STATIC_BLOCK)
 			: get_selected_block ()),
 		       VAR_NAMESPACE, 0, &sym_symtab);
 
@@ -2259,7 +2466,7 @@ list_symbols (regexp, class, bpt)
   int found_in_file = 0;
 
   if (regexp)
-    if (0 != (val = (char *) re_comp (regexp)))
+    if (0 != (val = re_comp (regexp)))
       error ("Invalid regexp (%s): %s", val, regexp);
 
   /* Search through the partial_symtab_list *first* for all symbols
@@ -2290,6 +2497,7 @@ list_symbols (regexp, class, bpt)
 		}
 	      else
 		keep_going = 0;
+	      continue;
 	    }
 	  else
 	    {
@@ -2346,7 +2554,7 @@ list_symbols (regexp, class, bpt)
 	 It happens that the first symtab in the list
 	 for any given blockvector is the main file.  */
       if (bv != prev_bv)
-	for (i = 0; i < 2; i++)
+	for (i = GLOBAL_BLOCK; i <= STATIC_BLOCK; i++)
 	  {
 	    b = BLOCKVECTOR_BLOCK (bv, i);
 	    /* Skip the sort if this block is always sorted.  */
@@ -2377,7 +2585,7 @@ list_symbols (regexp, class, bpt)
 		      }
 		    found_in_file = 1;
 
-		    if (class != 2 && i == 1)
+		    if (class != 2 && i == STATIC_BLOCK)
 		      printf_filtered ("static ");
 		    if (class == 2
 			&& SYMBOL_NAMESPACE (sym) != STRUCT_NAMESPACE)
@@ -2433,14 +2641,12 @@ functions_info (regexp)
   list_symbols (regexp, 1, 0);
 }
 
-#if 0
 static void
 types_info (regexp)
      char *regexp;
 {
   list_symbols (regexp, 2, 0);
 }
-#endif
 
 #if 0
 /* Tiemann says: "info methods was never implemented."  */
@@ -2624,7 +2830,7 @@ make_symbol_completion_list (text)
 
   for (s = symtab_list; s; s = s->next)
     {
-      b = BLOCKVECTOR_BLOCK (BLOCKVECTOR (s), 0);
+      b = BLOCKVECTOR_BLOCK (BLOCKVECTOR (s), GLOBAL_BLOCK);
       
       for (i = 0; i < BLOCK_NSYMS (b); i++)
 	if (!strncmp (SYMBOL_NAME (BLOCK_SYM (b, i)), text, text_len))
@@ -2633,7 +2839,7 @@ make_symbol_completion_list (text)
 
   for (s = symtab_list; s; s = s->next)
     {
-      b = BLOCKVECTOR_BLOCK (BLOCKVECTOR (s), 1);
+      b = BLOCKVECTOR_BLOCK (BLOCKVECTOR (s), STATIC_BLOCK);
 
       /* Don't do this block twice.  */
       if (b == surrounding_static_block) continue;
@@ -2653,8 +2859,8 @@ _initialize_symtab ()
 	    "All global and static variable names, or those matching REGEXP.");
   add_info ("functions", functions_info,
 	    "All function names, or those matching REGEXP.");
-#if 0
-  /* This command has at least the following problems:
+
+  /* FIXME:  This command has at least the following problems:
      1.  It prints builtin types (in a very strange and confusing fashion).
      2.  It doesn't print right, e.g. with
          typedef struct foo *FOO
@@ -2664,7 +2870,7 @@ _initialize_symtab ()
      there is much disagreement "info types" can be fixed).  */
   add_info ("types", types_info,
 	    "All types names, or those matching REGEXP.");
-#endif
+
 #if 0
   add_info ("methods", methods_info,
 	    "All method names, or those matching REGEXP::REGEXP.\n\
@@ -2677,6 +2883,9 @@ are listed.");
 
   add_com ("rbreak", no_class, rbreak_command,
 	    "Set a breakpoint for all functions matching REGEXP.");
+
+  /* FIXME:  The code below assumes that the sizes of the basic data
+     types are the same on the host and target machines!!!  */
 
   builtin_type_void = init_type (TYPE_CODE_VOID, 1, 0, "void");
 
@@ -2692,12 +2901,14 @@ are listed.");
   builtin_type_unsigned_short = init_type (TYPE_CODE_INT, sizeof (short), 1, "unsigned short");
   builtin_type_unsigned_long = init_type (TYPE_CODE_INT, sizeof (long), 1, "unsigned long");
   builtin_type_unsigned_int = init_type (TYPE_CODE_INT, sizeof (int), 1, "unsigned int");
-#ifdef LONG_LONG
+
   builtin_type_long_long =
-    init_type (TYPE_CODE_INT, sizeof (long long), 0, "long long");
+    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
+	       0, "long long");
   builtin_type_unsigned_long_long = 
-    init_type (TYPE_CODE_INT, sizeof (long long), 1, "unsigned long long");
-#endif
+    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
+	       1, "unsigned long long");
+
   builtin_type_error = init_type (TYPE_CODE_ERROR, 0, 0, "<unknown type>");
 }
 

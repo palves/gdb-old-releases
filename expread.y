@@ -1,5 +1,5 @@
 /* Parse C expressions for GDB.
-   Copyright (C) 1986, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1989, 1990, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -108,11 +108,18 @@ struct symtoken
    An array should be preceded in the list by the size of the array.  */
 enum type_pieces
   {tp_end = -1, tp_pointer, tp_reference, tp_array, tp_function};
-static enum type_pieces *type_stack;
+/* The stack can contain either an enum type_pieces or an int.  */
+union type_stack_elt {
+  enum type_pieces piece;
+  int int_val;
+};
+static union type_stack_elt *type_stack;
 static int type_stack_depth, type_stack_size;
 
 static void push_type ();
+static void push_type_int ();
 static enum type_pieces pop_type ();
+static int pop_type_int ();
 
 /* Allow debugging of parsing.  */
 #define YYDEBUG 1
@@ -529,7 +536,8 @@ block	:	BLOCKNAME
 			      struct symtab *tem =
 				  lookup_symtab (copy_name ($1.stoken));
 			      if (tem)
-				$$ = BLOCKVECTOR_BLOCK (BLOCKVECTOR (tem), 1);
+				$$ = BLOCKVECTOR_BLOCK
+					 (BLOCKVECTOR (tem), STATIC_BLOCK);
 			      else
 				error ("No file or function \"%s\".",
 				       copy_name ($1.stoken));
@@ -571,6 +579,24 @@ variable:	typebase COLONCOLON name
 			  write_exp_elt_type (type);
 			  write_exp_string ($3);
 			  write_exp_elt_opcode (OP_SCOPE);
+			}
+	|	typebase COLONCOLON '~' name
+			{
+			  struct type *type = $1;
+			  if (TYPE_CODE (type) != TYPE_CODE_STRUCT
+			      && TYPE_CODE (type) != TYPE_CODE_UNION)
+			    error ("`%s' is not defined as an aggregate type.",
+				   TYPE_NAME (type));
+
+			  if (strcmp (type_name_no_tag (type), $4.ptr))
+			    error ("invalid destructor `%s::~%s'",
+				   type_name_no_tag (type), $4.ptr);
+
+			  write_exp_elt_opcode (OP_SCOPE);
+			  write_exp_elt_type (type);
+			  write_exp_string ($4);
+			  write_exp_elt_opcode (OP_SCOPE);
+			  write_exp_elt_opcode (UNOP_LOGNOT);
 			}
 	|	COLONCOLON name
 			{
@@ -627,11 +653,33 @@ variable:	name_not_typename
 				{
 				case LOC_REGISTER:
 				case LOC_ARG:
+				case LOC_REF_ARG:
+				case LOC_REGPARM:
 				case LOC_LOCAL:
+				case LOC_LOCAL_ARG:
 				  if (innermost_block == 0 ||
 				      contained_in (block_found, 
 						    innermost_block))
 				    innermost_block = block_found;
+				case LOC_UNDEF:
+				case LOC_CONST:
+				case LOC_STATIC:
+				case LOC_TYPEDEF:
+				case LOC_LABEL:
+				case LOC_BLOCK:
+				case LOC_EXTERNAL:
+				case LOC_CONST_BYTES:
+
+				  /* In this case the expression can
+				     be evaluated regardless of what
+				     frame we are in, so there is no
+				     need to check for the
+				     innermost_block.  These cases are
+				     listed so that gcc -Wall will
+				     report types that may not have
+				     been considered.  */
+
+				  break;
 				}
 			      write_exp_elt_opcode (OP_VAR_VALUE);
 			      write_exp_elt_sym (sym);
@@ -656,6 +704,8 @@ variable:	name_not_typename
 			      register int i;
 			      register char *arg = copy_name ($1.stoken);
 
+				/* FIXME, this search is linear!  At least
+				   optimize the strcmp with a 1-char cmp... */
 			      for (i = 0; i < misc_function_count; i++)
 				if (!strcmp (misc_function_vector[i].name, arg))
 				  break;
@@ -710,7 +760,7 @@ ptype	:	typebase
 			follow_type = lookup_reference_type (follow_type);
 			break;
 		      case tp_array:
-			array_size = (int) pop_type ();
+			array_size = pop_type_int ();
 			if (array_size != -1)
 			  follow_type = create_array_type (follow_type,
 							   array_size);
@@ -729,6 +779,10 @@ abs_decl:	'*'
 			{ push_type (tp_pointer); $$ = 0; }
 	|	'*' abs_decl
 			{ push_type (tp_pointer); $$ = $2; }
+	|	'&'
+			{ push_type (tp_reference); $$ = 0; }
+	|	'&' abs_decl
+			{ push_type (tp_reference); $$ = $2; }
 	|	direct_abs_decl
 	;
 
@@ -736,12 +790,12 @@ direct_abs_decl: '(' abs_decl ')'
 			{ $$ = $2; }
 	|	direct_abs_decl array_mod
 			{
-			  push_type ((enum type_pieces) $2);
+			  push_type_int ($2);
 			  push_type (tp_array);
 			}
 	|	array_mod
 			{
-			  push_type ((enum type_pieces) $1);
+			  push_type_int ($1);
 			  push_type (tp_array);
 			  $$ = 0;
 			}
@@ -788,6 +842,14 @@ typebase
 			{ $$ = builtin_type_long; }
 	|	UNSIGNED LONG INT_KEYWORD
 			{ $$ = builtin_type_unsigned_long; }
+	|	LONG LONG
+			{ $$ = builtin_type_long_long; }
+	|	LONG LONG INT_KEYWORD
+			{ $$ = builtin_type_long_long; }
+	|	UNSIGNED LONG LONG
+			{ $$ = builtin_type_unsigned_long_long; }
+	|	UNSIGNED LONG LONG INT_KEYWORD
+			{ $$ = builtin_type_unsigned_long_long; }
 	|	SHORT INT_KEYWORD
 			{ $$ = builtin_type_short; }
 	|	UNSIGNED SHORT INT_KEYWORD
@@ -854,8 +916,14 @@ name	:	NAME { $$ = $1.stoken; }
 
 name_not_typename :	NAME
 	|	BLOCKNAME
-	|	NAME_OR_INT
-	|	NAME_OR_UINT
+/* These would be useful if name_not_typename was useful, but it is just
+   a fake for "variable", so these cause reduce/reduce conflicts because
+   the parser can't tell whether NAME_OR_INT is a name_not_typename (=variable,
+   =exp) or just an exp.  If name_not_typename was ever used in an lvalue
+   context where only a name could occur, this might be useful.
+  	|	NAME_OR_INT
+  	|	NAME_OR_UINT
+ */
 	;
 
 %%
@@ -1142,13 +1210,13 @@ struct token
   enum exp_opcode opcode;
 };
 
-static struct token tokentab3[] =
+const static struct token tokentab3[] =
   {
     {">>=", ASSIGN_MODIFY, BINOP_RSH},
     {"<<=", ASSIGN_MODIFY, BINOP_LSH}
   };
 
-static struct token tokentab2[] =
+const static struct token tokentab2[] =
   {
     {"+=", ASSIGN_MODIFY, BINOP_ADD},
     {"-=", ASSIGN_MODIFY, BINOP_SUB},
@@ -1875,18 +1943,40 @@ push_type (tp)
   if (type_stack_depth == type_stack_size)
     {
       type_stack_size *= 2;
-      type_stack = (enum type_pieces *)
-	xrealloc (type_stack, type_stack_size * sizeof (enum type_pieces));
+      type_stack = (union type_stack_elt *)
+	xrealloc (type_stack, type_stack_size * sizeof (*type_stack));
     }
-  type_stack[type_stack_depth++] = tp;
+  type_stack[type_stack_depth++].piece = tp;
+}
+
+static void
+push_type_int (n)
+     int n;
+{
+  if (type_stack_depth == type_stack_size)
+    {
+      type_stack_size *= 2;
+      type_stack = (union type_stack_elt *)
+	xrealloc (type_stack, type_stack_size * sizeof (*type_stack));
+    }
+  type_stack[type_stack_depth++].int_val = n;
 }
 
 static enum type_pieces 
 pop_type ()
 {
   if (type_stack_depth)
-    return type_stack[--type_stack_depth];
+    return type_stack[--type_stack_depth].piece;
   return tp_end;
+}
+
+static int
+pop_type_int ()
+{
+  if (type_stack_depth)
+    return type_stack[--type_stack_depth].int_val;
+  /* "Can't happen".  */
+  return 0;
 }
 
 void
@@ -1894,6 +1984,6 @@ _initialize_expread ()
 {
   type_stack_size = 80;
   type_stack_depth = 0;
-  type_stack = (enum type_pieces *)
-    xmalloc (type_stack_size * sizeof (enum type_pieces));
+  type_stack = (union type_stack_elt *)
+    xmalloc (type_stack_size * sizeof (*type_stack));
 }

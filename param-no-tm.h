@@ -23,7 +23,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "xm.h"
 
-/* TARGET_BYTE_ORDER and BYTE_ORDER should be defined to one of these.  */
+/* TARGET_BYTE_ORDER and HOST_BYTE_ORDER should be defined to one of these.  */
 #if !defined (BIG_ENDIAN)
 #define BIG_ENDIAN 4321
 #endif
@@ -36,16 +36,18 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    debugging symbols and such.  Conceptually, it's quite separate
    from byte/word byte order.  */
 
+#if !defined (BITS_BIG_ENDIAN)
 #if TARGET_BYTE_ORDER == BIG_ENDIAN
 #define BITS_BIG_ENDIAN 1
-#endif
+#endif /* Big endian.  */
 
 #if TARGET_BYTE_ORDER == LITTLE_ENDIAN
-/*#define BITS_BIG_ENDIAN */
-#endif
+#define BITS_BIG_ENDIAN 0
+#endif /* Little endian.  */
+#endif /* BITS_BIG_ENDIAN not defined.  */
 
 /* Swap LEN bytes at BUFFER between target and host byte-order.  */
-#if TARGET_BYTE_ORDER == BYTE_ORDER
+#if TARGET_BYTE_ORDER == HOST_BYTE_ORDER
 #define SWAP_TARGET_AND_HOST(buffer,len)
 #else /* Target and host byte order differ.  */
 #define SWAP_TARGET_AND_HOST(buffer,len) \
@@ -72,5 +74,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define ADDR_BITS_REMOVE(addr) (addr)
 #define ADDR_BITS_SET(addr) (addr)
 #endif /* No ADDR_BITS_REMOVE.  */
+
+#if !defined (SYS_SIGLIST_MISSING)
+#define SYS_SIGLIST_MISSING defined (USG)
+#endif /* No SYS_SIGLIST_MISSING */
 
 #endif /* param.h not already included.  */

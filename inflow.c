@@ -1,5 +1,5 @@
 /* Low level interface to ptrace, for GDB when running under Unix.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -38,8 +38,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/param.h>
 #include <sys/dir.h>
 #include <signal.h>
-
-extern int errno;
 
 extern struct target_ops child_ops;
 
@@ -260,6 +258,7 @@ term_info (arg, from_tty)
   target_terminal_info (arg, from_tty);
 }
 
+/* ARGSUSED */
 void
 child_terminal_info (args, from_tty)
      char *args;
@@ -366,6 +365,16 @@ kill_command (arg, from_tty)
   if (!query ("Kill the inferior process? "))
     error ("Not confirmed.");
   target_kill (arg, from_tty);
+
+  /* Killing off the inferior can leave us with a core file.  If so,
+     print the state we are left in.  */
+  if (target_has_stack) {
+    printf_filtered ("In %s,\n", current_target->to_longname);
+    if (selected_frame == NULL)
+      fputs_filtered ("No selected stack frame.\n", stdout);
+    else
+      print_sel_frame (0);
+  }
 }
 
 /* The inferior process has died.  Long live the inferior!  */
@@ -383,13 +392,15 @@ generic_mourn_inferior ()
   CLEAR_DEFERRED_STORES;
 #endif
 
-  select_frame ((FRAME) 0, -1);
   reopen_exec_file ();
-  if (target_has_stack)
+  if (target_has_stack) {
     set_current_frame ( create_new_frame (read_register (FP_REGNUM),
 					  read_pc ()));
-  else
+    select_frame (get_current_frame (), 0);
+  } else {
     set_current_frame (0);
+    select_frame ((FRAME) 0, -1);
+  }
   /* It is confusing to the user for ignore counts to stick around
      from previous runs of the inferior.  So clear them.  */
   breakpoint_clear_ignore_counts ();
@@ -415,7 +426,6 @@ try_writing_regs_command (arg, from_tty)
 {
   register int i;
   register int value;
-  extern int errno;
 
   if (inferior_pid == 0)
     error ("There is no inferior process now.");

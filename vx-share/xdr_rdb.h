@@ -109,16 +109,23 @@ struct SYMBOL_ADDR {
 };
 typedef struct SYMBOL_ADDR SYMBOL_ADDR;
 
+struct SOURCE_STEP {
+	int taskId;
+	u_int startAddr;
+	u_int endAddr;
+};
+typedef struct SOURCE_STEP SOURCE_STEP;
+
 #define MAX_ARG_CNT 10
 #define MAX_FUNC_ARGS 100
 #define MAX_ARG_LEN   100
-
 
 bool_t xdr_arg_info();
 bool_t xdr_EVENT_TYPE();
 bool_t xdr_RDB_EVENT();
 bool_t xdr_TASK_START();
 bool_t xdr_SYMBOL_ADDR();
+bool_t xdr_SOURCE_STEP();
 
 #define RDBPROG (u_long) 0x44444444
 #define RDBVERS (u_long) 1

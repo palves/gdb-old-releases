@@ -19,6 +19,10 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define HAVE_68881
 
+/* TARGET_SUN3 might be a more logical name, but that's used by
+   ../include/target.h (included by ../include/a.out.gnu.h).  */
+#define GDB_TARGET_IS_SUN3 1
+
 #include "tm-68k.h"
 
 /* Define this if the C compiler puts an underscore at the front

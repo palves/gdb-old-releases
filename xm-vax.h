@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#define BYTE_ORDER LITTLE_ENDIAN
+#define HOST_BYTE_ORDER LITTLE_ENDIAN
 
 /* Get rid of any system-imposed stack limit if possible.  */
 
@@ -35,9 +35,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
   if (regno == FP_REGNUM) addr = blockend - 0120;	\
   if (regno == AP_REGNUM) addr = blockend - 0124;	\
   if (regno == SP_REGNUM) addr = blockend - 20; }
-
-/* Compensate for lack of `vprintf' function.  */
-#define MISSING_VPRINTF
 
 /* Interface definitions for kernel debugger KDB.  */
 

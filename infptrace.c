@@ -1,5 +1,5 @@
-/* Low level interface to ptrace, for GDB when running under Unix.
-   Copyright (C) 1988, 1989, 1990 Free Software Foundation, Inc.
+/* Low level Unix child interface to ptrace, for GDB when running under Unix.
+   Copyright (C) 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -32,7 +32,10 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/dir.h>
 #include <signal.h>
 #include <sys/ioctl.h>
+#ifndef USG
 #include <sys/ptrace.h>
+#endif
+
 #if !defined (PT_KILL)
 #define PT_KILL 8
 #define PT_STEP 9
@@ -40,28 +43,31 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define PT_READ_U 3
 #define PT_WRITE_U 6
 #define PT_READ_I 1
+#define	PT_READ_D 2
 #define PT_WRITE_I 4
-/* The Following Change is for a Sun */
-#define PT_WRITE_D 4
-#define PT_ATTACH PTRACE_ATTACH
-#define PT_DETACH PTRACE_DETACH
+#define PT_WRITE_D 5
 #endif /* No PT_KILL.  */
+
+#ifndef PT_ATTACH
+#define PT_ATTACH PTRACE_ATTACH
+#endif
+#ifndef PT_DETACH
+#define PT_DETACH PTRACE_DETACH
+#endif
 
 #include "gdbcore.h"
 #include <sys/user.h>		/* After a.out.h  */
 #include <sys/file.h>
 #include <sys/stat.h>
-
-extern int errno;
 
 /* This function simply calls ptrace with the given arguments.  
    It exists so that all calls to ptrace are isolated in this 
    machine-dependent file. */
 int
-call_ptrace (request, pid, arg3, arg4)
-     int request, pid, arg3, arg4;
+call_ptrace (request, pid, addr, data)
+     int request, pid, *addr, data;
 {
-  return ptrace (request, pid, arg3, arg4);
+  return ptrace (request, pid, addr, data);
 }
 
 #ifdef DEBUG_PTRACE
@@ -78,7 +84,7 @@ kill_inferior_fast ()
   if (inferior_pid == 0)
     return;
   ptrace (PT_KILL, inferior_pid, 0, 0);
-  wait (0);
+  wait ((int *)0);
 }
 
 void
@@ -100,16 +106,19 @@ child_resume (step, signal)
      int signal;
 {
   errno = 0;
+  /* An address of (int *)1 tells it to continue from where it was. 
+     (If GDB wanted it to start some other way, we have already written
+     a new PC value to the child.)  */
   if (step)
     {
 #if defined (NO_SINGLE_STEP)
       single_step (signal);
 #else /* Have single step.  */
-      ptrace (PT_STEP, inferior_pid, 1, signal);
+      ptrace (PT_STEP, inferior_pid, (int *)1, signal);
 #endif /* Have single step.  */
     }
   else
-    ptrace (PT_CONTINUE, inferior_pid, 1, signal);
+    ptrace (PT_CONTINUE, inferior_pid, (int *)1, signal);
   if (errno)
     perror_with_name ("ptrace");
 }
@@ -201,7 +210,7 @@ void _initialize_kernel_u_addr ()
 #if !defined (U_REGS_OFFSET)
 #define U_REGS_OFFSET \
   ptrace (PT_READ_U, inferior_pid, \
-	  offsetof (struct user, u_ar0), 0) - KERNEL_U_ADDR
+	  (int *)(offsetof (struct user, u_ar0)), 0) - KERNEL_U_ADDR
 #endif
 
 /* Fetch one register.  */
@@ -219,16 +228,15 @@ fetch_register (regno)
   regaddr = register_addr (regno, offset);
   for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (int))
     {
-      *(int *) &buf[i] = ptrace (PT_READ_U, inferior_pid, regaddr, 0);
+      *(int *) &buf[i] = ptrace (PT_READ_U, inferior_pid, (int *)regaddr, 0);
       regaddr += sizeof (int);
     }
   supply_register (regno, buf);
 }
 
-/* Fetch all registers, or just one, from the child process.
-   We should check for errors, but we don't.  FIXME.  */
+/* Fetch all registers, or just one, from the child process.  */
 
-int
+void
 fetch_inferior_registers (regno)
      int regno;
 {
@@ -237,7 +245,6 @@ fetch_inferior_registers (regno)
       fetch_register (regno);
   else
     fetch_register (regno);
-  return 0;
 }
 
 /* Registers we shouldn't try to store.  */
@@ -267,7 +274,7 @@ store_inferior_registers (regno)
       for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof(int))
 	{
 	  errno = 0;
-	  ptrace (PT_WRITE_U, inferior_pid, regaddr,
+	  ptrace (PT_WRITE_U, inferior_pid, (int *)regaddr,
 		  *(int *) &registers[REGISTER_BYTE (regno) + i]);
 	  if (errno != 0)
 	    {
@@ -288,7 +295,7 @@ store_inferior_registers (regno)
 	  for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof(int))
 	    {
 	      errno = 0;
-	      ptrace (PT_WRITE_U, inferior_pid, regaddr,
+	      ptrace (PT_WRITE_U, inferior_pid, (int *)regaddr,
 		      *(int *) &registers[REGISTER_BYTE (regno) + i]);
 	      if (errno != 0)
 		{
@@ -334,7 +341,6 @@ child_xfer_memory (memaddr, myaddr, len, write)
     = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);
   /* Allocate buffer of that many longwords.  */
   register int *buffer = (int *) alloca (count * sizeof (int));
-  extern int errno;
 
   if (write)
     {
@@ -342,14 +348,14 @@ child_xfer_memory (memaddr, myaddr, len, write)
 
       if (addr != memaddr || len < (int)sizeof (int)) {
 	/* Need part of initial word -- fetch it.  */
-        buffer[0] = ptrace (PT_READ_I, inferior_pid, addr, 0);
+        buffer[0] = ptrace (PT_READ_I, inferior_pid, (int *)addr, 0);
       }
 
       if (count > 1)		/* FIXME, avoid if even boundary */
 	{
 	  buffer[count - 1]
 	    = ptrace (PT_READ_I, inferior_pid,
-		      addr + (count - 1) * sizeof (int), 0);
+		      (int *)(addr + (count - 1) * sizeof (int)), 0);
 	}
 
       /* Copy data to be written over corresponding part of buffer */
@@ -361,13 +367,13 @@ child_xfer_memory (memaddr, myaddr, len, write)
       for (i = 0; i < count; i++, addr += sizeof (int))
 	{
 	  errno = 0;
-	  ptrace (PT_WRITE_D, inferior_pid, addr, buffer[i]);
+	  ptrace (PT_WRITE_D, inferior_pid, (int *)addr, buffer[i]);
 	  if (errno)
 	    {
 	      /* Using the appropriate one (I or D) is necessary for
 		 Gould NP1, at least.  */
 	      errno = 0;
-	      ptrace (PT_WRITE_I, inferior_pid, addr, buffer[i]);
+	      ptrace (PT_WRITE_I, inferior_pid, (int *)addr, buffer[i]);
 	    }
 	  if (errno)
 	    return 0;
@@ -379,7 +385,7 @@ child_xfer_memory (memaddr, myaddr, len, write)
       for (i = 0; i < count; i++, addr += sizeof (int))
 	{
 	  errno = 0;
-	  buffer[i] = ptrace (PT_READ_I, inferior_pid, addr, 0);
+	  buffer[i] = ptrace (PT_READ_I, inferior_pid, (int *)addr, 0);
 	  if (errno)
 	    return 0;
 	  QUIT;

@@ -54,6 +54,7 @@ struct inferior_status {
   char stop_registers[REGISTER_BYTES];
   int breakpoint_proceeded;
   int restore_stack_info;
+  int proceed_to_finish;
 };
 
 void save_inferior_status (), restore_inferior_status ();
@@ -76,7 +77,6 @@ extern void proceed ();
 extern void kill_inferior ();
 extern void kill_inferior_fast ();
 extern void generic_mourn_inferior ();
-extern int  have_inferior_p ();
 extern void terminal_ours ();
 extern void detach ();
 extern void run_stack_dummy ();
@@ -87,6 +87,13 @@ extern void init_wait_for_inferior ();
 extern void close_exec_file ();
 extern void reopen_exec_file ();
 
+/* From infcmd.c */
+void attach_command (
+#ifdef __STDC__
+		     char *arg, int from_tty
+#endif
+		     );
+		     
 /* Last signal that the inferior received (why it stopped).  */
 
 extern int stop_signal;
@@ -145,7 +152,15 @@ extern int step_over_calls;
 
 extern int step_multi;
 
-/* Save register contents here when about to pop a stack dummy frame.  */
+/* Nonzero if proceed is being used for a "finish" command or a similar
+   situation when stop_registers should be saved.  */
+
+extern int proceed_to_finish;
+
+/* Save register contents here when about to pop a stack dummy frame,
+   if-and-only-if proceed_to_finish is set.
+   Thus this contains the return value from the called function (assuming
+   values are returned in a register).  */
 
 extern char stop_registers[REGISTER_BYTES];
 

@@ -23,5 +23,6 @@ modification history
 #define VX_CONV_FROM_68881	68
 #define VX_CONV_TO_68881	69
 #define VX_BOOT_FILE_INQ	70
+#define	VX_SOURCE_STEP		71
 
 #endif INCdbxRpcLibh

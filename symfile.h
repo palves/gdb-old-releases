@@ -83,12 +83,19 @@ struct sym_fns {
      sym_discard.  It is typically a pointer to malloc'd memory.  */
 
   char *sym_private;			/* Should be void * */
+
+  /* next
+     finds the next struct sym_fns.  They are allocated and initialized
+     in whatever module implements the functions pointed to; an 
+     initializer calls add_symtab_fns to add them to the global chain.  */
+  struct sym_fns *next;
 };
 
 			/*   Functions   */
 
-extern void free_named_symtab ();
-extern int  fill_in_vptr_fieldno ();
+extern int  free_named_symtabs ();
+extern void fill_in_vptr_fieldno ();
+extern void add_symtab_fns ();
 
 /* Functions for dealing with the misc "function" vector, really a misc
    address<->symbol mapping vector for things we don't have debug symbols
@@ -125,7 +132,7 @@ extern char *symfile;
 
 /* The modification date of the file when they were loaded.  */
 
-extern int symfile_mtime;
+extern long /* really time_t */ symfile_mtime;
 
 /* Vectors of all partial symbols read in from file.  */
 

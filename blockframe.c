@@ -146,6 +146,17 @@ flush_cached_frames ()
   current_frame = (struct frame_info *) 0; /* Invalidate cache */
 }
 
+/* Flush the frame cache, and start a new one if necessary.  */
+void
+reinit_frame_cache ()
+{
+  FRAME fr = current_frame;
+  flush_cached_frames ();
+  if (fr)
+    set_current_frame ( create_new_frame (read_register (FP_REGNUM),
+					  read_pc ()));
+}
+
 /* Return a structure containing various interesting information
    about a specified stack frame.  */
 /* How do I justify including this function?  Well, the FRAME
@@ -245,7 +256,7 @@ get_prev_frame_info (next_frame)
 
   if (!fromleaf)
     {
-      /* Two macros defined in param.h specify the machine-dependent
+      /* Two macros defined in tm.h specify the machine-dependent
 	 actions to be performed here.
 	 First, get the frame's chain-pointer.
 	 If that is zero, the frame is the outermost frame or a leaf
@@ -564,7 +575,7 @@ find_pc_partial_function (pc, name, address)
       cache_pc_function_low = pc - FUNCTION_START_OFFSET;
   }
   cache_pc_function_name = misc_function_vector[miscfunc].name;
-  if (miscfunc < misc_function_count && 1 /* FIXME mf_text again? */ )
+  if (miscfunc < misc_function_count /* && FIXME mf_text again? */ )
     cache_pc_function_high = misc_function_vector[miscfunc+1].address;
   else
     cache_pc_function_high = cache_pc_function_low + 1;

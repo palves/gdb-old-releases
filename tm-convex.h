@@ -53,15 +53,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
      || ((TYPE) & ~N_EXT) == N_TDATA   \
      || ((TYPE) & ~N_EXT) == 0xc4)
 
-#if 0
-/* I think this is obsolete.  */
-/* Convex ld sometimes omits _etext.
-   Get text segment end from a.out header in this case.  */
-
-extern unsigned text_end;
-#define END_OF_TEXT_DEFAULT text_end
-#endif /* 0 */
-
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
 

@@ -1,5 +1,6 @@
 /* Generic symbol file reading for the GNU debugger, GDB.
-   Copyright (C)  1990 Free Software Foundation, Inc.
+   Copyright 1990, 1991 Free Software Foundation, Inc.
+   Contributed by Cygnus Support, using pieces from other GDB modules.
 
 This file is part of GDB.
 
@@ -46,28 +47,11 @@ extern char *getenv ();
 /* Functions this file defines */
 static bfd *symfile_open();
 static struct sym_fns *symfile_init();
+static void clear_symtab_users_once();
 
-extern void dbx_new_init(), dbx_symfile_init(), dbx_symfile_read();
-extern void dbx_symfile_discard();
+/* List of all available sym_fns.  */
 
-extern void coff_new_init(), coff_symfile_init(), coff_symfile_read();
-extern void coff_symfile_discard();
-
-struct sym_fns symtab_fns[] = {
-  {"sunOs", 6,
-		dbx_new_init, dbx_symfile_init,
-		dbx_symfile_read, dbx_symfile_discard},
-  {"a.out", 5,
-		dbx_new_init, dbx_symfile_init,
-		dbx_symfile_read, dbx_symfile_discard},
-  {"b.out", 5,
-		dbx_new_init, dbx_symfile_init,
-		dbx_symfile_read, dbx_symfile_discard},
-  {"coff", 4,
-		coff_new_init, coff_symfile_init,
-		coff_symfile_read, coff_symfile_discard},
-  {0},
-};
+struct sym_fns *symtab_fns = NULL;
 
 /* Saves the sym_fns of the current symbol table, so we can call
    the right sym_discard function when we free it.  */
@@ -98,7 +82,7 @@ char *symfile = 0;
 
 /* The modification date of the file when they were loaded.  */
 
-int symfile_mtime = 0;
+long /* really time_t */ symfile_mtime = 0;
 
 /* Structures with which to manage partial symbol allocation.  */
 
@@ -109,6 +93,14 @@ struct psymbol_allocation_list global_psymbols = {0}, static_psymbols = {0};
 struct complaint complaint_root[1] = {
   {(char *)0, 0, complaint_root},
 };
+
+/* Some actual complaints.  */
+
+struct complaint oldsyms_complaint = {
+	"Replacing old symbols for `%s'", 0, 0 };
+
+struct complaint empty_symtab_complaint = {
+	"Empty symbol table found for `%s'", 0, 0 };
 
 
 /* In the following sort, we always make sure that
@@ -264,6 +256,7 @@ prim_record_misc_function (name, address, misc_type)
   misc_bunch->contents[misc_bunch_index].name = name;
   misc_bunch->contents[misc_bunch_index].address = address;
   misc_bunch->contents[misc_bunch_index].type = misc_type;
+  misc_bunch->contents[misc_bunch_index].misc_info = 0;
   misc_bunch_index++;
   misc_count++;
 }
@@ -386,10 +379,11 @@ psymtab_to_symtab (pst)
 /* Process a symbol file, as either the main file or as a dynamically
    loaded file.
 
-   NAME is the file name (which will be tilde-expanded and made absolute
-   herein).  FROM_TTY says how verbose to be.  MAINLINE specifies whether
-   this is the main symbol file, or whether it's an extra symbol file
-   such as dynamically loaded code.  If !mainline, ADDR is the address
+   NAME is the file name (which will be tilde-expanded and made
+   absolute herein) (but we don't free or modify NAME itself).
+   FROM_TTY says how verbose to be.  MAINLINE specifies whether this
+   is the main symbol file, or whether it's an extra symbol file such
+   as dynamically loaded code.  If !mainline, ADDR is the address
    where the text segment was loaded.  */
 
 void
@@ -429,7 +423,8 @@ symbol_file_add (name, from_tty, addr, mainline)
 
   if (from_tty)
     {
-      printf ("Reading symbol data from %s...", name);
+      printf_filtered ("Reading symbol data from %s...", name);
+      wrap_here ("");
       fflush (stdout);
     }
 
@@ -473,9 +468,12 @@ symbol_file_add (name, from_tty, addr, mainline)
       symfile_fns = sf;
     }
 
+  /* If we have wiped out any old symbol tables, clean up.  */
+  clear_symtab_users_once ();
+
   if (from_tty)
     {
-      printf ("done.\n");
+      printf_filtered ("done.\n");
       fflush (stdout);
     }
 }
@@ -505,11 +503,17 @@ symbol_file_command (name, from_tty)
       /* FIXME, this does not account for the main file and subsequent
          files (shared libs, dynloads, etc) having different formats. 
          It only calls the cleanup routine for the main file's format.  */
-      (*symfile_fns->sym_new_init) ();
-      free (symfile_fns);
-      symfile_fns = 0;
+      if (symfile_fns) {
+        (*symfile_fns->sym_new_init) ();
+        free (symfile_fns);
+        symfile_fns = 0;
+      }
       return;
     }
+
+  /* Getting new symbols may change our opinion about what is
+     frameless.  */
+  reinit_frame_cache ();
 
   symbol_file_add (name, from_tty, (CORE_ADDR)0, 1);
 }
@@ -555,6 +559,18 @@ symfile_open (name)
   return sym_bfd;
 }
 
+/* Link a new symtab_fns into the global symtab_fns list.
+   Called by various _initialize routines.  */
+
+void
+add_symtab_fns (sf)
+     struct sym_fns *sf;
+{
+  sf->next = symtab_fns;
+  symtab_fns = sf;
+}
+
+
 /* Initialize to read symbols from the symbol file sym_bfd.  It either
    returns or calls error().  The result is a malloc'd struct sym_fns
    that contains cached information about the symbol file.  */
@@ -565,7 +581,7 @@ symfile_init (sym_bfd)
 {
   struct sym_fns *sf, *sf2;
 
-  for (sf = symtab_fns; sf->sym_name; sf++)
+  for (sf = symtab_fns; sf != NULL; sf = sf->next)
     {
       if (!strncmp (bfd_get_target (sym_bfd), sf->sym_name, sf->sym_namelen))
 	{
@@ -579,22 +595,38 @@ symfile_init (sym_bfd)
 	}
     }
   error ("I'm sorry, Dave, I can't do that.  Symbol format unknown.");
+  return 0; /* Appease lint.  */
 }
 
-/* This function runs the add_file command of our current target.  */
+/* This function runs the load command of our current target.  */
 
 void
-add_file_target_command (arg, from_tty)
+load_command (arg, from_tty)
      char *arg;
      int from_tty;
 {
-  target_add_file (arg, from_tty);
+  target_load (arg, from_tty);
+}
+
+/* This function runs the add_syms command of our current target.  */
+
+void
+add_symbol_file_command (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  /* Getting new symbols may change our opinion about what is
+     frameless.  */
+  reinit_frame_cache ();
+
+  target_add_syms (args, from_tty);
 }
 
 /* This function allows the addition of incrementally linked object files.  */
 
+/* ARGSUSED */
 void
-add_file_addr_command (arg_string, from_tty)
+add_syms_addr_command (arg_string, from_tty)
      char* arg_string;
      int from_tty;
 {
@@ -602,7 +634,7 @@ add_file_addr_command (arg_string, from_tty)
   CORE_ADDR text_addr;
   
   if (arg_string == 0)
-    error ("add-file takes a file name and an address");
+    error ("add-symbol-file takes a file name and an address");
 
   arg_string = tilde_expand (arg_string);
   make_cleanup (free, arg_string);
@@ -613,13 +645,13 @@ add_file_addr_command (arg_string, from_tty)
   *arg_string++ = (char) 0;
 
   if (name[0] == 0)
-    error ("add-file takes a file name and an address");
+    error ("add-symbol-file takes a file name and an address");
 
   text_addr = parse_and_eval_address (arg_string);
 
   dont_repeat ();
 
-  if (!query ("add symbol table from filename \"%s\" at text_addr = 0x%x\n",
+  if (!query ("add symbol table from file \"%s\" at text_addr = 0x%x\n",
 	      name, text_addr))
     error ("Not confirmed.");
 
@@ -651,24 +683,28 @@ reread_symbols ()
     }
 }
 
-/* Return name of file symbols were loaded from, or 0 if none..  */
-
-char *
-get_sym_file ()
-{
-  return symfile;
-}
-
 /* This function is really horrible, but to avoid it, there would need
    to be more filling in of forward references.  */
-int
+void
 fill_in_vptr_fieldno (type)
      struct type *type;
 {
   if (TYPE_VPTR_FIELDNO (type) < 0)
-    TYPE_VPTR_FIELDNO (type) =
-      fill_in_vptr_fieldno (TYPE_BASECLASS (type, 1));
-  return TYPE_VPTR_FIELDNO (type);
+    {
+      int i;
+      for (i = 1; i < TYPE_N_BASECLASSES (type); i++)
+	{
+	  fill_in_vptr_fieldno (TYPE_BASECLASS (type, i));
+	  if (TYPE_VPTR_FIELDNO (TYPE_BASECLASS (type, i)) >= 0)
+	    {
+	      TYPE_VPTR_FIELDNO (type)
+		= TYPE_VPTR_FIELDNO (TYPE_BASECLASS (type, i));
+	      TYPE_VPTR_BASETYPE (type)
+		= TYPE_VPTR_BASETYPE (TYPE_BASECLASS (type, i));
+	      break;
+	    }
+	}
+    }
 }
 
 /* Functions to handle complaints during symbol reading.  */
@@ -717,6 +753,187 @@ clear_complaints ()
     p->counter = 0;
 }
 
+/* clear_symtab_users_once:
+
+   This function is run after symbol reading, or from a cleanup.
+   If an old symbol table was obsoleted, the old symbol table
+   has been blown away, but the other GDB data structures that may 
+   reference it have not yet been cleared or re-directed.  (The old
+   symtab was zapped, and the cleanup queued, in free_named_symtab()
+   below.)
+
+   This function can be queued N times as a cleanup, or called
+   directly; it will do all the work the first time, and then will be a
+   no-op until the next time it is queued.  This works by bumping a
+   counter at queueing time.  Much later when the cleanup is run, or at
+   the end of symbol processing (in case the cleanup is discarded), if
+   the queued count is greater than the "done-count", we do the work
+   and set the done-count to the queued count.  If the queued count is
+   less than or equal to the done-count, we just ignore the call.  This
+   is needed because reading a single .o file will often replace many
+   symtabs (one per .h file, for example), and we don't want to reset
+   the breakpoints N times in the user's face.
+
+   The reason we both queue a cleanup, and call it directly after symbol
+   reading, is because the cleanup protects us in case of errors, but is
+   discarded if symbol reading is successful.  */
+
+static int clear_symtab_users_queued;
+static int clear_symtab_users_done;
+
+static void
+clear_symtab_users_once ()
+{
+  /* Enforce once-per-`do_cleanups'-semantics */
+  if (clear_symtab_users_queued <= clear_symtab_users_done)
+    return;
+  clear_symtab_users_done = clear_symtab_users_queued;
+
+  printf ("Resetting debugger state after updating old symbol tables\n");
+
+  /* Someday, we should do better than this, by only blowing away
+     the things that really need to be blown.  */
+  clear_value_history ();
+  clear_displays ();
+  clear_internalvars ();
+  breakpoint_re_set ();
+  set_default_breakpoint (0, 0, 0, 0);
+  current_source_symtab = 0;
+}
+
+/* Delete the specified psymtab, and any others that reference it.  */
+
+static void
+cashier_psymtab (pst)
+     struct partial_symtab *pst;
+{
+  struct partial_symtab *ps, *pprev;
+  int i;
+
+  /* Find its previous psymtab in the chain */
+  for (ps = partial_symtab_list; ps; ps = ps->next) {
+    if (ps == pst)
+      break;
+    pprev = ps;
+  }
+
+  if (ps) {
+    /* Unhook it from the chain.  */
+    if (ps == partial_symtab_list)
+      partial_symtab_list = ps->next;
+    else
+      pprev->next = ps->next;
+
+    /* FIXME, we can't conveniently deallocate the entries in the
+       partial_symbol lists (global_psymbols/static_psymbols) that
+       this psymtab points to.  These just take up space until all
+       the psymtabs are reclaimed.  Ditto the dependencies list and
+       filename, which are all in the psymbol_obstack.  */
+
+    /* We need to cashier any psymtab that has this one as a dependency... */
+again:
+    for (ps = partial_symtab_list; ps; ps = ps->next) {
+      for (i = 0; i < ps->number_of_dependencies; i++) {
+	if (ps->dependencies[i] == pst) {
+	  cashier_psymtab (ps);
+	  goto again;		/* Must restart, chain has been munged. */
+	}
+      }
+    }
+  }
+}
+
+/* If a symtab or psymtab for filename NAME is found, free it along
+   with any dependent breakpoints, displays, etc.
+   Used when loading new versions of object modules with the "add-file"
+   command.  This is only called on the top-level symtab or psymtab's name;
+   it is not called for subsidiary files such as .h files.
+
+   Return value is 1 if we blew away the environment, 0 if not.
+
+   FIXME.  I think this is not the best way to do this.  We should
+   work on being gentler to the environment while still cleaning up
+   all stray pointers into the freed symtab.  */
+
+int
+free_named_symtabs (name)
+     char *name;
+{
+  register struct symtab *s;
+  register struct symtab *prev;
+  register struct partial_symtab *ps;
+  struct blockvector *bv;
+  int blewit = 0;
+
+  /* Some symbol formats have trouble providing file names... */
+  if (name == 0 || *name == '\0')
+    return 0;
+
+  /* Look for a psymtab with the specified name.  */
+
+again2:
+  for (ps = partial_symtab_list; ps; ps = ps->next) {
+    if (!strcmp (name, ps->filename)) {
+      cashier_psymtab (ps);	/* Blow it away...and its little dog, too.  */
+      goto again2;		/* Must restart, chain has been munged */
+    }
+  }
+
+  /* Look for a symtab with the specified name.  */
+
+  for (s = symtab_list; s; s = s->next)
+    {
+      if (!strcmp (name, s->filename))
+	break;
+      prev = s;
+    }
+
+  if (s)
+    {
+      if (s == symtab_list)
+	symtab_list = s->next;
+      else
+	prev->next = s->next;
+
+      /* For now, queue a delete for all breakpoints, displays, etc., whether
+	 or not they depend on the symtab being freed.  This should be
+	 changed so that only those data structures affected are deleted.  */
+
+      /* But don't delete anything if the symtab is empty.
+	 This test is necessary due to a bug in "dbxread.c" that
+	 causes empty symtabs to be created for N_SO symbols that
+	 contain the pathname of the object file.  (This problem
+	 has been fixed in GDB 3.9x).  */
+
+      bv = BLOCKLIST (s);
+      if (BLOCKLIST_NBLOCKS (bv) > 2
+	  || BLOCK_NSYMS (BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK))
+	  || BLOCK_NSYMS (BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK)))
+	{
+	  complain (&oldsyms_complaint, name);
+
+	  clear_symtab_users_queued++;
+	  make_cleanup (clear_symtab_users_once, 0);
+	  blewit = 1;
+	} else {
+	  complain (&empty_symtab_complaint, name);
+	}
+
+      free_symtab (s);
+    }
+  else
+    /* It is still possible that some breakpoints will be affected
+       even though no symtab was found, since the file might have
+       been compiled without debugging, and hence not be associated
+       with a symtab.  In order to handle this correctly, we would need
+       to keep a list of text address ranges for undebuggable files.
+       For now, we do nothing, since this is a fairly obscure case.  */
+    ;
+
+  /* FIXME, what about the misc function vector? */
+  return blewit;
+}
+
 void
 _initialize_symfile ()
 {
@@ -726,13 +943,13 @@ _initialize_symfile ()
 The `file' command can also load symbol tables, as well as setting the file\n\
 to execute.");
 
-  add_com ("add-file", class_files, add_file_target_command,
+  add_com ("add-symbol-file", class_files, add_symbol_file_command,
    "Load the symbols from FILE, assuming FILE has been dynamically loaded.\n\
-For most environments, a second argument provides the starting address of\n\
-the file's text.  For VxWorks, the file is actually loaded into the target\n\
-system and dynamically linked, and no further argument is needed.");
+The second argument provides the starting address of the file's text.");
 
-  add_alias_cmd ("load", "add-file", class_files, 0, &cmdlist);
+  add_com ("load", class_files, load_command,
+   "Dynamically load FILE into the running program, and record its symbols\n\
+for access from GDB.");
 
   add_show_from_set
     (add_set_cmd ("complaints", class_support, var_uinteger,

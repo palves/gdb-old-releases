@@ -23,6 +23,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "frame.h"
 #include "inferior.h"
 #include "target.h"
+#include "gdbcmd.h"
 
 #ifdef USG
 #include <sys/types.h>
@@ -30,6 +31,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <sys/param.h>
 #include <fcntl.h>
+#include <string.h>
 
 #include "gdbcore.h"
 
@@ -39,10 +41,12 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/file.h>
 #endif
 
+#include <ctype.h>
 #include <sys/stat.h>
 
 extern char *getenv();
-extern void child_create_inferior (), child_open ();
+extern void child_create_inferior (), child_attach ();
+extern void add_syms_addr_command ();
 extern void symbol_file_command ();
 
 /* The Binary File Descriptor handle for the executable file.  */
@@ -57,17 +61,26 @@ struct section_table *exec_sections, *exec_sections_end;
 
 extern struct target_ops exec_ops;
 
+/* ARGSUSED */
+void
+exec_close (quitting)
+     int quitting;
+{
+  if (exec_bfd) {
+    bfd_close (exec_bfd);
+    exec_bfd = NULL;
+  }
+}
+
 void
 exec_file_command (filename, from_tty)
      char *filename;
      int from_tty;
 {
+  target_preopen (from_tty);
 
-  if (exec_bfd) {
-    bfd_close (exec_bfd);
-    exec_bfd = NULL;
-    unpush_target (&exec_ops);
-  }
+  /* Remove any previous exec file.  */
+  unpush_target (&exec_ops);
 
   /* Now open and digest the file the user requested, if any.  */
 
@@ -153,14 +166,17 @@ file_command (arg, from_tty)
 }
 
 
-/* Locate all mappable sections of a BFD file.  */
+/* Locate all mappable sections of a BFD file. 
+   table_pp_char is a char * to get it through bfd_map_over_sections;
+   we cast it back to its proper type.  */
 
 void
-add_to_section_table (abfd, asect, table_pp)
+add_to_section_table (abfd, asect, table_pp_char)
      bfd *abfd;
      sec_ptr asect;
-     struct section_table **table_pp;
+     char *table_pp_char;
 {
+  struct section_table **table_pp = (struct section_table **)table_pp_char;
   flagword aflag;
 
   aflag = bfd_get_section_flags (abfd, asect);
@@ -183,9 +199,11 @@ build_section_table (some_bfd, start, end)
   count = bfd_count_sections (some_bfd);
   if (count == 0)
     abort();	/* return 1? */
+  if (*start)
+    free (*start);
   *start = (struct section_table *) xmalloc (count * sizeof (**start));
   *end = *start;
-  bfd_map_over_sections (some_bfd, add_to_section_table, end);
+  bfd_map_over_sections (some_bfd, add_to_section_table, (char *)end);
   if (*end > *start + count)
     abort();
   /* We could realloc the table, but it probably loses for most files.  */
@@ -219,7 +237,7 @@ xfer_memory (memaddr, myaddr, len, write, abfd, sections, sections_end)
      bfd *abfd;
      struct section_table *sections, *sections_end;
 {
-  int res;
+  boolean res;
   struct section_table *p;
   CORE_ADDR nextsectaddr, memend;
   boolean (*xfer_fn) ();
@@ -238,7 +256,7 @@ xfer_memory (memaddr, myaddr, len, write, abfd, sections, sections_end)
 	  {
 	    /* Entire transfer is within this section.  */
 	    res = xfer_fn (abfd, p->sec_ptr, myaddr, memaddr - p->addr, len);
-	    return res? len: 0;
+	    return (res != false)? len: 0;
 	  }
 	else if (p->endaddr <= memaddr)
 	  {
@@ -250,7 +268,7 @@ xfer_memory (memaddr, myaddr, len, write, abfd, sections, sections_end)
 	    /* This section overlaps the transfer.  Just do half.  */
 	    len = p->endaddr - memaddr;
 	    res = xfer_fn (abfd, p->sec_ptr, myaddr, memaddr - p->addr, len);
-	    return res? len: 0;
+	    return (res != false)? len: 0;
 	  }
       else if (p->addr < nextsectaddr)
 	nextsectaddr = p->addr;
@@ -304,18 +322,62 @@ exec_files_info ()
 	bfd_section_name (exec_bfd, p->sec_ptr));
 }
 
+static void
+set_section_command (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  struct section_table *p;
+  char *secname;
+  unsigned seclen;
+  unsigned long secaddr;
+  char secprint[100];
+  long offset;
+
+  if (args == 0)
+    error ("Must specify section name and its virtual address");
+
+  /* Parse out section name */
+  for (secname = args; !isspace(*args); args++) ;
+  seclen = args - secname;
+
+  /* Parse out new virtual address */
+  secaddr = parse_and_eval_address (args);
+
+  for (p = exec_sections; p < exec_sections_end; p++) {
+    if (!strncmp (secname, bfd_section_name (exec_bfd, p->sec_ptr), seclen)
+	&& bfd_section_name (exec_bfd, p->sec_ptr)[seclen] == '\0') {
+      offset = secaddr - p->addr;
+      p->addr += offset;
+      p->endaddr += offset;
+      exec_files_info();
+      return;
+    }
+  } 
+  if (seclen >= sizeof (secprint))
+    seclen = sizeof (secprint) - 1;
+  strncpy (secprint, secname, seclen);
+  secprint[seclen] = '\0';
+  error ("Section %s not found", secprint);
+}
+
 struct target_ops exec_ops = {
 	"exec", "Local exec file",
-	child_open, 0, 0, 0, /* open, detach, resume, wait, */
+	"Use an executable file as a target.\n\
+Specify the filename of the executable file.",
+	exec_file_command, exec_close, /* open, close */
+	child_attach, 0, 0, 0, /* attach, detach, resume, wait, */
 	0, 0, /* fetch_registers, store_registers, */
 	0, 0, 0, /* prepare_to_store, conv_to, conv_from, */
 	exec_xfer_memory, exec_files_info,
 	0, 0, /* insert_breakpoint, remove_breakpoint, */
 	0, 0, 0, 0, 0, /* terminal stuff */
-	0, 0, 0, 0, /* kill, add_file, call fn, lookup sym */
+	0, 0, /* kill, load */
+	add_syms_addr_command,
+	0, 0, /* call fn, lookup sym */
 	child_create_inferior,
 	0, /* mourn_inferior */
-	0, /* next */
+	file_stratum, 0, /* next */
 	0, 1, 0, 0, 0,	/* all mem, mem, stack, regs, exec */
 	OPS_MAGIC,		/* Always the last thing */
 };
@@ -337,6 +399,13 @@ No arg means to have no executable file and no symbols.");
 If FILE cannot be found as specified, your execution directory path\n\
 is searched for a command of that name.\n\
 No arg means have no executable file.");
+
+  add_com ("section", class_files, set_section_command,
+   "Change the base address of section SECTION of the exec file to ADDR.\n\
+This can be used if the exec file does not contain section addresses,\n\
+(such as in the a.out format), or when the addresses specified in the\n\
+file itself are wrong.  Each section must be changed separately.  The\n\
+``info files'' command lists all the sections and their addresses.");
 
   add_target (&exec_ops);
 }

@@ -19,8 +19,8 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#if !defined (BYTE_ORDER)
-#define BYTE_ORDER LITTLE_ENDIAN
+#if !defined (HOST_BYTE_ORDER)
+#define HOST_BYTE_ORDER LITTLE_ENDIAN
 #endif
 
 /* wait.h */

@@ -1,4 +1,5 @@
-/* Copyright (C) 1988, 1989 Free Software Foundation, Inc.
+/* Acorn Risc Machine host machine support.
+   Copyright (C) 1988, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 

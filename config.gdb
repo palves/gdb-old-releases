@@ -116,7 +116,7 @@ if [ "$bad" = "true" ] ; then
   echo "Usage: "
   echo "  $progname [+srcdir=\`dir'] machine"
   echo "    For normal usage"
-  echo "  $progname [+srcdir=\`dir'] \`host' \`target`"
+  echo "  $progname [+srcdir=\`dir'] \`host' \`target'"
   echo "  $progname [+srcdir=\`dir'] +host=\`host' +target=\`target'"
   echo "    If you are doing remote debugging between machines of two"
   echo "    different types (cross-debugging).  \`host' is the type of"
@@ -165,15 +165,9 @@ case ${srcdir} in
   .)
     ;;
   *)
-    echo "srcdir=${srcdir}" >./Makefile.srcdir
+    echo "srcdir=${srcdir}" >./Makefile.sdir
     grep -s "source ${srcdir}/.gdbinit" .gdbinit 2>/dev/null || \
       echo "source ${srcdir}/.gdbinit" >> .gdbinit
-    if [ ! -d readline ]; then
-      mkdir readline
-      # This could be a symlink, but getting the name right (because
-      # srcdir can be either relative or absolute) would be hairy.
-      cp ${srcdir}/readline/Makefile readline
-    fi
 esac
 
 make "srcdir=${srcdir}" \

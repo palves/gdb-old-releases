@@ -1,4 +1,4 @@
-/* $Id: b.out.h,v 1.5 89/11/09 13:15:51 chrisb Exp $
+/* Id: b.out.h,v 1.1.1.1 1991/03/28 16:20:47 rich Exp $
  *
  * This file is a modified version of 'a.out.h'.  It is to be used in all
  * all GNU tools modified to support the i80960 (or tools that operate on

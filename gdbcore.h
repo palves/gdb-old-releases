@@ -35,13 +35,18 @@ int have_core_file_p ();
    shadow contents, not the breakpoints themselves.  From breakpoint.c.  */
 int read_memory_nobpt ();
 
-void read_memory_check ();
+/* Report a memory error with error().  */
+
+void memory_error ();
 
 /* Like target_read_memory, but report an error if can't read.  */
 void read_memory ();
 
 /* Read an integer from debugged memory, given address and number of bytes.  */
 long read_memory_integer ();
+
+/* If this is prototyped, need to deal with void* vs. char*.  */
+void write_memory ();
 
 /* Hook for `exec_file_command' command to call.  */
 

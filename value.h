@@ -94,8 +94,16 @@ struct value
     char optimized_out;
     /* Actual contents of the value.  For use of this value; setting
        it uses the stuff above.  Not valid if lazy is nonzero.
-       Target byte-order.  */
-    long contents[1];
+       Target byte-order.  We force it to be aligned properly for any
+       possible value.  */
+    union {
+      long contents[1];
+      double force_double_align;
+#ifdef LONG_LONG
+      long long force_longlong_align;
+#endif
+    } aligner;
+
   };
 
 typedef struct value *value;
@@ -109,7 +117,7 @@ typedef struct value *value;
    debugged if it hasn't already been loaded.  VALUE_CONTENTS_RAW is 
    used when data is being stored into the buffer, or when it is 
    certain that the contents of the buffer are valid.  */
-#define VALUE_CONTENTS_RAW(val) ((char *) (val)->contents)
+#define VALUE_CONTENTS_RAW(val) ((char *) (val)->aligner.contents)
 #define VALUE_CONTENTS(val) ((void)(VALUE_LAZY(val) && value_fetch_lazy(val)),\
 			     VALUE_CONTENTS_RAW(val))
 extern int value_fetch_lazy ();
@@ -172,10 +180,36 @@ struct internalvar
 };
 
 #include "symtab.h"
-LONGEST value_as_long ();
-double value_as_double ();
-LONGEST unpack_long ();
-double unpack_double ();
+LONGEST value_as_long (
+#ifdef __STDC__
+		       value
+#endif
+		       );
+double value_as_double (
+#ifdef __STDC__
+			value
+#endif
+			);
+CORE_ADDR value_as_pointer (
+#ifdef __STDC__
+			    value
+#endif
+			    );
+LONGEST unpack_long (
+#ifdef __STDC__
+		     struct type *, char *
+#endif
+		     );
+double unpack_double (
+#ifdef __STDC__
+		      struct type *, char *, int *
+#endif
+		      );
+CORE_ADDR unpack_pointer (
+#ifdef __STDC__
+			  struct type *, char *
+#endif
+			  );
 long unpack_field_as_long ();
 value value_from_long ();
 value value_from_double ();
@@ -188,6 +222,8 @@ value read_var_value ();
 value locate_var_value ();
 value allocate_value ();
 value allocate_repeat_value ();
+value value_mark ();
+void value_free_to_mark ();
 value value_string ();
 
 value value_binop ();
@@ -206,6 +242,7 @@ value value_cast ();
 value value_zero ();
 value value_repeat ();
 value value_subscript ();
+value value_from_vtable_info ();
 
 value value_being_returned ();
 int using_struct_return ();
@@ -235,11 +272,10 @@ value value_x_binop ();
 value value_x_unop ();
 value value_fn_field ();
 value value_virtual_fn_field ();
-value value_static_field ();
 int binop_user_defined_p ();
 int unop_user_defined_p ();
 int typecmp ();
-int fill_in_vptr_fieldno ();
+void fill_in_vptr_fieldno ();
 int destructor_name_p ();
 
 #define value_free(val) free (val)

@@ -94,7 +94,7 @@ read_memory_integer (read_register (SP_REGNUM), 4)
 #define REGISTER_TYPE long
 
 #if defined (HAVE_68881)
-#  if defined (sun)
+#  if defined (GDB_TARGET_IS_SUN3)
     /* Sun3 status includes fpflags, which shows whether the FPU has been used
        by the process, and whether the FPU was done with an instruction or 
        was interrupted in the middle of a long instruction.  See
@@ -147,23 +147,31 @@ read_memory_integer (read_register (SP_REGNUM), 4)
 
 #define REGISTER_CONVERTIBLE(N) (((unsigned)(N) - FP0_REGNUM) < 8)
 
+/* Put the declaration out here because if it's in the macros, PCC
+   will complain.  */
+extern struct ext_format ext_format_68881 [];
+
 /* Convert data from raw format for register REGNUM
    to virtual format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)	\
-{ if ((REGNUM) >= FP0_REGNUM && (REGNUM) < FPC_REGNUM)	\
-    convert_from_68881 ((FROM), (TO));	\
+{ \
+  if ((REGNUM) >= FP0_REGNUM && (REGNUM) < FPC_REGNUM)	\
+    ieee_extended_to_double (ext_format_68881, (FROM), (TO));	\
   else					\
-    bcopy ((FROM), (TO), 4); }
+    bcopy ((FROM), (TO), 4);	\
+}
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-{ if ((REGNUM) >= FP0_REGNUM && (REGNUM) < FPC_REGNUM)	\
-    convert_to_68881 ((FROM), (TO));	\
+{ \
+  if ((REGNUM) >= FP0_REGNUM && (REGNUM) < FPC_REGNUM)	\
+    double_to_ieee_extended (ext_format_68881, (FROM), (TO));	\
   else					\
-    bcopy ((FROM), (TO), 4); }
+    bcopy ((FROM), (TO), 4);	\
+}
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -278,7 +286,7 @@ read_memory_integer (read_register (SP_REGNUM), 4)
    the address in which a function should return its structure value,
    as a CORE_ADDR (or an expression that can be used as one).  */
 
-#define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) (*(int *)(REGBUF))
+#define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) (*(CORE_ADDR *)(REGBUF))
 
 /* Describe the pointer in each stack frame to the previous stack frame
    (its caller).  */

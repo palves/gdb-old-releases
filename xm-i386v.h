@@ -22,7 +22,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
  * July 1988
  */
 
-#define BYTE_ORDER LITTLE_ENDIAN
+#define HOST_BYTE_ORDER LITTLE_ENDIAN
 
 /* I'm running gdb 3.4 under 386/ix 2.0.2, which is a derivative of AT&T's
 Sys V/386 3.2.

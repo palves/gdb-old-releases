@@ -17,5 +17,5 @@
 # along with GDB; see the file COPYING.  If not, write to
 # the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
-XDEPFILES= infptrace.o coredep.o m68k-xdep.o
+XDEPFILES= infptrace.o coredep.o
 XM_FILE= xm-isi.h

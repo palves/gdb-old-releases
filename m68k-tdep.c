@@ -17,12 +17,10 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* FIXME, what an ugly hack.  If the target is a 68000 and the host also is,
-   we will get these symbols defined as functions in m68k-xdep.c.
-   If the target is a 68000 and the host isn't, the declarations below
-   will cause them to be defined as "common" symbols.  If anyone
-   jumps to them, they'll abort, so cross-debuggers have to take
-   other precautions to handle 68881 conversions.  */
+#include "defs.h"
+#include "ieee-float.h"
 
-int convert_to_68881;
-int convert_from_68881;
+const struct ext_format ext_format_68881 [] = {
+/* tot sbyte smask expbyte manbyte */
+ { 12, 0,    0x80, 0,1,	   4,8	},		/* mc68881 */
+};

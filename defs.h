@@ -1,5 +1,5 @@
 /* Basic definitions for GDB, the GNU debugger.
-   Copyright (C) 1986, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,6 +17,9 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#if !defined (DEFS_H)
+#define DEFS_H
+
 /* An address in the program being debugged.  Host byte order.  */
 typedef unsigned int CORE_ADDR;
 
@@ -33,17 +36,28 @@ typedef unsigned int CORE_ADDR;
  * If non-ansi, non-gcc, then eliminate "const" entirely, making those
  * objects be read-write rather than read-only.
  */
+#ifndef const
 #ifndef __STDC__
 # ifdef __GNUC__
 #  define const __const__
-#  define volatile __volatile__
 # else
 #  define const /*nothing*/
+# endif /* GNUC */
+#endif /* STDC */
+#endif /* const */
+
+#ifndef volatile
+#ifndef __STDC__
+# ifdef __GNUC__
+#  define volatile __volatile__
+# else
 #  define volatile /*nothing*/
 # endif /* GNUC */
 #endif /* STDC */
+#endif /* volatile */
 
 extern char *savestring ();
+extern char *strsave ();
 extern char *concat ();
 #ifdef __STDC__
 extern void *xmalloc (), *xrealloc ();
@@ -65,6 +79,8 @@ extern volatile void error(), fatal();
 # endif
   extern char *alloca ();
 # endif
+
+extern int errno;			/* System call error return status */
 
 extern int quit_flag;
 extern int immediate_quit;
@@ -112,6 +128,11 @@ extern void free_current_contents ();
 extern int myread ();
 extern int query ();
 extern int lines_to_list ();
+extern void wrap_here (
+#ifdef __STDC__
+		       char *
+#endif
+		       );
 extern void reinitialize_more_filter ();
 extern void fputs_filtered ();
 extern void puts_filtered ();
@@ -129,6 +150,13 @@ extern void print_sys_errmsg ();
 /* From printcmd.c */
 extern void print_address_symbolic ();
 extern void print_address ();
+
+/* From source.c */
+void mod_path (
+#ifdef __STDC__
+	       char *, char **
+#endif
+	       );
 
 /* From readline (but not in any readline .h files).  */
 extern char *tilde_expand ();
@@ -164,7 +192,38 @@ char *baud_rate;
 #define LONG_MAX 0x7fffffff
 #endif
 
+#if !defined (INT_MAX)
+#define INT_MAX 0x7fffffff
+#endif
+
+#if !defined (INT_MIN)
+/* Two's complement, 32 bit.  */
+#define INT_MIN -0x80000000
+#endif
+
 /* Just like CHAR_BIT in <limits.h> but describes the target machine.  */
 #if !defined (TARGET_CHAR_BIT)
 #define TARGET_CHAR_BIT 8
 #endif
+
+/* Number of bits in a long long or unsigned long long
+   for the target machine.  */
+#if !defined (TARGET_LONG_LONG_BIT)
+#define TARGET_LONG_LONG_BIT 64
+#endif
+
+/* Convert a LONGEST to an int.  This is used in contexts (e.g. number
+   of arguments to a function, number in a value history, register
+   number, etc.) where the value must not be larger than can fit
+   in an int.  */
+#if !defined (longest_to_int)
+#if defined (LONG_LONG)
+#define longest_to_int(x) (((x) > INT_MAX || (x) < INT_MIN) \
+			   ? error ("Value out of range.") : (int) (x))
+#else /* No LONG_LONG.  */
+/* Assume sizeof (int) == sizeof (long).  */
+#define longest_to_int(x) ((int) (x))
+#endif /* No LONG_LONG.  */
+#endif /* No longest_to_int.  */
+
+#endif /* no DEFS_H */

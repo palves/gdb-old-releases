@@ -123,7 +123,8 @@ value_subscript (array, idx)
 }
 
 /* Return the value of EXPR[IDX], expr an aggregate rvalue
-   (eg, a vector register) */
+   (eg, a vector register).  This routine used to promote floats
+   to doubles, but no longer does.  */
 
 value
 value_subscripted_rvalue (array, idx)
@@ -131,34 +132,14 @@ value_subscripted_rvalue (array, idx)
 {
   struct type *elt_type = TYPE_TARGET_TYPE (VALUE_TYPE (array));
   int elt_size = TYPE_LENGTH (elt_type);
-  int elt_offs = elt_size * value_as_long (idx);
+  int elt_offs = elt_size * longest_to_int (value_as_long (idx));
   value v;
 
   if (elt_offs >= TYPE_LENGTH (VALUE_TYPE (array)))
     error ("no such vector element");
 
-  if (TYPE_CODE (elt_type) == TYPE_CODE_FLT) 
-    {
-      if (elt_size == sizeof (float))
-	{
-	  float f = *(float *) (VALUE_CONTENTS (array) + elt_offs);
-	  SWAP_TARGET_AND_HOST (&f, sizeof(f));
-	  v = value_from_double (elt_type, (double) f);
-	}
-      else
-	{
-	  double f = *(double *) (VALUE_CONTENTS (array) + elt_offs);
-	  SWAP_TARGET_AND_HOST (&f, sizeof (f));
-	  v = value_from_double (elt_type, f);
-	}
-    }
-  else
-    {
-      v = allocate_value (elt_type);
-      bcopy (VALUE_CONTENTS (array) + elt_offs,
-	     VALUE_CONTENTS_RAW (v),
-	     TYPE_LENGTH (elt_type));
-    }
+  v = allocate_value (elt_type);
+  bcopy (VALUE_CONTENTS (array) + elt_offs, VALUE_CONTENTS (v), elt_size);
 
   if (VALUE_LVAL (array) == lval_internalvar)
     VALUE_LVAL (v) = lval_internalvar_component;
@@ -211,7 +192,11 @@ int unop_user_defined_p (op, arg1)
 /* We know either arg1 or arg2 is a structure, so try to find the right
    user defined function.  Create an argument vector that calls 
    arg1.operator @ (arg1,arg2) and return that value (where '@' is any
-   binary operator which is legal for GNU C++).  */
+   binary operator which is legal for GNU C++).
+
+   OP is the operatore, and if it is BINOP_ASSIGN_MODIFY, then OTHEROP
+   is the opcode saying how to modify it.  Otherwise, OTHEROP is
+   unused.  */
 
 value
 value_x_binop (arg1, arg2, op, otherop)
@@ -352,6 +337,7 @@ value_x_unop (arg1, op)
       return target_call_function (argvec[0], 1 - static_memfuncp, argvec + 1);
     }
   error ("member function %s not found", tstr);
+  return 0;  /* For lint -- never reached */
 }
 
 /* Perform a binary operation on two integers or two floats.
@@ -361,7 +347,7 @@ value_x_unop (arg1, op)
 value
 value_binop (arg1, arg2, op)
      value arg1, arg2;
-     int op;
+     enum exp_opcode op;
 {
   register value val;
 
@@ -613,9 +599,14 @@ value_equal (arg1, arg2)
   else if ((code1 == TYPE_CODE_FLT || code1 == TYPE_CODE_INT)
 	   && (code2 == TYPE_CODE_FLT || code2 == TYPE_CODE_INT))
     return value_as_double (arg1) == value_as_double (arg2);
-  else if ((code1 == TYPE_CODE_PTR && code2 == TYPE_CODE_INT)
-	   || (code2 == TYPE_CODE_PTR && code1 == TYPE_CODE_INT))
-    return (char *) value_as_long (arg1) == (char *) value_as_long (arg2);
+
+  /* FIXME: Need to promote to either CORE_ADDR or LONGEST, whichever
+     is bigger.  */
+  else if (code1 == TYPE_CODE_PTR && code2 == TYPE_CODE_INT)
+    return value_as_pointer (arg1) == (CORE_ADDR) value_as_long (arg2);
+  else if (code2 == TYPE_CODE_PTR && code1 == TYPE_CODE_INT)
+    return (CORE_ADDR) value_as_long (arg1) == value_as_pointer (arg2);
+
   else if (code1 == code2
 	   && ((len = TYPE_LENGTH (VALUE_TYPE (arg1)))
 	       == TYPE_LENGTH (VALUE_TYPE (arg2))))
@@ -630,7 +621,10 @@ value_equal (arg1, arg2)
       return len < 0;
     }
   else
-    error ("Invalid type combination in equality test.");
+    {
+      error ("Invalid type combination in equality test.");
+      return 0;  /* For lint -- never reached */
+    }
 }
 
 /* Simulate the C operator < by returning 1
@@ -653,21 +647,29 @@ value_less (arg1, arg2)
     {
       if (TYPE_UNSIGNED (VALUE_TYPE (arg1))
        || TYPE_UNSIGNED (VALUE_TYPE (arg2)))
-	return (unsigned)value_as_long (arg1) < (unsigned)value_as_long (arg2);
+	return ((unsigned LONGEST) value_as_long (arg1)
+		< (unsigned LONGEST) value_as_long (arg2));
       else
 	return value_as_long (arg1) < value_as_long (arg2);
     }
   else if ((code1 == TYPE_CODE_FLT || code1 == TYPE_CODE_INT)
 	   && (code2 == TYPE_CODE_FLT || code2 == TYPE_CODE_INT))
     return value_as_double (arg1) < value_as_double (arg2);
-  else if ((code1 == TYPE_CODE_PTR || code1 == TYPE_CODE_INT)
-	   && (code2 == TYPE_CODE_PTR || code2 == TYPE_CODE_INT))
-    {
-      /* FIXME, this assumes that host and target char *'s are the same! */
-      return (char *) value_as_long (arg1) < (char *) value_as_long (arg2);
-    }
+  else if (code1 == TYPE_CODE_PTR && code2 == TYPE_CODE_PTR)
+    return value_as_pointer (arg1) < value_as_pointer (arg2);
+
+  /* FIXME: Need to promote to either CORE_ADDR or LONGEST, whichever
+     is bigger.  */
+  else if (code1 == TYPE_CODE_PTR && code2 == TYPE_CODE_INT)
+    return value_as_pointer (arg1) < (CORE_ADDR) value_as_long (arg2);
+  else if (code2 == TYPE_CODE_PTR && code1 == TYPE_CODE_INT)
+    return (CORE_ADDR) value_as_long (arg1) < value_as_pointer (arg2);
+
   else
-    error ("Invalid type combination in ordering comparison.");
+    {
+      error ("Invalid type combination in ordering comparison.");
+      return 0;
+    }
 }
 
 /* The unary operators - and ~.  Both free the argument ARG1.  */
@@ -686,8 +688,10 @@ value_neg (arg1)
     return value_from_double (type, - value_as_double (arg1));
   else if (TYPE_CODE (type) == TYPE_CODE_INT)
     return value_from_long (type, - value_as_long (arg1));
-  else
+  else {
     error ("Argument to negate operation not a number.");
+    return 0;  /* For lint -- never reached */
+  }
 }
 
 value

@@ -26,6 +26,10 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcore.h"
 #include "frame.h"
 #include "command.h"
+#include "gdbcmd.h"
+
+extern char *cplus_demangle ();
+extern char *cplus_mangle_opname ();
 
 /* The value-history records all the values printed
    by print commands during this session.  Each chunk
@@ -46,7 +50,6 @@ struct value_history_chunk
 static struct value_history_chunk *value_history_chain;
 
 static int value_history_count;	/* Abs number of last entry stored */
-
 
 /* List of all value objects currently allocated
    (except for those released by calls to release_value)
@@ -108,6 +111,31 @@ allocate_repeat_value (type, count)
   VALUE_LAZY (val) = 0;
   VALUE_OPTIMIZED_OUT (val) = 0;
   return val;
+}
+
+/* Return a mark in the value chain.  All values allocated after the
+   mark is obtained (except for those released) are subject to being freed
+   if a subsequent value_free_to_mark is passed the mark.  */
+value
+value_mark ()
+{
+  return all_values;
+}
+
+/* Free all values allocated since MARK was obtained by value_mark
+   (except for those released).  */
+void
+value_free_to_mark (mark)
+     value mark;
+{
+  value val, next;
+
+  for (val = all_values; val && val != mark; val = next)
+    {
+      next = VALUE_NEXT (val);
+      value_free (val);
+    }
+  all_values = val;
 }
 
 /* Free all the values that have been allocated (except for those released).
@@ -185,19 +213,20 @@ value_copy (arg)
 /* Access to the value history.  */
 
 /* Record a new value in the value history.
-   Returns the absolute history index of the entry.  */
+   Returns the absolute history index of the entry.
+   Result of -1 indicates the value was not saved; otherwise it is the
+   value history index of this new item.  */
 
 int
 record_latest_value (val)
      value val;
 {
   int i;
-  double foo;
 
   /* Check error now if about to store an invalid float.  We return -1
      to the caller, but allow them to continue, e.g. to print it as "Nan". */
   if (TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_FLT) {
-    foo = unpack_double (VALUE_TYPE (val), VALUE_CONTENTS (val), &i);
+    (void) unpack_double (VALUE_TYPE (val), VALUE_CONTENTS (val), &i);
     if (i) return -1;		/* Indicate value not saved in history */
   }
 
@@ -285,7 +314,7 @@ clear_value_history ()
 }
 
 static void
-value_history_info (num_exp, from_tty)
+show_values (num_exp, from_tty)
      char *num_exp;
      int from_tty;
 {
@@ -445,7 +474,7 @@ clear_internalvars ()
 }
 
 static void
-convenience_info ()
+show_convenience ()
 {
   register struct internalvar *var;
   int varseen = 0;
@@ -503,12 +532,25 @@ value_as_double (val)
     error ("Invalid floating value found in program.");
   return foo;
 }
+/* Extract a value as a C pointer.
+   Does not deallocate the value.  */
+CORE_ADDR
+value_as_pointer (val)
+     value val;
+{
+  /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
+     whether we want this to be true eventually.  */
+  return value_as_long (val);
+}
 
 /* Unpack raw data (copied from debugee, target byte order) at VALADDR
    as a long, or as a double, assuming the raw data is described
    by type TYPE.  Knows how to convert different sizes of values
-   and can convert between fixed and floating point.  Return value
-   in host byte order.
+   and can convert between fixed and floating point.  We don't assume
+   any alignment for the raw data.  Return value is in host byte order.
+
+   If you want functions and arrays to be coerced to pointers, and
+   references to be dereferenced, call value_as_long() instead.
 
    C++: It is assumed that the front-end has taken care of
    all matters concerning pointers to members.  A pointer
@@ -530,15 +572,17 @@ unpack_long (type, valaddr)
     {
       if (len == sizeof (float))
 	{
-	  float retval = * (float *) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (float));
+	  float retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
 
       if (len == sizeof (double))
 	{
-	  double retval = * (double *) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (double));
+	  double retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
       else
@@ -551,35 +595,39 @@ unpack_long (type, valaddr)
       if (len == sizeof (char))
 	{
 	  unsigned char retval = * (unsigned char *) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (unsigned char));
+	  /* SWAP_TARGET_AND_HOST (&retval, sizeof (unsigned char)); */
 	  return retval;
 	}
 
       if (len == sizeof (short))
 	{
-	  unsigned short retval = * (unsigned short *) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (unsigned short));
+	  unsigned short retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
 
       if (len == sizeof (int))
 	{
-	  unsigned int retval = * (unsigned int *) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (unsigned int));
+	  unsigned int retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
 
       if (len == sizeof (long))
 	{
-	  unsigned long retval = * (unsigned long *) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (unsigned long));
+	  unsigned long retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
 #ifdef LONG_LONG
       if (len == sizeof (long long))
 	{
-	  unsigned long long retval = * (unsigned long long *) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (unsigned long long));
+	  unsigned long long retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
 #endif
@@ -592,37 +640,42 @@ unpack_long (type, valaddr)
     {
       if (len == sizeof (char))
 	{
-	  char retval = * (char *) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (char));
+	  char retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
 
       if (len == sizeof (short))
 	{
-	  short retval = * (short *) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (short));
+	  short retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
 
       if (len == sizeof (int))
 	{
-	  int retval = * (int *) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (int));
+	  int retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
 
       if (len == sizeof (long))
 	{
-	  long retval = * (long *) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (long));
+	  long retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
 
 #ifdef LONG_LONG
       if (len == sizeof (long long))
 	{
-	  long long retval = * (long long *) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (long long));
+	  long long retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
 #endif
@@ -631,13 +684,16 @@ unpack_long (type, valaddr)
 	  error ("That operation is not possible on an integer of that size.");
 	}
     }
+  /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
+     whether we want this to be true eventually.  */
   else if (code == TYPE_CODE_PTR
 	   || code == TYPE_CODE_REF)
     {
-      if (len == sizeof (char *))
+      if (len == sizeof (CORE_ADDR))
 	{
-	  CORE_ADDR retval = (CORE_ADDR) * (char **) valaddr;
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (CORE_ADDR));
+	  CORE_ADDR retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
     }
@@ -645,12 +701,14 @@ unpack_long (type, valaddr)
     error ("not implemented: member types in unpack_long");
 
   error ("Value not integer or pointer.");
+  return 0; 	/* For lint -- never reached */
 }
 
 /* Return a double value from the specified type and address.
    INVP points to an int which is set to 0 for valid value,
    1 for invalid value (bad float format).  In either case,
-   the returned double is OK to use.  */
+   the returned double is OK to use.  Argument is in target
+   format, result is in host format.  */
 
 double
 unpack_double (type, valaddr, invp)
@@ -672,59 +730,85 @@ unpack_double (type, valaddr, invp)
 	}
 
       if (len == sizeof (float))
-	return * (float *) valaddr;
+	{
+	  float retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
+	  return retval;
+	}
 
       if (len == sizeof (double))
 	{
-	  /* Some machines require doubleword alignment for doubles.
-	     This code works on them, and on other machines.  */
-	  double temp;
-	  bcopy ((char *) valaddr, (char *) &temp, sizeof (double));
-	  return temp;
+	  double retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
+	  return retval;
+	}
+      else
+	{
+	  error ("Unexpected type of floating point number.");
+	  return 0; /* Placate lint.  */
 	}
     }
-  else if (code == TYPE_CODE_INT && nosign)
-    {
-      if (len == sizeof (char))
-	return * (unsigned char *) valaddr;
-
-      if (len == sizeof (short))
-	return * (unsigned short *) valaddr;
-
-      if (len == sizeof (int))
-	return * (unsigned int *) valaddr;
-
-      if (len == sizeof (long))
-	return * (unsigned long *) valaddr;
-
+  else if (nosign) {
+   /* Unsigned -- be sure we compensate for signed LONGEST.  */
 #ifdef LONG_LONG
-      if (len == sizeof (long long))
-	return * (unsigned long long *) valaddr;
+   return (unsigned long long) unpack_long (type, valaddr);
+#else
+   return (unsigned long     ) unpack_long (type, valaddr);
 #endif
-    }
-  else if (code == TYPE_CODE_INT)
+  } else {
+    /* Signed -- we are OK with unpack_long.  */
+    return unpack_long (type, valaddr);
+  }
+}
+
+/* Unpack raw data (copied from debugee, target byte order) at VALADDR
+   as a CORE_ADDR, assuming the raw data is described by type TYPE.
+   We don't assume any alignment for the raw data.  Return value is in
+   host byte order.
+
+   If you want functions and arrays to be coerced to pointers, and
+   references to be dereferenced, call value_as_pointer() instead.
+
+   C++: It is assumed that the front-end has taken care of
+   all matters concerning pointers to members.  A pointer
+   to member which reaches here is considered to be equivalent
+   to an INT (or some size).  After all, it is only an offset.  */
+
+CORE_ADDR
+unpack_pointer (type, valaddr)
+     struct type *type;
+     char *valaddr;
+{
+#if 0
+  /* The user should be able to use an int (e.g. 0x7892) in contexts
+     where a pointer is expected.  So this doesn't do enough.  */
+  register enum type_code code = TYPE_CODE (type);
+  register int len = TYPE_LENGTH (type);
+
+  if (code == TYPE_CODE_PTR
+      || code == TYPE_CODE_REF)
     {
-      if (len == sizeof (char))
-	return * (char *) valaddr;
-
-      if (len == sizeof (short))
-	return * (short *) valaddr;
-
-      if (len == sizeof (int))
-	return * (int *) valaddr;
-
-      if (len == sizeof (long))
-	return * (long *) valaddr;
-
-#ifdef LONG_LONG
-      if (len == sizeof (long long))
-	return * (long long *) valaddr;
-#endif
+      if (len == sizeof (CORE_ADDR))
+	{
+	  CORE_ADDR retval;
+	  bcopy (valaddr, &retval, sizeof (retval));
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
+	  return retval;
+	}
+      error ("Unrecognized pointer size.");
     }
+  else if (code == TYPE_CODE_MEMBER)
+    error ("not implemented: member types in unpack_pointer");
 
-  error ("Value not floating number.");
-  /* NOTREACHED */
-  return (double) 0;		/* To silence compiler warning.  */
+  error ("Value is not a pointer.");
+  return 0; 	/* For lint -- never reached */
+#else
+  /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
+     whether we want this to be true eventually.  */
+  return unpack_long (type, valaddr);
+#endif
 }
 
 /* Given a value ARG1 (offset by OFFSET bytes)
@@ -818,12 +902,15 @@ value_fn_field (arg1, fieldno, subfieldno)
    table pointer.  ARG1 is side-effected in calling this function.
    F is the list of member functions which contains the desired virtual
    function.
-   J is an index into F which provides the desired virtual function.  */
+   J is an index into F which provides the desired virtual function.
+
+   TYPE is the type in which F is located.  */
 value
-value_virtual_fn_field (arg1, f, j)
+value_virtual_fn_field (arg1, f, j, type)
      value arg1;
      struct fn_field *f;
      int j;
+     struct type *type;
 {
   /* First, get the virtual function table pointer.  That comes
      with a strange type, so cast it to type `pointer to long' (which
@@ -832,18 +919,27 @@ value_virtual_fn_field (arg1, f, j)
   value entry, vfn, vtbl;
   value vi = value_from_long (builtin_type_int, 
 			      (LONGEST) TYPE_FN_FIELD_VOFFSET (f, j));
-  struct type *context = lookup_pointer_type (TYPE_FN_FIELD_FCONTEXT (f, j));
+  struct type *fcontext = TYPE_FN_FIELD_FCONTEXT (f, j);
+  struct type *context;
+  if (fcontext == NULL)
+   /* We don't have an fcontext (e.g. the program was compiled with
+      g++ version 1).  Try to get the vtbl from the TYPE_VPTR_BASETYPE.
+      This won't work right for multiple inheritance, but at least we
+      should do as well as GDB 3.x did.  */
+    fcontext = TYPE_VPTR_BASETYPE (type);
+  context = lookup_pointer_type (fcontext);
+  /* Now context is a pointer to the basetype containing the vtbl.  */
   if (TYPE_TARGET_TYPE (context) != VALUE_TYPE (arg1))
     arg1 = value_ind (value_cast (context, value_addr (arg1)));
 
   context = VALUE_TYPE (arg1);
+  /* Now context is the basetype containing the vtbl.  */
 
   /* This type may have been defined before its virtual function table
      was.  If so, fill in the virtual function table entry for the
      type now.  */
   if (TYPE_VPTR_FIELDNO (context) < 0)
-    TYPE_VPTR_FIELDNO (context)
-      = fill_in_vptr_fieldno (context);
+    fill_in_vptr_fieldno (context);
 
   /* The virtual function table is now an array of structures
      which have the form { int16 offset, delta; void *pfn; }.  */
@@ -870,13 +966,116 @@ value_virtual_fn_field (arg1, f, j)
   return vfn;
 }
 
+/* ARG is a pointer to an object we know to be at least
+   a DTYPE.  BTYPE is the most derived basetype that has
+   already been searched (and need not be searched again).
+   After looking at the vtables between BTYPE and DTYPE,
+   return the most derived type we find.  The caller must
+   be satisfied when the return value == DTYPE.
+
+   FIXME-tiemann: should work with dossier entries as well.  */
+
+static value
+value_headof (arg, btype, dtype)
+     value arg;
+     struct type *btype, *dtype;
+{
+  /* First collect the vtables we must look at for this object.  */
+  /* FIXME-tiemann: right now, just look at top-most vtable.  */
+  value vtbl, entry, best_entry = 0;
+  /* FIXME: entry_type is never used.  */
+  struct type *entry_type;
+  int i, nelems;
+  int offset, best_offset = 0;
+  struct symbol *sym;
+  CORE_ADDR pc_for_sym;
+  char *demangled_name;
+
+  btype = TYPE_VPTR_BASETYPE (dtype);
+  check_stub_type (btype);
+  if (btype != dtype)
+    vtbl = value_cast (lookup_pointer_type (btype), arg);
+  else
+    vtbl = arg;
+  vtbl = value_ind (value_field (value_ind (vtbl), TYPE_VPTR_FIELDNO (btype)));
+
+  /* Check that VTBL looks like it points to a virtual function table.  */
+  i = find_pc_misc_function (VALUE_ADDRESS (vtbl));
+  if (i < 0 || ! VTBL_PREFIX_P (misc_function_vector[i].name))
+    {
+      /* If we expected to find a vtable, but did not, let the user
+	 know that we aren't happy, but don't throw an error.
+	 FIXME: there has to be a better way to do this.  */
+      struct type *error_type = (struct type *)xmalloc (sizeof (struct type));
+      bcopy (VALUE_TYPE (arg), error_type, sizeof (struct type));
+      TYPE_NAME (error_type) = savestring ("suspicious *", sizeof ("suspicious *"));
+      VALUE_TYPE (arg) = error_type;
+      return arg;
+    }
+
+  /* Now search through the virtual function table.  */
+  entry = value_ind (vtbl);
+  entry_type = VALUE_TYPE (entry);
+  nelems = longest_to_int (value_as_long (value_field (entry, 2)));
+  for (i = 1; i <= nelems; i++)
+    {
+      entry = value_subscript (vtbl, value_from_long (builtin_type_int, i));
+      offset = longest_to_int (value_as_long (value_field (entry, 0)));
+      if (offset < best_offset)
+	{
+	  best_offset = offset;
+	  best_entry = entry;
+	}
+    }
+  if (best_entry == 0)
+    return arg;
+
+  /* Move the pointer according to BEST_ENTRY's offset, and figure
+     out what type we should return as the new pointer.  */
+  pc_for_sym = value_as_pointer (value_field (best_entry, 2));
+  sym = find_pc_function (pc_for_sym);
+  demangled_name = cplus_demangle (SYMBOL_NAME (sym), -1);
+  *(strchr (demangled_name, ':')) = '\0';
+  sym = lookup_symbol (demangled_name, 0, VAR_NAMESPACE, 0, 0);
+  if (sym == 0)
+    error ("could not find type declaration for `%s'", SYMBOL_NAME (sym));
+  free (demangled_name);
+  arg = value_add (value_cast (builtin_type_int, arg),
+		   value_field (best_entry, 0));
+  VALUE_TYPE (arg) = lookup_pointer_type (SYMBOL_TYPE (sym));
+  return arg;
+}
+
+/* ARG is a pointer object of type TYPE.  If TYPE has virtual
+   function tables, probe ARG's tables (including the vtables
+   of its baseclasses) to figure out the most derived type that ARG
+   could actually be a pointer to.  */
+
+value
+value_from_vtable_info (arg, type)
+     value arg;
+     struct type *type;
+{
+  /* Take care of preliminaries.  */
+  if (TYPE_VPTR_FIELDNO (type) < 0)
+    fill_in_vptr_fieldno (type);
+  if (TYPE_VPTR_FIELDNO (type) < 0 || VALUE_REPEATED (arg))
+    return 0;
+
+  return value_headof (arg, 0, type);
+}
+
 /* The value of a static class member does not depend
    on its instance, only on its type.  If FIELDNO >= 0,
    then fieldno is a valid field number and is used directly.
    Otherwise, FIELDNAME is the name of the field we are
    searching for.  If it is not a static field name, an
    error is signaled.  TYPE is the type in which we look for the
-   static field member.  */
+   static field member.
+
+   Return zero if we couldn't find anything; the caller may signal
+   an error in that case.  */
+
 value
 value_static_field (type, fieldname, fieldno)
      register struct type *type;
@@ -889,43 +1088,33 @@ value_static_field (type, fieldname, fieldno)
 
   if (fieldno < 0)
     {
-      register struct type *t = type;
       /* Look for static field.  */
-      while (t)
-	{
-	  int i;
-	  for (i = TYPE_NFIELDS (t) - 1; i >= TYPE_N_BASECLASSES (t); i--)
-	    if (! strcmp (TYPE_FIELD_NAME (t, i), fieldname))
+      int i;
+      for (i = TYPE_NFIELDS (type) - 1; i >= TYPE_N_BASECLASSES (type); i--)
+	if (! strcmp (TYPE_FIELD_NAME (type, i), fieldname))
+	  {
+	    if (TYPE_FIELD_STATIC (type, i))
 	      {
-		if (TYPE_FIELD_STATIC (t, i))
-		  {
-		    fieldno = i;
-		    goto found;
-		  }
-		else
-		  error ("field `%s' is not static");
+		fieldno = i;
+		goto found;
 	      }
-	  /* FIXME: this does not recursively check multiple baseclasses.  */
-	  t = TYPE_N_BASECLASSES (t) ? TYPE_BASECLASS (t, 0) : 0;
+	    else
+	      error ("field `%s' is not static", fieldname);
+	  }
+      for (; i > 0; i--)
+	{
+	  v = value_static_field (TYPE_BASECLASS (type, i), fieldname, -1);
+	  if (v != 0)
+	    return v;
 	}
 
-      t = type;
-
-      if (destructor_name_p (fieldname, t))
+      if (destructor_name_p (fieldname, type))
 	error ("Cannot get value of destructor");
 
-      while (t)
+      for (i = TYPE_NFN_FIELDS (type) - 1; i >= 0; i--)
 	{
-	  int i;
-
-	  for (i = TYPE_NFN_FIELDS (t) - 1; i >= 0; i--)
-	    {
-	      if (! strcmp (TYPE_FN_FIELDLIST_NAME (t, i), fieldname))
-		{
-		  error ("Cannot get value of method \"%s\"", fieldname);
-		}
-	    }
-	  t = TYPE_N_BASECLASSES (t) ? TYPE_BASECLASS (t, 0) : 0;
+	  if (! strcmp (TYPE_FN_FIELDLIST_NAME (type, i), fieldname))
+	    error ("Cannot get value of method \"%s\"", fieldname);
 	}
       error("there is no field named %s", fieldname);
     }
@@ -942,16 +1131,25 @@ value_static_field (type, fieldname, fieldno)
 
 /* Compute the address of the baseclass which is
    the INDEXth baseclass of TYPE.  The TYPE base
-   of the object is at VALADDR.  */
+   of the object is at VALADDR.
+
+   If ERRP is non-NULL, set *ERRP to be the errno code of any error,
+   or 0 if no error.  In that case the return value is not the address
+   of the baseclasss, but the address which could not be read
+   successfully.  */
 
 char *
-baseclass_addr (type, index, valaddr, valuep)
+baseclass_addr (type, index, valaddr, valuep, errp)
      struct type *type;
      int index;
      char *valaddr;
      value *valuep;
+     int *errp;
 {
   struct type *basetype = TYPE_BASECLASS (type, index);
+
+  if (errp)
+    *errp = 0;
 
   if (BASETYPE_VIA_VIRTUAL (type, index))
     {
@@ -971,12 +1169,36 @@ baseclass_addr (type, index, valaddr, valuep)
 	{
 	  if (! strcmp (vbase_name, TYPE_FIELD_NAME (type, i)))
 	    {
-	      value v = value_at (basetype,
-				  unpack_long (TYPE_FIELD_TYPE (type, i),
-					       valaddr + (TYPE_FIELD_BITPOS (type, i) / 8)));
-	      if (valuep)
-		*valuep = v;
-	      return (char *) VALUE_CONTENTS (v);
+	      value val = allocate_value (basetype);
+	      CORE_ADDR addr;
+	      int status;
+
+	      addr
+		= unpack_pointer (TYPE_FIELD_TYPE (type, i),
+				  valaddr + (TYPE_FIELD_BITPOS (type, i) / 8));
+
+	      status = target_read_memory (addr,
+					   VALUE_CONTENTS_RAW (val),
+					   TYPE_LENGTH (type));
+	      VALUE_LVAL (val) = lval_memory;
+	      VALUE_ADDRESS (val) = addr;
+
+	      if (status != 0)
+		{
+		  if (valuep)
+		    *valuep = NULL;
+		  release_value (val);
+		  value_free (val);
+		  if (errp)
+		    *errp = status;
+		  return (char *)addr;
+		}
+	      else
+		{
+		  if (valuep)
+		    *valuep = val;
+		  return (char *) VALUE_CONTENTS (val);
+		}
 	    }
 	}
       /* Not in the fields, so try looking through the baseclasses.  */
@@ -984,7 +1206,7 @@ baseclass_addr (type, index, valaddr, valuep)
 	{
 	  char *baddr;
 
-	  baddr = baseclass_addr (type, i, valaddr, valuep);
+	  baddr = baseclass_addr (type, i, valaddr, valuep, errp);
 	  if (baddr)
 	    return baddr;
 	}
@@ -1016,18 +1238,35 @@ check_stub_method (type, i, j)
 {
   extern char *gdb_mangle_typename (), *strchr ();
   struct fn_field *f = TYPE_FN_FIELDLIST1 (type, i);
+  char *field_name = TYPE_FN_FIELDLIST_NAME (type, i);
   char *inner_name = gdb_mangle_typename (type);
-  char *mangled_name
-    = (char *)xmalloc (strlen (TYPE_FN_FIELDLIST_NAME (type, i))
-		       + strlen (inner_name)
-		       + strlen (TYPE_FN_FIELD_PHYSNAME (f, j))
-		       + 1);
-  char *demangled_name, *cplus_demangle ();
+  int mangled_name_len = (strlen (field_name)
+			  + strlen (inner_name)
+			  + strlen (TYPE_FN_FIELD_PHYSNAME (f, j))
+			  + 1);
+  char *mangled_name;
+  char *demangled_name;
   char *argtypetext, *p;
   int depth = 0, argcount = 1;
   struct type **argtypes;
 
-  strcpy (mangled_name, TYPE_FN_FIELDLIST_NAME (type, i));
+  if (OPNAME_PREFIX_P (field_name))
+    {
+      char *opname = cplus_mangle_opname (field_name + 3);
+      if (opname == NULL)
+	error ("No mangling for \"%s\"", field_name);
+      mangled_name_len += strlen (opname);
+      mangled_name = (char *)xmalloc (mangled_name_len);
+
+      strncpy (mangled_name, field_name, 3);
+      mangled_name[3] = '\0';
+      strcat (mangled_name, opname);
+    }
+  else
+    {
+      mangled_name = (char *)xmalloc (mangled_name_len);
+      strcpy (mangled_name, TYPE_FN_FIELDLIST_NAME (type, i));
+    }
   strcat (mangled_name, inner_name);
   strcat (mangled_name, TYPE_FN_FIELD_PHYSNAME (f, j));
   demangled_name = cplus_demangle (mangled_name, 0);
@@ -1085,11 +1324,12 @@ check_stub_method (type, i, j)
     argtypes[argcount] = NULL;		/* List terminator */
 
   free (demangled_name);
-  smash_to_method_type (TYPE_FN_FIELD_TYPE (f, j), type,
-			TYPE_TARGET_TYPE (TYPE_FN_FIELD_TYPE (f, j)),
-			argtypes);
+
+  type = lookup_method_type (type, TYPE_TARGET_TYPE (TYPE_FN_FIELD_TYPE (f, j)), argtypes);
+  /* Free the stub type...it's no longer needed.  */
+  free (TYPE_FN_FIELD_TYPE (f, j));
   TYPE_FN_FIELD_PHYSNAME (f, j) = mangled_name;
-  TYPE_FLAGS (TYPE_FN_FIELD_TYPE (f, j)) &= ~TYPE_FLAG_STUB;
+  TYPE_FN_FIELD_TYPE (f, j) = type;
 }
 
 long
@@ -1106,7 +1346,7 @@ unpack_field_as_long (type, valaddr, fieldno)
   SWAP_TARGET_AND_HOST (&val, sizeof val);
 
   /* Extracting bits depends on endianness of the machine.  */
-#ifdef BITS_BIG_ENDIAN
+#if BITS_BIG_ENDIAN
   val = val >> (sizeof val * 8 - bitpos % 8 - bitsize);
 #else
   val = val >> (bitpos % 8);
@@ -1115,6 +1355,11 @@ unpack_field_as_long (type, valaddr, fieldno)
   val &= (1 << bitsize) - 1;
   return val;
 }
+
+/* Modify the value of a bitfield.  ADDR points to a block of memory in
+   target byte order; the bitfield starts in the byte pointed to.  FIELDVAL
+   is the desired value of the field, in host byte order.  BITPOS and BITSIZE
+   indicate which bits (in target bit order) comprise the bitfield.  */
 
 void
 modify_field (addr, fieldval, bitpos, bitsize)
@@ -1130,14 +1375,17 @@ modify_field (addr, fieldval, bitpos, bitsize)
     error ("Value %d does not fit in %d bits.", fieldval, bitsize);
   
   bcopy (addr, &oword, sizeof oword);
+  SWAP_TARGET_AND_HOST (&oword, sizeof oword);		/* To host format */
 
-  /* Shifting for bit field depends on endianness of the machine.  */
-#ifdef BITS_BIG_ENDIAN
+  /* Shifting for bit field depends on endianness of the target machine.  */
+#if BITS_BIG_ENDIAN
   bitpos = sizeof (oword) * 8 - bitpos - bitsize;
 #endif
 
   oword &= ~(((1 << bitsize) - 1) << bitpos);
   oword |= fieldval << bitpos;
+
+  SWAP_TARGET_AND_HOST (&oword, sizeof oword);		/* To target format */
   bcopy (&oword, addr, sizeof oword);
 }
 
@@ -1229,11 +1477,16 @@ value_being_returned (valtype, retbuf, struct_return)
      /*ARGSUSED*/
 {
   register value val;
+  CORE_ADDR addr;
 
 #if defined (EXTRACT_STRUCT_VALUE_ADDRESS)
   /* If this is not defined, just use EXTRACT_RETURN_VALUE instead.  */
-  if (struct_return)
-    return value_at (valtype, EXTRACT_STRUCT_VALUE_ADDRESS (retbuf));
+  if (struct_return) {
+    addr = EXTRACT_STRUCT_VALUE_ADDRESS (retbuf);
+    if (!addr)
+      error ("Function return value unknown");
+    return value_at (valtype, addr);
+  }
 #endif
 
   val = allocate_value (valtype);
@@ -1305,6 +1558,8 @@ set_return_value (val)
       || code == TYPE_CODE_UNION)
     error ("Specifying a struct or union return value is not supported.");
 
+  /* FIXME, this is bogus.  We don't know what the return conventions
+     are, or how values should be promoted.... */
   if (code == TYPE_CODE_FLT)
     {
       dbuf = value_as_double (val);
@@ -1321,15 +1576,16 @@ set_return_value (val)
 void
 _initialize_values ()
 {
-  add_info ("convenience", convenience_info,
+  add_cmd ("convenience", no_class, show_convenience,
 	    "Debugger convenience (\"$foo\") variables.\n\
 These variables are created when you assign them values;\n\
 thus, \"print $foo=1\" gives \"$foo\" the value 1.  Values may be any type.\n\n\
 A few convenience variables are given values automatically:\n\
 \"$_\"holds the last address examined with \"x\" or \"info lines\",\n\
-\"$__\" holds the contents of the last address examined with \"x\".");
+\"$__\" holds the contents of the last address examined with \"x\".",
+	   &showlist);
 
-  add_info ("values", value_history_info,
-	    "Elements of value history around item number IDX (or last ten).");
-  add_info_alias ("history", "values", 0);
+  add_cmd ("values", no_class, show_values,
+	   "Elements of value history around item number IDX (or last ten).",
+	   &showlist);
 }

@@ -1,5 +1,6 @@
 /* Target-machine dependent code for the AMD 29000
    Copyright (C) 1990 Free Software Foundation, Inc.
+   Contributed by Cygnus Support.  Written by Jim Kingdon.
 
 This file is part of GDB.
 
@@ -26,6 +27,17 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "inferior.h"
 
+/* Structure to hold cached info about function prologues.  */
+struct prologue_info
+{
+  CORE_ADDR pc;			/* First addr after fn prologue */
+  unsigned rsize, msize;	/* register stack frame size, mem stack ditto */
+  unsigned mfp_used : 1;	/* memory frame pointer used */
+  unsigned rsize_valid : 1;	/* Validity bits for the above */
+  unsigned msize_valid : 1;
+  unsigned mfp_valid : 1;
+};
+
 /* Examine the prologue of a function which starts at PC.  Return
    the first addess past the prologue.  If MSIZE is non-NULL, then
    set *MSIZE to the memory stack frame size.  If RSIZE is non-NULL,
@@ -50,6 +62,33 @@ examine_prologue (pc, rsize, msize, mfp_used)
 {
   long insn;
   CORE_ADDR p = pc;
+  int misc_index = find_pc_misc_function (pc);
+  struct prologue_info *mi = 0;
+
+  if (misc_index >= 0)
+    mi = (struct prologue_info *)misc_function_vector[misc_index].misc_info;
+
+  if (mi != 0)
+    {
+      int valid = 1;
+      if (rsize != NULL)
+	{
+	  *rsize = mi->rsize;
+	  valid &= mi->rsize_valid;
+	}
+      if (msize != NULL)
+	{
+	  *msize = mi->msize;
+	  valid &= mi->msize_valid;
+	}
+      if (mfp_used != NULL)
+	{
+	  *mfp_used = mi->mfp_used;
+	  valid &= mi->mfp_valid;
+	}
+      if (valid)
+	return mi->pc;
+    }
 
   if (rsize != NULL)
     *rsize = 0;
@@ -73,14 +112,20 @@ examine_prologue (pc, rsize, msize, mfp_used)
       unsigned int rsize0;
       
       if ((insn & 0xff000000) != 0x03000000)
-	return pc;
+	{
+	  p = pc;
+	  goto done;
+	}
       reg = (insn >> 8) & 0xff;
       rsize0 = (((insn >> 8) & 0xff00) | (insn & 0xff));
       p += 4;
       insn = read_memory_integer (p, 4);
       if ((insn & 0xffffff00) != 0x24010100
 	  || (insn & 0xff) != reg)
-	return pc;
+	{
+	  p = pc;
+	  goto done;
+	}
       if (rsize != NULL)
 	*rsize = rsize0;
     }
@@ -94,7 +139,10 @@ examine_prologue (pc, rsize, msize, mfp_used)
   /* Next instruction must be asgeu V_SPILL,gr1,rab.  */
   insn = read_memory_integer (p, 4);
   if (insn != 0x5e40017e)
-    return pc;
+    {
+      p = pc;
+      goto done;
+    }
   p += 4;
 
   /* Next instruction usually sets the frame pointer (lr1) by adding
@@ -194,6 +242,37 @@ examine_prologue (pc, rsize, msize, mfp_used)
 	      if (msize != NULL)
 		*msize = msize0;
 	    }
+	}
+    }
+
+ done:
+  if (misc_index >= 0)
+    {
+      if (mi == 0)
+	{
+	  /* Add a new cache entry.  */
+	  mi = (struct prologue_info *)xmalloc (sizeof (struct prologue_info));
+	  misc_function_vector[misc_index].misc_info = (char *)mi;
+	  mi->rsize_valid = 0;
+	  mi->msize_valid = 0;
+	  mi->mfp_valid = 0;
+	}
+      /* else, cache entry exists, but info is incomplete.  */
+      mi->pc = p;
+      if (rsize != NULL)
+	{
+	  mi->rsize = *rsize;
+	  mi->rsize_valid = 1;
+	}
+      if (msize != NULL)
+	{
+	  mi->msize = *msize;
+	  mi->msize_valid = 1;
+	}
+      if (mfp_used != NULL)
+	{
+	  mi->mfp_used = *mfp_used;
+	  mi->mfp_valid = 1;
 	}
     }
   return p;

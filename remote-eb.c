@@ -1,5 +1,6 @@
 /* Remote debugging interface for AMD 29000 EBMON on IBM PC, for GDB.
-   Copyright (C) 1990 Free Software Foundation, Inc.
+   Copyright 1990-1991 Free Software Foundation, Inc.
+   Contributed by Cygnus Support.  Written by Jim Kingdon for Cygnus.
 
 This file is part of GDB.
 
@@ -39,7 +40,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "terminal.h"
 #include "target.h"
 
-extern void add_file_addr_command ();
+extern void add_syms_addr_command ();
 extern struct value *call_function_by_hand();
 
 extern struct target_ops eb_ops;		/* Forward declaration */
@@ -258,6 +259,13 @@ char *inferior_args;
 /* Translate baud rates from integers to damn B_codes.  Unix should
    have outgrown this crap years ago, but even POSIX wouldn't buck it.  */
 
+#ifndef B19200
+#define B19200 EXTA
+#endif
+#ifndef B38400
+#define B38400 EXTB
+#endif
+
 struct {int rate, damn_b;} baudtab[] = {
 	{0, B0},
 	{50, B50},
@@ -304,6 +312,8 @@ eb_open (name, from_tty)
 
   char *p;
 
+  target_preopen (from_tty);
+  
   /* Find the first whitespace character, it separates dev_name from
      prog_name.  */
   if (name == 0)
@@ -338,8 +348,7 @@ the baud rate, and the name of the program to run on the remote system.");
     free (prog_name);
   prog_name = savestring (p, strlen (p));
 
-  if (eb_desc >= 0)
-    close (eb_desc);
+  eb_close (0);
 
   eb_desc = open (dev_name, O_RDWR);
   if (eb_desc < 0)
@@ -353,11 +362,9 @@ the baud rate, and the name of the program to run on the remote system.");
 #else
   sg.sg_ispeed = damn_b (baudrate);
   sg.sg_ospeed = damn_b (baudrate);
-  sg.sg_flags |= RAW;
-#endif
-  sg.sg_flags |= ANYP;
+  sg.sg_flags |= RAW | ANYP;
   sg.sg_flags &= ~ECHO;
-
+#endif
 
   ioctl (eb_desc, TIOCSETP, &sg);
   eb_stream = fdopen (eb_desc, "r+");
@@ -392,21 +399,20 @@ the baud rate, and the name of the program to run on the remote system.");
   expect_prompt ();
 }
 
-/* Close the open connection to the remote debugger.
-   Use this when you want to detach and do something else
-   with your gdb.  */
-void
-eb_detach (from_tty)
-     int from_tty;
-{
-  /* We should never get here if there isn't something valid in
-     eb_desc and eb_stream.  
+/* Close out all files and local state before this target loses control. */
 
-     Due to a bug in Unix, fclose closes not only the stdio stream,
+void
+eb_close (quitting)
+     int quitting;
+{
+
+  /* Due to a bug in Unix, fclose closes not only the stdio stream,
      but also the file descriptor.  So we don't actually close
      eb_desc.  */
-  fclose (eb_stream);	
-  /* close (eb_desc); */
+  if (eb_stream)
+    fclose (eb_stream);	/* This also closes eb_desc */
+  if (eb_desc >= 0)
+    /* close (eb_desc); */
 
   /* Do not try to close eb_desc again, later in the program.  */
   eb_stream = NULL;
@@ -418,10 +424,18 @@ eb_detach (from_tty)
   if (fclose (log_file) != 0)
     printf ("Error closing log file.\n");
 #endif
+}
 
+/* Terminate the open connection to the remote debugger.
+   Use this when you want to detach and do something else
+   with your gdb.  */
+void
+eb_detach (from_tty)
+     int from_tty;
+{
+  pop_target();		/* calls eb_close to do the real work */
   if (from_tty)
     printf ("Ending remote %s debugging\n", target_shortname);
-  pop_target();
 }
  
 /* Tell the remote machine to resume.  */
@@ -476,7 +490,7 @@ eb_wait (status)
      of the string cannot recur in the string, or we will not
      find some cases of the string in the input.  */
   
-  static char bpt[] = "\nInvalid interrupt taken - #0x50 - ";
+  static char bpt[] = "Invalid interrupt taken - #0x50 - ";
   /* It would be tempting to look for "\n[__exit + 0x8]\n"
      but that requires loading symbols with "yc i" and even if
      we did do that we don't know that the file has symbols.  */
@@ -492,6 +506,8 @@ eb_wait (status)
   int ch;
   int ch_handled;
 
+  int old_timeout = timeout;
+
   WSETEXIT ((*status), 0);
 
   if (need_artificial_trap != 0)
@@ -501,6 +517,7 @@ eb_wait (status)
       return 0;
     }
 
+  timeout = 0;		/* Don't time out -- user program is running. */
   while (1)
     {
       ch_handled = 0;
@@ -547,6 +564,8 @@ eb_wait (status)
     WSETSTOP ((*status), SIGTRAP);
   else
     WSETEXIT ((*status), 0);
+  timeout = old_timeout;
+
   return 0;
 }
 
@@ -890,19 +909,25 @@ eb_read_inferior_memory(memaddr, myaddr, len)
 
 struct target_ops eb_ops = {
 	"amd-eb", "Remote serial AMD EBMON target",
-	eb_open, eb_detach, eb_resume, eb_wait,
+	"Use a remote computer running EBMON connected by a serial line.\n\
+Arguments are the name of the device for the serial line,\n\
+the speed to connect at in bits per second, and the filename of the\n\
+executable as it exists on the remote computer.  For example,\n\
+        target amd-eb /dev/ttya 9600 demo",
+	eb_open, eb_close, 
+	0, eb_detach, eb_resume, eb_wait,
 	eb_fetch_register, eb_store_register,
 	eb_prepare_to_store, 0, 0, 	/* conv_to, conv_from */
 	eb_xfer_inferior_memory, eb_files_info,
 	0, 0,	/* Breakpoints */
 	0, 0, 0, 0, 0,	/* Terminal handling */
 	0, 	/* FIXME, kill */
-	add_file_addr_command,
+	0, add_syms_addr_command,	/* load */
 	call_function_by_hand,
 	0, /* lookup_symbol */
 	0, /* create_inferior FIXME, eb_start here or something? */
 	0, /* mourn_inferior FIXME */
-	0, /* next */
+	process_stratum, 0, /* next */
 	1, 1, 1, 1, 1,	/* all mem, mem, stack, regs, exec */
 	OPS_MAGIC,		/* Always the last thing */
 };

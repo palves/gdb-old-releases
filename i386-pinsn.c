@@ -1,5 +1,5 @@
 /* Print i386 instructions for GDB, the GNU debugger.
-   Copyright (C) 1988, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -33,6 +33,11 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include <ctype.h>
+
+/* For the GDB interface at the bottom of the file... */
+#include "defs.h"
+#include "param.h"
+#include "gdbcore.h"
 
 #define Eb OP_E, b_mode
 #define indirEb OP_indirE, b_mode
@@ -1500,7 +1505,7 @@ OP_E (bytemode)
   
   if (mod != 0 || rm == 5 || (havesib && base == 5))
     {
-      sprintf (scratchbuf, "%d", disp);
+      sprintf (scratchbuf, "0x%x", disp);
       oappend (scratchbuf);
     }
   
@@ -1812,14 +1817,6 @@ OP_rm (bytemode)
     }
 }
 	
-/* GDB interface */
-#include "defs.h"
-#include "param.h"
-#include "symtab.h"
-#include "frame.h"
-#include "inferior.h"
-#include "gdbcore.h"
-
 #define MAXLEN 20
 print_insn (memaddr, stream)
      CORE_ADDR memaddr;

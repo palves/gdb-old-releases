@@ -1,5 +1,5 @@
 /* Convex stuff for GDB.
-   Copyright (C) 1990 Free Software Foundation, Inc.
+   Copyright (C) 1990-1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -215,7 +215,6 @@ static sig_noop ();
 static ptr_cmp ();
 
 extern char *sys_siglist[];
-extern int errno;
 
 /* Execute ptrace.  Convex V7 replaced ptrace with pattach.
    Allow ptrace (0) as a no-op.  */

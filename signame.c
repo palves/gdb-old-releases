@@ -19,19 +19,25 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <signal.h>
 #include "signame.h"
 
+/* GDB-specific, FIXME.  (This is for the SYS_SIGLIST_MISSING define).  */
+#include "defs.h"
+#include "param.h"
+
 #ifdef __STDC__
 #define CONST const
 #else
 #define CONST
 #endif
 
-#ifdef SYS_SIGLIST_MISSING
+#if SYS_SIGLIST_MISSING
 /* There is too much variation in Sys V signal numbers and names, so
    we must initialize them at runtime.  */
 
 static CONST char undoc[] = "unknown signal";
 
-CONST char *sys_siglist[NSIG];
+/* We'd like to make this const char*[], but whoever's using it might
+   want to assign from it to a char*.  */
+char *sys_siglist[NSIG];
 #endif /* SYS_SIGLIST_MISSING */
 
 /* Table of abbreviations for signals.  Note:  A given number can
@@ -52,8 +58,8 @@ init_sig (number, abbrev, name)
      CONST char *abbrev;
      CONST char *name;
 {
-#ifdef SYS_SIGLIST_MISSING
-  sys_siglist[number] = name;
+#if SYS_SIGLIST_MISSING
+  sys_siglist[number] = (char *) name;
 #endif
   sig_table[sig_table_nelts].number = number;
   sig_table[sig_table_nelts++].abbrev = abbrev;
@@ -61,10 +67,12 @@ init_sig (number, abbrev, name)
 
 static void init_sigs ()
 {
-#ifdef SYS_SIGLIST_MISSING
+#if SYS_SIGLIST_MISSING
+  int i;
+
   /* Initialize signal names.  */
 	for (i = 0; i < NSIG; i++)
-		sys_siglist[i] = undoc;
+		sys_siglist[i] = (char *) undoc;
 #endif /* SYS_SIGLIST_MISSING */
 
   /* Initialize signal names.  */
@@ -224,12 +232,12 @@ sig_number (abbrev)
   return -1;
 }
 
-#if defined (SYS_SIGLIST_MISSING)
+#if SYS_SIGLIST_MISSING
 /* Print to standard error the name of SIGNAL, preceded by MESSAGE and
    a colon, and followed by a newline.  */
 void
 psignal (signal, message)
-     int signal;
+     unsigned signal;
      CONST char *message;
 {
   if (signal <= 0 || signal >= NSIG)
@@ -237,7 +245,7 @@ psignal (signal, message)
   else
     fprintf (stderr, "%s: %s\n", message, sys_siglist[signal]);
 }
-#endif
+#endif /* SYS_SIGLIST_MISSING */
 
 void
 _initialize_signame ()

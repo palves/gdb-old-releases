@@ -1,5 +1,5 @@
 /* List lines of source files for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1988, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1988, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -22,6 +22,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "param.h"
 #include "command.h"
+#include "gdbcmd.h"
 #include "frame.h"
 
 #ifdef USG
@@ -33,6 +34,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "gdbcore.h"
+#include "regex.h"
+
+extern char *strstr();
 
 extern void set_next_address ();
 
@@ -133,7 +137,7 @@ select_source_symtab (s)
 }
 
 static void
-directories_info ()
+show_directories ()
 {
   printf ("Source directories searched: %s\n", source_path);
 }
@@ -143,7 +147,7 @@ directories_info ()
    must check again now since files may be found in
    a different directory now.  */
 
-static void
+void
 forget_cached_source_info ()
 {
   register struct symtab *s;
@@ -166,161 +170,176 @@ forget_cached_source_info ()
 void
 init_source_path ()
 {
-  source_path = savestring ("", 0);
+  source_path = savestring ("$cdir:$cwd", /* strlen of it */ 10);
   forget_cached_source_info ();
 }
 
-/* Reset path (if empty argument), or add one or more directories to
-   the front of the source path.  */
+/* Add zero or more directories to the front of the source path.  */
  
 void
 directory_command (dirname, from_tty)
      char *dirname;
      int from_tty;
 {
-  char *old = source_path;
-  int prefix = 0;
-
   dont_repeat ();
-
+  /* FIXME, this goes to "delete dir"... */
   if (dirname == 0)
     {
       if (query ("Reinitialize source path to empty? ", ""))
 	{
+	  free (source_path);
 	  init_source_path ();
-	  free (old);
 	}
     }
   else
+    mod_path (dirname, &source_path);
+  if (from_tty)
+    show_directories ();
+  forget_cached_source_info ();
+}
+
+/* Add zero or more directories to the front of an arbitrary path.  */
+
+void
+mod_path (dirname, which_path)
+     char *dirname;
+     char **which_path;
+{
+  char *old = *which_path;
+  int prefix = 0;
+
+  if (dirname == 0)
+    return;
+
+  dirname = strsave (dirname);
+  make_cleanup (free, dirname);
+
+  do
     {
-      dirname = tilde_expand (dirname);
-      make_cleanup (free, dirname);
+      extern char *index ();
+      char *name = dirname;
+      register char *p;
+      struct stat st;
 
-      do
-	{
-	  extern char *index ();
-	  char *name = dirname;
-	  register char *p;
-	  struct stat st;
-
+      {
+	char *colon = index (name, ':');
+	char *space = index (name, ' ');
+	char *tab = index (name, '\t');
+	if (colon == 0 && space == 0 && tab ==  0)
+	  p = dirname = name + strlen (name);
+	else
 	  {
-	    char *colon = index (name, ':');
-	    char *space = index (name, ' ');
-	    char *tab = index (name, '\t');
-	    if (colon == 0 && space == 0 && tab ==  0)
-	      p = dirname = name + strlen (name);
-	    else
-	      {
-		p = 0;
-		if (colon != 0 && (p == 0 || colon < p))
-		  p = colon;
-		if (space != 0 && (p == 0 || space < p))
-		  p = space;
-		if (tab != 0 && (p == 0 || tab < p))
-		  p = tab;
-		dirname = p + 1;
-		while (*dirname == ':' || *dirname == ' ' || *dirname == '\t')
-		  ++dirname;
-	      }
+	    p = 0;
+	    if (colon != 0 && (p == 0 || colon < p))
+	      p = colon;
+	    if (space != 0 && (p == 0 || space < p))
+	      p = space;
+	    if (tab != 0 && (p == 0 || tab < p))
+	      p = tab;
+	    dirname = p + 1;
+	    while (*dirname == ':' || *dirname == ' ' || *dirname == '\t')
+	      ++dirname;
 	  }
+      }
 
-	  if (p[-1] == '/')
-	    /* Sigh. "foo/" => "foo" */
-	    --p;
-	  *p = '\0';
+      if (p[-1] == '/')
+	/* Sigh. "foo/" => "foo" */
+	--p;
+      *p = '\0';
 
-	  while (p[-1] == '.')
+      while (p[-1] == '.')
+	{
+	  if (p - name == 1)
 	    {
-	      if (p - name == 1)
+	      /* "." => getwd ().  */
+	      name = current_directory;
+	      goto append;
+	    }
+	  else if (p[-2] == '/')
+	    {
+	      if (p - name == 2)
 		{
-		  /* "." => getwd ().  */
-		  name = current_directory;
+		  /* "/." => "/".  */
+		  *--p = '\0';
 		  goto append;
 		}
-	      else if (p[-2] == '/')
-		{
-		  if (p - name == 2)
-		    {
-		      /* "/." => "/".  */
-		      *--p = '\0';
-		      goto append;
-		    }
-		  else
-		    {
-		      /* "...foo/." => "...foo".  */
-		      p -= 2;
-		      *p = '\0';
-		      continue;
-		    }
-		}
 	      else
-		break;
+		{
+		  /* "...foo/." => "...foo".  */
+		  p -= 2;
+		  *p = '\0';
+		  continue;
+		}
 	    }
-
-	  if (*name != '/')
-	    name = concat (current_directory, "/", name);
 	  else
-	    name = savestring (name, p - name);
-	  make_cleanup (free, name);
+	    break;
+	}
 
-	  if (stat (name, &st) < 0)
-	    perror_with_name (name);
-	  if ((st.st_mode & S_IFMT) != S_IFDIR)
-	    error ("%s is not a directory.", name);
+      if (name[0] == '~')
+	name = tilde_expand (name);
+      else if (name[0] != '/' && name[0] != '$')
+	name = concat (current_directory, "/", name);
+      else
+	name = savestring (name, p - name);
+      make_cleanup (free, name);
 
-	append:
+      /* Unless it's a variable, check existence.  */
+      if (name[0] != '$') {
+	if (stat (name, &st) < 0)
+	  perror_with_name (name);
+	if ((st.st_mode & S_IFMT) != S_IFDIR)
+	  error ("%s is not a directory.", name);
+      }
+
+    append:
+      {
+	register unsigned int len = strlen (name);
+
+	p = *which_path;
+	while (1)
 	  {
-	    register unsigned int len = strlen (name);
-
-	    p = source_path;
-	    while (1)
+	    if (!strncmp (p, name, len)
+		&& (p[len] == '\0' || p[len] == ':'))
 	      {
-		if (!strncmp (p, name, len)
-		    && (p[len] == '\0' || p[len] == ':'))
-		  {
-		    /* Found it in the search path, remove old copy */
-		    if (p > source_path)
-		      p--;			/* Back over leading colon */
-		    if (prefix > p - source_path)
-		      goto skip_dup;	/* Same dir twice in one cmd */
-		    strcpy (p, &p[len+1]);	/* Copy from next \0 or  : */
-		  }
-		p = index (p, ':');
-		if (p != 0)
-		  ++p;
-		else
-		  break;
+		/* Found it in the search path, remove old copy */
+		if (p > *which_path)
+		  p--;			/* Back over leading colon */
+		if (prefix > p - *which_path)
+		  goto skip_dup;	/* Same dir twice in one cmd */
+		strcpy (p, &p[len+1]);	/* Copy from next \0 or  : */
 	      }
-	    if (p == 0)
-	      {
-		/* If we have already tacked on a name(s) in this command,			   be sure they stay on the front as we tack on some more.  */
-		if (prefix)
-		  {
-		    char *temp, c;
-
-		    c = old[prefix];
-		    old[prefix] = '\0';
-		    temp = concat (old, ":", name);
-		    old[prefix] = c;
-		    source_path = concat (temp, "", &old[prefix]);
-		    prefix = strlen (temp);
-		    free (temp);
-		  }
-		else
-		  {
-		    source_path = concat (name, (old[0]? ":" : old), old);
-		    prefix = strlen (name);
-		  }
-		free (old);
-		old = source_path;
-	      }
+	    p = index (p, ':');
+	    if (p != 0)
+	      ++p;
+	    else
+	      break;
 	  }
-      skip_dup: ;
-	} while (*dirname != '\0');
-      if (from_tty)
-	directories_info ();
-      forget_cached_source_info ();
-    }
+	if (p == 0)
+	  {
+	    /* If we have already tacked on a name(s) in this command,			   be sure they stay on the front as we tack on some more.  */
+	    if (prefix)
+	      {
+		char *temp, c;
+
+		c = old[prefix];
+		old[prefix] = '\0';
+		temp = concat (old, ":", name);
+		old[prefix] = c;
+		*which_path = concat (temp, "", &old[prefix]);
+		prefix = strlen (temp);
+		free (temp);
+	      }
+	    else
+	      {
+		*which_path = concat (name, (old[0]? ":" : old), old);
+		prefix = strlen (name);
+	      }
+	    free (old);
+	    old = *which_path;
+	  }
+      }
+  skip_dup: ;
+    } while (*dirname != '\0');
 }
 
 
@@ -336,7 +355,7 @@ source_info ()
     }
   printf ("Current source file is %s\n", s->filename);
   if (s->dirname)
-    printf ("Originally compiled in %s\n", s->dirname);
+    printf ("Compilation directory is %s\n", s->dirname);
   if (s->fullname)
     printf ("Located in %s\n", s->fullname);
   if (s->nlines)
@@ -381,6 +400,7 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
   register char *filename;
   register char *p, *p1;
   register int len;
+  int alloclen;
 
   if (!path)
     path = ".";
@@ -397,7 +417,8 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
 	goto done;
     }
 
-  filename = (char *) alloca (strlen (path) + strlen (string) + 2);
+  alloclen = strlen (path) + strlen (string) + 2;
+  filename = (char *) alloca (alloclen);
   fd = -1;
   for (p = path; p; p = p1 ? p1 + 1 : 0)
     {
@@ -407,8 +428,25 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
       else
 	len = strlen (p);
 
-      strncpy (filename, p, len);
-      filename[len] = 0;
+      if (len == 4 && p[0] == '$' && p[1] == 'c'
+	           && p[2] == 'w' && p[3] == 'd') {
+	/* Name is $cwd -- insert current directory name instead.  */
+	int newlen;
+
+	/* First, realloc the filename buffer if too short. */
+	len = strlen (current_directory);
+	newlen = len + strlen (string) + 2;
+	if (newlen > alloclen) {
+	  alloclen = newlen;
+	  filename = (char *) alloca (alloclen);
+	}
+	strcpy (filename, current_directory);
+      } else {
+	/* Normal file name in path -- just use it.  */
+	strncpy (filename, p, len);
+	filename[len] = 0;
+      }
+
       /* Beware the // my son, the Emacs barfs, the botch that catch... */
       while (len > 1 && filename[len-1] == '/')
 	filename[--len] = 0;
@@ -444,6 +482,7 @@ open_source_file (s)
      struct symtab *s;
 {
   char *path = source_path;
+  char *p;
   int result;
 
   /* Quick way out if we already know its full name */
@@ -459,17 +498,20 @@ open_source_file (s)
 
   if (s->dirname != NULL)
     {
-      /* Add the directory in which the file was compiled at the end of
-	 the path.  */
-      path = (char *)
-	     alloca (strlen (source_path) + 1 + strlen (s->dirname) + 1);
-      strcpy (path, source_path);
-      strcat (path, ":");
-      strcat (path, s->dirname);
-    }
-  if (path[0] == '\0')		/* Still no path and no dir where compiled */
-    {
-      path = current_directory;	/* Let files be found in current dir */
+      /* Replace a path entry of  $cdir  with the compilation directory name */
+#define	cdir_len	5
+      p = strstr (source_path, "$cdir");
+      if (p && (p == path || p[-1] == ':')
+	    && (p[cdir_len] == ':' || p[cdir_len] == '\0')) {
+	int len;
+
+	path = (char *)
+	       alloca (strlen (source_path) + 1 + strlen (s->dirname) + 1);
+	len = p - source_path;
+	strncpy (path, source_path, len);		/* Before $cdir */
+	strcpy (path + len, s->dirname);		/* new stuff */
+	strcat (path + len, source_path + len + cdir_len); /* After $cdir */
+      }
     }
 
   return openp (path, 0, s->filename, O_RDONLY, 0, &s->fullname);
@@ -637,13 +679,19 @@ print_source_lines (s, line, stopline, noerror)
   register FILE *stream;
   int nlines = stopline - line;
 
+  /* Regardless of whether we can open the file, set current_source_symtab. */
+  current_source_symtab = s;
+  current_source_line = line;
+  first_line_listed = line;
+
   desc = open_source_file (s);
   if (desc < 0)
     {
-      extern int errno;
-      if (! noerror)
-	perror_with_name (s->filename);
-      print_sys_errmsg (s->filename, errno);
+      if (! noerror) {
+	char *name = alloca (strlen (s->filename) + 100);
+	sprintf (name, "%s:%d", s->filename, line);
+        print_sys_errmsg (name, errno);
+      }
       return;
     }
 
@@ -663,10 +711,6 @@ print_source_lines (s, line, stopline, noerror)
       perror_with_name (s->filename);
     }
 
-  current_source_symtab = s;
-  current_source_line = line;
-  first_line_listed = line;
-  
   stream = fdopen (desc, "r");
   clearerr (stream);
 
@@ -865,7 +909,7 @@ list_command (arg, from_tty)
   else if (no_end)
     print_source_lines (sal.symtab,
 			max (sal.line - (lines_to_list () / 2), 1),
-			sal.line + 5, 0);
+			sal.line + (lines_to_list() / 2), 0);
   else
     print_source_lines (sal.symtab, sal.line,
 			(dummy_end
@@ -936,6 +980,7 @@ line_info (arg, from_tty)
 
 /* Commands to search the source file for a regexp.  */
 
+/* ARGSUSED */
 static void
 forward_search_command (regex, from_tty)
      char *regex;
@@ -1006,6 +1051,7 @@ forward_search_command (regex, from_tty)
   fclose (stream);
 }
 
+/* ARGSUSED */
 static void
 reverse_search_command (regex, from_tty)
      char *regex;
@@ -1091,12 +1137,16 @@ _initialize_source ()
 
   add_com ("directory", class_files, directory_command,
 	   "Add directory DIR to beginning of search path for source files.\n\
-With no argument, reset the search path to empty, allowing files to be\n\
-found where they were compiled (or, failing that, in the current directory);\n\
-and forget cached info on source file locations and line positions.");
+Forget cached info on source file locations and line positions.\n\
+DIR can also be $cwd for the current working directory, or $cdir for the\n\
+directory in which the source file was compiled into object code.\n\
+With no argument, reset the search path to $cdir:$cwd, the default.");
 
-  add_info ("directories", directories_info,
-	    "Current search path for finding source files.");
+  add_cmd ("directories", no_class, show_directories,
+	   "Current search path for finding source files.\n\
+$cwd in the path means the current working directory.\n\
+$cdir in the path means the compilation directory of the source file.",
+	   &showlist);
 
   add_info ("source", source_info,
 	    "Information about the current source file.");

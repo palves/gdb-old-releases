@@ -25,7 +25,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    just be a copy of /bin/sh which is world readable and writeable).  */
 #define SHELL_FILE "/usr/gnu/lib/gdb-sh"
 
-#define BYTE_ORDER LITTLE_ENDIAN
+#define HOST_BYTE_ORDER LITTLE_ENDIAN
 
 /* This is the amount to subtract from u.u_ar0
    to get the offset in the core file of the register values.  */

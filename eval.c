@@ -17,12 +17,14 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include <stdio.h>
 #include "defs.h"
 #include "param.h"
 #include "symtab.h"
 #include "value.h"
 #include "expression.h"
 #include "target.h"
+#include "frame.h"
 
 #define	NULL_TYPE	((struct type *)0)
 
@@ -39,7 +41,7 @@ parse_and_eval_address (exp)
   register struct cleanup *old_chain
     = make_cleanup (free_current_contents, &expr);
 
-  addr = (CORE_ADDR) value_as_long (evaluate_expression (expr));
+  addr = value_as_pointer (evaluate_expression (expr));
   do_cleanups (old_chain);
   return addr;
 }
@@ -51,12 +53,12 @@ CORE_ADDR
 parse_and_eval_address_1 (expptr)
      char **expptr;
 {
-  struct expression *expr = parse_c_1 (expptr, 0, 0);
+  struct expression *expr = parse_c_1 (expptr, (struct block *)0, 0);
   register CORE_ADDR addr;
   register struct cleanup *old_chain
     = make_cleanup (free_current_contents, &expr);
 
-  addr = (CORE_ADDR) value_as_long (evaluate_expression (expr));
+  addr = value_as_pointer (evaluate_expression (expr));
   do_cleanups (old_chain);
   return addr;
 }
@@ -83,7 +85,7 @@ value
 parse_to_comma_and_eval (expp)
      char **expp;
 {
-  struct expression *expr = parse_c_1 (expp, 0, 1);
+  struct expression *expr = parse_c_1 (expp, (struct block *) 0, 1);
   register value val;
   register struct cleanup *old_chain
     = make_cleanup (free_current_contents, &expr);
@@ -160,8 +162,11 @@ evaluate_subexp (expect_type, exp, pos, noside)
       tem = strlen (&exp->elts[pc + 2].string);
       (*pos) += 3 + ((tem + sizeof (union exp_element))
 		     / sizeof (union exp_element));
-      return value_static_field (exp->elts[pc + 1].type,
+      arg1 = value_static_field (exp->elts[pc + 1].type,
 				 &exp->elts[pc + 2].string, -1);
+      if (arg1 == NULL)
+	error ("There is no field named %s", &exp->elts[pc + 2].string);
+      return arg1;
 
     case OP_LONG:
       (*pos) += 3;
@@ -207,11 +212,12 @@ evaluate_subexp (expect_type, exp, pos, noside)
 
     case OP_LAST:
       (*pos) += 2;
-      return access_value_history ((int) exp->elts[pc + 1].longconst);
+      return
+	access_value_history (longest_to_int (exp->elts[pc + 1].longconst));
 
     case OP_REGISTER:
       (*pos) += 2;
-      return value_of_register ((int) exp->elts[pc + 1].longconst);
+      return value_of_register (longest_to_int (exp->elts[pc + 1].longconst));
 
     case OP_INTERNALVAR:
       (*pos) += 2;
@@ -247,7 +253,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	{
 	  int fnptr;
 
-	  nargs = (int) exp->elts[pc + 1].longconst + 1;
+	  nargs = longest_to_int (exp->elts[pc + 1].longconst) + 1;
 	  /* First, evaluate the structure into arg2 */
 	  pc2 = (*pos)++;
 
@@ -271,7 +277,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
 
 	  arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
 
-	  fnptr = (int) value_as_long (arg1);
+	  fnptr = longest_to_int (value_as_long (arg1));
+	  /* FIXME-tiemann: this is way obsolete.  */
 	  if (fnptr < 128)
 	    {
 	      struct type *basetype;
@@ -291,8 +298,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 			  struct type *fntype = lookup_pointer_type (TYPE_FN_FIELD_TYPE (f, j));
 
 			  if (TYPE_VPTR_FIELDNO (basetype) < 0)
-			    TYPE_VPTR_FIELDNO (basetype)
-			      = fill_in_vptr_fieldno (basetype);
+			    fill_in_vptr_fieldno (basetype);
 
 			  VALUE_TYPE (base) = basetype;
 			  vtbl = value_field (base, TYPE_VPTR_FIELDNO (basetype));
@@ -320,7 +326,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	  /* Hair for method invocations */
 	  int tem2;
 
-	  nargs = (int) exp->elts[pc + 1].longconst + 1;
+	  nargs = longest_to_int (exp->elts[pc + 1].longconst) + 1;
 	  /* First, evaluate the structure into arg2 */
 	  pc2 = (*pos)++;
 	  tem2 = strlen (&exp->elts[pc2 + 1].string);
@@ -341,7 +347,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
       else
 	{
-	  nargs = (int) exp->elts[pc + 1].longconst;
+	  nargs = longest_to_int (exp->elts[pc + 1].longconst);
 	  tem = 0;
 	}
       argvec = (value *) alloca (sizeof (value) * (nargs + 2));
@@ -413,7 +419,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	goto nosideret;
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
 	return value_zero (lookup_struct_elt_type (VALUE_TYPE (arg1),
-						   &exp->elts[pc + 1].string),
+						   &exp->elts[pc + 1].string,
+						   1),
 			   lval_memory);
       else
 	{
@@ -431,7 +438,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
 	return value_zero (lookup_struct_elt_type (TYPE_TARGET_TYPE
 						   (VALUE_TYPE (arg1)),
-						   &exp->elts[pc + 1].string),
+						   &exp->elts[pc + 1].string,
+						   1),
 			   lval_memory);
       else
 	{
@@ -480,7 +488,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (noside == EVAL_SKIP || noside == EVAL_AVOID_SIDE_EFFECTS)
 	return arg1;
       if (binop_user_defined_p (op, arg1, arg2))
-	return value_x_binop (arg1, arg2, op, 0);
+	return value_x_binop (arg1, arg2, op, OP_NULL);
       else
 	return value_assign (arg1, arg2);
 
@@ -507,7 +515,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (binop_user_defined_p (op, arg1, arg2))
-	return value_x_binop (arg1, arg2, op, 0);
+	return value_x_binop (arg1, arg2, op, OP_NULL);
       else
 	return value_add (arg1, arg2);
 
@@ -517,7 +525,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (binop_user_defined_p (op, arg1, arg2))
-	return value_x_binop (arg1, arg2, op, 0);
+	return value_x_binop (arg1, arg2, op, OP_NULL);
       else
 	return value_sub (arg1, arg2);
 
@@ -534,7 +542,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (binop_user_defined_p (op, arg1, arg2))
-	return value_x_binop (arg1, arg2, op, 0);
+	return value_x_binop (arg1, arg2, op, OP_NULL);
       else
 	if (noside == EVAL_AVOID_SIDE_EFFECTS
 	    && op == BINOP_DIV)
@@ -552,7 +560,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 			   VALUE_LVAL (arg1));
 			   
       if (binop_user_defined_p (op, arg1, arg2))
-	return value_x_binop (arg1, arg2, op, 0);
+	return value_x_binop (arg1, arg2, op, OP_NULL);
       else
 	return value_subscript (arg1, arg2);
       
@@ -571,7 +579,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (binop_user_defined_p (op, arg1, arg2)) 
 	{
 	  arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
-	  return value_x_binop (arg1, arg2, op, 0);
+	  return value_x_binop (arg1, arg2, op, OP_NULL);
 	}
       else
 	{
@@ -597,7 +605,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (binop_user_defined_p (op, arg1, arg2)) 
 	{
 	  arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
-	  return value_x_binop (arg1, arg2, op, 0);
+	  return value_x_binop (arg1, arg2, op, OP_NULL);
 	}
       else
 	{
@@ -615,7 +623,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	goto nosideret;
       if (binop_user_defined_p (op, arg1, arg2))
 	{
-	  return value_x_binop (arg1, arg2, op, 0);
+	  return value_x_binop (arg1, arg2, op, OP_NULL);
 	}
       else
 	{
@@ -630,7 +638,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	goto nosideret;
       if (binop_user_defined_p (op, arg1, arg2))
 	{
-	  return value_x_binop (arg1, arg2, op, 0);
+	  return value_x_binop (arg1, arg2, op, OP_NULL);
 	}
       else
 	{
@@ -645,7 +653,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	goto nosideret;
       if (binop_user_defined_p (op, arg1, arg2))
 	{
-	  return value_x_binop (arg1, arg2, op, 0);
+	  return value_x_binop (arg1, arg2, op, OP_NULL);
 	}
       else
 	{
@@ -660,7 +668,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	goto nosideret;
       if (binop_user_defined_p (op, arg1, arg2))
 	{
-	  return value_x_binop (arg1, arg2, op, 0);
+	  return value_x_binop (arg1, arg2, op, OP_NULL);
 	}
       else
 	{
@@ -675,7 +683,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	goto nosideret;
       if (binop_user_defined_p (op, arg1, arg2))
 	{
-	  return value_x_binop (arg1, arg2, op, 0);
+	  return value_x_binop (arg1, arg2, op, OP_NULL);
 	}
       else
 	{
@@ -690,7 +698,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	goto nosideret;
       if (binop_user_defined_p (op, arg1, arg2))
 	{
-	  return value_x_binop (arg1, arg2, op, 0);
+	  return value_x_binop (arg1, arg2, op, OP_NULL);
 	}
       else 
 	{
@@ -707,9 +715,9 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	error ("Non-integral right operand for \"@\" operator.");
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
 	return allocate_repeat_value (VALUE_TYPE (arg1),
-				       (int) value_as_long (arg2));
+				      longest_to_int (value_as_long (arg2)));
       else
-	return value_repeat (arg1, (int) value_as_long (arg2));
+	return value_repeat (arg1, longest_to_int (value_as_long (arg2)));
 
     case BINOP_COMMA:
       evaluate_subexp (NULL_TYPE, exp, pos, noside);
@@ -725,11 +733,18 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	return value_neg (arg1);
 
     case UNOP_LOGNOT:
+      /* C++: check for and handle destructor names.  */
+      op = exp->elts[*pos].opcode;
+
+      /* FIXME-tiemann: this is a cop-out.  */
+      if (op == OP_SCOPE)
+	error ("destructor in eval");
+
       arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
-      if (unop_user_defined_p (op, arg1))
-	return value_x_unop (arg1, op);
+      if (unop_user_defined_p (UNOP_LOGNOT, arg1))
+	return value_x_unop (arg1, UNOP_LOGNOT);
       else
 	return value_lognot (arg1);
 
@@ -822,7 +837,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	return value_zero (exp->elts[pc + 1].type, lval_memory);
       else
 	return value_at_lazy (exp->elts[pc + 1].type,
-			 (CORE_ADDR) value_as_long (arg1));
+			      value_as_pointer (arg1));
 
     case UNOP_PREINCREMENT:
       arg1 = evaluate_subexp (expect_type, exp, pos, noside);
@@ -947,7 +962,7 @@ evaluate_subexp_for_address (exp, pos, noside)
 	  value_zero (type, not_lval);
 	}
       else
-	return locate_var_value (exp->elts[pc + 1].symbol, (CORE_ADDR) 0);
+	return locate_var_value (exp->elts[pc + 1].symbol, (FRAME) 0);
 
     default:
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
@@ -987,7 +1002,7 @@ evaluate_subexp_with_coercion (exp, pos, noside)
       if (TYPE_CODE (SYMBOL_TYPE (exp->elts[pc + 1].symbol)) == TYPE_CODE_ARRAY)
 	{
 	  (*pos) += 3;
-	  val = locate_var_value (exp->elts[pc + 1].symbol, (CORE_ADDR) 0);
+	  val = locate_var_value (exp->elts[pc + 1].symbol, (FRAME) 0);
 	  return value_cast (lookup_pointer_type (TYPE_TARGET_TYPE (SYMBOL_TYPE (exp->elts[pc + 1].symbol))),
 			     val);
 	}

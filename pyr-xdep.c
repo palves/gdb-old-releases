@@ -1,5 +1,5 @@
-/* Low level interface to ptrace, for GDB when running under Unix.
-   Copyright (C) 1988, 1989 Free Software Foundation, Inc.
+/* Low level Pyramid interface to ptrace, for GDB when running under Unix.
+   Copyright (C) 1988, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -33,8 +33,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/user.h>		/* After a.out.h  */
 #include <sys/file.h>
 #include <sys/stat.h>
-
-extern int errno;
 
 void
 fetch_inferior_registers ()

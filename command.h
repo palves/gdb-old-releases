@@ -133,6 +133,17 @@ extern void add_info_alias ();
 extern char **complete_on_cmdlist ();
 extern void delete_cmd ();
 extern void help_cmd ();
+void help_list (
+#ifdef __STDC__
+		struct cmd_list_element *, char *, enum command_class, FILE *
+#endif
+		);
+void help_cmd_list (
+#ifdef __STDC__
+		    struct cmd_list_element *, enum command_class, char *,
+		    int, FILE *
+#endif
+		    );
 extern struct cmd_list_element *add_set_cmd ();
 extern struct cmd_list_element *add_show_from_set ();
 

@@ -36,7 +36,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    two symbols, so we get a LOC_ARG saying the address is on the stack
    (a lie, and a serious one since we don't know which register to
    use), and a LOC_REGISTER saying that the struct is in a register
-   (sort of a lie, but fixable with REG_STRUCT_HAS_ADDR).
+   (sort of a lie, but fixable with REG_STRUCT_HAS_ADDR).  Gcc version
+   two (as of 1.92) behaves like sun cc, but I don't know how we can
+   distinguish between gcc version 1 and gcc version 2.
 
    This still doesn't work if the argument is not one passed in a
    register (i.e. it's the 7th or later argument).  */
@@ -284,18 +286,20 @@ extern CORE_ADDR skip_prologue ();
    as a CORE_ADDR (or an expression that can be used as one).  */
 
 #define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) \
-  (read_memory_integer (((int *)(REGBUF))[SP_REGNUM]+(16*4), 4))
+  (sparc_extract_struct_value_address (REGBUF))
+CORE_ADDR sparc_extract_struct_value_address (
+#ifdef __STDC__
+					      char [REGISTER_BYTES]
+#endif
+					      );
 
 
 /* Describe the pointer in each stack frame to the previous stack frame
    (its caller).  */
 
-/* I don't know whether this will work for cross-debugging, even if you
-   do get the right reg.h.  */
-#include <machine/reg.h>
-
-#define GET_RWINDOW_REG(FRAME, REG) \
-  (read_memory_integer ((CORE_ADDR)&((struct rwindow *)FRAME)->REG, 4))
+/* If you're not compiling this on a sun, you'll have to get a copy
+   of <sun4/reg.h> (also known as <machine/reg.h>).  */
+#include <sun4/reg.h>
 
 /* FRAME_CHAIN takes a frame's nominal address
    and produces the frame's chain-pointer.
@@ -335,8 +339,8 @@ extern CORE_ADDR skip_prologue ();
      (fci)->next->bottom : (fci)->next->frame) :	\
     read_register (SP_REGNUM));
 
-#define FRAME_CHAIN(thisframe) \
-   GET_RWINDOW_REG ((thisframe)->frame, rw_in[6])
+#define FRAME_CHAIN(thisframe) (sparc_frame_chain (thisframe))
+CORE_ADDR sparc_frame_chain ();
 
 #define FRAME_CHAIN_VALID(chain, thisframe) \
   (chain != 0 && (outside_startup_file (FRAME_SAVED_PC (thisframe))))
@@ -569,3 +573,18 @@ extern void single_step ();
    function "setup_arbitrary_frame" in mach-dep.c */
 
 #define FRAME_SPECIFICATION_DYADIC
+
+/* To print every pair of float registers as a double, we use this hook.  */
+
+#define	PRINT_REGISTER_HOOK(regno)	\
+  if (((regno) >= FP0_REGNUM)		\
+   && ((regno) <  FP0_REGNUM + 32)	\
+   && (0 == (regno & 1))) {		\
+    char doublereg[8];		/* two float regs */	\
+    if (!read_relative_register_raw_bytes (i  , doublereg  )	\
+     && !read_relative_register_raw_bytes (i+1, doublereg+4)) {	\
+      printf("\t");			\
+      print_floating (doublereg, builtin_type_double, stdout);	\
+    }					\
+  }
+

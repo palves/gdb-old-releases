@@ -27,6 +27,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "obstack.h"
 #include "signame.h"
 #include "target.h"
+#include "ieee-float.h"
 
 #include <sys/param.h>
 #include <sys/dir.h>
@@ -36,7 +37,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <fcntl.h>
 
 #include <sys/ptrace.h>
-#include <machine/reg.h>
 
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -127,6 +127,28 @@ single_step (signal)
     }
 }
 
+CORE_ADDR
+sparc_frame_chain (thisframe)
+     FRAME thisframe;
+{
+  CORE_ADDR retval;
+  read_memory ((CORE_ADDR)&(((struct rwindow *)(thisframe->frame))->rw_in[6]),
+	       &retval,
+	       sizeof (CORE_ADDR));
+  return retval;
+}
+
+CORE_ADDR
+sparc_extract_struct_value_address (regbuf)
+     char regbuf[REGISTER_BYTES];
+{
+  CORE_ADDR retval;
+  read_memory (((int *)(regbuf))[SP_REGNUM]+(16*4),
+	       &retval,
+	       sizeof (CORE_ADDR));
+  return retval;
+}
+
 /*
  * Find the pc saved in frame FRAME.  
  */
@@ -138,11 +160,14 @@ frame_saved_pc (frame)
 
   /* If it's at the bottom, the return value's stored in i7/rp */
   if (get_current_frame () == frame)
-    prev_pc = GET_RWINDOW_REG (read_register (SP_REGNUM), rw_in[7]);
+    read_memory ((CORE_ADDR)&((struct rwindow *)
+			      (read_register (SP_REGNUM)))->rw_in[7],
+		 &prev_pc, sizeof (CORE_ADDR));
   else
-    /* Wouldn't this always work?  This would allow this routine to
-       be completely a macro.  */
-    prev_pc = GET_RWINDOW_REG (frame->bottom, rw_in[7]);
+    /* Wouldn't this always work?  */
+    read_memory ((CORE_ADDR)&((struct rwindow *)(frame->bottom))->rw_in[7],
+		 &prev_pc,
+		 sizeof (CORE_ADDR));
   
   return PC_ADJUST (prev_pc);
 }
@@ -266,13 +291,11 @@ do_restore_insn ()
   restore_inferior_status (&inf_status);
 }
 
-/*
- * This routine should be more specific in it's actions; making sure
- * that it uses the same register in the initial prologue section.
- */
+/* This routine should be more specific in it's actions; making sure
+   that it uses the same register in the initial prologue section.  */
 CORE_ADDR 
-skip_prologue (pc)
-     CORE_ADDR pc;
+skip_prologue (start_pc)
+     CORE_ADDR start_pc;
 {
   union
     {
@@ -296,6 +319,9 @@ skip_prologue (pc)
       int i;
     } x;
   int dest = -1;
+  CORE_ADDR pc = start_pc;
+  /* Have we found a save instruction?  */
+  int found_save = 0;
 
   x.i = read_memory_integer (pc, 4);
 
@@ -309,7 +335,10 @@ skip_prologue (pc)
 
   /* Recognize an add immediate value to register to either %g1 or
      the destination register recorded above.  Actually, this might
-     well recognize several different arithmetic operations.  */
+     well recognize several different arithmetic operations.
+     It doesn't check that rs1 == rd because in theory "sub %g0, 5, %g1"
+     followed by "save %sp, %g1, %sp" is a valid prologue (Not that
+     I imagine any compiler really does that, however).  */
   if (x.add.op == 2 && x.add.i && (x.add.rd == 1 || x.add.rd == dest))
     {
       pc += 4;
@@ -321,6 +350,7 @@ skip_prologue (pc)
      as there isn't any sign extension).  */
   if (x.add.op == 2 && (x.add.op3 ^ 32) == 28)
     {
+      found_save = 1;
       pc += 4;
       x.i = read_memory_integer (pc, 4);
     }
@@ -340,7 +370,11 @@ skip_prologue (pc)
       pc += 4;
       x.i = read_memory_integer (pc, 4);
     }
-  return pc;
+  if (found_save)
+    return pc;
+  else
+    /* Without a save instruction, it's not a prologue.  */
+    return start_pc;
 }
 
 /* Check instruction at ADDR to see if it is an annulled branch.
@@ -573,3 +607,12 @@ sparc_pop_frame ()
   set_current_frame ( create_new_frame (read_register (FP_REGNUM),
 					read_pc ()));
 }
+
+/* Structure of SPARC extended floating point numbers.
+   This information is not currently used by GDB, since no current SPARC
+   implementations support extended float.  */
+
+const struct ext_format ext_format_sparc[] = {
+/* tot sbyte smask expbyte manbyte */
+ { 16, 0,    0x80, 0,1,	   4,8	},		/* sparc */
+};

@@ -39,8 +39,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/stat.h>
 
 #include <sys/reg.h>
-
-extern int errno;
 
 /* this table must line up with REGISTER_NAMES in m-i386.h */
 /* symbols like 'EAX' come from <sys/reg.h> */

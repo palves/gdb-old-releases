@@ -1,5 +1,5 @@
-/* Start and stop the inferior process, for GDB.
-   Copyright (C) 1986, 1987, 1988, 1989 Free Software Foundation, Inc.
+/* Start (run) and stop the inferior process, for GDB.
+   Copyright (C) 1986, 1987, 1988, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -141,19 +141,12 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif
 
 #ifdef SET_STACK_LIMIT_HUGE
+#include <sys/time.h>
+#include <sys/resource.h>
+
 extern int original_stack_limit;
 #endif /* SET_STACK_LIMIT_HUGE */
 
-/* Required by <sys/user.h>.  */
-#include <sys/types.h>
-/* Required by <sys/user.h>, at least on system V.  */
-#include <sys/dir.h>
-/* Needed by IN_SIGTRAMP on some machines (e.g. vax).  */
-#include <sys/param.h>
-/* Needed by IN_SIGTRAMP on some machines (e.g. vax).  */
-#include <sys/user.h>
-
-extern int errno;
 extern char *getenv ();
 
 extern struct target_ops child_ops;	/* In inftarg.c */
@@ -177,6 +170,12 @@ extern char *inferior_thisrun_terminal;
 #if !defined (IN_SIGTRAMP)
 #define IN_SIGTRAMP(pc, name) \
   name && !strcmp ("_sigtramp", name)
+#endif
+
+#ifdef TDESC
+#include "tdesc.h"
+int safe_to_init_tdesc_context = 0;
+extern dc_dcontext_t current_context;
 #endif
 
 /* Tables of how to react to signals; the user sets them.  */
@@ -234,11 +233,13 @@ int stop_soon_quietly;
 
 int pc_changed;
 
-/* Nonzero if debugging a remote machine via a serial link or ethernet.  */
+/* Nonzero if proceed is being used for a "finish" command or a similar
+   situation when stop_registers should be saved.  */
 
-int remote_debugging;
+int proceed_to_finish;
 
-/* Save register contents here when about to pop a stack dummy frame.
+/* Save register contents here when about to pop a stack dummy frame,
+   if-and-only-if proceed_to_finish is set.
    Thus this contains the return value from the called function (assuming
    values are returned in a register).  */
 
@@ -261,7 +262,36 @@ static void insert_step_breakpoint ();
 static void remove_step_breakpoint ();
 /*static*/ void wait_for_inferior ();
 void init_wait_for_inferior ();
-static void normal_stop ();
+void normal_stop ();
+
+
+/* Things to clean up if we QUIT out of resume ().  */
+/* ARGSUSED */
+static void
+resume_cleanups (arg)
+     int arg;
+{
+  normal_stop ();
+}
+
+/* Resume the inferior, but allow a QUIT.  This is useful if the user
+   wants to interrupt some lengthy single-stepping operation
+   (for child processes, the SIGINT goes to the inferior, and so
+   we get a SIGINT random_signal, but for remote debugging and perhaps
+   other targets, that's not true).
+
+   STEP nonzero if we should step (zero to continue instead).
+   SIG is the signal to give the inferior (zero for none).  */
+static void
+resume (step, sig)
+     int step;
+     int sig;
+{
+  struct cleanup *old_cleanups = make_cleanup (resume_cleanups, 0);
+  QUIT;
+  target_resume (step, sig);
+  discard_cleanups (old_cleanups);
+}
 
 
 /* Clear out all variables saying what to do when inferior is continued.
@@ -278,6 +308,7 @@ clear_proceed_status ()
   step_resume_break_address = 0;
   stop_after_trap = 0;
   stop_soon_quietly = 0;
+  proceed_to_finish = 0;
   breakpoint_proceeded = 1;	/* We're about to proceed... */
 
   /* Discard any remaining commands or status from previous stop.  */
@@ -371,7 +402,7 @@ The same program may be running in another process.");
 #endif
 
   /* Resume inferior.  */
-  target_resume (oneproc || step || bpstat_should_step (), stop_signal);
+  resume (oneproc || step || bpstat_should_step (), stop_signal);
 
   /* Wait for it to stop (if not standalone)
      and in any case decode why it stopped, and act accordingly.  */
@@ -404,6 +435,7 @@ static CORE_ADDR prev_sp;
 static CORE_ADDR prev_func_start;
 static char *prev_func_name;
 
+
 /* Start an inferior Unix child process and sets inferior_pid to its pid.
    EXEC_FILE is the file to run.
    ALLARGS is a string containing the arguments to the program.
@@ -423,7 +455,6 @@ child_create_inferior (exec_file, allargs, env)
   char *shell_command;
   extern int sys_nerr;
   extern char *sys_errlist[];
-  extern int errno;
   char *shell_file;
   static char default_shell_file[] = SHELL_FILE;
   int len;
@@ -562,14 +593,14 @@ child_create_inferior (exec_file, allargs, env)
 	{
 	  /* Let shell child handle its own signals in its own way */
 	  /* FIXME, what if child has exit()ed?  Must exit loop somehow */
-	  target_resume (0, stop_signal);
+	  resume (0, stop_signal);
 	}
       else
 	{
 	  /* We handle SIGTRAP, however; it means child did an exec.  */
 	  if (0 == --pending_execs)
 	    break;
-	  target_resume (0, 0);		/* Just make it go on */
+	  resume (0, 0);		/* Just make it go on */
 	}
     }
   stop_soon_quietly = 0;
@@ -583,7 +614,7 @@ child_create_inferior (exec_file, allargs, env)
       target_terminal_inferior();
       /* Start the child program going on its first instruction, single-
 	 stepping if we need to.  */
-      target_resume (bpstat_should_step (), 0);
+      resume (bpstat_should_step (), 0);
       wait_for_inferior ();
       normal_stop ();
     }
@@ -598,6 +629,8 @@ start_remote ()
   clear_proceed_status ();
   stop_soon_quietly = 1;
   trap_expected = 0;
+  wait_for_inferior ();
+  normal_stop ();
 }
 
 /* Initialize static vars when a new inferior begins.  */
@@ -614,6 +647,7 @@ init_wait_for_inferior ()
   trap_expected_after_continue = 0;
   breakpoints_inserted = 0;
   mark_breakpoints_out ();
+  stop_signal = 0;		/* Don't confuse first call to proceed(). */
 }
 
 
@@ -621,7 +655,7 @@ init_wait_for_inferior ()
    and wait for the trace-trap that results from attaching.  */
 
 void
-child_open (args, from_tty)
+child_attach (args, from_tty)
      char *args;
      int from_tty;
 {
@@ -638,7 +672,7 @@ child_open (args, from_tty)
 #else
   pid = atoi (args);
 
-  if (inferior_pid)
+  if (target_has_execution)
     {
       if (query ("A program is being debugged already.  Kill it? "))
 	target_kill ((char *)0, from_tty);
@@ -689,6 +723,9 @@ wait_for_inferior ()
   int stop_step_resume_break;
   struct symtab_and_line sal;
   int remove_breakpoints_on_following_step = 0;
+#ifdef TDESC
+  extern dc_handle_t tdesc_handle;
+#endif
 
 #if 0
   /* This no longer works now that read_register is lazy;
@@ -712,7 +749,10 @@ wait_for_inferior ()
       /* See if the process still exists; clean up if it doesn't.  */
       if (WIFEXITED (w))
 	{
-	  target_terminal_ours_for_output ();
+	  target_terminal_ours ();	/* Must do this before mourn anyway */
+#ifdef TDESC 
+          safe_to_init_tdesc_context = 0;
+#endif
 	  if (WEXITSTATUS (w))
 	    printf ("\nProgram exited with code 0%o.\n", 
 		     (unsigned int)WEXITSTATUS (w));
@@ -729,15 +769,23 @@ wait_for_inferior ()
 	}
       else if (!WIFSTOPPED (w))
 	{
-	  target_kill ((char *)0, 0);
 	  stop_print_frame = 0;
 	  stop_signal = WTERMSIG (w);
-	  target_terminal_ours_for_output ();
+	  target_terminal_ours ();	/* Must do this before mourn anyway */
+	  target_kill ((char *)0, 0);	/* kill mourns as well */
+#ifdef TDESC
+          safe_to_init_tdesc_context = 0;
+#endif
+#ifdef PRINT_RANDOM_SIGNAL
+	  printf ("\nProgram terminated: ");
+	  PRINT_RANDOM_SIGNAL (stop_signal);
+#else
 	  printf ("\nProgram terminated with signal %d, %s\n",
 		  stop_signal,
 		  stop_signal < NSIG
 		  ? sys_siglist[stop_signal]
 		  : "(undocumented)");
+#endif
 	  printf ("The inferior process no longer exists.\n");
 	  fflush (stdout);
 #ifdef NO_SINGLE_STEP
@@ -752,6 +800,14 @@ wait_for_inferior ()
 #endif /* NO_SINGLE_STEP */
       
       stop_pc = read_pc ();
+#ifdef TDESC
+      if (safe_to_init_tdesc_context)   
+        {
+	  current_context = init_dcontext();
+          set_current_frame ( create_new_frame (get_frame_base (read_pc()),read_pc()));
+        }
+      else
+#endif /* TDESC */
       set_current_frame ( create_new_frame (read_register (FP_REGNUM),
 					    read_pc ()));
       
@@ -830,9 +886,11 @@ wait_for_inferior ()
 #endif /* DECR_PC_AFTER_BREAK not zero */
 		{
 		  /* See if we stopped at the special breakpoint for
-		     stepping over a subroutine call.  */
+		     stepping over a subroutine call.  If both are zero,
+		     this wasn't the reason for the stop.  */
 		  if (stop_pc - DECR_PC_AFTER_BREAK
-		      == step_resume_break_address)
+		      		  == step_resume_break_address
+		      && step_resume_break_address)
 		    {
 		      stop_step_resume_break = 1;
 		      if (DECR_PC_AFTER_BREAK)
@@ -1170,7 +1228,7 @@ wait_for_inferior ()
 	  /* We took a signal (which we are supposed to pass through to
 	     the inferior, else we'd have done a break above) and we
 	     haven't yet gotten our trap.  Simply continue.  */
-	  target_resume ((step_range_end && !step_resume_break_address)
+	  resume ((step_range_end && !step_resume_break_address)
 		  || (trap_expected && !step_resume_break_address)
 		  || bpstat_should_step (),
 		  stop_signal);
@@ -1190,6 +1248,14 @@ wait_for_inferior ()
 	     to one-proceed past a breakpoint.  */
 	  /* If we've just finished a special step resume and we don't
 	     want to hit a breakpoint, pull em out.  */
+#ifdef TDESC
+          if (!tdesc_handle)
+            {
+	      init_tdesc();
+              safe_to_init_tdesc_context = 1;
+            }
+#endif
+
 	  if (!step_resume_break_address &&
 	      remove_breakpoints_on_following_step)
 	    {
@@ -1217,7 +1283,8 @@ wait_for_inferior ()
 	     that we shouldn't rewrite the regs when we were stopped by a
 	     random signal from the inferior process.  */
 
-          if (!stop_breakpoint && (stop_signal != SIGCLD) 
+          if (!bpstat_explains_signal (stop_bpstat)
+	      && (stop_signal != SIGCLD) 
               && !stopped_by_random_signal)
             {
             CORE_ADDR pc_contents = read_register (PC_REGNUM);
@@ -1230,13 +1297,13 @@ wait_for_inferior ()
             }
 #endif /* SHIFT_INST_REGS */
 
-	  target_resume ((step_range_end && !step_resume_break_address)
+	  resume ((step_range_end && !step_resume_break_address)
 		  || (trap_expected && !step_resume_break_address)
 		  || bpstat_should_step (),
 		  stop_signal);
 	}
     }
-  if (inferior_pid != 0)
+  if (target_has_execution)
     {
       /* Assuming the inferior still exists, set these up for next
 	 time, just like we did above if we didn't break out of the
@@ -1256,13 +1323,13 @@ wait_for_inferior ()
    BREAKPOINTS_FAILED nonzero means stop was due to error
    attempting to insert breakpoints.  */
 
-static void
+void
 normal_stop ()
 {
   /* Make sure that the current_frame's pc is correct.  This
      is a correction for setting up the frame info before doing
      DECR_PC_AFTER_BREAK */
-  if (inferior_pid)
+  if (target_has_execution)
     (get_current_frame ())->pc = read_pc ();
   
   if (breakpoints_failed)
@@ -1273,15 +1340,15 @@ normal_stop ()
 The same program may be running in another process.\n");
     }
 
-  if (inferior_pid)
+  if (target_has_execution)
     remove_step_breakpoint ();
 
-  if (inferior_pid && breakpoints_inserted)
+  if (target_has_execution && breakpoints_inserted)
     if (remove_breakpoints ())
       {
 	target_terminal_ours_for_output ();
 	printf ("Cannot remove breakpoints because program is no longer writable.\n\
-It must be running in another process.\n\
+It might be running in another process.\n\
 Further execution is probably impossible.\n");
       }
 
@@ -1303,7 +1370,7 @@ Further execution is probably impossible.\n");
 
   target_terminal_ours ();
 
-  if (inferior_pid == 0)
+  if (!target_has_stack)
     return;
 
   /* Select innermost stack frame except on return from a stack dummy routine,
@@ -1326,11 +1393,10 @@ Further execution is probably impossible.\n");
 	}
     }
 
-  /* Save the function value return registers
+  /* Save the function value return registers, if we care.
      We might be about to restore their previous contents.  */
-     /* FIXME!  This takes forever on a serial link and is almost always
-	useless!!!  -- gnu@cygnus@wrs  */
-  read_register_bytes (0, stop_registers, REGISTER_BYTES);
+  if (proceed_to_finish)
+    read_register_bytes (0, stop_registers, REGISTER_BYTES);
 
   if (stop_stack_dummy)
     {
@@ -1550,6 +1616,7 @@ save_inferior_status (inf_status, restore_stack_info)
   stop_bpstat = bpstat_copy (stop_bpstat);
   inf_status->breakpoint_proceeded = breakpoint_proceeded;
   inf_status->restore_stack_info = restore_stack_info;
+  inf_status->proceed_to_finish = proceed_to_finish;
   
   bcopy (stop_registers, inf_status->stop_registers, REGISTER_BYTES);
   
@@ -1583,16 +1650,19 @@ restore_inferior_status (inf_status)
   bpstat_clear (&stop_bpstat);
   stop_bpstat = inf_status->stop_bpstat;
   breakpoint_proceeded = inf_status->breakpoint_proceeded;
+  proceed_to_finish = inf_status->proceed_to_finish;
 
   bcopy (inf_status->stop_registers, stop_registers, REGISTER_BYTES);
 
   /* The inferior can be gone if the user types "print exit(0)"
      (and perhaps other times).  */
-  if (have_inferior_p() && inf_status->restore_stack_info)
+  if (target_has_stack && inf_status->restore_stack_info)
     {
       fid = find_relative_frame (get_current_frame (),
 				 &level);
 
+      /* If inf_status->selected_frame_address is NULL, there was no
+	 previously selected frame.  */
       if (fid == 0 ||
 	  FRAME_FP (fid) != inf_status->selected_frame_address ||
 	  level != 0)

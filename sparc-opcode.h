@@ -176,11 +176,11 @@ static struct sparc_opcode sparc_opcodes[] =
 { "st",		0xc1202000, 0x00d80000, "g,[1+i]", 0 },
 { "st",		0xc1202000, 0x00d80000, "g,[i+1]", 0 },
 { "st",		0xc1200000, 0x00d82000, "g,[1+2]", 0 },
-{ "st",		0xc1280000, 0x00c0d01f, "F,[1]", 0 }, /* st d,[rs1+%g0] */
-{ "st",		0xc1282000, 0x00c0dfff, "F,[1]", 0 }, /* st d,[rs1+0] */
-{ "st",		0xc1282000, 0x00c0d000, "F,[1+i]", 0 },
-{ "st",		0xc1282000, 0x00c0d000, "F,[i+1]", 0 },
-{ "st",		0xc1280000, 0x00c0d000, "F,[1+2]", 0 },
+{ "st",		0xc1280000, 0x00d0201f, "F,[1]", 0 }, /* st %fsr,[rs1+%g0] */
+{ "st",		0xc1282000, 0x00d01fff, "F,[1]", 0 }, /* st %fsr,[rs1+0] */
+{ "st",		0xc1282000, 0x00d00000, "F,[1+i]", 0 },
+{ "st",		0xc1282000, 0x00d00000, "F,[i+1]", 0 },
+{ "st",		0xc1280000, 0x00d02000, "F,[1+2]", 0 },
 { "st",		0xc1a00000, 0x0058201f, "D,[1]", 0 }, /* st d,[rs1+%g0] */
 { "st",		0xc1a02000, 0x00581fff, "D,[1]", 0 }, /* st d,[rs1+0] */
 { "st",		0xc1a02000, 0x00580000, "D,[1+i]", 0 },
@@ -406,49 +406,6 @@ static struct sparc_opcode sparc_opcodes[] =
 { "call",	0x40000000, 0x80000000, "L", F_DELAYED },
 { "call",	0x40000000, 0x80000000, "L,#", F_DELAYED },
 
-{ "bvc",        0x3e800000, 0xc1400000, ",al", F_DELAYED },
-{ "bvc",	0x1e800000, 0xc1400000, "l", F_DELAYED },
-{ "bvs",	0x2e800000, 0xc1400000, ",al", F_DELAYED },
-{ "bvs",	0x0e800000, 0xc1400000, "l", F_DELAYED },
-{ "bpos",	0x3c800000, 0xc1400000, ",al", F_DELAYED },
-{ "bpos",	0x1c800000, 0xc1400000, "l", F_DELAYED },
-{ "bneg",	0x2c800000, 0xc1400000, ",al", F_DELAYED },
-{ "bneg",	0x0c800000, 0xc1400000, "l", F_DELAYED },
-{ "bcc",	0x3a800000, 0xc1400000, ",al", F_DELAYED },
-{ "bcc",	0x1a800000, 0xc1400000, "l", F_DELAYED },
-{ "bcs",	0x2a800000, 0xc1400000, ",al", F_DELAYED },
-{ "bcs",	0x0a800000, 0xc1400000, "l", F_DELAYED },
-{ "blu",	0x2a800000, 0xc1400000, ",al", F_DELAYED },
-{ "blu",	0x0a800000, 0xc1400000, "l", F_DELAYED|F_ALIAS }, /* bcs */
-{ "bgeu",	0x3a800000, 0xc1400000, ",al", F_DELAYED },
-{ "bgeu",	0x1a800000, 0xc1400000, "l", F_DELAYED|F_ALIAS }, /* bcc */
-{ "bgu",	0x38800000, 0xc1400000, ",al", F_DELAYED },
-{ "bgu",	0x18800000, 0xc1400000, "l", F_DELAYED },
-{ "bleu",	0x28800000, 0xc1400000, ",al", F_DELAYED },
-{ "bleu",	0x08800000, 0xc1400000, "l", F_DELAYED },
-{ "bge",	0x36800000, 0xc1400000, ",al", F_DELAYED },
-{ "bge",	0x16800000, 0xc1400000, "l", F_DELAYED },
-{ "bl",		0x26800000, 0xc1400000, ",al", F_DELAYED },
-{ "bl",		0x06800000, 0xc1400000, "l", F_DELAYED },
-{ "bg",		0x34800000, 0xc1400000, ",al", F_DELAYED },
-{ "bg",		0x14800000, 0xc1400000, "l", F_DELAYED },
-{ "ble",	0x24800000, 0xc1400000, ",al", F_DELAYED },
-{ "ble",	0x04800000, 0xc1400000, "l", F_DELAYED },
-{ "be",		0x22800000, 0xc1400000, ",al", F_DELAYED },
-{ "be",		0x02800000, 0xc1400000, "l", F_DELAYED },
-{ "bz",		0x22800000, 0xc1400000, ",al", F_DELAYED|F_ALIAS }, /* be */
-{ "bz",		0x02800000, 0xc1400000, "l", F_DELAYED|F_ALIAS },
-{ "bne",	0x32800000, 0xc1400000, ",al", F_DELAYED },
-{ "bne",	0x12800000, 0xc1400000, "l", F_DELAYED },
-{ "bnz",	0x32800000, 0xc1400000, ",al", F_DELAYED|F_ALIAS }, /* bne */
-{ "bnz",	0x12800000, 0xc1400000, "l", F_DELAYED|F_ALIAS },
-{ "b",		0x30800000, 0xc1400000, ",al", F_DELAYED },
-{ "b",		0x10800000, 0xc1400000, "l", F_DELAYED },
-{ "ba",		0x30800000, 0xc1400000, ",al", F_DELAYED|F_ALIAS }, /* b */
-{ "ba",		0x10800000, 0xc1400000, "l", F_DELAYED|F_ALIAS },
-{ "bn", 	0x20800000, 0xc1400000, ",al", F_DELAYED },
-{ "bn",		0x00800000, 0xc1400000, "l", F_DELAYED },
-
 { "jmp",        0x81c00000, 0x7e38201f, "1", F_DELAYED }, /* jmpl rs1+%g0,%g0 */
 { "jmp",        0x81c02000, 0x7e3fc000, "i", F_DELAYED }, /* jmpl %g0+i,%g0 */
 { "jmp",        0x81c00000, 0x7e382000, "1+2", F_DELAYED }, /* jmpl rs1+rs2,%g0 */
@@ -457,7 +414,7 @@ static struct sparc_opcode sparc_opcodes[] =
 
 { "nop",	0x01000000, 0xfeffffff, "", 0 }, /* sethi 0, %g0 */
 
-{ "set",        0x01000000, 0xc0c00000, "Sh,d", 0 },
+{ "set",        0x01000000, 0xc0c00000, "Sh,d", F_ALIAS },
 
 { "sethi",      0x01000000, 0xc0c00000, "h,d", 0 },
 
@@ -466,113 +423,73 @@ static struct sparc_opcode sparc_opcodes[] =
 { "taddcc",     0x81002000, 0x40f80000, "1,i,d", 0 },
 { "taddcc",     0x81000000, 0x40f80000, "1,2,d", 0 },
 
-{ "tvc",	0x9fd02000, 0x402fc000, "i", 0 }, /* tvc %g0+i */
-{ "tvc",        0x9fd02000, 0x40280000, "1+i", 0 },
-{ "tvc",	0x9fd00000, 0x40282000, "1+2", 0 },
-{ "tvc",        0x9fd00000, 0x4028201f, "1", 0 }, /* tvc rs1+%g0 */
-{ "tpos",	0x9dd02000, 0x402fc000, "i", 0 }, /* tpos %g0+i */
-{ "tpos",	0x9dd02000, 0x40280000, "1+i", 0 },
-{ "tpos",	0x9dd00000, 0x40282000, "1+2", 0 },
-{ "tpos",       0x9dd00000, 0x4028201f, "1", 0 }, /* tpos rs1+%g0 */
+/* Conditional instructions.
 
-{ "tcc",        0x9bd02000, 0x402fc000, "i", 0 }, /* tcc %g0+i */
-{ "tcc",	0x9bd02000, 0x40280000, "1+i", 0 },
-{ "tcc",	0x9bd00000, 0x40282000, "1+2", 0 },
-{ "tcc",        0x9bd00000, 0x4028201f, "1", 0 }, /* tcc rs1+%g0 */
+   Because this part of the table was such a mess earlier, I have
+   macrofied it so that all the branches and traps are generated from
+   a single-line description of each condition value.  */
 
-/* Same as tcc.  */
-{ "tlu",        0x9bd02000, 0x402fc000, "i", F_ALIAS }, /* tcc %g0+i */
-{ "tlu",	0x9bd02000, 0x40280000, "1+i", F_ALIAS },
-{ "tlu",	0x9bd00000, 0x40282000, "1+2", F_ALIAS },
-{ "tlu",        0x9bd00000, 0x4028201f, "1", F_ALIAS }, /* tcc rs1+%g0 */
+#define ANNUL  0x20000000
+#define	IMMED  0x00002000
+#define	RS1_G0 0x0007C000
+#define	RS2_G0 0x0000001F
 
-{ "tgu",	0x99d02000, 0x402fc000, "i", 0 }, /* tgu %g0+i */
-{ "tgu",	0x99d02000, 0x40280000, "1+i", 0 },
-{ "tgu",	0x99d00000, 0x40282000, "1+2", 0 },
-{ "tgu",        0x99d00000, 0x4028201f, "1", 0 }, /* tgu rs1+%g0 */
-{ "tge",	0x97d02000, 0x402fc000, "i", 0 }, /* tge %g0+i */
-{ "tge",	0x97d02000, 0x40280000, "1+i", 0 },
-{ "tge",	0x97d00000, 0x40282000, "1+2", 0 },
-{ "tge",        0x97d00000, 0x4028201f, "1", 0 }, /* tge rs1+%g0 */
-{ "tg",		0x95d02000, 0x402fc000, "i", 0 }, /* tg %g0+i */
-{ "tg",		0x95d02000, 0x40280000, "1+i", 0 },
-{ "tg",		0x95d00000, 0x40282000, "1+2", 0 },
-{ "tg",         0x95d00000, 0x4028201f, "1", 0 }, /* tg rs1+%g0 */
-{ "tne",        0x93d02000, 0x402fc000, "i", 0 }, /* tne %g0+i */
-{ "tne",	0x93d02000, 0x40280000, "1+i", 0 },
-{ "tne",	0x93d00000, 0x40282000, "1+2", 0 },
-{ "tne",        0x93d00000, 0x4028201f, "1", 0 }, /* tne rs1+%g0 */
+/* Define two branches -- one annulled, one without */
+#define br(opcode, mask, lose, flags)	\
+ { opcode, mask+ANNUL, lose, ",al", flags },	\
+ { opcode, mask      , lose, "l",   flags }
 
-/* Same as tne.  */
-{ "tnz",        0x93d02000, 0x402fc000, "i", F_ALIAS }, /* tne %g0+i */
-{ "tnz",	0x93d02000, 0x40280000, "1+i", F_ALIAS },
-{ "tnz",	0x93d00000, 0x40282000, "1+2", F_ALIAS },
-{ "tnz",        0x93d00000, 0x4028201f, "1", F_ALIAS }, /* tne rs1+%g0 */
+/* Define four traps: reg+reg, reg + immediate, immediate alone, reg alone. */
+#define tr(opcode, mask, lose, flags) \
+ {opcode, mask+IMMED, lose+RS1_G0      , "i", flags },	 /* %g0 + imm */ \
+ {opcode, mask+IMMED, lose             , "1+i", flags }, /* rs1 + imm */ \
+ {opcode, mask      , lose+IMMED       , "1+2", flags }, /* rs1 + rs2 */ \
+ {opcode, mask      , lose+IMMED+RS2_G0, "1", flags }    /* rs1 + %g0 */
 
-{ "tleu",       0x8bd02000, 0x502fc000, "i", 0 }, /* tleu %g0+i */
-{ "tleu",	0x8bd02000, 0x50280000, "1+i", 0 },
-{ "tleu",	0x8bd00000, 0x50282000, "1+2", 0 },
-{ "tleu",       0x8bd00000, 0x5028201f, "1", 0 }, /* tleu rs1+%g0 */
-{ "ta",	        0x91d02000, 0x402fc000, "i", 0 }, /* ta %g0+i */
-{ "ta",		0x91d02000, 0x402d0000, "1+i", 0 },
-{ "ta",		0x91d00000, 0x40282000, "1+2", 0 },
-{ "ta",         0x91d00000, 0x4028201f, "1", 0 }, /* ta rs1+%g0 */
+/* Define both branches and traps based on condition mask */
+#ifdef __STDC__
+#define cond(bop, top, mask, flags)	\
+  br(#bop,  0x00800000+(mask << 25), 0xC1400000, F_DELAYED|flags), \
+  tr(#top,  0x81d00000+(mask << 25), 0x40280000, flags)
+#else
+#define cond(bop, top, mask, flags)	\
+  br("bop", 0x00800000+(mask << 25), 0xC1400000, F_DELAYED|flags), \
+  tr("top", 0x81d00000+(mask << 25), 0x40280000, flags)
+#endif
 
-/* Same as ta.  */
-{ "t",	        0x91d02000, 0x402fc000, "i", F_ALIAS }, /* ta %g0+i */
-{ "t",		0x91d02000, 0x402d0000, "1+i", F_ALIAS },
-{ "t",		0x91d00000, 0x40282000, "1+2", F_ALIAS },
-{ "t",          0x91d00000, 0x4028201f, "1", F_ALIAS }, /* ta rs1+%g0 */
+/* Define all the conditions, all the branches, all the traps.  */
+cond (bvc,	tvc,  0xF, 0),
+cond (bvs,	tvs,  0x7, 0),
+cond (bpos,	tpos, 0xE, 0),
+cond (bneg,	tneg, 0x6, 0),
+cond (bcc,	tcc,  0xD, 0),
+cond (bcs,	tcs,  0x5, 0),
+cond (blu,	tlu,  0x5, F_ALIAS), 	/* for cs */
+cond (bgeu,	tgeu, 0xD, F_ALIAS),	/* for cc */
+cond (bgu,	tgu,  0xC, 0),
+cond (bleu,	tleu, 0x4, 0),
+cond (bge,	tge,  0xB, 0),
+cond (bl,	tl,   0x3, 0),
+cond (bg,	tg,   0xA, 0),
+cond (ble,	tle,  0x2, 0),
+cond (be,	te,   0x1, 0),
+cond (bz,	tz,   0x1, F_ALIAS),	/* for e */
+cond (bne,	tne,  0x9, 0),
+cond (bnz,	tnz,  0x9, F_ALIAS),	/* for ne */
+cond (b,	t,    0x8, 0),
+cond (ba,	ta,   0x8, F_ALIAS),	/* for nothing */
+cond (bn,	tn,   0x0, 0),
 
-{ "tvs",	0x8fd02000, 0x502fc000, "i", 0 }, /* tvs %g0+i */
-{ "tvs",	0x8fd02000, 0x50280000, "1+i", 0 },
-{ "tvs",	0x8fd00000, 0x50282000, "1+2", 0 },
-{ "tvs",        0x8fd00000, 0x5028201f, "1", 0 }, /* tvs rs1+%g0 */
-{ "tneg",	0x8dd02000, 0x502fc000, "i", 0 }, /* tneg %g0+i */
-{ "tneg",	0x8dd02000, 0x50280000, "1+i", 0 },
-{ "tneg",	0x8dd00000, 0x50282000, "1+2", 0 },
-{ "tneg",	0x8dd00000, 0x5028201f, "1", 0 }, /* tneg rs1+%g0 */
-{ "tcs",        0x8bd02000, 0x502fc000, "i", 0 }, /* tcs %g0+i */
-{ "tcs",	0x8bd02000, 0x50280000, "1+i", 0 },
-{ "tcs",	0x8bd00000, 0x50282000, "1+2", 0 },
-{ "tcs",	0x8bd00000, 0x5028201f, "1", 0 }, /* tcs rs1+%g0 */
-
-/* Same as tcs.  */
-{ "tgeu",       0x8bd02000, 0x502fc000, "i", F_ALIAS }, /* tcs %g0+i */
-{ "tgeu",	0x8bd02000, 0x50280000, "1+i", F_ALIAS },
-{ "tgeu",	0x8bd00000, 0x50282000, "1+2", F_ALIAS },
-{ "tgeu",	0x8bd00000, 0x5028201f, "1", F_ALIAS }, /* tcs rs1+%g0 */
-
-{ "tl",		0x87d02000, 0x502fc000, "i", 0 }, /* tl %g0+i */
-{ "tl",		0x87d02000, 0x50280000, "1+i", 0 },
-{ "tl",		0x87d00000, 0x50282000, "1+2", 0 },
-{ "tl",		0x87d00000, 0x5028201f, "1", 0 }, /* tl rs1+%g0 */
-{ "tle",	0x85d02000, 0x502fc000, "i", 0 }, /* tle %g0+i */
-{ "tle",	0x85d02000, 0x50280000, "1+i", 0 },
-{ "tle",	0x85d00000, 0x50282000, "1+2", 0 },
-{ "tle",	0x85d00000, 0x5028201f, "1", 0 }, /* tle rs1+%g0 */
-{ "te",	        0x83d02000, 0x502fc000, "i", 0 }, /* te %g0+i */
-{ "te",		0x83d02000, 0x50280000, "1+i", 0 },
-{ "te",		0x83d00000, 0x50282000, "1+2", 0 },
-{ "te",         0x83d00000, 0x5028201f, "1", 0 }, /* te rs1+%g0 */
-
-/* Same as te.  */
-{ "tz",	        0x83d02000, 0x502fc000, "i", F_ALIAS }, /* te %g0+i */
-{ "tz",		0x83d02000, 0x50280000, "1+i", F_ALIAS },
-{ "tz",		0x83d00000, 0x50282000, "1+2", F_ALIAS },
-{ "tz",         0x83d00000, 0x5028201f, "1", F_ALIAS }, /* te rs1+%g0 */
-
-{ "tn",		0x81d02000, 0x502fc000, "i", 0 }, /* tn %g0+i */
-{ "tn",	        0x81d02000, 0x50280000, "1+i", 0 },
-{ "tn",		0x81d00000, 0x50282000, "1+2", 0 },
-{ "tn",         0x81d00000, 0x5028201f, "1", 0 }, /* tn rs1+%g0 */
+#undef cond
+#undef br
+#undef tr
 
 { "tsubcc",     0x81080000, 0x40f00000, "1,2,d", 0 },
 { "tsubcc",     0x81082000, 0x40f00000, "1,i,d", 0 },
 { "tsubcctv",   0x80580000, 0x40a00000, "1,2,d", 0 },
 { "tsubcctv",   0x80582000, 0x40a00000, "1,i,d", 0 },
 
-{ "unimp",      0x00000000, 0x00000000, "l", 0 },
+{ "unimp",      0x00000000, 0xFFFFFFFF, "l", 0 },
 
 { "iflush",     0x81d80000, 0x40202000, "1+2", 0 },
 { "iflush",     0x81d82000, 0x40200000, "1+i", 0 },
@@ -598,6 +515,9 @@ static struct sparc_opcode sparc_opcodes[] =
 
 { "fpop1",      0x81a00000, 0x40580000, "[1+2],d", 0 },
 { "fpop2",      0x81a80000, 0x40500000, "[1+2],d", 0 },
+
+/* Someday somebody should give these the same treatment as the branches
+   above.  FIXME someday.  */
 
 { "fb",         0x31800000, 0xc0400000, ",al", F_DELAYED },
 { "fb",         0x11800000, 0xc0400000, "l", F_DELAYED },

@@ -1,4 +1,5 @@
-ALLDEPFILES=\
+ALLDEPFILES = $(ALLDEPFILES_MAINDIR) $(ALLDEPFILES_SUBDIR)
+ALLDEPFILES_MAINDIR=\
 altos-xdep.c\
 am29k-pinsn.c\
 am29k-tdep.c\
@@ -13,7 +14,7 @@ coredep.c\
 exec.c\
 gould-pinsn.c\
 gould-xdep.c\
-hp300hpux-xdep.c\
+hp300ux-xdep.c\
 i386-pinsn.c\
 i386-tdep.c\
 i386-xdep.c\
@@ -22,28 +23,44 @@ i960-tdep.c\
 infptrace.c\
 m68k-pinsn.c\
 m68k-tdep.c\
-m68k-xdep.c\
+m88k-pinsn.c\
+m88k-tdep.c\
+m88k-xdep.c\
 mips-pinsn.c\
 mips-tdep.c\
 mips-xdep.c\
 mipsread.c\
 news-xdep.c\
+nindy-tdep.c\
 ns32k-pinsn.c\
 pyr-pinsn.c\
 pyr-tdep.c\
 pyr-xdep.c\
 remote-eb.c\
+remote-nindy.c\
+remote-vx.c\
 solib.c\
 sparc-pinsn.c\
 sparc-tdep.c\
 sparc-xdep.c\
 sun3-xdep.c\
 sun386-xdep.c\
-symmetry-tdep.c\
-symmetry-xdep.c\
+symm-tdep.c\
+symm-xdep.c\
+tahoe-pinsn.c\
 tdesc.c\
 umax-xdep.c\
 vax-pinsn.c
+
+ALLDEPFILES_SUBDIR=\
+nindy-share/Onindy.c\
+nindy-share/nindy.c\
+nindy-share/ttybreak.c\
+nindy-share/ttyflush.c\
+vx-share/xdr_ld.c\
+vx-share/xdr_ptrace.c\
+vx-share/xdr_rdb.c\
+vx-share/xdr_regs.c
 
 ALLPARAM=\
 tm-29k.h\
@@ -58,11 +75,11 @@ tm-hp300bsd.h\
 tm-hp300hpux.h\
 tm-i386v-g.h\
 tm-i386v.h\
-tm-i960.h\
 tm-isi.h\
 tm-merlin.h\
 tm-mips.h\
 tm-news.h\
+tm-nindy960.h\
 tm-np1.h\
 tm-pn.h\
 tm-pyr.h\
@@ -74,9 +91,11 @@ tm-sun386.h\
 tm-sun3os4.h\
 tm-sun4os4.h\
 tm-symmetry.h\
+tm-tahoe.h\
 tm-umax.h\
 tm-vax.h\
-tm-vxworks68.h\
+tm-vx68.h\
+tm-vx960.h\
 xm-3b1.h\
 xm-88k.h\
 xm-altos.h\
@@ -85,6 +104,7 @@ xm-bigmips.h\
 xm-convex.h\
 xm-hp300bsd.h\
 xm-hp300hpux.h\
+xm-i386sco.h\
 xm-i386v.h\
 xm-i386v32.h\
 xm-isi.h\
@@ -102,6 +122,7 @@ xm-sun386.h\
 xm-sun3os4.h\
 xm-sun4os4.h\
 xm-symmetry.h\
+xm-tahoe.h\
 xm-umax.h\
 xm-vax.h
 
@@ -115,19 +136,19 @@ ALLCONFIG=\
 ./tconfig/convex\
 ./tconfig/hp300bsd\
 ./tconfig/hp300hpux\
+./tconfig/i386sco\
 ./tconfig/i386v\
 ./tconfig/i386v-g\
 ./tconfig/i386v32\
 ./tconfig/i386v32-g\
 ./tconfig/i960\
-./tconfig/i960-bout\
-./tconfig/i960-coff\
 ./tconfig/isi\
 ./tconfig/littlemips\
 ./tconfig/m88k\
 ./tconfig/merlin\
 ./tconfig/news\
 ./tconfig/news1000\
+./tconfig/nindy960\
 ./tconfig/none\
 ./tconfig/np1\
 ./tconfig/pn\
@@ -142,9 +163,11 @@ ALLCONFIG=\
 ./tconfig/sun4os3\
 ./tconfig/sun4os4\
 ./tconfig/symmetry\
+./tconfig/tahoe\
 ./tconfig/umax\
 ./tconfig/vax\
 ./tconfig/vxworks68\
+./tconfig/vxworks960\
 ./xconfig/3b1\
 ./xconfig/altos\
 ./xconfig/altosgas\
@@ -153,6 +176,7 @@ ALLCONFIG=\
 ./xconfig/convex\
 ./xconfig/hp300bsd\
 ./xconfig/hp300hpux\
+./xconfig/i386sco\
 ./xconfig/i386v\
 ./xconfig/i386v-g\
 ./xconfig/i386v32\
@@ -177,6 +201,7 @@ ALLCONFIG=\
 ./xconfig/sun4os3\
 ./xconfig/sun4os4\
 ./xconfig/symmetry\
+./xconfig/tahoe\
 ./xconfig/umax\
 ./xconfig/vax
 

@@ -1,5 +1,5 @@
 /* Print values for GNU debugger GDB.
-   Copyright (C) 1986, 1987, 1988, 1989, 1990 Free Software Foundation, Inc.
+   Copyright (C) 1986-1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -27,8 +27,11 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "expression.h"
 #include "gdbcore.h"
 #include "gdbcmd.h"
+#include "target.h"
 
 extern int asm_demangle;	/* Whether to demangle syms in asm printouts */
+
+extern struct block *get_current_block ();
 
 static void print_frame_nameless_args ();
 
@@ -360,7 +363,7 @@ print_scalar_formatted (valaddr, type, format, size, stream)
       break;
 
     case 'a':
-      print_address ((CORE_ADDR) val_long, stream);
+      print_address (unpack_pointer (type, valaddr), stream);
       break;
 
     case 'c':
@@ -378,6 +381,51 @@ print_scalar_formatted (valaddr, type, format, size, stream)
 
     case 0:
       abort ();
+
+    case 't':
+      /* Binary; 't' stands for "two".  */
+      {
+        char bits[8*(sizeof val_long) + 1];
+	char *cp = bits;
+	int width;
+
+        if (!size)
+	  width = 8*(sizeof val_long);
+        else
+          switch (size)
+	    {
+	    case 'b':
+	      width = 8;
+	      break;
+	    case 'h':
+	      width = 16;
+	      break;
+	    case 'w':
+	      width = 32;
+	      break;
+	    case 'g':
+	      width = 64;
+	      break;
+	    default:
+	      error ("Undefined output size \"%c\".", size);
+	    }
+
+        bits[width] = '\0';
+        while (width-- > 0)
+          {
+            bits[width] = (val_long & 1) ? '1' : '0';
+            val_long >>= 1;
+          }
+	if (!size)
+	  {
+	    while (*cp && *cp == '0')
+	      cp++;
+	    if (*cp == '\0')
+	      cp--;
+	  }
+        fprintf_filtered (stream, cp);
+      }
+      break;
 
     default:
       error ("Undefined output format \"%c\".", format);
@@ -573,10 +621,30 @@ print_command_1 (exp, inspect, voidprint)
 
   if (exp && *exp)
     {
+      extern int objectprint;
+      struct type *type;
       expr = parse_c_expression (exp);
       old_chain = make_cleanup (free_current_contents, &expr);
       cleanup = 1;
       val = evaluate_expression (expr);
+
+      /* C++: figure out what type we actually want to print it as.  */
+      type = VALUE_TYPE (val);
+
+      if (objectprint
+	  && (TYPE_CODE (type) == TYPE_CODE_PTR
+	      || TYPE_CODE (type) == TYPE_CODE_REF)
+	  && TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_STRUCT)
+	{
+	  value v;
+
+	  v = value_from_vtable_info (val, TYPE_TARGET_TYPE (type));
+	  if (v != 0)
+	    {
+	      val = v;
+	      type = VALUE_TYPE (val);
+	    }
+	}
     }
   else
     val = access_value_history (0);
@@ -602,6 +670,7 @@ print_command_1 (exp, inspect, voidprint)
   inspect_it = 0;	/* Reset print routines to normal */
 }
 
+/* ARGSUSED */
 static void
 print_command (exp, from_tty)
      char *exp;
@@ -611,6 +680,7 @@ print_command (exp, from_tty)
 }
 
 /* Same as print, except in epoch, it gets its own window */
+/* ARGSUSED */
 static void
 inspect_command (exp, from_tty)
      char *exp;
@@ -622,6 +692,7 @@ inspect_command (exp, from_tty)
 }
 
 /* Same as print, except it doesn't print void results. */
+/* ARGSUSED */
 static void
 call_command (exp, from_tty)
      char *exp;
@@ -630,6 +701,7 @@ call_command (exp, from_tty)
   print_command_1 (exp, 0, 0);
 }
 
+/* ARGSUSED */
 static void
 output_command (exp, from_tty)
      char *exp;
@@ -659,6 +731,7 @@ output_command (exp, from_tty)
   do_cleanups (old_chain);
 }
 
+/* ARGSUSED */
 static void
 set_command (exp, from_tty)
      char *exp;
@@ -671,13 +744,14 @@ set_command (exp, from_tty)
   do_cleanups (old_chain);
 }
 
+/* ARGSUSED */
 static void
 address_info (exp, from_tty)
      char *exp;
      int from_tty;
 {
   register struct symbol *sym;
-  register CORE_ADDR val;
+  register long val;
   int is_a_field_of_this;	/* C++: lookup_symbol sets this to nonzero
 				   if exp is a field of `this'. */
 
@@ -735,15 +809,19 @@ address_info (exp, from_tty)
       break;
       
     case LOC_ARG:
-      printf ("an argument at offset %d", (int)val);
+      printf ("an argument at offset %ld", val);
+      break;
+
+    case LOC_LOCAL_ARG:
+      printf ("an argument at frame offset %ld", val);
       break;
 
     case LOC_LOCAL:
-      printf ("a local variable at frame offset %d", (int)val);
+      printf ("a local variable at frame offset %ld", val);
       break;
 
     case LOC_REF_ARG:
-      printf ("a reference argument at offset %d", (int)val);
+      printf ("a reference argument at offset %ld", val);
       break;
 
     case LOC_TYPEDEF:
@@ -801,6 +879,8 @@ x_command (exp, from_tty)
 	*exp = 0;
       old_chain = make_cleanup (free_current_contents, &expr);
       val = evaluate_expression (expr);
+      if (TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_REF)
+	val = value_ind (val);
       /* In rvalue contexts, such as this, functions are coerced into
 	 pointers to functions.  This makes "x/i main" work.  */
       if (/* last_format == 'i'
@@ -808,7 +888,7 @@ x_command (exp, from_tty)
 	  && VALUE_LVAL (val) == lval_memory)
 	next_address = VALUE_ADDRESS (val);
       else
-	next_address = (CORE_ADDR) value_as_long (val);
+	next_address = value_as_pointer (val);
       do_cleanups (old_chain);
     }
 
@@ -857,6 +937,7 @@ whatis_exp (exp, show)
     do_cleanups (old_chain);
 }
 
+/* ARGSUSED */
 static void
 whatis_command (exp, from_tty)
      char *exp;
@@ -869,6 +950,7 @@ whatis_command (exp, from_tty)
 }
 
 /* TYPENAME is either the name of a type, or an expression.  */
+/* ARGSUSED */
 static void
 ptype_command (typename, from_tty)
      char *typename;
@@ -876,9 +958,8 @@ ptype_command (typename, from_tty)
 {
   register char *p = typename;
   register int len;
-  extern struct block *get_current_block ();
   register struct block *b
-    = (have_inferior_p () || have_core_file_p ()) ? get_current_block () : 0;
+    = target_has_stack ? get_current_block () : 0;
   register struct type *type;
 
   if (typename == 0)
@@ -907,30 +988,35 @@ ptype_command (typename, from_tty)
 			     (struct symtab **)NULL);
 	  if (sym == 0)
 	    {
-	      whatis_exp (typename, 1 /* FIXME: right? */);
+	      /* It's not the name of a type, either VAR_NAMESPACE
+		 or STRUCT_NAMESPACE, so it must be an expression.  */
+	      whatis_exp (typename, 1);
 	      return;
 	    }
-	  printf_filtered ("No type named %s, but there is a ",
-		  typename);
+	  printf_filtered ("No type named %s, ", typename);
+	  wrap_here ("");
+	  printf_filtered ("but there is ");
 	  switch (TYPE_CODE (SYMBOL_TYPE (sym)))
 	    {
 	    case TYPE_CODE_STRUCT:
-	      printf_filtered ("struct");
+	      printf_filtered ("a struct");
 	      break;
 
 	    case TYPE_CODE_UNION:
-	      printf_filtered ("union");
+	      printf_filtered ("a union");
 	      break;
 
 	    case TYPE_CODE_ENUM:
-	      printf_filtered ("enum");
+	      printf_filtered ("an enum");
 	      break;
 
 	    default:
 	      printf_filtered ("(Internal error in gdb)");
 	      break;
 	    }
-	  printf_filtered (" %s.  Type \"help ptype\".\n", typename);
+	  printf_filtered (" %s.  ", typename);
+	  wrap_here ("");
+	  printf_filtered ("(Type \"help ptype\".)\n");
 	  type = SYMBOL_TYPE (sym);
 	}
     }
@@ -1042,7 +1128,7 @@ display_command (exp, from_tty)
   new->status = enabled;
   display_chain = new;
 
-  if (from_tty && have_inferior_p ())
+  if (from_tty && target_has_execution)
     do_one_display (new);
 
   dont_repeat ();
@@ -1181,7 +1267,7 @@ do_one_display (d)
       else
 	printf_filtered ("  ");
       
-      addr = (CORE_ADDR) value_as_long (evaluate_expression (d->exp));
+      addr = value_as_pointer (evaluate_expression (d->exp));
       if (d->format.format == 'i')
 	addr = ADDR_BITS_REMOVE (addr);
       
@@ -1310,6 +1396,7 @@ enable_display (args)
       }
 }
 
+/* ARGSUSED */
 void
 disable_display_command (args, from_tty)
      char *args;
@@ -1379,8 +1466,7 @@ print_frame_args (func, fi, num, stream)
   /* Offset of next stack argument beyond the one we have seen that is
      at the highest offset.
      -1 if we haven't come to a stack argument yet.  */
-  int highest_offset = -1;
-  register CORE_ADDR addr = FRAME_ARGS_ADDRESS (fi);
+  long highest_offset = -1;
   int arg_size;
   /* Number of ints of arguments that we have printed so far.  */
   int args_printed = 0;
@@ -1398,35 +1484,27 @@ print_frame_args (func, fi, num, stream)
 
       if (SYMBOL_CLASS (sym) != LOC_REGPARM
 	  && SYMBOL_CLASS (sym) != LOC_ARG
+	  && SYMBOL_CLASS (sym) != LOC_LOCAL_ARG
 	  && SYMBOL_CLASS (sym) != LOC_REF_ARG)
 	continue;
 
       /* We have to re-look-up the symbol because arguments often have
 	 two entries (one a parameter, one a register or local), and the one
 	 we want is the non-parm, which lookup_symbol will find for
-	 us.  */
+	 us.  After this, sym could be any SYMBOL_CLASS...  */
       sym = lookup_symbol (SYMBOL_NAME (sym),
 		    b, VAR_NAMESPACE, (int *)NULL, (struct symtab **)NULL);
 
-      /* Print the next arg.  */
-      if (SYMBOL_CLASS (sym) == LOC_REGPARM
-	  || SYMBOL_CLASS (sym) == LOC_REGISTER)
-	val = value_from_register (SYMBOL_TYPE (sym),
-				   SYMBOL_VALUE (sym),
-				   FRAME_INFO_ID (fi));
-      else
+      switch (SYMBOL_CLASS (sym)) {
+
+      /* Keep track of the highest stack argument offset seen */
+      case LOC_ARG:
+      case LOC_REF_ARG:
 	{
-	  int current_offset = SYMBOL_VALUE (sym);
+	  long current_offset = SYMBOL_VALUE (sym);
 
 	  arg_size = TYPE_LENGTH (SYMBOL_TYPE (sym));
 	  
-	  if (SYMBOL_CLASS (sym) == LOC_REF_ARG)
-	    val = value_at (SYMBOL_TYPE (sym),
-			    read_memory_integer (addr + current_offset,
-						 sizeof (CORE_ADDR)));
-	  else
-	    val = value_at (SYMBOL_TYPE (sym), addr + current_offset);
-
 	  /* Compute address of next argument by adding the size of
 	     this argument and rounding to an int boundary.  */
 	  current_offset
@@ -1442,45 +1520,27 @@ print_frame_args (func, fi, num, stream)
 	  args_printed += (arg_size + sizeof (int) - 1) / sizeof (int);
 	}
 
+      /* Other types of symbols don't need to be kept track of.  */
+      default:
+	break;
+      }
+
+      /* Print the current arg.  */
       if (! first)
 	fprintf_filtered (stream, ", ");
       wrap_here ("    ");
       fprint_symbol (stream, SYMBOL_NAME (sym));
       fputs_filtered ("=", stream);
 
-#if 0
-/* Now that we look up all symbols with lookup_sym, this is wasted.  -gnu*/
-/* Nonzero if a LOC_ARG which is a struct is useless.  */
-#if !defined (STRUCT_ARG_SYM_GARBAGE)
-#define STRUCT_ARG_SYM_GARBAGE(gcc_p) 0
-#endif
-
-      if (STRUCT_ARG_SYM_GARBAGE (b->gcc_compile_flag)
-	  && TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_STRUCT
-	  && SYMBOL_CLASS (sym) == LOC_ARG)
-	{
-	  /* Try looking up that name.  SunOS4 puts out a usable
-	     symbol as a local variable (in addition to the one
-	     for the arg).  */
-	  struct symbol *sym2 =
-	    lookup_symbol (SYMBOL_NAME (sym), b, VAR_NAMESPACE, 0, 
-			   (struct symtab **)NULL);
-
-	  if (sym2 != NULL)
-	    val = value_of_variable (sym2);
-	  else
-	    {
-	      fputs_filtered ("?", stream);
-	      first = 0;
-	      continue;
-	    }
-	}
-#endif
-
       /* Avoid value_print because it will deref ref parameters.  We just
-	 want to print their addresses. */
-      val_print (VALUE_TYPE (val), VALUE_CONTENTS (val), VALUE_ADDRESS (val),
-		 stream, 0, 0, 0, Val_no_prettyprint);
+	 want to print their addresses.  Print ??? for args whose address
+	 we do not know.  */
+      val = read_var_value (sym, FRAME_INFO_ID (fi));
+      if (val)
+        val_print (VALUE_TYPE (val), VALUE_CONTENTS (val), VALUE_ADDRESS (val),
+		   stream, 0, 0, 0, Val_no_prettyprint);
+      else
+	fputs_filtered ("???", stream);
       first = 0;
     }
 
@@ -1488,15 +1548,18 @@ print_frame_args (func, fi, num, stream)
      enough about the stack to find them.  */
   if (num != -1)
     {
-      int start;
+      long start;
+      CORE_ADDR addr;
 
       if (highest_offset == -1)
 	start = FRAME_ARGS_SKIP;
       else
 	start = highest_offset;
 
-      print_frame_nameless_args (addr, start, num - args_printed,
-				 first, stream);
+      addr = FRAME_ARGS_ADDRESS (fi);
+      if (addr)
+        print_frame_nameless_args (addr, start, num - args_printed,
+				   first, stream);
     }
 }
 
@@ -1508,7 +1571,7 @@ print_frame_args (func, fi, num, stream)
 static void
 print_frame_nameless_args (argsaddr, start, num, first, stream)
      CORE_ADDR argsaddr;
-     int start;
+     long start;
      int num;
      int first;
      FILE *stream;
@@ -1533,6 +1596,7 @@ print_frame_nameless_args (argsaddr, start, num, first, stream)
     }
 }
 
+/* ARGSUSED */
 static void
 printf_command (arg, from_tty)
      char *arg;
@@ -1689,8 +1753,9 @@ printf_command (arg, from_tty)
 	if (argclass[i] == string_arg)
 	  {
 	    char *str;
-	    int tem, j;
-	    tem = value_as_long (val_args[i]);
+	    CORE_ADDR tem;
+	    int j;
+	    tem = value_as_pointer (val_args[i]);
  
 	    /* This is a %s argument.  Find the length of the string.  */
 	    for (j = 0; ; j++)
@@ -1726,8 +1791,8 @@ printf_command (arg, from_tty)
 	  else
 #endif
 	    {
-	      *((int *) &arg_bytes[argindex]) = value_as_long (val_args[i]);
-	      argindex += sizeof (int);
+	      *((long *) &arg_bytes[argindex]) = value_as_long (val_args[i]);
+	      argindex += sizeof (long);
 	    }
       }
   }
@@ -1780,6 +1845,7 @@ containing_function_bounds (pc, low, high)
    Two arguments are interpeted as bounds within which to dump
    assembly.  */
 
+/* ARGSUSED */
 static void
 disassemble_command (arg, from_tty)
      char *arg;

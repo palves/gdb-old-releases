@@ -45,6 +45,9 @@ extern struct cmd_list_element *enablebreaklist;
 
 extern struct cmd_list_element *setlist;
 
+/* Chain containing all defined unset subcommands */
+extern struct cmd_list_element *unsetlist;
+
 /* Chain containing all defined show subcommands.  */
 extern struct cmd_list_element *showlist;
 
@@ -58,6 +61,9 @@ extern struct cmd_list_element *showhistlist;
 /* Chain containing all defined \"unset history\".  */
 
 extern struct cmd_list_element *unsethistlist;
+
+extern struct cmd_list_element *setprintlist;
+extern struct cmd_list_element *showprintlist;
 
 void execute_command ();
 char **noop_completer ();

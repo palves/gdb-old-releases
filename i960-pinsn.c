@@ -3,7 +3,9 @@
 
 #include <stdio.h>
 #include "defs.h"
-
+#include "param.h"
+#include "frame.h"
+#include "inferior.h"
 
 extern char *reg_names[];
 
@@ -22,8 +24,7 @@ static void put_abs();
 
 
 /* Print the i960 instruction at address 'memaddr' in debugged memory,
- * on stream 's'.  Returns length of the instruction, in bytes.
- */
+   on stream 's'.  Returns length of the instruction, in bytes.  */
 int
 print_insn( memaddr, s )
     CORE_ADDR memaddr;
@@ -35,6 +36,66 @@ print_insn( memaddr, s )
 	word1 = read_memory_integer( memaddr, 4 );
 	word2 = read_memory_integer( memaddr+4, 4 );
 	return pinsn( memaddr, word1, word2 );
+}
+
+
+/* Read the i960 instruction at 'memaddr' and return the address of 
+   the next instruction after that, or 0 if 'memaddr' is not the
+   address of a valid instruction.  The first word of the instruction
+   is stored at 'pword1', and the second word, if any, is stored at
+   'pword2'.  */
+
+CORE_ADDR
+next_insn (memaddr, pword1, pword2)
+     unsigned long *pword1, *pword2;
+     CORE_ADDR memaddr;
+{
+  int len;
+  unsigned long buf[2];
+
+  /* Read the two (potential) words of the instruction at once,
+     to eliminate the overhead of two calls to read_memory ().
+     TODO: read more instructions at once and cache them.  */
+
+  read_memory (memaddr, buf, sizeof (buf));
+  *pword1 = buf[0];
+  SWAP_TARGET_AND_HOST (pword1, sizeof (long));
+  *pword2 = buf[1];
+  SWAP_TARGET_AND_HOST (pword2, sizeof (long));
+
+  /* Divide instruction set into classes based on high 4 bits of opcode*/
+
+  switch ((*pword1 >> 28) & 0xf)
+    {
+    case 0x0:
+    case 0x1:	/* ctrl */
+
+    case 0x2:
+    case 0x3:	/* cobr */
+
+    case 0x5:
+    case 0x6:
+    case 0x7:	/* reg */
+      len = 4;
+      break;
+
+    case 0x8:
+    case 0x9:
+    case 0xa:
+    case 0xb:
+    case 0xc:
+      len = mem (memaddr, *pword1, *pword2, 1);
+      break;
+
+    default:	/* invalid instruction */
+      len = 0;
+      break;
+    }
+
+  if (len)
+    return memaddr + len;
+  else
+    return 0;
 }
 
 #define IN_GDB
@@ -60,6 +121,7 @@ pinsn( memaddr, word1, word2 )
 	put_abs( word1, word2 );
 
 	/* Divide instruction set into classes based on high 4 bits of opcode*/
+
 	switch ( (word1 >> 28) & 0xf ){
 	case 0x0:
 	case 0x1:
@@ -248,8 +310,7 @@ mem( memaddr, word1, word2, noprint )
     unsigned long memaddr;
     unsigned long word1, word2;
     int noprint;		/* If TRUE, return instruction length, but
-				 * don't output any text.
-				 */
+				   don't output any text.  */
 {
 	int i, j;
 	int len;

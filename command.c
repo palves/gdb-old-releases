@@ -15,11 +15,11 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include <stdio.h>
 #include "defs.h"
 #include "command.h"
 #include "symtab.h"
 #include "value.h"
-#include <stdio.h>
 #include <ctype.h>
 #include <string.h>
 
@@ -160,6 +160,7 @@ add_abbrev_prefix_cmd (name, class, fun, doc, prefixlist, prefixname,
   return c;
 }
 
+/* ARGSUSED */
 void
 not_just_help_class_command (args, from_tty, c)
      char *args;
@@ -253,8 +254,6 @@ delete_cmd (name, list)
 	  c = c->next;
       }
 }
-
-void help_cmd (), help_list (), help_cmd_list ();
 
 /* This command really has to deal with two things:
  *     1) I want documentation on *this string* (usually called by
@@ -1083,6 +1082,7 @@ cmd_show_list (list, from_tty, prefix)
   }
 }
 
+/* ARGSUSED */
 static void
 shell_escape (arg, from_tty)
      char *arg;
@@ -1138,6 +1138,51 @@ make_command (arg, from_tty)
   shell_escape (p, from_tty);
 }
 
+static void
+user_info_1 (c, stream)
+     struct cmd_list_element *c;
+     FILE *stream;
+{
+  register struct command_line *cmdlines;
+
+  cmdlines = c->user_commands;
+  if (!cmdlines)
+    return;
+  fprintf_filtered (stream, "User command %s:\n", c->name);
+  while (cmdlines)
+    {
+      fprintf_filtered (stream, "%s\n", cmdlines->line); 
+      cmdlines = cmdlines->next;
+    }
+  fputs_filtered ("\n", stream);
+}
+
+/* ARGSUSED */
+static void
+user_info (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  struct cmd_list_element *c;
+  extern struct cmd_list_element *cmdlist;
+
+  if (args)
+    {
+      c = lookup_cmd (&args, cmdlist, "", 0, 1);
+      if (c->class != class_user)
+	error ("Not a user command.");
+      user_info_1 (c, stdout);
+    }
+  else
+    {
+      for (c = cmdlist; c; c = c->next)
+	{
+	  if (c->class == class_user)
+	    user_info_1 (c, stdout);
+	}
+    }
+}
+
 void
 _initialize_command ()
 {
@@ -1147,4 +1192,8 @@ With no arguments, run an inferior shell.");
 
   add_com ("make", class_support, make_command,
 	   "Run the ``make'' program using the rest of the line as arguments.");
+
+  add_info ("user", user_info, "Show definitions of user defined commands.\n\
+Argument is the name of the user defined command.\n\
+With no argument, show definitions of all user defined commands.");
 }

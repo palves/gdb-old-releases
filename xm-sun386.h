@@ -17,11 +17,15 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#define BYTE_ORDER LITTLE_ENDIAN
+#define HOST_BYTE_ORDER LITTLE_ENDIAN
 
 /* Get rid of any system-imposed stack limit if possible.  */
 
-#define SET_STACK_LIMIT_HUGE
+/* If I do this on SunOS 4.0.1, I get SIGSEGV's on (some) instructions which
+   try to access the stack.  */
+/* #define SET_STACK_LIMIT_HUGE */
+
+#define BROKEN_LARGE_ALLOCA
 
 /* Enable use of alternate code for Sun's format of core dump file.  */
 

@@ -1,5 +1,6 @@
 /* Do not modify this file; it is created automatically
    by copying.awk.  */
+#include <stdio.h>
 #include "defs.h"
 #include "command.h"
 extern int immediate_quit;

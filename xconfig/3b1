@@ -23,5 +23,5 @@ CC= gcc -traditional
 # GCC runs out of virtual memory.
 PINSN_CC= cc
 
-XDEPFILES= infptrace.o coredep.o m68k-xdep.o
+XDEPFILES= infptrace.o coredep.o
 XM_FILE= xm-3b1.h

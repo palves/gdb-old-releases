@@ -184,3 +184,24 @@ xdr_SYMBOL_ADDR (xdrs, objp)
 	return (FALSE);
     return (TRUE);
     }
+
+/*********************************************************************
+*
+* xdr_SOURCE_STEP -
+*
+*/
+
+bool_t
+xdr_SOURCE_STEP (xdrs, objp)
+    XDR *xdrs;
+    SOURCE_STEP *objp;
+
+    {
+    if (!xdr_int (xdrs, &objp->taskId))
+	return (FALSE);
+    if (!xdr_u_int (xdrs, &objp->startAddr))
+	return (FALSE);
+    if (!xdr_u_int (xdrs, &objp->endAddr))
+	return (FALSE);
+    return (TRUE);
+    }

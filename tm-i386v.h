@@ -67,11 +67,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define SAVED_PC_AFTER_CALL(frame) \
   (read_memory_integer (read_register (SP_REGNUM), 4))
 
-/* This is only supposed to work in execcore.c, where x == 0 and
-   this is called before any other fields are filled in.  */
-#define N_SET_MAGIC(aouthdr, x) \
-  bzero ((char *) &aouthdr, sizeof aouthdr)
-
 /* Address of end of stack space.  */
 
 #define STACK_END_ADDR 0x80000000
@@ -99,11 +94,16 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define INVALID_FLOAT(p, len) (0)
 
+#if 0
 /* code to execute to print interesting information about the
- * floating point processor (if any)
- * No need to define if there is nothing to do.
+   floating point processor (if any)
+   No need to define if there is nothing to do.
+   On the 386, unfortunately this code is host-dependent (and lives
+   in the i386-xdep.c file), so we can't
+   do this unless we *know* we aren't cross-debugging.  FIXME.
  */
 #define FLOAT_INFO { i386_float_info (); }
+#endif 0
 
 /* Say how long (ordinary) registers are.  */
 
@@ -186,8 +186,11 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
-
-#define REGISTER_VIRTUAL_TYPE(N) (builtin_type_int)
+/* Perhaps si and di should go here, but potentially they could be
+   used for things other than address.  */
+#define REGISTER_VIRTUAL_TYPE(N) \
+  ((N) == PC_REGNUM || (N) == FP_REGNUM || (N) == SP_REGNUM ?         \
+   lookup_pointer_type (builtin_type_void) : builtin_type_int)
 
 /* Store the address of the place in which to copy the structure the
    subroutine will return.  This is called from call_function. */
@@ -303,5 +306,8 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	from = loc + 5; \
 	to = (int)(fun); \
 	delta = to - from; \
-	*(int *)((char *)(dummyname) + 1) = delta; \
+	*((char *)(dummyname) + 1) = (delta & 0xff); \
+	*((char *)(dummyname) + 2) = ((delta >> 8) & 0xff); \
+	*((char *)(dummyname) + 3) = ((delta >> 16) & 0xff); \
+	*((char *)(dummyname) + 4) = ((delta >> 24) & 0xff); \
 }

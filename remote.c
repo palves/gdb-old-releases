@@ -1,5 +1,5 @@
-/* Memory-access and commands for inferior process, for GDB.
-   Copyright (C)  1988, 1989, 1990  Free Software Foundation, Inc.
+/* Remote target communications for serial-line targets in custom GDB protocol
+   Copyright (C) 1988-1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -68,39 +68,22 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include <string.h>
+#include <fcntl.h>
 #include "defs.h"
 #include "param.h"
 #include "frame.h"
 #include "inferior.h"
 #include "target.h"
 #include "wait.h"
+#include "terminal.h"
 
 #ifdef USG
 #include <sys/types.h>
-#include <fcntl.h>
 #endif
 
 #include <signal.h>
-#include <sys/ioctl.h>
-#include <sys/file.h>
 
-#ifdef HAVE_TERMIO
-#include <termio.h>
-#undef TIOCGETP
-#define TIOCGETP TCGETA
-#undef TIOCSETN
-#define TIOCSETN TCSETA
-#undef TIOCSETP
-#define TIOCSETP TCSETAF
-#define TERMINAL struct termio
-#else
-#include <sgtty.h>
-#define TERMINAL struct sgttyb
-#endif
-
-extern int memory_insert_breakpoint ();
-extern int memory_remove_breakpoint ();
-extern void add_file_addr_command ();
+extern void add_syms_addr_command ();
 extern struct value *call_function_by_hand();
 extern void start_remote ();
 
@@ -151,6 +134,18 @@ remote_start()
 {
 }
 
+/* Clean up connection to a remote debugger.  */
+
+/* ARGSUSED */
+void
+remote_close (quitting)
+     int quitting;
+{
+  if (remote_desc >= 0)
+    close (remote_desc);
+  remote_desc = -1;
+}
+
 /* Open a connection to a remote debugger.
    NAME is the filename used for communication.  */
 
@@ -166,8 +161,9 @@ remote_open (name, from_tty)
 "To open a remote debug connection, you need to specify what serial\n\
 device is attached to the remote system (e.g. /dev/ttya).");
 
-  if (remote_desc >= 0)
-    close (remote_desc);
+  target_preopen (from_tty);
+
+  remote_close (0);
 
 #if 0
   dcache_init ();
@@ -190,7 +186,6 @@ device is attached to the remote system (e.g. /dev/ttya).");
   if (from_tty)
     printf ("Remote debugging using %s\n", name);
   push_target (&remote_ops);	/* Switch to using remote target now */
-  start_remote ();		/* Initialize gdb process mechanisms */
 
 #ifndef HAVE_TERMIO
 #ifndef NO_SIGINTERRUPT
@@ -200,11 +195,15 @@ device is attached to the remote system (e.g. /dev/ttya).");
 #endif
 
   /* Set up read timeout timer.  */
-  if ((void (*)) signal (SIGALRM, remote_timer) == (void (*)) -1)
+  if ((void (*)()) signal (SIGALRM, remote_timer) == (void (*)()) -1)
     perror ("remote_open: error in signal");
 #endif
 
+  /* Ack any packet which the remote side has already sent.  */
+  write (remote_desc, "+", 1);
   putpkt ("?");			/* initiate a query from remote machine */
+
+  start_remote ();		/* Initialize gdb process mechanisms */
 }
 
 /* remote_detach()
@@ -223,17 +222,9 @@ remote_detach (args, from_tty)
   if (args)
     error ("Argument given to \"detach\" when remotely debugging.");
   
-  close (remote_desc);		/* This should never be called if
-				   there isn't something valid in
-				   remote_desc.  */
-
-  /* Do not try to close remote_desc again, later in the program.  */
-  remote_desc = -1;
-
+  pop_target ();
   if (from_tty)
-    printf ("Ending remote debugging\n");
-
-  inferior_pid = 0;
+    printf ("Ending remote debugging.\n");
 }
 
 /* Convert hex digit A to a number.  */
@@ -271,6 +262,9 @@ remote_resume (step, siggnal)
 {
   char buf[PBUFSIZ];
 
+  if (siggnal)
+    error ("Can't send signals to a remote system.");
+
 #if 0
   dcache_flush ();
 #endif
@@ -281,7 +275,9 @@ remote_resume (step, siggnal)
 }
 
 /* Wait until the remote machine stops, then return,
-   storing status in STATUS just as `wait' would.  */
+   storing status in STATUS just as `wait' would.
+   Returns "pid" (though it's not clear what, if anything, that
+   means in the case of this target).  */
 
 int
 remote_wait (status)
@@ -296,11 +292,14 @@ remote_wait (status)
   if (buf[0] != 'S')
     error ("Invalid remote reply: %s", buf);
   WSETSTOP ((*status), (((fromhex (buf[1])) << 4) + (fromhex (buf[2]))));
+  return 0;
 }
 
 /* Read the remote registers into the block REGS.  */
 
-int
+/* Currently we just read all the registers, so we don't use regno.  */
+/* ARGSUSED */
+void
 remote_fetch_registers (regno)
      int regno;
 {
@@ -326,7 +325,6 @@ remote_fetch_registers (regno)
     }
   for (i = 0; i < NUM_REGS; i++)
     supply_register (i, &regs[REGISTER_BYTE(i)]);
-  return 0;
 }
 
 /* Prepare to store registers.  Since we send them all, we have to
@@ -341,6 +339,7 @@ remote_prepare_to_store ()
 /* Store the remote registers from the contents of the block REGISTERS. 
    FIXME, eventually just store one register if that's all that is needed.  */
 
+/* ARGSUSED */
 int
 remote_store_registers (regno)
      int regno;
@@ -421,7 +420,7 @@ remote_write_bytes (memaddr, myaddr, len)
 
   sprintf (buf, "M%x,%x:", memaddr, len);
 
-  /* Command describes registers byte by byte,
+  /* We send target system values byte by byte, in increasing byte addresses,
      each byte encoded as two hex characters.  */
 
   p = buf + strlen (buf);
@@ -471,15 +470,15 @@ remote_read_bytes (memaddr, myaddr, len)
 }
 
 /* Read or write LEN bytes from inferior memory at MEMADDR, transferring
-   to or from debugger address MYADDR.  Write to inferior if WRITE is
+   to or from debugger address MYADDR.  Write to inferior if SHOULD_WRITE is
    nonzero.  Returns length of data written or read; 0 for error.  */
 
 int
-remote_xfer_inferior_memory(memaddr, myaddr, len, write)
+remote_xfer_inferior_memory(memaddr, myaddr, len, should_write)
      CORE_ADDR memaddr;
      char *myaddr;
      int len;
-     int write;
+     int should_write;
 {
   int origlen = len;
   int xfersize;
@@ -490,7 +489,7 @@ remote_xfer_inferior_memory(memaddr, myaddr, len, write)
       else
 	xfersize = len;
 
-      if (write)
+      if (should_write)
         remote_write_bytes(memaddr, myaddr, xfersize);
       else
 	remote_read_bytes (memaddr, myaddr, xfersize);
@@ -620,8 +619,20 @@ getpkt (buf)
   int c;
   unsigned char c1, c2;
 
+#if 0
+  /* Sorry, this will cause all hell to break loose, i.e. we'll end
+     up in the command loop with an inferior, but (at least if this
+     happens in remote_wait or some such place) without a current_frame,
+     having set up prev_* in wait_for_inferior, etc.
+
+     If it is necessary to have such an "emergency exit", seems like
+     the only plausible thing to do is to say the inferior died, and
+     make the user reattach if they want to.  Perhaps with a prompt
+     asking for confirmation.  */
+
   /* allow immediate quit while reading from device, it could be hung */
   immediate_quit++;
+#endif /* 0 */
 
   while (1)
     {
@@ -650,7 +661,9 @@ getpkt (buf)
       write (remote_desc, "-", 1);
     }
 
+#if 0
   immediate_quit--;
+#endif
 
   write (remote_desc, "+", 1);
 
@@ -815,18 +828,21 @@ dcache_init ()
 
 struct target_ops remote_ops = {
 	"remote", "Remote serial target in gdb-specific protocol",
-	remote_open, remote_detach, remote_resume, remote_wait,
+	"Use a remote computer via a serial line, using a gdb-specific protocol.\n\
+Specify the serial device it is connected to (e.g. /dev/ttya).",
+	remote_open, remote_close,
+	0, remote_detach, remote_resume, remote_wait,  /* attach */
 	remote_fetch_registers, remote_store_registers,
 	remote_prepare_to_store, 0, 0, /* conv_from, conv_to */
 	remote_xfer_inferior_memory, remote_files_info,
 	0, 0, /* insert_breakpoint, remove_breakpoint, */
 	0, 0, 0, 0, 0,	/* Terminal crud */
 	0, /* kill */
-	add_file_addr_command,
+	0, add_syms_addr_command,  /* load */
 	call_function_by_hand,
 	0, /* lookup_symbol */
 	0, 0, /* create_inferior FIXME, mourn_inferior FIXME */
-	0, /* next */
+	process_stratum, 0, /* next */
 	1, 1, 1, 1, 1,	/* all mem, mem, stack, regs, exec */
 	OPS_MAGIC,		/* Always the last thing */
 };

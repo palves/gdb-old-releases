@@ -48,10 +48,13 @@ fetch_core_registers (core_reg_sect, core_reg_size)
 
   for (regno = 0; regno < NUM_REGS; regno++)
     {
-      addr = register_addr (regno);
-      if (addr >= core_reg_size && bad_reg < 0)
-	bad_reg = regno;
-      supply_register (regno, core_reg_sect + addr);
+      addr = register_addr (regno, core_reg_size);
+      if (addr >= core_reg_size) {
+	if (bad_reg < 0)
+	  bad_reg = regno;
+      } else {
+	supply_register (regno, core_reg_sect + addr);
+      }
     }
   if (bad_reg > 0)
     {

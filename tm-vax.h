@@ -263,20 +263,20 @@ fix to bug-gdb@prep.ai.mit.edu.  */
    just don't know the frame that it called (e.g. "info frame
    0x7ffec789").  For the sake of argument suppose that the stack is
    somewhat trashed (which is one reason that "info frame" exists).
-   So return Frame_unknown (indicating we don't know the address of
+   So return 0 (indicating we don't know the address of
    the arglist) if we don't know what frame this frame calls.  */
 #define FRAME_ARGS_ADDRESS_CORRECT(fi) \
  (((fi)->next_frame                                  \
    ? read_memory_integer ((fi)->next_frame + 8, 4)   \
-   : /* read_register (AP_REGNUM) */ Frame_unknown))
+   : /* read_register (AP_REGNUM) */ 0))
 
 /* In most of GDB, getting the args address is too important to
-   just say "I don't know".  This is sometimes wrong, but c'est
-   la vie.  */
+   just say "I don't know".  This is sometimes wrong for functions
+   that aren't on top of the stack, but c'est la vie.  */
 #define FRAME_ARGS_ADDRESS(fi) \
  (((fi)->next_frame                                  \
    ? read_memory_integer ((fi)->next_frame + 8, 4)   \
-   : read_register (AP_REGNUM) /* Frame_unknown */))
+   : read_register (AP_REGNUM) /* 0 */))
 
 #define FRAME_LOCALS_ADDRESS(fi) ((fi)->frame)
 

@@ -159,7 +159,8 @@ CORE_ADDR heuristic_proc_start(pc)
     return start_pc;
 }
 
-mips_extra_func_info_t heuristic_proc_desc(start_pc, limit_pc, next_frame)
+mips_extra_func_info_t
+heuristic_proc_desc(start_pc, limit_pc, next_frame)
     CORE_ADDR start_pc, limit_pc;
     FRAME next_frame;
 {
@@ -169,15 +170,19 @@ mips_extra_func_info_t heuristic_proc_desc(start_pc, limit_pc, next_frame)
     int has_frame_reg = 0;
     int reg30; /* Value of $r30. Used by gcc for frame-pointer */
     unsigned long reg_mask = 0;
+
     if (start_pc == 0) return NULL;
-    bzero(&temp_proc_desc, sizeof(PDR));
+    bzero(&temp_proc_desc, sizeof(temp_proc_desc));
     bzero(&temp_saved_regs, sizeof(struct frame_saved_regs));
     if (start_pc + 200 < limit_pc) limit_pc = start_pc + 200;
   restart:
     frame_size = 0;
     for (cur_pc = start_pc; cur_pc < limit_pc; cur_pc += 4) {
 	unsigned long word;
-	read_memory_check (read_memory_nobpt (cur_pc, &word, 4), cur_pc); 
+	int status;
+
+	status = read_memory_nobpt (cur_pc, &word, 4); 
+	if (status) memory_error (status, cur_pc); 
 	if ((word & 0xFFFF0000) == 0x27bd0000) /* addiu $sp,$sp,-i */
 	    frame_size += (-word) & 0xFFFF;
 	else if ((word & 0xFFFF0000) == 0x23bd0000) /* addu $sp,$sp,-i */
@@ -290,7 +295,8 @@ FRAME_ADDR mips_frame_chain(frame)
     else
       { /* This hack depends on the internals of __start. */
 	/* We also assume the breakpoints are *not* inserted */
-        if (read_memory_integer (saved_pc + 8, 4) & 0xFC00003F == 0xD)
+        if (saved_pc == 0
+	    || read_memory_integer (saved_pc + 8, 4) & 0xFC00003F == 0xD)
 	    return 0;  /* break */
       }
     proc_desc = find_proc_desc(saved_pc, frame);

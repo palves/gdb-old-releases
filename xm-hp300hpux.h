@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#define BYTE_ORDER BIG_ENDIAN
+#define HOST_BYTE_ORDER BIG_ENDIAN
 
 /* Define this to indicate problems with traps after continuing.  */
 #define HP_OS_BUG
@@ -38,6 +38,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* #define HPUX_VERSION_5 */
 
 /* define USG if you are using sys5 /usr/include's */
+#undef USG	/* In case it was defined in the Makefile for cplus-dem.c */
 #define USG
 
 #define HAVE_TERMIO
@@ -59,6 +60,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif /* Not HPUX version 5.  */
 
 #define REGISTER_ADDR(u_ar0, regno)					\
+  (unsigned int)							\
   (((regno) < PS_REGNUM)						\
    ? (&((struct exception_stack *) (u_ar0))->e_regs[(regno + R0)])	\
    : (((regno) == PS_REGNUM)						\

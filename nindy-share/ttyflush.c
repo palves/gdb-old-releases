@@ -21,7 +21,7 @@
  *****************************************************************************/
 
 static char rcsid[] =
-	"$Id: ttyflush.c,v 1.3 90/08/09 16:59:36 chrisb Exp $";
+	"Id: ttyflush.c,v 1.1.1.1 1991/03/28 16:21:03 rich Exp $";
 
 #include <stdio.h>
 #include <fcntl.h>	/* Needed on Sys V */

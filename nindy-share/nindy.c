@@ -21,7 +21,7 @@
  *****************************************************************************/
 
 static char rcsid[] =
-	"$Id: nindy.c,v 1.2 91/01/18 07:27:42 gnu Exp $";
+	"Id: nindy.c,v 1.1.1.1 1991/03/28 16:20:57 rich Exp $";
 
 /******************************************************************************
  *
@@ -82,6 +82,7 @@ static char rcsid[] =
 #include "block_io.h"
 #include "wait.h"
 #include "env.h"
+
 
 #ifdef USG
 #	include <unistd.h>
@@ -756,6 +757,70 @@ autobaud( fd, brp )
 	ioctl( fd, TIOCGETP, &tty );
 	TTY_REMOTE( tty, brp->rate );
 	ioctl( fd, TIOCSETP, &tty );
+}
+
+/*****************************************************************************
+ * coffstrip:
+ *	Passed the name of an executable object file in either b.out or
+ *	COFF format.
+ *
+ *	If the file is in b.out format, it is converted to little-endian
+ *	COFF format (i.e., the format suitable for downloading to NINDY).
+ *	In either case, the COFF file is then stripped of all relocation
+ *	and symbol information, to speed up its download.
+ *
+ * RETURNS:
+ *	pointer to the name of the stripped COFF file (a tmp file that has
+ *	been created and closed); NULL on error.
+ *****************************************************************************/
+
+#define STRIP	"bfd_strip"	/* Name of bfd strip utility	*/
+#define NINDY_OBJ	"coff-Intel-little"
+
+char *
+coffstrip( fn )
+    char *fn;	/* Name of object file */
+{
+	extern char *mktemp();
+	static char template[] = "/tmp/commXXXXXX";
+	static char newfile[sizeof template];
+	char *strip;	/* Pointer to full pathname of strip utility	*/
+	int success;	/* Return value					*/
+	int pid;	/* Process ID of xmodem transfer utility	*/
+	WAITTYPE w;	/* xmodem transfer completion status		*/
+	int wret;	/* Value returned by wait			*/
+	char *tempfile;	/* Stripped copy of object file			*/
+	char buf[400];
+
+
+	strcpy (newfile, template);
+	tempfile = mktemp( newfile );
+
+	/* Make sure the strip utility is findable.
+	 */
+	if ( ((strip = exists("G960BIN",STRIP,NULL,NULL,1)) == NULL)
+	&&   ((strip = exists("G960BASE","bin",STRIP, NULL,1)) == NULL)
+#ifdef HOST
+	&&   ((strip = exists(DEFAULT_BASE,HOST,"bin",STRIP,0)) == NULL)
+#endif
+	){
+		fprintf(stderr,"Can't find '%s' utility\n",STRIP);
+		fprintf(stderr,"Check env variables G960BIN and G960BASE\n");
+		return NULL;
+	}
+
+	success = 0;
+	sprintf( buf, "cp %s %s", fn, tempfile );
+	printf ("%s\n", buf);
+	if ( system(buf) == 0 ){
+		sprintf( buf, "%s %s -T %s", strip, tempfile, NINDY_OBJ );
+		printf ("%s\n", buf);
+		if ( system(buf) == 0 ){
+			return tempfile;
+		}
+	}
+
+	return NULL;
 }
 
 		/**********************************

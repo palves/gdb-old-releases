@@ -37,7 +37,7 @@ extern char *sys_siglist[];
 extern void until_break_command ();	/* breakpoint.c */
 
 #define ERROR_NO_INFERIOR \
-   if (inferior_pid == 0) error ("The program is not being run.");
+   if (!target_has_execution) error ("The program is not being run.");
 
 /* String containing arguments to give to the program, separated by spaces.
    Empty string (pointer to '\0') means no args.  */
@@ -122,12 +122,7 @@ CORE_ADDR read_pc ();
 void breakpoint_clear_ignore_counts ();
 
 
-int
-have_inferior_p ()
-{
-  return inferior_pid != 0;
-}
-
+/* ARGSUSED */
 void
 tty_command (file, from_tty)
      char *file;
@@ -224,6 +219,7 @@ continue_command (proc_count_exp, from_tty)
 /* Step until outside of current statement.  */
 static void step_1 ();
 
+/* ARGSUSED */
 static void
 step_command (count_string, from_tty)
      char * count_string;
@@ -234,6 +230,7 @@ step_command (count_string, from_tty)
 
 /* Likewise, but skip over subroutine calls as if single instructions.  */
 
+/* ARGSUSED */
 static void
 next_command (count_string, from_tty)
      char * count_string;
@@ -244,6 +241,7 @@ next_command (count_string, from_tty)
 
 /* Likewise, but step only one instruction.  */
 
+/* ARGSUSED */
 static void
 stepi_command (count_string, from_tty)
      char * count_string;
@@ -252,6 +250,7 @@ stepi_command (count_string, from_tty)
   step_1 (0, 1, count_string);
 }
 
+/* ARGSUSED */
 static void
 nexti_command (count_string, from_tty)
      char * count_string;
@@ -267,6 +266,7 @@ step_1 (skip_subroutines, single_inst, count_string)
      char *count_string;
 {
   register int count = 1;
+  FRAME fr;
 
   ERROR_NO_INFERIOR;
   count = count_string ? parse_and_eval_address (count_string) : 1;
@@ -275,7 +275,11 @@ step_1 (skip_subroutines, single_inst, count_string)
     {
       clear_proceed_status ();
 
-      step_frame_address = FRAME_FP (get_current_frame ());
+
+      fr = get_current_frame ();
+      if (!fr)				/* Avoid coredump here.  Why tho? */
+	error ("No current frame");
+      step_frame_address = FRAME_FP (fr);
 
       if (! single_inst)
 	{
@@ -431,6 +435,7 @@ run_stack_dummy (addr, buffer)
       POP_FRAME;
       return;
     }
+  proceed_to_finish = 1;	/* We want stop_registers, please... */
   proceed (addr, 0, 0);
 
   if (!stop_stack_dummy)
@@ -453,6 +458,7 @@ The expression which contained the function call has been discarded.");
    we set.  I'm going to postpone this until after a hopeful rewrite
    of wait_for_inferior and the proceed status code. -- randy */
 
+/* ARGSUSED */
 void
 until_next_command (from_tty)
      int from_tty;
@@ -529,6 +535,8 @@ finish_command (arg, from_tty)
     error ("The \"finish\" command does not take any arguments.");
   if (!target_has_execution)
     error ("The program is not running.");
+  if (selected_frame == NULL)
+    error ("No selected frame.");
 
   frame = get_prev_frame (selected_frame);
   if (frame == 0)
@@ -552,6 +560,7 @@ finish_command (arg, from_tty)
       print_selected_frame ();
     }
 
+  proceed_to_finish = 1;		/* We want stop_registers, please... */
   proceed ((CORE_ADDR) -1, -1, 0);
 
   if (bpstat_momentary_breakpoint (stop_bpstat) && function != 0)
@@ -581,20 +590,23 @@ finish_command (arg, from_tty)
     }
 }
 
+/* ARGSUSED */
 static void
-program_info ()
+program_info (args, from_tty)
+    char *args;
+    int from_tty;
 {
   bpstat bs = stop_bpstat;
   int num = bpstat_num (&bs);
   
-  if (inferior_pid == 0)
+  if (!target_has_execution)
     {
       printf ("The program being debugged is not being run.\n");
       return;
     }
 
-  printf ("Program being debugged is in process %d, stopped at 0x%x.\n",
-	  inferior_pid, stop_pc);
+  target_files_info ();
+  printf ("Program stopped at 0x%x.\n", stop_pc);
   if (stop_step)
     printf ("It stopped after being stepped.\n");
   else if (num != 0)
@@ -610,12 +622,18 @@ program_info ()
 	  num = bpstat_num (&bs);
 	}
     }
-  else if (stop_signal)
+  else if (stop_signal) {
+#ifdef PRINT_RANDOM_SIGNAL
+    PRINT_RANDOM_SIGNAL (stop_signal);
+#else
     printf ("It stopped with signal %d (%s).\n",
-	    stop_signal, sys_siglist[stop_signal]);
+	    stop_signal, 
+	    (stop_signal > NSIG)? "unknown": sys_siglist[stop_signal]);
+#endif
+  }
 
-  printf (
-"\nType \"info stack\" or \"info registers\" for more information.\n");
+  if (!from_tty)
+    printf ("Type \"info stack\" or \"info registers\" for more information.\n");
 }
 
 static void
@@ -716,6 +734,38 @@ unset_environment_command (var, from_tty)
   else
     unset_in_environ (inferior_environ, var);
 }
+
+/* Handle the execution path (PATH variable) */
+
+const static char path_var_name[] = "PATH";
+
+/* ARGSUSED */
+void
+path_info (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  printf ("Executable and object file path: %s\n", 
+      get_in_environ (inferior_environ, path_var_name));
+}
+
+/* Add zero or more directories to the front of the execution path.  */
+
+void
+path_command (dirname, from_tty)
+     char *dirname;
+     int from_tty;
+{
+  char *exec_path;
+
+  dont_repeat ();
+  exec_path = strsave (get_in_environ (inferior_environ, path_var_name));
+  mod_path (dirname, &exec_path);
+  set_in_environ (inferior_environ, path_var_name, exec_path);
+  free (exec_path);
+  if (from_tty)
+    path_info ((char *)NULL, from_tty);
+}
 
 CORE_ADDR
 read_pc ()
@@ -775,11 +825,20 @@ static void do_registers_info (regnum)
       
       target_convert_to_virtual (i, raw_buffer, virtual_buffer);
 
-      /* If virtual format is floating, print it that way.  */
+      /* If virtual format is floating, print it that way, and in raw hex.  */
       if (TYPE_CODE (REGISTER_VIRTUAL_TYPE (i)) == TYPE_CODE_FLT
 	  && ! INVALID_FLOAT (virtual_buffer, REGISTER_VIRTUAL_SIZE (i)))
-	val_print (REGISTER_VIRTUAL_TYPE (i), virtual_buffer, 0,
-		   stdout, 0, 1, 0, Val_pretty_default);
+	{
+	  register int j;
+
+	  val_print (REGISTER_VIRTUAL_TYPE (i), virtual_buffer, 0,
+		     stdout, 0, 1, 0, Val_pretty_default);
+
+	  printf_filtered ("\t(raw 0x");
+	  for (j = 0; j < REGISTER_RAW_SIZE (i); j++)
+	    printf_filtered ("%02x", (unsigned char)raw_buffer[j]);
+	  printf_filtered (")");
+	}
 
 /* FIXME!  val_print probably can handle all of these cases now...  */
 
@@ -802,18 +861,12 @@ static void do_registers_info (regnum)
 		     stdout,   0, 1, 0, Val_pretty_default);
 	}
 
-      /* If register has different raw and virtual formats,
-	 print the raw format in hex now.  */
+      /* The SPARC wants to print even-numbered float regs as doubles
+	 in addition to printing them as floats.  */
+#ifdef PRINT_REGISTER_HOOK
+      PRINT_REGISTER_HOOK (i);
+#endif
 
-      if (REGISTER_CONVERTIBLE (i))
-	{
-	  register int j;
-
-	  printf_filtered ("  (raw 0x");
-	  for (j = 0; j < REGISTER_RAW_SIZE (i); j++)
-	    printf_filtered ("%02x", (unsigned char)raw_buffer[j]);
-	  printf_filtered (")");
-	}
       printf_filtered ("\n");
     }
 }
@@ -872,7 +925,8 @@ attach_command (args, from_tty)
      char *args;
      int from_tty;
 {
-  target_open (args, from_tty);
+  dont_repeat ();			/* Not for the faint of heart */
+  target_attach (args, from_tty);
 }
 
 /*
@@ -891,6 +945,7 @@ detach_command (args, from_tty)
      char *args;
      int from_tty;
 {
+  dont_repeat ();			/* Not for the faint of heart */
   target_detach (args, from_tty);
 }
 
@@ -906,6 +961,18 @@ float_info (addr_exp)
 #endif
 }
 
+struct cmd_list_element *unsetlist = NULL;
+
+/* ARGSUSED */
+static void
+unset_command (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  printf ("\"unset\" must be followed by the name of an unset subcommand.\n");
+  help_list (unsetlist, "unset ", -1, stdout);
+}
+
 void
 _initialize_infcmd ()
 {
@@ -930,10 +997,14 @@ give the program being debugged.  With no arguments, prints the entire\n\
 environment to be given to the program.", &showlist);
   c->completer = noop_completer;
 
+  add_prefix_cmd ("unset", no_class, unset_command,
+		  "Complement to certain \"set\" commands",
+		  &unsetlist, "unset ", 0, &cmdlist);
+  
   c = add_cmd ("environment", class_run, unset_environment_command,
 	      "Cancel environment variable VAR for the program.\n\
 This does not affect the program until the next \"run\" command.",
-	   &deletelist);
+	   &unsetlist);
   c->completer = noop_completer;
 
   c = add_cmd ("environment", class_run, set_environment_command,
@@ -944,6 +1015,21 @@ This does not affect the program until the next \"run\" command.",
 	   &setlist);
   c->completer = noop_completer;
  
+  add_com ("path", class_files, path_command,
+       "Add directory DIR(s) to beginning of search path for object files.\n\
+$cwd in the path means the current working directory.\n\
+This path is equivalent to the $PATH shell variable.  It is a list of\n\
+directories, separated by colons.  These directories are searched to find\n\
+fully linked executable files and separately compiled object files as needed.");
+
+  c = add_cmd ("paths", no_class, path_info,
+	    "Current search path for finding object files.\n\
+$cwd in the path means the current working directory.\n\
+This path is equivalent to the $PATH shell variable.  It is a list of\n\
+directories, separated by colons.  These directories are searched to find\n\
+fully linked executable files and separately compiled object files as needed.", &showlist);
+  c->completer = noop_completer;
+
  add_com ("attach", class_run, attach_command,
  	   "Attach to a process or file outside of GDB.\n\
 This command attaches to another target, of the same type as your last\n\

@@ -22,5 +22,5 @@
 #msg If you compile your program with GCC, use the GNU assembler.
 #msg
 
-XDEPFILES= infptrace.o sun3-xdep.o m68k-xdep.o
+XDEPFILES= infptrace.o sun3-xdep.o
 XM_FILE= xm-sun3os4.h

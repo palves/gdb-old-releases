@@ -50,7 +50,7 @@ find_saved_register (frame, regnum)
 
 #ifdef HAVE_REGISTER_WINDOWS
   /* We assume that a register in a register window will only be saved
-     in one place (since the name changes and disappears as you go
+     in one place (since the name changes and/or disappears as you go
      towards inner frames), so we only call get_frame_saved_regs on
      the current frame.  This is directly in contradiction to the
      usage below, which assumes that registers used in a frame must be
@@ -79,8 +79,7 @@ find_saved_register (frame, regnum)
 	  
       fi = get_frame_info (frame1);
       get_frame_saved_regs (fi, &saved_regs);
-      return (saved_regs.regs[regnum] ?
-	      saved_regs.regs[regnum] : 0);
+      return saved_regs.regs[regnum];	/* ... which might be zero */
     }
 #endif /* HAVE_REGISTER_WINDOWS */
 
@@ -160,7 +159,7 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
 #endif /* GET_SAVED_REGISTER.  */
 
 /* Copy the bytes of register REGNUM, relative to the current stack frame,
-   into our memory at MYADDR.
+   into our memory at MYADDR, in target byte order.
    The number of bytes copied is REGISTER_RAW_SIZE (REGNUM).
 
    Returns 1 if could not be read, 0 if could.  */
@@ -174,10 +173,11 @@ read_relative_register_raw_bytes (regnum, myaddr)
   if (regnum == FP_REGNUM && selected_frame)
     {
       bcopy (&FRAME_FP(selected_frame), myaddr, sizeof (CORE_ADDR));
+      SWAP_TARGET_AND_HOST (myaddr, sizeof (CORE_ADDR)); /* in target order */
       return 0;
     }
 
-  get_saved_register (myaddr, &optim, (CORE_ADDR) NULL, selected_frame,
+  get_saved_register (myaddr, &optim, (CORE_ADDR *) NULL, selected_frame,
                       regnum, (enum lval_type *)NULL);
   return optim;
 }
@@ -267,8 +267,9 @@ read_register_bytes (regbyte, myaddr, len)
 }
 
 /* Read register REGNO into memory at MYADDR, which must be large enough
-   for REGISTER_RAW_BYTES (REGNO).  If the register is known to be the
-   size of a CORE_ADDR or smaller, read_register can be used instead.  */
+   for REGISTER_RAW_BYTES (REGNO).  Target byte-order.
+   If the register is known to be the size of a CORE_ADDR or smaller,
+   read_register can be used instead.  */
 void
 read_register_gen (regno, myaddr)
      int regno;
@@ -294,8 +295,7 @@ write_register_bytes (regbyte, myaddr, len)
   target_store_registers (-1);
 }
 
-/* Return the contents of register REGNO,
-   regarding it as an integer.  */
+/* Return the contents of register REGNO, regarding it as an integer.  */
 
 CORE_ADDR
 read_register (regno)
@@ -332,6 +332,7 @@ write_register (regno, val)
 
   register_valid [regno] = 1;
   /* FIXME, this loses when REGISTER_RAW_SIZE (regno) != sizeof (int) */
+  /* FIXME, this depends on REGISTER_BYTE (regno) being aligned for host */
   *(int *) &registers[REGISTER_BYTE (regno)] = val;
 
   target_store_registers (regno);
@@ -352,7 +353,9 @@ supply_register (regno, val)
 
 /* Given a struct symbol for a variable,
    and a stack frame id, read the value of the variable
-   and return a (pointer to a) struct value containing the value.  */
+   and return a (pointer to a) struct value containing the value. 
+   If the variable cannot be found, return a zero pointer.
+   If FRAME is NULL, use the selected_frame.  */
 
 value
 read_var_value (var, frame)
@@ -363,7 +366,6 @@ read_var_value (var, frame)
   struct frame_info *fi;
   struct type *type = SYMBOL_TYPE (var);
   CORE_ADDR addr;
-  int val;
   register int len;
 
   v = allocate_value (type);
@@ -375,22 +377,26 @@ read_var_value (var, frame)
   switch (SYMBOL_CLASS (var))
     {
     case LOC_CONST:
-      val = SYMBOL_VALUE (var);
-      bcopy (&val, VALUE_CONTENTS_RAW (v), len);
+      bcopy (&SYMBOL_VALUE (var), VALUE_CONTENTS_RAW (v), len);
+      SWAP_TARGET_AND_HOST (VALUE_CONTENTS_RAW (v), len);
       VALUE_LVAL (v) = not_lval;
       return v;
 
     case LOC_LABEL:
       addr = SYMBOL_VALUE_ADDRESS (var);
       bcopy (&addr, VALUE_CONTENTS_RAW (v), len);
+      SWAP_TARGET_AND_HOST (VALUE_CONTENTS_RAW (v), len);
       VALUE_LVAL (v) = not_lval;
       return v;
 
     case LOC_CONST_BYTES:
-      addr = SYMBOL_VALUE_ADDRESS (var);
-      bcopy (addr, VALUE_CONTENTS_RAW (v), len);
-      VALUE_LVAL (v) = not_lval;
-      return v;
+      {
+	char *bytes_addr;
+	bytes_addr = SYMBOL_VALUE_BYTES (var);
+	bcopy (bytes_addr, VALUE_CONTENTS_RAW (v), len);
+	VALUE_LVAL (v) = not_lval;
+	return v;
+      }
 
     case LOC_STATIC:
     case LOC_EXTERNAL:
@@ -407,17 +413,32 @@ read_var_value (var, frame)
 
     case LOC_ARG:
       fi = get_frame_info (frame);
-      addr = SYMBOL_VALUE (var) + FRAME_ARGS_ADDRESS (fi);
+      if (fi == NULL)
+	return 0;
+      addr = FRAME_ARGS_ADDRESS (fi);
+      if (!addr) {
+	return 0;
+      }
+      addr += SYMBOL_VALUE (var);
       break;
       
     case LOC_REF_ARG:
       fi = get_frame_info (frame);
-      addr = SYMBOL_VALUE (var) + FRAME_ARGS_ADDRESS (fi);
-      addr = read_memory_integer (addr, sizeof (CORE_ADDR));
+      if (fi == NULL)
+	return 0;
+      addr = FRAME_ARGS_ADDRESS (fi);
+      if (!addr) {
+	return 0;
+      }
+      addr += SYMBOL_VALUE (var);
+      read_memory (addr, &addr, sizeof (CORE_ADDR));
       break;
       
     case LOC_LOCAL:
+    case LOC_LOCAL_ARG:
       fi = get_frame_info (frame);
+      if (fi == NULL)
+	return 0;
       addr = SYMBOL_VALUE (var) + FRAME_LOCALS_ADDRESS (fi);
       break;
 
@@ -432,11 +453,15 @@ read_var_value (var, frame)
     case LOC_REGISTER:
     case LOC_REGPARM:
       {
-	struct block *b = get_frame_block (frame);
+	struct block *b;
 
+	if (frame == NULL)
+	  return 0;
+	b = get_frame_block (frame);
+	
 	v = value_from_register (type, SYMBOL_VALUE (var), frame);
 
-	if (REG_STRUCT_HAS_ADDR(b->gcc_compile_flag)
+	if (REG_STRUCT_HAS_ADDR (BLOCK_GCC_COMPILED (b))
 	    && TYPE_CODE (type) == TYPE_CODE_STRUCT)
 	  addr = *(CORE_ADDR *)VALUE_CONTENTS (v);
 	else
@@ -619,89 +644,54 @@ locate_var_value (var, frame)
      FRAME frame;
 {
   CORE_ADDR addr = 0;
-  int val = SYMBOL_VALUE (var);
-  struct frame_info *fi;
   struct type *type = SYMBOL_TYPE (var);
   struct type *result_type;
-  enum lval_type lval;
+  value lazy_value;
 
-  if (frame == 0) frame = selected_frame;
+  /* Evaluate it first; if the result is a memory address, we're fine.
+     Lazy evaluation pays off here. */
 
-  switch (SYMBOL_CLASS (var))
+  lazy_value = read_var_value (var, frame);
+  if (lazy_value == 0)
+    error ("Address of \"%s\" is unknown.", SYMBOL_NAME (var));
+
+  if (VALUE_LAZY (lazy_value))
     {
-    case LOC_CONST:
-    case LOC_CONST_BYTES:
-      error ("Address requested for identifier \"%s\" which is a constant.",
-	     SYMBOL_NAME (var));
+      addr = VALUE_ADDRESS (lazy_value);
 
-    case LOC_REGISTER:
-    case LOC_REGPARM:
-      get_saved_register ((char *)NULL, (int *)NULL, &addr, frame, val, &lval);
-      if (lval == lval_memory)
+      /* C++: The "address" of a reference should yield the address
+       * of the object pointed to. So force an extra de-reference. */
+
+      if (TYPE_CODE (type) == TYPE_CODE_REF)
 	{
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-	  int len = TYPE_LENGTH (type);
-	  if (len < REGISTER_RAW_SIZE (val))
-	    /* Big-endian, and we want less than full size.  */
-	    addr += REGISTER_RAW_SIZE (val) - len;
-#endif
-	  break;
+	  char *buf = alloca (TYPE_LENGTH (type));
+	  read_memory (addr, buf, TYPE_LENGTH (type));
+	  addr = unpack_pointer (type, buf);
+	  type = TYPE_TARGET_TYPE (type);
 	}
+
+      /* Address of an array is of the type of address of it's elements.  */
+      result_type =
+	lookup_pointer_type (TYPE_CODE (type) == TYPE_CODE_ARRAY ?
+			     TYPE_TARGET_TYPE (type) : type);
+
+      return value_cast (result_type,
+			 value_from_long (builtin_type_long, (LONGEST) addr));
+    }
+
+  /* Not a memory address; check what the problem was.  */
+  switch (VALUE_LVAL (lazy_value)) 
+    {
+    case lval_register:
+    case lval_reg_frame_relative:
       error ("Address requested for identifier \"%s\" which is in a register.",
 	     SYMBOL_NAME (var));
-
-    case LOC_STATIC:
-    case LOC_LABEL:
-    case LOC_EXTERNAL:
-      addr = SYMBOL_VALUE_ADDRESS (var);
-      break;
-
-    case LOC_ARG:
-      fi = get_frame_info (frame);
-      addr = val + FRAME_ARGS_ADDRESS (fi);
-      break;
-
-    case LOC_REF_ARG:
-      fi = get_frame_info (frame);
-      addr = val + FRAME_ARGS_ADDRESS (fi);
-      addr = read_memory_integer (addr, sizeof (CORE_ADDR));
-      break;
-
-    case LOC_LOCAL:
-      fi = get_frame_info (frame);
-      addr = val + FRAME_LOCALS_ADDRESS (fi);
-      break;
-
-    case LOC_TYPEDEF:
-      error ("Address requested for identifier \"%s\" which is a typedef.",
-	     SYMBOL_NAME (var));
-
-    case LOC_BLOCK:
-      addr = BLOCK_START (SYMBOL_BLOCK_VALUE (var));
       break;
 
     default:
-      error ("Address requested for identifier \"%s\" which has botched type.",
+      error ("Can't take address of \"%s\" which isn't an lvalue.",
 	     SYMBOL_NAME (var));
+      break;
     }
-
-  /* C++: The "address" of a reference should yield the address
-   * of the object pointed to. So force an extra de-reference. */
-
-  if (TYPE_CODE (type) == TYPE_CODE_REF)
-    {
-      char *buf = alloca (TYPE_LENGTH (type));
-      read_memory (addr, buf, TYPE_LENGTH (type));
-      addr = unpack_long (type, buf);
-      type = TYPE_TARGET_TYPE (type);
-    }
-
-  /* Address of an array is of the type of address of it's elements.  */
-  result_type =
-    lookup_pointer_type (TYPE_CODE (type) == TYPE_CODE_ARRAY ?
-			 TYPE_TARGET_TYPE (type) : type);
-
-  return value_cast (result_type,
-		     value_from_long (builtin_type_long, (LONGEST) addr));
+  return 0;  /* For lint -- never reached */
 }
-

@@ -1,5 +1,6 @@
 /* Table of opcodes for the AMD 29000
-   Copyright (C) 1990 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991 Free Software Foundation, Inc.
+   Contributed by Cygnus Support.  Written by Jim Kingdon.
 
 This file is part of GDB.
 

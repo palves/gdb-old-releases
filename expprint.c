@@ -50,7 +50,7 @@ struct op_print
   int right_assoc;
 };
 
-static struct op_print op_print_tab[] =
+const static struct op_print op_print_tab[] =
   {
     {",", BINOP_COMMA, PREC_COMMA, 0},
     {"=", BINOP_ASSIGN, PREC_ASSIGN, 1},
@@ -126,7 +126,8 @@ print_subexp (exp, pos, stream, prec)
       myprec = PREC_PREFIX;
       assoc = 0;
       (*pos) += 2;
-      print_subexp (exp, pos, stream, (int) myprec + assoc);
+      print_subexp (exp, pos, stream,
+		    (enum precedence) ((int) myprec + assoc));
       fprintf (stream, " :: ");
       nargs = strlen (&exp->elts[pc + 2].string);
       (*pos) += 1 + (nargs + sizeof (union exp_element)) / sizeof (union exp_element);
@@ -155,12 +156,13 @@ print_subexp (exp, pos, stream, prec)
 
     case OP_LAST:
       (*pos) += 2;
-      fprintf (stream, "$%d", (int) exp->elts[pc + 1].longconst);
+      fprintf (stream, "$%d", longest_to_int (exp->elts[pc + 1].longconst));
       return;
 
     case OP_REGISTER:
       (*pos) += 2;
-      fprintf (stream, "$%s", reg_names[exp->elts[pc + 1].longconst]);
+      fprintf (stream, "$%s",
+	       longest_to_int (reg_names[exp->elts[pc + 1].longconst]));
       return;
 
     case OP_INTERNALVAR:
@@ -171,12 +173,12 @@ print_subexp (exp, pos, stream, prec)
 
     case OP_FUNCALL:
       (*pos) += 2;
-      nargs = exp->elts[pc + 1].longconst;
+      nargs = longest_to_int (exp->elts[pc + 1].longconst);
       print_subexp (exp, pos, stream, PREC_SUFFIX);
       fprintf (stream, " (");
       for (tem = 0; tem < nargs; tem++)
 	{
-	  if (tem > 0)
+	  if (tem != 0)
 	    fprintf (stream, ", ");
 	  print_subexp (exp, pos, stream, PREC_ABOVE_COMMA);
 	}
@@ -275,6 +277,7 @@ print_subexp (exp, pos, stream, prec)
 	    op_str = op_print_tab[tem].string;
 	    break;
 	  }
+      break;
 
     case OP_THIS:
       ++(*pos);
@@ -306,7 +309,8 @@ print_subexp (exp, pos, stream, prec)
       /* Print left operand.
 	 If operator is right-associative,
 	 increment precedence for this operand.  */
-      print_subexp (exp, pos, stream, (int) myprec + assoc);
+      print_subexp (exp, pos, stream,
+		    (enum precedence) ((int) myprec + assoc));
       /* Print the operator itself.  */
       if (assign_modify)
 	fprintf (stream, " %s= ", op_str);
@@ -317,7 +321,8 @@ print_subexp (exp, pos, stream, prec)
       /* Print right operand.
 	 If operator is left-associative,
 	 increment precedence for this operand.  */
-      print_subexp (exp, pos, stream, (int) myprec + !assoc);
+      print_subexp (exp, pos, stream,
+		    (enum precedence) ((int) myprec + !assoc));
     }
   if ((int) myprec < (int) prec)
     fprintf (stream, ")");

@@ -59,7 +59,14 @@ extern void free ();
 /* Actually, the misc function list is used to store *all* of the
    global symbols (text, data, bss, and abs).  It is sometimes used
    to figure out what symtabs to read in.  The "type" field is used
-   occasionally.   */
+   occasionally.
+
+   The misc_info field is available for machine-specific information
+   that can be cached along with a misc function vector entry.  The
+   AMD 29000 tdep.c uses it to remember things it has decoded from the
+   instructions in the function header, so it doesn't have to rederive
+   the info constantly (over a serial line).  It is initialized to zero
+   and stays that way until target-dependent code sets it.  */
 
 enum misc_function_type {mf_unknown = 0, mf_text, mf_data, mf_bss, mf_abs};
 
@@ -67,6 +74,7 @@ struct misc_function
 {
   char *name;
   CORE_ADDR address;
+  char *misc_info;	/* Random pointer to misc info.  void * but for old C */
   enum misc_function_type type;
 };
 
@@ -309,6 +317,11 @@ struct blockvector
   struct block *block[1];
 };
 
+/* Special block numbers */
+#define GLOBAL_BLOCK	0
+#define	STATIC_BLOCK	1
+#define	FIRST_LOCAL_BLOCK	2
+
 struct block
 {
   /* Addresses in the executable code that are in this block.
@@ -372,12 +385,12 @@ enum namespace
   UNDEF_NAMESPACE, VAR_NAMESPACE, STRUCT_NAMESPACE, LABEL_NAMESPACE,
 };
 
-/* An address-class says where to find the value of the symbol in core.  */
+/* An address-class says where to find the value of a symbol.  */
 
 enum address_class
 {
   LOC_UNDEF,		/* Not used; catches errors */
-  LOC_CONST,		/* Value is constant int */
+  LOC_CONST,		/* Value is constant int SYMBOL_VALUE, host byteorder */
   LOC_STATIC,		/* Value is at fixed address SYMBOL_VALUE_ADDRESS */
   LOC_REGISTER,		/* Value is in register */
   LOC_ARG,		/* Value is at spec'd offset in arglist */
@@ -395,7 +408,14 @@ enum address_class
 			   This is used only in psymtabs; in symtabs
 			   LOC_STATIC is used instead (since in that case
 			   we take the time to find the address).  */
-  LOC_CONST_BYTES	/* Value is a constant byte-sequence.   */
+  LOC_CONST_BYTES,	/* Value is a constant byte-sequence pointed to by
+			   SYMBOL_VALUE_ADDRESS, in target byte order.  */
+  LOC_LOCAL_ARG,	/* Value is arg at spec'd offset in stack frame.
+			   Differs from LOC_LOCAL in that symbol is an
+			   argument; differs from LOC_ARG in that we find it
+			   in the frame (FRAME_LOCALS_ADDRESS), not in the
+			   arglist (FRAME_ARGS_ADDRESS).  Added for i960,
+			   which passes args in regs then copies to frame.  */
 };
 
 struct symbol
@@ -413,10 +433,13 @@ struct symbol
   unsigned short line;
   
   /* constant value, or address if static, or register number,
-     or offset in arguments, or offset in stack frame.  */
+     or offset in arguments, or offset in stack frame.  All of
+     these are in host byte order (though what they point to might
+     be in target byte order, e.g. LOC_CONST_BYTES).  */
   union
     {
-      long value;
+      long value;		/* for LOC_CONST, LOC_REGISTER, LOC_ARG, 
+				   LOC_REF_ARG, LOC_REGPARM, LOC_LOCAL */
       struct block *block;      /* for LOC_BLOCK */
       char *bytes;		/* for LOC_CONST_BYTES */
       CORE_ADDR address;	/* for LOC_STATIC, LOC_LABEL, LOC_EXTERNAL */
@@ -532,6 +555,13 @@ struct symtab
     /* Full name of file as found by searching the source path.
        0 if not yet known.  */
     char *fullname;
+
+    /* Anything extra for this symtab.  This is for target machines
+       with special debugging info of some sort (which cannot just
+       be represented in a normal symtab).  */
+#if defined (EXTRA_SYMTAB_INFO)
+    EXTRA_SYMTAB_INFO
+#endif
   };
 
 /* Each source file that has not been fully read in is represented by
@@ -736,10 +766,26 @@ int current_source_line;
 
 /* The virtual function table is now an array of structures
    which have the form { int16 offset, delta; void *pfn; }. 
- 
-   Gee, can we have more documentation than that?   FIXME.  -- gnu */
+
+   In normal virtual function tables, OFFSET is unused.
+   DELTA is the amount which is added to the apparent object's base
+   address in order to point to the actual object to which the
+   virtual function should be applied.
+   PFN is a pointer to the virtual function.  */
   
 #define VTBL_FNADDR_OFFSET 2
+
+/* Macro that yields non-zero value iff NAME is the prefix
+   for C++ operator names.  If you leave out the parenthesis
+   here you will lose!
+
+   Currently 'o' 'p' CPLUS_MARKER is used for both the symbol in the
+   symbol-file and the names in gdb's symbol table.  */
+#define OPNAME_PREFIX_P(NAME) ((NAME)[0] == 'o' && (NAME)[1] == 'p' \
+			       && (NAME)[2] == CPLUS_MARKER)
+
+#define VTBL_PREFIX_P(NAME) ((NAME)[3] == CPLUS_MARKER	\
+			     && !strncmp ((NAME), "_vt", 3))
 
 /* Functions that work on the objects described above */
 
@@ -763,7 +809,7 @@ extern struct type *create_array_type ();
 extern struct symbol *block_function ();
 extern struct symbol *find_pc_function ();
 extern int find_pc_partial_function ();
-extern void clearpc_function_cache ();
+extern void clear_pc_function_cache ();
 extern struct partial_symtab *lookup_partial_symtab ();
 extern struct partial_symtab *find_pc_psymtab ();
 extern struct symtab *find_pc_symtab ();
@@ -776,8 +822,15 @@ extern int contained_in();
 /* C++ stuff.  */
 extern struct type *lookup_reference_type ();
 extern struct type *lookup_member_type ();
+extern struct type *lookup_method_type ();
 extern struct type *lookup_class ();
 extern void smash_to_method_type ();
+void smash_to_member_type (
+#ifdef __STDC__
+			   struct type *, struct type *, struct type *
+#endif
+			   );
+extern struct type *allocate_stub_method ();
 /* end of C++ stuff.  */
 
 extern void free_all_symtabs ();
@@ -800,10 +853,11 @@ extern struct type *builtin_type_double;
    read-in.  */
 extern struct type *builtin_type_error;
 
-#ifdef LONG_LONG
 extern struct type *builtin_type_long_long;
 extern struct type *builtin_type_unsigned_long_long;
 
+/* LONG_LONG is defined if the host has "long long".  */
+#ifdef LONG_LONG
 #define BUILTIN_TYPE_LONGEST builtin_type_long_long
 #define BUILTIN_TYPE_UNSIGNED_LONGEST builtin_type_unsigned_long_long
 /* This should not be a typedef, because "unsigned LONGEST" needs
@@ -849,8 +903,10 @@ struct symtabs_and_lines decode_line_spec ();
 struct symtabs_and_lines decode_line_spec_1 ();
 struct symtabs_and_lines decode_line_1 ();
 
+/* Symmisc.c */
+void free_symtab ();
+
 /* Symbol-reading stuff in symfile.c and solib.c.  */
-char *get_sym_file ();
 struct symtab *psymtab_to_symtab ();
 void clear_solib ();
 void symbol_file_add ();
@@ -858,6 +914,16 @@ void symbol_file_add ();
 /* source.c */
 int identify_source_line ();
 void print_source_lines ();
+void forget_cached_source_info (
+#ifdef __STDC__
+				void
+#endif
+				);
+void select_source_symtab (
+#ifdef __STDC__
+			   struct symtab *
+#endif
+			   );
 
 char **make_symbol_completion_list ();
 

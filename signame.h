@@ -30,7 +30,7 @@ int sig_number (const char *abbrev);
 
 /* Print to standard error the name of SIGNAL, preceded by MESSAGE and
    a colon, and followed by a newline.  */
-void psignal (int signal, const char *message);
+void psignal (unsigned signal, const char *message);
 
 #else
 
