@@ -16,11 +16,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include <ansidecl.h>
 #include "sysdep.h"
 #include "dis-asm.h"
+#include "libhppa.h"
 #include "opcode/hppa.h"
 
 /* Integer register names, indexed by the numbers which appear in the
@@ -165,44 +166,6 @@ fput_const (num, info)
 /* Routines to extract various sized constants out of hppa
    instructions. */
 
-/* This assumes that no garbage lies outside of the lower bits of
-   value. */
-
-static int
-sign_extend (val, bits)
-     unsigned val, bits;
-{
-  return (int)(val >> (bits - 1) ? (-1 << bits) | val : val);
-}
-
-/* For many immediate values the sign bit is the low bit! */
-
-static int
-low_sign_extend (val, bits)
-     unsigned val, bits;
-{
-  return (int)((val & 0x1 ? (-1 << (bits - 1)) : 0) | val >> 1);
-}
-/* extract the immediate field from a ld{bhw}s instruction */
-
-#if 0 /* not used */
-static unsigned
-get_field (val, from, to)
-     unsigned val, from, to;
-{
-  val = val >> (31 - to);
-  return val & ((1 << (32 - from)) - 1);
-}
-
-static unsigned
-set_field (val, from, to, new_val)
-     unsigned *val, from, to, new_val;
-{
-  unsigned mask = ~((1 << (to - from + 1)) << (31 - from));
-  return *val = (*val & mask) | (new_val << (31 - from));
-}
-#endif
-
 /* extract a 3-bit space register number from a be, ble, mtsp or mfsp */
 static int
 extract_3 (word)
@@ -266,19 +229,6 @@ extract_14 (word)
   return low_sign_extend (word & MASK_14, 14);
 }
 
-#if 0
-/* deposit a 14 bit constant in a word */
-static unsigned
-deposit_14 (opnd, word)
-     int opnd;
-     unsigned word;
-{
-  unsigned sign = (opnd < 0 ? 1 : 0);
-
-  return word | ((unsigned)opnd << 1 & MASK_14)  | sign;
-}
-#endif
-
 /* extract a 21 bit constant */
 
 static int
@@ -300,30 +250,6 @@ extract_21 (word)
   val |= GET_FIELD (word, 7, 8);
   return sign_extend (val, 21) << 11;
 }
-
-#if 0
-/* deposit a 21 bit constant in a word. Although 21 bit constants are
-   usually the top 21 bits of a 32 bit constant, we assume that only
-   the low 21 bits of opnd are relevant */
-
-static unsigned
-deposit_21 (opnd, word)
-     unsigned opnd, word;
-{
-  unsigned val = 0;
-
-  val |= GET_FIELD (opnd, 11 + 14, 11 + 18);
-  val <<= 2;
-  val |= GET_FIELD (opnd, 11 + 12, 11 + 13);
-  val <<= 2;
-  val |= GET_FIELD (opnd, 11 + 19, 11 + 20);
-  val <<= 11;
-  val |= GET_FIELD (opnd, 11 + 1, 11 + 11);
-  val <<= 1;
-  val |= GET_FIELD (opnd, 11 + 0, 11 + 0);
-  return word | val;
-}
-#endif
 
 /* extract a 12 bit constant from branch instructions */
 

@@ -1,3 +1,29 @@
+# Copyright (C) 1994, 1995 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+if [info exists nointerrupts] {
+    if $nointerrupts {
+	verbose "Skipping interrupt.exp because of nointerrupts."
+	continue
+    }
+}
+
 if $tracelevel then {
 	strace $tracelevel
 }
@@ -7,6 +33,12 @@ set bug_id 0
 
 set binfile $objdir/$subdir/interrupt
 
+if $noinferiorio {
+    verbose "Skipping interrupt.exp because of noinferiorio."
+    return
+}
+    
+
 if ![file exists $binfile] then {
     perror "$binfile does not exist."
     return 0
@@ -15,7 +47,7 @@ if ![file exists $binfile] then {
     gdb_load $binfile
     gdb_test "shell stty intr '^C'" "" \
 	"set interrupt character in interrupt.exp"
-    if [runto main] then {
+    if [runto_main] then {
 	send "continue\n"
 	expect {
 	    -re "\r\ntalk to me baby\r\n$" {}
@@ -45,11 +77,12 @@ if ![file exists $binfile] then {
 	    eof { fail "send control C (eof)" }
 	}
 
+	setup_xfail "i*86-*-linux*"
 	send "p func1 ()\n"
 	expect {
 	    -re " = 4.*$prompt $" { pass "call function when asleep" }
 	    -re "$prompt $" { fail "call function when asleep (wrong output)" }
-	    timeout {
+	    default {
 
 		# This fail probably happens whenever we use /proc (we
 		# don't use PRSABORT), but apparently also happens on
@@ -59,16 +92,19 @@ if ![file exists $binfile] then {
 		setup_xfail "mips-*-ultrix*"
 		setup_xfail "hppa*-*-*"
 		setup_xfail "i386*-*-bsd*"
+		setup_xfail "i386*-*-freebsd*"
 		setup_xfail "*-*-sysv4*"
 		setup_xfail "vax-*-*"
 		setup_xfail "alpha-*-*"
 		setup_xfail "*-*-irix*"
+		setup_xfail "*-*-hpux*"
+		setup_xfail "*-*-*lynx*"
 		fail "call function when asleep (stays asleep)"
 		# Send a newline to wake it up
 		send "\n"
 		gdb_test "" " = 4" "call function after waking it"
 	    }
-	    eof { fail "call function when asleep (eof)" }
+#	    eof { fail "call function when asleep (eof)" }
 	}
 
 	# Now try calling the function again.
@@ -100,6 +136,7 @@ if ![file exists $binfile] then {
 	    eof { fail "echo data (eof)" }
 	}
 
+	setup_xfail "i*86-*-linux*"
 	send "\004"
 	expect {
 	    -re "end of file.*Program exited normally.*$prompt $" {

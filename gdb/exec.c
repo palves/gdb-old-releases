@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "frame.h"
@@ -32,12 +32,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <sys/param.h>
 #include <fcntl.h>
-#include <string.h>
+#include "gdb_string.h"
 
 #include "gdbcore.h"
 
 #include <ctype.h>
-#include <sys/stat.h>
+#include "gdb_stat.h"
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
@@ -617,6 +617,7 @@ Specify the filename of the executable file.", /* to_doc */
   0,				/* to_mourn_inferior */
   0,				/* to_can_run */
   0,				/* to_notice_signals */
+  0,				/* to_thread_alive */
   0,				/* to_stop */
   file_stratum,			/* to_stratum */
   0,				/* to_next */

@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #if defined (GDB_TARGET_IS_SUN386)
 
@@ -37,11 +37,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <machine/reg.h>
 
 #include <sys/file.h>
-#include <sys/stat.h>
+#include "gdb_stat.h"
 #include <sys/core.h>
 
 
-/* Machine-dependent code which would otherwise be in core.c */
+/* Machine-dependent code which would otherwise be in corefile.c */
 /* Work with core files, for GDB. */
 
 

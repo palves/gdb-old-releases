@@ -19,7 +19,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 
 /* This file is part of ELF support for BFD, and contains the portions
@@ -83,7 +83,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define EM_SPARC64     11	/* SPARC v9 (not official) 64-bit */
 
 #define EM_PARISC      15	/* HPPA */
-#define EM_PPC	       17	/* PowerPC */
+#define EM_PPC	       20	/* PowerPC */
 
 /* If it is necessary to assign new unofficial EM_* values, please pick large
    random numbers (0x8523, 0xa7f2, etc.) to minimize the chances of collision
@@ -91,6 +91,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Cygnus PowerPC ELF backend.  Written in the absence of an ABI.  */
 #define EM_CYGNUS_POWERPC 0x9025
+
+/* Old version of PowerPC, this should be removed shortly. */
+#define EM_PPC_OLD	17
 
 
 /* Values for e_version */

@@ -507,6 +507,10 @@ main ()
   int (*pointer_to_call0a) () = call0a;
   double (*pointer_to_call_with_trampolines) () = call_with_trampolines;
 
+#ifdef usestubs
+  set_debug_traps();
+  breakpoint();
+#endif
   /* Test calling with basic integer types */
   call0a (c, s, i, l);
   call0b (s, i, l, c);

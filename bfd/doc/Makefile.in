@@ -14,14 +14,15 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #
 
-srcdir = .
+VPATH = @srcdir@
+srcdir = @srcdir@
 
-prefix = /usr/local
+prefix = @prefix@
 
-exec_prefix = $(prefix)
+exec_prefix = @exec_prefix@
 bindir = $(exec_prefix)/bin
 libdir = $(exec_prefix)/lib
 
@@ -43,16 +44,12 @@ docdir = $(datadir)/doc
 MKDOC=./chew
 SHELL = /bin/sh
 
-INSTALL = install -c
+INSTALL = `cd $(srcdir)/../..;pwd`/install.sh -c
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL)
 
-AR = ar
-AR_FLAGS = qv
-BISON = bison
 MAKEINFO = makeinfo
 TEXI2DVI = texi2dvi
-RANLIB = ranlib
 CFLAGS = -g
 
 CC_FOR_BUILD = $(CC)
@@ -62,8 +59,6 @@ CC_FOR_BUILD = $(CC)
 
 .c.o:
 	$(CC) -c -I.. -I$(srcdir)/.. -I$(srcdir)/../../include $(H_CFLAGS) $(CFLAGS) $<
-
-# main GDB source directory
 
 DOCFILES = aoutx.texi  archive.texi archures.texi \
 	bfd.texi  cache.texi coffcode.texi \
@@ -85,7 +80,7 @@ IPROTOS = cache.ip libbfd.ip reloc.ip init.ip archures.ip coffcode.ip
 SRCDOC = $(srcdir)/../aoutx.h  $(srcdir)/../archive.c \
 	$(srcdir)/../archures.c $(srcdir)/../bfd.c \
 	$(srcdir)/../cache.c $(srcdir)/../coffcode.h \
-	$(srcdir)/../core.c $(srcdir)/../elf.c \
+	$(srcdir)/../corefile.c $(srcdir)/../elf.c \
 	$(srcdir)/../elfcode.h  $(srcdir)/../format.c \
 	$(srcdir)/../libbfd.c $(srcdir)/../opncls.c \
 	$(srcdir)/../reloc.c  $(srcdir)/../section.c \
@@ -93,7 +88,7 @@ SRCDOC = $(srcdir)/../aoutx.h  $(srcdir)/../archive.c \
 	$(srcdir)/../hash.c $(srcdir)/../linker.c
 
 SRCPROT = $(srcdir)/../archive.c $(srcdir)/../archures.c \
-	$(srcdir)/../bfd.c $(srcdir)/../coffcode.h $(srcdir)/../core.c \
+	$(srcdir)/../bfd.c $(srcdir)/../coffcode.h $(srcdir)/../corefile.c \
 	$(srcdir)/../format.c $(srcdir)/../libbfd.c \
 	$(srcdir)/../opncls.c $(srcdir)/../reloc.c \
 	$(srcdir)/../section.c $(srcdir)/../syms.c \
@@ -151,8 +146,8 @@ cache.texi: $(MKDOC) $(srcdir)/../cache.c $(srcdir)/doc.str
 coffcode.texi:	$(MKDOC) $(srcdir)/../coffcode.h $(srcdir)/doc.str
 	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../coffcode.h >coffcode.texi
 
-core.texi: $(MKDOC) $(srcdir)/../core.c $(srcdir)/doc.str
-	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../core.c >core.texi
+core.texi: $(MKDOC) $(srcdir)/../corefile.c $(srcdir)/doc.str
+	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../corefile.c >core.texi
 
 elf.texi: $(MKDOC) $(srcdir)/../elf.c $(srcdir)/doc.str
 	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../elf.c >elf.texi
@@ -227,7 +222,7 @@ bfd.h: $(srcdir)/../bfd-in.h 		\
 	$(srcdir)/../syms.c		\
 	$(srcdir)/../bfd.c		\
 	$(srcdir)/../archive.c		\
-	$(srcdir)/../core.c		\
+	$(srcdir)/../corefile.c		\
 	$(srcdir)/../targets.c		\
 	$(srcdir)/../format.c		\
 	$(MKDOC)
@@ -241,7 +236,7 @@ bfd.h: $(srcdir)/../bfd-in.h 		\
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../syms.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../bfd.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../archive.c >>bfd.h
-	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../core.c >>bfd.h
+	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../corefile.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../targets.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../format.c >>bfd.h	
 	echo "#endif" >>bfd.h
@@ -305,6 +300,6 @@ de-stage3: force
 
 force:
 
-Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
-	$(SHELL) ./config.status
+Makefile: $(srcdir)/Makefile.in
+	cd .. && $(SHELL) ./config.status
 

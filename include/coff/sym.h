@@ -172,7 +172,8 @@ typedef struct pdr {
 	unsigned gp_prologue : 8; /* byte size of GP prologue */
 	unsigned gp_used : 1;	/* true if the procedure uses GP */
 	unsigned reg_frame : 1;	/* true if register frame procedure */
-	unsigned reserved : 14;	/* reserved: must be zero */
+	unsigned prof : 1;	/* true if compiled with -pg */
+	unsigned reserved : 13;	/* reserved: must be zero */
 	unsigned localoff : 8;	/* offset of local variables from vfp */
 	} PDR, *pPDR;
 #define cbPDR sizeof(PDR)

@@ -19,8 +19,10 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+
+#include "serial.h"
 
 struct rom_cmd_data {
   char *cmd;			/* command to send */
@@ -28,43 +30,113 @@ struct rom_cmd_data {
   char *result;			/* the result */
 };
 
-struct monitor_ops {
-  int	type;			/* 1 is ascii, 0 is GDB remote protocol */
-  char  *init;			/* initialize to the monitor */
-  char	*execute;		/* execute or usually GO command */
-  char	*resume;		/* continue command */
-  char	*step;			/* single step */
-  char	*set_break;		/* set a breakpoint */
-  char	*clr_break;		/* clear a breakpoint */
-  int	clr_type;		/* number or address for clearing */
-  struct rom_cmd_data setmem;	/* set memory to a value */
-  struct rom_cmd_data getmem;	/* display memory */
-  struct rom_cmd_data regset;	/* set a register */
-  struct rom_cmd_data regget;	/* read a register */
-  char	*load;			/* load command */
-  char	*prompt;		/* monitor command prompt */
-  char	*cmd_delim;		/* end-of-command delimitor */
-  char	*cmd_end;		/* optional command terminator */
-  struct target_ops *target;	/* target operations */
-  char	*loadtypes;		/* the load types that are supported */
-  char	*loadprotos;		/* the load protocols that are supported */
-  char	*baudrates;		/* supported baud rates */
-  int	stopbits;		/* number of stop bits */
-  char  **regnames;		/* array of register names in ascii */
+/* This structure describes the strings necessary to give small command
+   sequences to the monitor, and parse the response.
+
+   CMD is the actual command typed at the monitor.  Usually this has embedded
+   sequences ala printf, which are substituted with the arguments appropriate
+   to that type of command.  Ie: to examine a register, we substitute the
+   register name for the first arg.  To modify memory, we substitute the memory
+   location and the new contents for the first and second args, etc...
+
+   RESP_DELIM used to home in on the response string, and is used to
+   disambiguate the answer within the pile of text returned by the monitor.
+   This should be a unique string that immediately precedes the answer.  Ie: if
+   your monitor prints out `PC:  00000001= ' in response to asking for the PC,
+   you should use `:  ' as the RESP_DELIM.  RESP_DELIM may be NULL if the res-
+   ponse is going to be ignored, or has no particular leading text.
+
+   TERM is the string that the monitor outputs to indicate that it is idle, and
+   waiting for input.  This is usually a prompt of some sort.  In the previous
+   example, it would be `= '.  It is important that TERM really means that the
+   monitor is idle, otherwise GDB may try to type at it when it isn't ready for
+   input.  This is a problem because many monitors cannot deal with type-ahead.
+   TERM may be NULL if the normal prompt is output.
+
+   TERM_CMD is used to quit out of the subcommand mode and get back to the main
+   prompt.  TERM_CMD may be NULL if it isn't necessary.  It will also be
+   ignored if TERM is NULL.
+*/
+
+struct memrw_cmd
+{
+  char *cmdb;			/* Command to send for byte read/write */
+  char *cmdw;			/* Command for word (16 bit) read/write */
+  char *cmdl;			/* Command for long (32 bit) read/write */
+  char *cmdll;			/* Command for long long (64 bit) read/write */
+  char *resp_delim;		/* String just prior to the desired value */
+  char *term;			/* Terminating string to search for */
+  char *term_cmd;		/* String to get out of sub-mode (if necessary) */
 };
+
+struct regrw_cmd
+{
+  char *cmd;			/* Command to send for reg read/write */
+  char *resp_delim;		/* String just prior to the desired value */
+  char *term;			/* Terminating string to search for */
+  char *term_cmd;		/* String to get out of sub-mode (if necessary) */
+};
+
+struct monitor_ops
+{
+  int flags;			/* See below */
+  char **init;			/* List of init commands.  NULL terminated. */
+  char *cont;			/* continue command */
+  char *step;			/* single step */
+  char *stop;			/* Interrupt program string */
+  char *set_break;		/* set a breakpoint */
+  char *clr_break;		/* clear a breakpoint */
+  char *clr_all_break;		/* Clear all breakpoints */
+  char *fill;			/* Memory fill cmd (addr len val) */
+  struct memrw_cmd setmem;	/* set memory to a value */
+  struct memrw_cmd getmem;	/* display memory */
+  struct regrw_cmd setreg;	/* set a register */
+  struct regrw_cmd getreg;	/* get a register */
+				/* Some commands can dump a bunch of registers
+				   at once.  This comes as a set of REG=VAL
+				   pairs.  This should be called for each pair
+				   of registers that we can parse to supply
+				   GDB with the value of a register.  */
+  char *dump_registers;		/* Command to dump all regs at once */
+  char *register_pattern;	/* Pattern that picks out register from reg dump */
+  void (*supply_register) PARAMS ((char *name, int namelen, char *val, int vallen));
+  void (*load_routine) PARAMS ((serial_t desc, char *file, int hashmark)); /* Download routine */
+  char *load;			/* load command */
+  char *loadresp;		/* Response to load command */
+  char *prompt;			/* monitor command prompt */
+  char *line_term;		/* end-of-command delimitor */
+  char *cmd_end;		/* optional command terminator */
+  struct target_ops *target;	/* target operations */
+  int stopbits;			/* number of stop bits */
+  char **regnames;		/* array of register names in ascii */
+  int magic;			/* Check value */
+};
+
+#define MONITOR_OPS_MAGIC 600925
+
+/* Flag defintions */
+
+#define MO_CLR_BREAK_USES_ADDR 0x1 /* If set, then clear breakpoint command
+				      uses address, otherwise it uses an index
+				      returned by the monitor.  */
+#define MO_FILL_USES_ADDR 0x2	/* If set, then memory fill command uses
+				   STARTADDR, ENDADDR+1, VALUE as args, else it
+				   uses STARTADDR, LENGTH, VALUE as args. */
+#define MO_NEED_REGDUMP_AFTER_CONT 0x4 /* If set, then monitor doesn't auto-
+					  matically supply register dump when
+					  coming back after a continue.  */
+#define MO_GETMEM_NEEDS_RANGE 0x8 /* getmem needs start addr and end addr */
+#define MO_GETMEM_READ_SINGLE 0x10 /* getmem can only read one loc at a time */
 
 extern struct monitor_ops        *current_monitor;
 
-#define PROTO_TYPE		(current_monitor->type)
 #define LOADTYPES		(current_monitor->loadtypes)
 #define LOADPROTOS		(current_monitor->loadprotos)
 #define INIT_CMD 		(current_monitor->init)
-#define GO_CMD 			(current_monitor->execute)
-#define CONT_CMD		(current_monitor->resume)
+#define CONT_CMD		(current_monitor->cont)
 #define STEP_CMD		(current_monitor->step)
 #define SET_BREAK_CMD		(current_monitor->set_break)
 #define CLR_BREAK_CMD		(current_monitor->clr_break)
-#define CLR_BREAK_ADDR		(current_monitor->clr_type)
 #define SET_MEM			(current_monitor->setmem)
 #define GET_MEM			(current_monitor->getmem)
 #define LOAD_CMD		(current_monitor->load)
@@ -85,28 +157,6 @@ extern struct monitor_ops        *current_monitor;
 #define push_monitor(x)		current_monitor = x;
 
 #define SREC_SIZE 160
-#define GDBPROTO		((current_monitor->type) ? 0: 1)
-
-extern void debuglogs();
-extern void monitor_open();
-extern void monitor_close();
-extern void monitor_detach();
-extern void monitor_attach();
-extern void monitor_resume();
-extern int  monitor_wait();
-extern void monitor_fetch_register();
-extern void monitor_store_register();
-extern void monitor_fetch_registers();
-extern void monitor_store_registers();
-extern void monitor_prepare_to_store();
-extern int  monitor_xfer_inferior_memory();
-extern void monitor_files_info();
-extern int  monitor_insert_breakpoint();
-extern int  monitor_remove_breakpoint();
-extern void monitor_kill();
-extern void monitor_load();
-extern void monitor_create_inferior();
-extern void monitor_mourn_inferior();
 
 /*
  * FIXME: These are to temporarily maintain compatability with the
@@ -117,3 +167,13 @@ extern void monitor_mourn_inferior();
 #define MEM_SET_CMD		(current_monitor->setmem)
 #define MEM_DIS_CMD		(current_monitor->getmem)
 #define REG_DELIM               (current_monitor->regset.delim)
+
+extern void monitor_open PARAMS ((char *args, struct monitor_ops *ops, int from_tty));
+extern char *monitor_supply_register PARAMS ((int regno, char *valstr));
+extern int monitor_expect PARAMS ((char *prompt, char *buf, int buflen));
+extern int monitor_expect_prompt PARAMS ((char *buf, int buflen));
+extern void monitor_printf PARAMS ((char *, ...))
+     ATTR_FORMAT(printf, 1, 2);
+extern void monitor_printf_noecho PARAMS ((char *, ...))
+     ATTR_FORMAT(printf, 1, 2);
+extern void init_monitor_ops PARAMS ((struct target_ops *));

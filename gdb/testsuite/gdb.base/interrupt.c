@@ -5,6 +5,10 @@ main ()
 {
   char x;
   int nbytes;
+#ifdef usestubs
+  set_debug_traps();
+  breakpoint();
+#endif
   printf ("talk to me baby\n");
   while (1)
     {

@@ -5,7 +5,10 @@ reliably without unexpected failures on the "standard" machines, etc.
 This list exists largely as "tests we can add when we are ready to
 risk destabilizing it again".
 
-nodebug.exp--test printing variables.
+There are some tests which are only run on some platforms because they
+have not been tested on more platforms.  Enable them and fix any
+problems.  A partial list: recurse.exp, watchpoint.exp
+(test_watchpoint_triggered_in_syscall, test_complex_watchpoint).
 
 Test printing of structures passed by value, for the 7th, 8th, and 9th
 arguments (PR 1714).  Test printing structure arguments of
@@ -33,8 +36,9 @@ appropriately (integer registers in decimal, registers which always
 contain addresses (pc, probably sp and fp, maybe others) in hex,
 floating point).
 
-Test completer.  There is a list of test cases in main.c in the gdb
-source.  Test these with TAB, M-?, and the "complete" command.
+Test completer.  Test that it completes a variety of things correctly
+(see the list of test cases in main.c in the gdb source).  Test TAB,
+M-?, and the "complete" command.
 
 Test "info line" with all kinds of linespecs.  Test that the last line
 of the file works right.
@@ -82,9 +86,6 @@ is redirected (to a file or a pipe).  Test user defined command.  Run
 an inferior each of these ways (to test that inflow.c works).  Test
 that GDB works if the last line of stdin or a source'd file lacks a
 newline.
-
-Test that module__2do (for example) in a C program does not get
-demangled.
 
 Test that unmatched single quotes produce error messages, both in
 expressions and linespecs.
@@ -189,14 +190,6 @@ Test stepping into functions which are one line long and functions
 which are on line 1 of the source file. (there is a class of bugs in
 which gdb doesn't find the line number information, and thus doesn't
 step into the function).
-
-Test "handle all nostop".  Right now this is buggy--it (a) prints "?"
-for "Unknown signal", (b) prints signal zero (bug or feature?), (c)
-dumps core when it is done.
-
-Test that the copyright year in the startup message matches the
-current year (would produce a single spurious FAIL on old GDB's, but
-probably still a good idea).
 
 Test that prologue recognition, backtrace, printing locals, etc.,
 still work in the presence of large frames (the point being that at

@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 Written by the Center for Software Science at the Univerity of Utah
 and by Cygnus Support.  */
@@ -33,10 +33,9 @@ and by Cygnus Support.  */
 #include "symfile.h"
 #include "objfiles.h"
 #include "inferior.h"
+#include "gdb-stabs.h"
 
 /* TODO:
-
-   * Relocate data addresses in the shared library.
 
    * Most of this code should work for hp300 shared libraries.  Does
    anyone care enough to weed out any SOM-isms.
@@ -114,7 +113,13 @@ som_solib_add (arg_string, from_tty, target)
   asection *shlib_info;
   int status;
   unsigned int dld_flags;
-  char buf[4];
+  char buf[4], *re_err;
+
+  /* First validate our arguments.  */
+  if ((re_err = re_comp (arg_string ? arg_string : ".")) != NULL)
+    {
+      error ("Invalid regexp: %s", re_err);
+    }
 
   /* If we're debugging a core file, or have attached to a running
      process, then som_solib_create_inferior_hook will not have been
@@ -213,14 +218,7 @@ som_solib_add (arg_string, from_tty, target)
   addr = extract_unsigned_integer (buf, 4);
 
   /* Now that we have a pointer to the dynamic library list, walk
-     through it and add the symbols for each library.
-
-     Skip the first entry since it's our executable.  */
-  status = target_read_memory (addr + 36, buf, 4);
-  if (status != 0)
-    goto err;
-
-  addr = extract_unsigned_integer (buf, 4);
+     through it and add the symbols for each library.  */
 
   so_list_tail = so_list_head;
   /* Find the end of the list of shared objects.  */
@@ -233,6 +231,7 @@ som_solib_add (arg_string, from_tty, target)
       unsigned int name_len;
       char *name;
       struct so_list *new_so;
+      struct so_list *so_list = so_list_head;
       struct section_table *p;
 
       if (addr == 0)
@@ -259,6 +258,25 @@ som_solib_add (arg_string, from_tty, target)
       status = target_read_memory (name_addr, name, name_len);
       if (status != 0)
 	goto err;
+
+      /* See if we've already loaded something with this name.  */
+      while (so_list)
+	{
+	  if (!strcmp (so_list->som_solib.name, name))
+	    break;
+	  so_list = so_list->next;
+	}
+
+      /* We've already loaded this one or it's the main program, skip it.  */
+      if (so_list || !strcmp (name, symfile_objfile->name))
+	{
+	  status = target_read_memory (addr + 36, buf, 4);
+	  if (status != 0)
+	    goto err;
+
+	  addr = (CORE_ADDR) extract_unsigned_integer (buf, 4);
+	  continue;
+	}
 
       name = obsavestring (name, name_len - 1,
 			   &symfile_objfile->symbol_obstack);
@@ -385,30 +403,27 @@ som_solib_add (arg_string, from_tty, target)
       status = target_read_memory (text_addr, buf, 4);
       if (status != 0)
 	{
-	  int old;
+	  int old, new;
 
+	  new = new_so->sections_end - new_so->sections;
 	  /* Add sections from the shared library to the core target.  */
 	  if (target->to_sections)
 	    {
 	      old = target->to_sections_end - target->to_sections;
 	      target->to_sections = (struct section_table *)
 		xrealloc ((char *)target->to_sections,
-			  ((sizeof (struct section_table))
-			    * (old + bfd_count_sections (new_so->abfd))));
+			  ((sizeof (struct section_table)) * (old + new)));
 	    }
 	  else
 	    {
 	      old = 0;
 	      target->to_sections = (struct section_table *)
-		xmalloc ((sizeof (struct section_table))
-			 * bfd_count_sections (new_so->abfd));
+		xmalloc ((sizeof (struct section_table)) * new);
 	    }
-	  target->to_sections_end = (target->to_sections
-				+ old + bfd_count_sections (new_so->abfd));
+	  target->to_sections_end = (target->to_sections + old + new);
 	  memcpy ((char *)(target->to_sections + old),
 		  new_so->sections,
-		  ((sizeof (struct section_table))
-		   * bfd_count_sections (new_so->abfd)));
+		  ((sizeof (struct section_table)) * new));
 	}
     }
 
@@ -581,12 +596,16 @@ som_solib_section_offsets (objfile, offsets)
     {
       /* Oh what a pain!  We need the offsets before so_list->objfile
 	 is valid.  The BFDs will never match.  Make a best guess.  */
-      if (!strcmp (so_list->som_solib.name, objfile->name))
+      if (strstr (objfile->name, so_list->som_solib.name))
 	{
 	  asection *private_section;
 
 	  /* The text offset is easy.  */
-	  ANOFFSET (offsets, 0) = so_list->som_solib.text_addr;
+	  ANOFFSET (offsets, SECT_OFF_TEXT)
+	    = (so_list->som_solib.text_addr
+	       - so_list->som_solib.text_link_addr);
+	  ANOFFSET (offsets, SECT_OFF_RODATA)
+	    = ANOFFSET (offsets, SECT_OFF_TEXT);
 
 	  /* We should look at presumed_dp in the SOM header, but
 	     that's not easily available.  This should be OK though.  */
@@ -595,11 +614,14 @@ som_solib_section_offsets (objfile, offsets)
 	  if (!private_section)
 	    {
 	      warning ("Unable to find $PRIVATE$ in shared library!");
-	      ANOFFSET (offsets, 1) = 0;
+	      ANOFFSET (offsets, SECT_OFF_DATA) = 0;
+	      ANOFFSET (offsets, SECT_OFF_BSS) = 0;
 	      return 1;
 	    }
-	  ANOFFSET (offsets, 1) = (so_list->som_solib.data_start
-				   - private_section->vma);
+	  ANOFFSET (offsets, SECT_OFF_DATA)
+	    = (so_list->som_solib.data_start - private_section->vma);
+	  ANOFFSET (offsets, SECT_OFF_BSS)
+	    = ANOFFSET (offsets, SECT_OFF_DATA);
 	  return 1;
 	}
       so_list = so_list->next;
@@ -654,9 +676,20 @@ som_sharedlibrary_info_command (ignore, from_tty)
     }
 }
 
+static void
+som_solib_sharedlibrary_command (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  dont_repeat ();
+  som_solib_add (args, from_tty, (struct target_ops *) 0);
+}
+
 void
 _initialize_som_solib ()
 {
+  add_com ("sharedlibrary", class_files, som_solib_sharedlibrary_command,
+           "Load shared object library symbols for files matching REGEXP.");
   add_info ("sharedlibrary", som_sharedlibrary_info_command,
 	    "Status of loaded shared object libraries.");
 }

@@ -20,7 +20,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* bfd.h -- The only header file required by users of the bfd library 
 
@@ -82,11 +82,16 @@ typedef struct _bfd bfd;
 /* typedef enum boolean {false, true} boolean; */
 /* Yup, SVR4 has a "typedef enum boolean" in <sys/types.h>  -fnf */
 /* It gets worse if the host also defines a true/false enum... -sts */
+/* And even worse if your compiler has built-in boolean types... -law */
+#if defined (__GNUG__) && (__GNUC_MINOR__ > 5)
+#define TRUE_FALSE_ALREADY_DEFINED
+#endif
 #ifndef TRUE_FALSE_ALREADY_DEFINED
 typedef enum bfd_boolean {false, true} boolean;
 #define BFD_TRUE_FALSE
 #else
-typedef enum bfd_boolean {bfd_false, bfd_true} boolean;
+/* Use enum names that will appear nowhere else.  */
+typedef enum bfd_boolean {bfd_fffalse, bfd_tttrue} boolean;
 #endif
 
 /* A pointer to a position in a file.  */
@@ -293,7 +298,7 @@ typedef struct sec *sec_ptr;
 
 #define bfd_is_com_section(ptr) (((ptr)->flags & SEC_IS_COMMON) != 0)
 
-#define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (ptr)->lma= (val)), ((ptr)->user_set_vma = true), true)
+#define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (ptr)->lma= (val)), ((ptr)->user_set_vma = (boolean)true), true)
 #define bfd_set_section_alignment(bfd, ptr, val) (((ptr)->alignment_power = (val)),true)
 #define bfd_set_section_userdata(bfd, ptr, val) (((ptr)->userdata = (val)),true)
 
@@ -440,6 +445,46 @@ extern long bfd_tell PARAMS ((bfd *abfd));
 extern int bfd_flush PARAMS ((bfd *abfd));
 extern int bfd_stat PARAMS ((bfd *abfd, struct stat *));
 
+/* PE STUFF */
+/* Also define some types which are used within bfdlink.h for the
+   bfd_link_info struct.  These are not defined in bfdlink.h for a reason.  
+   When the link_info data is passed to bfd from ld, it is copied into 
+   extern variables defined in internal.h.  The type class for these must
+   be available to any thing that includes internal.h.  When internal.h is
+   included, it is always preceeded by an include on this file.  If I leave the
+   type definitions in bfdlink.h, then I must include that file when ever
+   I include internal.h, and this is not always a good thing */
+
+/* These are the different types of subsystems to be used when linking for
+   Windows NT.  This information is passed in as an input parameter (default
+   is console) and ultimately ends up in the optional header data */
+enum bfd_link_subsystem
+{
+  native,    /* image doesn't require a subsystem */
+  windows,   /* image runs in the Windows GUI subsystem */
+  console,   /* image runs in the Windows CUI (character) subsystem */
+  os2,       /* image runs in the OS/2 character subsystem */
+  posix      /* image runs in the posix character subsystem */
+};
+/* The NT optional header file allows input of the stack and heap reserve
+   and commit size.  This data may be input on the command line and will
+   end up in the optional header.  Default sizes are provided. */
+struct _bfd_link_stack_heap
+{
+  boolean stack_defined;
+  boolean heap_defined;
+  bfd_vma stack_reserve;
+  bfd_vma stack_commit;
+  bfd_vma heap_reserve;
+  bfd_vma heap_commit; 
+};
+typedef struct _bfd_link_stack_heap bfd_link_stack_heap;
+
+/* END OF PE STUFF */
+
+extern enum bfd_link_subsystem NT_subsystem;
+extern bfd_link_stack_heap NT_stack_heap;
+
 /* Cast from const char * to char * so that caller can assign to
    a char * without a warning.  */
 #define bfd_get_filename(abfd) ((char *) (abfd)->filename)
@@ -463,7 +508,7 @@ extern int bfd_stat PARAMS ((bfd *abfd, struct stat *));
 
 #define bfd_get_symbol_leading_char(abfd) ((abfd)->xvec->symbol_leading_char)
 
-#define bfd_set_cacheable(abfd,bool) (((abfd)->cacheable = (bool)), true)
+#define bfd_set_cacheable(abfd,bool) (((abfd)->cacheable = (boolean)(bool)), true)
 
 /* Byte swapping routines.  */
 
@@ -547,9 +592,17 @@ extern boolean bfd_mips_ecoff_create_embedded_relocs
 /* Externally visible ELF routines.  */
 
 extern boolean bfd_elf32_record_link_assignment
-  PARAMS ((bfd *, struct bfd_link_info *, const char *));
+  PARAMS ((bfd *, struct bfd_link_info *, const char *, boolean));
 extern boolean bfd_elf64_record_link_assignment
-  PARAMS ((bfd *, struct bfd_link_info *, const char *));
+  PARAMS ((bfd *, struct bfd_link_info *, const char *, boolean));
+struct bfd_elf_link_needed_list
+{
+  struct bfd_elf_link_needed_list *next;
+  bfd *by;
+  const char *name;
+};
+extern struct bfd_elf_link_needed_list *bfd_elf_get_needed_list
+  PARAMS ((bfd *, struct bfd_link_info *));
 extern boolean bfd_elf32_size_dynamic_sections
   PARAMS ((bfd *, const char *, const char *, boolean,
 	   struct bfd_link_info *, struct sec **));

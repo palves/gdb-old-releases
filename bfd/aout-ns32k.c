@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define BYTES_IN_WORD 4
 
@@ -81,7 +81,8 @@ bfd_reloc_status_type
 
 static void
 MY_swap_std_reloc_in PARAMS ((bfd *abfd, struct reloc_std_external *bytes,
-			      arelent *cache_ptr, asymbol **symbols));
+			      arelent *cache_ptr, asymbol **symbols,
+			      bfd_size_type symcount));
 
 static void
 MY_swap_std_reloc_out PARAMS ((bfd *abfd, arelent *g,
@@ -288,11 +289,12 @@ reloc_howto_type *
 
 
 static void
-MY_swap_std_reloc_in (abfd, bytes, cache_ptr, symbols)
+MY_swap_std_reloc_in (abfd, bytes, cache_ptr, symbols, symcount)
      bfd *abfd;
      struct reloc_std_external *bytes;
      arelent *cache_ptr;
      asymbol **symbols;
+     bfd_size_type symcount;
 {
   int r_index;
   int r_extern;
@@ -351,6 +353,7 @@ MY_swap_std_reloc_out (abfd, g, natptr)
 	{
 	  /* Fill in symbol */
 	  r_extern = 1;
+#undef KEEPIT
 #define KEEPIT flags
 	  r_index =  stoi((*(g->sym_ptr_ptr))->KEEPIT);
 #undef KEEPIT     

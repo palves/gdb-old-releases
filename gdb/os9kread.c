@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This module provides three functions: os9k_symfile_init,
    which initializes to read a symbol file; os9k_new_init, which 
@@ -33,7 +33,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    for real.  os9k_psymtab_to_symtab() is the function that does this */
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include <stdio.h>
 
 #if defined(USG) || defined(__CYGNUSCLIB__)
@@ -46,7 +46,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifndef	NO_SYS_FILE
 #include <sys/file.h>
 #endif
-#include <sys/stat.h>
+#include "gdb_stat.h"
 #include <ctype.h>
 #include "symtab.h"
 #include "breakpoint.h"
@@ -142,9 +142,6 @@ os9k_psymtab_to_symtab_1 PARAMS ((struct partial_symtab *));
 static void
 read_os9k_psymtab PARAMS ((struct section_offsets *, struct objfile *,
                          CORE_ADDR, int));
-
-static void
-init_psymbol_list PARAMS ((struct objfile *));
 
 static int
 fill_sym PARAMS ((FILE *, bfd *));
@@ -340,7 +337,7 @@ os9k_symfile_read (objfile, section_offsets, mainline)
   /* If we are reinitializing, or if we have never loaded syms yet, init */
   if (mainline || objfile->global_psymbols.size == 0 || 
     objfile->static_psymbols.size == 0)
-    init_psymbol_list (objfile);
+    init_psymbol_list (objfile, DBX_SYMCOUNT (objfile));
 
   pending_blocks = 0;
   back_to = make_cleanup (really_free_pendings, 0);
@@ -351,8 +348,8 @@ os9k_symfile_read (objfile, section_offsets, mainline)
   /* Now that the symbol table data of the executable file are all in core,
      process them and define symbols accordingly.  */
   read_os9k_psymtab (section_offsets, objfile,
-		   bfd_section_vma  (sym_bfd, DBX_TEXT_SECT (objfile)),
-		   bfd_section_size (sym_bfd, DBX_TEXT_SECT (objfile)));
+		     DBX_TEXT_ADDR (objfile),
+		     DBX_TEXT_SIZE (objfile));
 
   do_cleanups (back_to);
 }
@@ -392,7 +389,7 @@ os9k_symfile_init (objfile)
   char dbgname[512], stbname[512];
   FILE *symfile = 0;
   FILE *minfile = 0;
-
+  asection *text_sect;
 
   strcpy(dbgname, name);
   strcat(dbgname, ".dbg");
@@ -414,9 +411,11 @@ os9k_symfile_init (objfile)
     xmmalloc (objfile -> md, sizeof (struct dbx_symfile_info));
   DBX_SYMFILE_INFO (objfile)->stab_section_info = NULL;
 
-  DBX_TEXT_SECT (objfile) = bfd_get_section_by_name (sym_bfd, ".text");
-  if (!DBX_TEXT_SECT (objfile))
+  text_sect = bfd_get_section_by_name (sym_bfd, ".text");
+  if (!text_sect)
     error ("Can't find .text section in file");
+  DBX_TEXT_ADDR (objfile) = bfd_section_vma (sym_bfd, text_sect);
+  DBX_TEXT_SIZE (objfile) = bfd_section_size (sym_bfd, text_sect);
 
   DBX_SYMBOL_SIZE (objfile) = 0;     /* variable size symbol */
   DBX_SYMCOUNT (objfile) =  0;  /* used to be bfd_get_symcount(sym_bfd) */
@@ -550,30 +549,6 @@ char *p;
     return 1;
 }
 
-/* Initializes storage for all of the partial symbols that will be
-   created by read_dbx_symtab and subsidiaries.  */
-
-static void
-init_psymbol_list (objfile)
-     struct objfile *objfile;
-{
-  /* Free any previously allocated psymbol lists.  */
-  if (objfile -> global_psymbols.list)
-    mfree (objfile -> md, (PTR)objfile -> global_psymbols.list);
-  if (objfile -> static_psymbols.list)
-    mfree (objfile -> md, (PTR)objfile -> static_psymbols.list);
-
-  /* Current best guess is that there are approximately a twentieth
-     of the total symbols (in a debugging file) are global or static
-     oriented symbols */
-  objfile -> global_psymbols.size = DBX_SYMCOUNT (objfile) / 10;
-  objfile -> static_psymbols.size = DBX_SYMCOUNT (objfile) / 10;
-  objfile -> global_psymbols.next = objfile -> global_psymbols.list = (struct partial_symbol *)
-    xmmalloc (objfile -> md, objfile -> global_psymbols.size * sizeof (struct partial_symbol));
-  objfile -> static_psymbols.next = objfile -> static_psymbols.list = (struct partial_symbol *)
-    xmmalloc (objfile -> md, objfile -> static_psymbols.size * sizeof (struct partial_symbol));
-}
-
 /* Given pointers to an a.out symbol table in core containing dbx
    style data, setup partial_symtab's describing each source file for
    which debugging information is available.

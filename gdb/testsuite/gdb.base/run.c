@@ -4,8 +4,8 @@
  */
 
 #ifdef vxworks
-#  include <vxWorks.h>
-#  include <stdioLib.h>
+
+#  include <stdio.h>
 
 /* VxWorks does not supply atoi.  */
 static int
@@ -40,6 +40,10 @@ main (argc, argv, envp)
 int argc;
 char *argv[], **envp;
 {
+#ifdef usestubs
+    set_debug_traps();
+    breakpoint();
+#endif
     if (argc != 2) {
 	printf ("usage:  factorial <number>\n");
 	return 1;

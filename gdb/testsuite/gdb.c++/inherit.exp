@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -355,10 +355,10 @@ proc test_print_anon_union {} {
 	default { fail "print anonymous union member (timeout)" ; return }
     }
     gdb_test "print g_anon_union" \
-	     ".* = .*\{one = 1,  = \{a = 2, b = .*\}\}" \
+	     ".* = .*{one = 1,  = {a = 2, b = .*}}" \
 	     "print anonymous union (known bug in gcc 2.4.5-2.5.8)"
     gdb_test "ptype g_anon_union" \
-	     "type = (struct|class).*\{.*int one;.*union \{.*int a;.*(long|long int|int) b;" \
+	     "type = (struct|class).*{.*int one;.*union {.*int a;.*(long|long int|int) b;.*};.*}" \
 	     "print type of anonymous union (known bug in gcc 2.4.5-2.5.8)"
 }
 
@@ -912,7 +912,7 @@ proc test_ptype_vi {} {
 
     send "ptype vB\n"
     expect {
-	-re "ptype vB\r\ntype = class vB : public virtual vA \{\r\n  private:\r\n\[ \]+vA \[*\]+_vb\[\\\$\.\]+vA;\r\n  public:\r\n\[ \]+int vb;\r\n\[ \]+int vx;\r\n.*\}\r\n$prompt $" {
+	-re "ptype vB\[\r\n\]+type = class vB : public virtual vA \{\r\n  private:\r\n\[ \]+vA \[*\]+_vb\[\\\$\.\]+vA;\r\n  public:\r\n\[ \]+int vb;\r\n\[ \]+int vx;\r\n.*\}\r\n$prompt $" {
 	    pass "ptype vB"
 	}
 	-re ".*$prompt $" { fail "ptype vB" }
@@ -1280,7 +1280,7 @@ proc do_tests {} {
     send "set width 0\n"
     expect -re "$prompt $"
 
-    if [ runto main ] then {
+    if [ runto_main ] then {
 	test_ptype_si
 	test_ptype_mi
 	test_ptype_vi
@@ -1312,9 +1312,7 @@ set binfile "misc"
 set srcfile $binfile.cc
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    if $all_flag then {
-	warning "$binfile does not exist; tests suppressed."
-    }
+    warning "$binfile does not exist; tests suppressed."
 } else {
     do_tests
 }

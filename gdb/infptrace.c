@@ -1,5 +1,5 @@
 /* Low level Unix child interface to ptrace, for GDB when running under Unix.
-   Copyright 1988, 1989, 1990, 1991, 1992, 1993, 1994
+   Copyright 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -16,12 +16,13 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
 #include "target.h"
+#include "gdb_string.h"
 
 #ifdef USG
 #include <sys/types.h>
@@ -70,7 +71,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Don't think this is used anymore.  On the sequent (not sure whether it's
    dynix or ptx or both), it is included unconditionally by sys/user.h and
    not protected against multiple inclusion.  */
-#include <sys/stat.h>
+#include "gdb_stat.h"
 #endif
 
 #if !defined (FETCH_INFERIOR_REGISTERS)

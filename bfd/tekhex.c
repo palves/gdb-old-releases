@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /*
 SUBSECTION
@@ -416,7 +416,7 @@ first_phase (abfd, type, src)
 	      section->_raw_size = getvalue (&src) - section->vma;
 	      section->flags = SEC_HAS_CONTENTS | SEC_LOAD | SEC_ALLOC;
 	      break;
-
+	    case '0':
 	    case '2':
 	    case '3':
 	    case '4':
@@ -901,7 +901,7 @@ tekhex_write_object_contents (abfd)
     }
 
   /* And the terminator */
-  if (bfd_write ("%7081010\n", 1, 9, abfd) != 9)
+  if (bfd_write ("%0781010\n", 1, 9, abfd) != 9)
     abort ();
   return true;
 }
@@ -979,6 +979,8 @@ tekhex_print_symbol (ignore_abfd, filep, symbol, how)
 #define tekhex_get_lineno _bfd_nosymbols_get_lineno
 #define tekhex_find_nearest_line _bfd_nosymbols_find_nearest_line
 #define tekhex_bfd_make_debug_symbol _bfd_nosymbols_bfd_make_debug_symbol
+#define tekhex_read_minisymbols _bfd_generic_read_minisymbols
+#define tekhex_minisymbol_to_symbol _bfd_generic_minisymbol_to_symbol
 
 #define tekhex_bfd_get_relocated_section_contents \
   bfd_generic_get_relocated_section_contents
@@ -986,6 +988,7 @@ tekhex_print_symbol (ignore_abfd, filep, symbol, how)
 #define tekhex_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
 #define tekhex_bfd_link_add_symbols _bfd_generic_link_add_symbols
 #define tekhex_bfd_final_link _bfd_generic_final_link
+#define tekhex_bfd_link_split_section _bfd_generic_link_split_section
 
 const bfd_target tekhex_vec =
 {

@@ -16,7 +16,7 @@ more details.
 
 You should have received a copy of the GNU General Public License along with
 This program; if not, write to the Free Software Foundation, Inc., 675
- Mass Ave, Cambridge, MA 02139, USA.  
+ Mass Ave, Boston, MA 02111-1307, USA.  
 */
 
 #include "dis-asm.h"
@@ -71,24 +71,15 @@ arm_decode_shift (given, func, stream)
 /* Print one instruction from PC on INFO->STREAM.
    Return the size of the instruction (always 4 on ARM). */
 
-int
-print_insn_arm (pc, info)
-	bfd_vma         pc;
-	struct disassemble_info *info;
+static int
+print_insn_arm (pc, info, given)
+     bfd_vma         pc;
+     struct disassemble_info *info;
+     long given;
 {
   struct arm_opcode *insn;
-  unsigned char b[4];
   void *stream = info->stream;
   fprintf_ftype func = info->fprintf_func;
-  int status;
-  long given;
-
-  status = (*info->read_memory_func) (pc, (bfd_byte *) &b[0], 4, info);
-  if (status != 0) {
-    (*info->memory_error_func) (status, pc, info);
-    return -1;
-  }
-  given = (b[0]) | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
 
   func (stream, "%08x\t", given);
 
@@ -416,4 +407,46 @@ print_insn_arm (pc, info)
 	}
     }
   abort ();
+}
+
+int
+print_insn_big_arm (pc, info)
+     bfd_vma pc;
+     struct disassemble_info *info;
+{
+  unsigned char b[4];
+  long given;
+  int status;
+
+  status = (*info->read_memory_func) (pc, (bfd_byte *) &b[0], 4, info);
+  if (status != 0)
+    {
+      (*info->memory_error_func) (status, pc, info);
+      return -1;
+    }
+
+  given = (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | (b[3]);
+
+  return print_insn_arm (pc, info, given);
+}
+
+int
+print_insn_little_arm (pc, info)
+     bfd_vma pc;
+     struct disassemble_info *info;
+{
+  unsigned char b[4];
+  long given;
+  int status;
+
+  status = (*info->read_memory_func) (pc, (bfd_byte *) &b[0], 4, info);
+  if (status != 0)
+    {
+      (*info->memory_error_func) (status, pc, info);
+      return -1;
+    }
+
+  given = (b[0]) | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
+
+  return print_insn_arm (pc, info, given);
 }

@@ -20,7 +20,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* bfd.h -- The only header file required by users of the bfd library 
 
@@ -82,11 +82,16 @@ typedef struct _bfd bfd;
 /* typedef enum boolean {false, true} boolean; */
 /* Yup, SVR4 has a "typedef enum boolean" in <sys/types.h>  -fnf */
 /* It gets worse if the host also defines a true/false enum... -sts */
+/* And even worse if your compiler has built-in boolean types... -law */
+#if defined (__GNUG__) && (__GNUC_MINOR__ > 5)
+#define TRUE_FALSE_ALREADY_DEFINED
+#endif
 #ifndef TRUE_FALSE_ALREADY_DEFINED
 typedef enum bfd_boolean {false, true} boolean;
 #define BFD_TRUE_FALSE
 #else
-typedef enum bfd_boolean {bfd_false, bfd_true} boolean;
+/* Use enum names that will appear nowhere else.  */
+typedef enum bfd_boolean {bfd_fffalse, bfd_tttrue} boolean;
 #endif
 
 /* A pointer to a position in a file.  */
@@ -293,7 +298,7 @@ typedef struct sec *sec_ptr;
 
 #define bfd_is_com_section(ptr) (((ptr)->flags & SEC_IS_COMMON) != 0)
 
-#define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (ptr)->lma= (val)), ((ptr)->user_set_vma = true), true)
+#define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (ptr)->lma= (val)), ((ptr)->user_set_vma = (boolean)true), true)
 #define bfd_set_section_alignment(bfd, ptr, val) (((ptr)->alignment_power = (val)),true)
 #define bfd_set_section_userdata(bfd, ptr, val) (((ptr)->userdata = (val)),true)
 
@@ -440,6 +445,46 @@ extern long bfd_tell PARAMS ((bfd *abfd));
 extern int bfd_flush PARAMS ((bfd *abfd));
 extern int bfd_stat PARAMS ((bfd *abfd, struct stat *));
 
+/* PE STUFF */
+/* Also define some types which are used within bfdlink.h for the
+   bfd_link_info struct.  These are not defined in bfdlink.h for a reason.  
+   When the link_info data is passed to bfd from ld, it is copied into 
+   extern variables defined in internal.h.  The type class for these must
+   be available to any thing that includes internal.h.  When internal.h is
+   included, it is always preceeded by an include on this file.  If I leave the
+   type definitions in bfdlink.h, then I must include that file when ever
+   I include internal.h, and this is not always a good thing */
+
+/* These are the different types of subsystems to be used when linking for
+   Windows NT.  This information is passed in as an input parameter (default
+   is console) and ultimately ends up in the optional header data */
+enum bfd_link_subsystem
+{
+  native,    /* image doesn't require a subsystem */
+  windows,   /* image runs in the Windows GUI subsystem */
+  console,   /* image runs in the Windows CUI (character) subsystem */
+  os2,       /* image runs in the OS/2 character subsystem */
+  posix      /* image runs in the posix character subsystem */
+};
+/* The NT optional header file allows input of the stack and heap reserve
+   and commit size.  This data may be input on the command line and will
+   end up in the optional header.  Default sizes are provided. */
+struct _bfd_link_stack_heap
+{
+  boolean stack_defined;
+  boolean heap_defined;
+  bfd_vma stack_reserve;
+  bfd_vma stack_commit;
+  bfd_vma heap_reserve;
+  bfd_vma heap_commit; 
+};
+typedef struct _bfd_link_stack_heap bfd_link_stack_heap;
+
+/* END OF PE STUFF */
+
+extern enum bfd_link_subsystem NT_subsystem;
+extern bfd_link_stack_heap NT_stack_heap;
+
 /* Cast from const char * to char * so that caller can assign to
    a char * without a warning.  */
 #define bfd_get_filename(abfd) ((char *) (abfd)->filename)
@@ -463,7 +508,7 @@ extern int bfd_stat PARAMS ((bfd *abfd, struct stat *));
 
 #define bfd_get_symbol_leading_char(abfd) ((abfd)->xvec->symbol_leading_char)
 
-#define bfd_set_cacheable(abfd,bool) (((abfd)->cacheable = (bool)), true)
+#define bfd_set_cacheable(abfd,bool) (((abfd)->cacheable = (boolean)(bool)), true)
 
 /* Byte swapping routines.  */
 
@@ -547,9 +592,17 @@ extern boolean bfd_mips_ecoff_create_embedded_relocs
 /* Externally visible ELF routines.  */
 
 extern boolean bfd_elf32_record_link_assignment
-  PARAMS ((bfd *, struct bfd_link_info *, const char *));
+  PARAMS ((bfd *, struct bfd_link_info *, const char *, boolean));
 extern boolean bfd_elf64_record_link_assignment
-  PARAMS ((bfd *, struct bfd_link_info *, const char *));
+  PARAMS ((bfd *, struct bfd_link_info *, const char *, boolean));
+struct bfd_elf_link_needed_list
+{
+  struct bfd_elf_link_needed_list *next;
+  bfd *by;
+  const char *name;
+};
+extern struct bfd_elf_link_needed_list *bfd_elf_get_needed_list
+  PARAMS ((bfd *, struct bfd_link_info *));
 extern boolean bfd_elf32_size_dynamic_sections
   PARAMS ((bfd *, const char *, const char *, boolean,
 	   struct bfd_link_info *, struct sec **));
@@ -1314,6 +1367,25 @@ The 24-bit relocation is used in some Intel 960 configurations. */
   BFD_RELOC_12_PCREL,
   BFD_RELOC_8_PCREL,
 
+/* For ELF. */
+  BFD_RELOC_32_GOT_PCREL,
+  BFD_RELOC_16_GOT_PCREL,
+  BFD_RELOC_8_GOT_PCREL,
+  BFD_RELOC_32_GOTOFF,
+  BFD_RELOC_16_GOTOFF,
+  BFD_RELOC_8_GOTOFF,
+  BFD_RELOC_32_PLT_PCREL,
+  BFD_RELOC_16_PLT_PCREL,
+  BFD_RELOC_8_PLT_PCREL,
+  BFD_RELOC_32_PLTOFF,
+  BFD_RELOC_16_PLTOFF,
+  BFD_RELOC_8_PLTOFF,
+
+/* Relocations used by 68K ELF. */
+  BFD_RELOC_68K_GLOB_DAT,
+  BFD_RELOC_68K_JMP_SLOT,
+  BFD_RELOC_68K_RELATIVE,
+
 /* Linkage-table relative. */
   BFD_RELOC_32_BASEREL,
   BFD_RELOC_16_BASEREL,
@@ -1511,6 +1583,10 @@ not stored in the instruction. */
   BFD_RELOC_ARM_SWI,
   BFD_RELOC_ARM_MULTI,
   BFD_RELOC_ARM_CP_OFF_IMM,
+  BFD_RELOC_ARM_ADR_IMM,
+  BFD_RELOC_ARM_LDR_IMM,
+  BFD_RELOC_ARM_LITERAL,
+  BFD_RELOC_ARM_IN_POOL,
 
   BFD_RELOC_UNUSED };
 typedef enum bfd_reloc_code_real bfd_reloc_code_real_type;
@@ -1662,6 +1738,12 @@ bfd_decode_symclass PARAMS ((asymbol *symbol));
 void 
 bfd_symbol_info PARAMS ((asymbol *symbol, symbol_info *ret));
 
+boolean 
+bfd_copy_private_symbol_data PARAMS ((bfd *ibfd, asymbol *isym, bfd *obfd, asymbol *osym));
+
+#define bfd_copy_private_symbol_data(ibfd, isymbol, obfd, osymbol) \
+     BFD_SEND (ibfd, _bfd_copy_private_symbol_data, \
+		(ibfd, isymbol, obfd, osymbol))
 struct _bfd 
 {
      /* The filename the application opened the BFD with.  */
@@ -1799,6 +1881,7 @@ struct _bfd
       struct lynx_core_struct *lynx_core_data;
       struct osf_core_struct *osf_core_data;
       struct cisco_core_struct *cisco_core_data;
+      struct versados_data_struct *versados_data;
       PTR any;
       } tdata;
   
@@ -1818,6 +1901,7 @@ typedef enum bfd_error
   bfd_error_invalid_operation,
   bfd_error_no_memory,
   bfd_error_no_symbols,
+  bfd_error_no_armap,
   bfd_error_no_more_archived_files,
   bfd_error_malformed_archive,
   bfd_error_file_not_recognized,
@@ -1827,6 +1911,7 @@ typedef enum bfd_error
   bfd_error_no_debug_section,
   bfd_error_bad_value,
   bfd_error_file_truncated,
+  bfd_error_file_too_big,
   bfd_error_invalid_error_code
 } bfd_error_type;
 
@@ -1841,6 +1926,14 @@ bfd_errmsg  PARAMS ((bfd_error_type error_tag));
 
 void 
 bfd_perror  PARAMS ((CONST char *message));
+
+typedef void (*bfd_error_handler_type) PARAMS ((const char *, ...));
+
+bfd_error_handler_type 
+bfd_set_error_handler  PARAMS ((bfd_error_handler_type));
+
+void 
+bfd_set_error_program_name  PARAMS ((const char *));
 
 long 
 bfd_get_reloc_upper_bound PARAMS ((bfd *abfd, asection *sect));
@@ -1885,6 +1978,18 @@ bfd_copy_private_bfd_data PARAMS ((bfd *ibfd, bfd *obfd));
 #define bfd_copy_private_bfd_data(ibfd, obfd) \
      BFD_SEND (ibfd, _bfd_copy_private_bfd_data, \
 		(ibfd, obfd))
+boolean 
+bfd_merge_private_bfd_data PARAMS ((bfd *ibfd, bfd *obfd));
+
+#define bfd_merge_private_bfd_data(ibfd, obfd) \
+     BFD_SEND (ibfd, _bfd_merge_private_bfd_data, \
+		(ibfd, obfd))
+boolean 
+bfd_set_private_flags PARAMS ((bfd *abfd, flagword flags));
+
+#define bfd_set_private_flags(abfd, flags) \
+     BFD_SEND (abfd, _bfd_set_private_flags, \
+		(abfd, flags))
 #define bfd_sizeof_headers(abfd, reloc) \
      BFD_SEND (abfd, _bfd_sizeof_headers, (abfd, reloc))
 
@@ -1911,10 +2016,6 @@ bfd_copy_private_bfd_data PARAMS ((bfd *ibfd, bfd *obfd));
 #define bfd_set_arch_mach(abfd, arch, mach)\
         BFD_SEND ( abfd, _bfd_set_arch_mach, (abfd, arch, mach))
 
-#define bfd_get_relocated_section_contents(abfd, link_info, link_order, data, relocateable, symbols) \
-	BFD_SEND (abfd, _bfd_get_relocated_section_contents, \
-                 (abfd, link_info, link_order, data, relocateable, symbols))
- 
 #define bfd_relax_section(abfd, section, link_info, again) \
        BFD_SEND (abfd, _bfd_relax_section, (abfd, section, link_info, again))
 
@@ -1941,6 +2042,11 @@ bfd_copy_private_bfd_data PARAMS ((bfd *ibfd, bfd *obfd));
 
 #define bfd_canonicalize_dynamic_reloc(abfd, arels, asyms) \
 	BFD_SEND (abfd, _bfd_canonicalize_dynamic_reloc, (abfd, arels, asyms))
+
+extern bfd_byte *bfd_get_relocated_section_contents
+	PARAMS ((bfd *, struct bfd_link_info *,
+		  struct bfd_link_order *, bfd_byte *,
+		  boolean, asymbol **));
 
 symindex 
 bfd_get_next_mapent PARAMS ((bfd *abfd, symindex previous, carsym **sym));
@@ -1996,7 +2102,10 @@ enum bfd_flavour {
   bfd_target_tekhex_flavour,
   bfd_target_srec_flavour,
   bfd_target_som_flavour,
-  bfd_target_os9k_flavour};
+  bfd_target_os9k_flavour,
+  bfd_target_versados_flavour,
+  bfd_target_msdos_flavour
+};
 
  /* Forward declaration.  */
 typedef struct bfd_link_info _bfd_link_info;
@@ -2054,14 +2163,26 @@ CAT(NAME,_get_section_contents)
    /* Entry points to copy private data.  */
 #define BFD_JUMP_TABLE_COPY(NAME)\
 CAT(NAME,_bfd_copy_private_bfd_data),\
-CAT(NAME,_bfd_copy_private_section_data)
+CAT(NAME,_bfd_merge_private_bfd_data),\
+CAT(NAME,_bfd_copy_private_section_data),\
+CAT(NAME,_bfd_copy_private_symbol_data),\
+CAT(NAME,_bfd_set_private_flags)
    /* Called to copy BFD general private data from one object file
      to another.  */
   boolean	 (*_bfd_copy_private_bfd_data) PARAMS ((bfd *, bfd *));
+   /* Called to merge BFD general private data from one object file
+     to a common output file when linking.  */
+  boolean	 (*_bfd_merge_private_bfd_data) PARAMS ((bfd *, bfd *));
    /* Called to copy BFD private section data from one object file
      to another.  */
   boolean       (*_bfd_copy_private_section_data) PARAMS ((bfd *, sec_ptr,
                                                        bfd *, sec_ptr));
+   /* Called to copy BFD private symbol data from one symbol 
+     to another.  */
+  boolean       (*_bfd_copy_private_symbol_data) PARAMS ((bfd *, asymbol *,
+							   bfd *, asymbol *));
+   /* Called to set private backend flags */
+  boolean	 (*_bfd_set_private_flags) PARAMS ((bfd *, flagword));
 
    /* Core file entry points.  */
 #define BFD_JUMP_TABLE_CORE(NAME)\
@@ -2106,7 +2227,9 @@ CAT(NAME,_get_symbol_info),\
 CAT(NAME,_bfd_is_local_label),\
 CAT(NAME,_get_lineno),\
 CAT(NAME,_find_nearest_line),\
-CAT(NAME,_bfd_make_debug_symbol)
+CAT(NAME,_bfd_make_debug_symbol),\
+CAT(NAME,_read_minisymbols),\
+CAT(NAME,_minisymbol_to_symbol)
   long  (*_bfd_get_symtab_upper_bound) PARAMS ((bfd *));
   long  (*_bfd_canonicalize_symtab) PARAMS ((bfd *,
                                              struct symbol_cache_entry **));
@@ -2130,10 +2253,18 @@ CAT(NAME,_bfd_make_debug_symbol)
   /* Back-door to allow format-aware applications to create debug symbols
     while using BFD for everything else.  Currently used by the assembler
     when creating COFF files.  */
- asymbol *  (*_bfd_make_debug_symbol) PARAMS ((
+  asymbol *  (*_bfd_make_debug_symbol) PARAMS ((
        bfd *abfd,
        void *ptr,
        unsigned long size));
+#define bfd_read_minisymbols(b, d, m, s) \
+  BFD_SEND (b, _read_minisymbols, (b, d, m, s))
+  long  (*_read_minisymbols) PARAMS ((bfd *, boolean, PTR *,
+                                      unsigned int *));
+#define bfd_minisymbol_to_symbol(b, d, m, f) \
+  BFD_SEND (b, _minisymbol_to_symbol, (b, d, m, f))
+  asymbol *(*_minisymbol_to_symbol) PARAMS ((bfd *, boolean, const PTR,
+                                             asymbol *));
 
    /* Routines for relocs.  */
 #define BFD_JUMP_TABLE_RELOCS(NAME)\
@@ -2164,7 +2295,8 @@ CAT(NAME,_bfd_get_relocated_section_contents),\
 CAT(NAME,_bfd_relax_section),\
 CAT(NAME,_bfd_link_hash_table_create),\
 CAT(NAME,_bfd_link_add_symbols),\
-CAT(NAME,_bfd_final_link)
+CAT(NAME,_bfd_final_link),\
+CAT(NAME,_bfd_link_split_section)
   int        (*_bfd_sizeof_headers) PARAMS ((bfd *, boolean));
   bfd_byte * (*_bfd_get_relocated_section_contents) PARAMS ((bfd *,
                     struct bfd_link_info *, struct bfd_link_order *,
@@ -2184,6 +2316,9 @@ CAT(NAME,_bfd_final_link)
    /* Do a link based on the link_order structures attached to each
      section of the BFD.  */
   boolean (*_bfd_final_link) PARAMS ((bfd *, struct bfd_link_info *));
+
+   /* Should this section be split up into smaller pieces during linking.  */
+  boolean (*_bfd_link_split_section) PARAMS ((bfd *, struct sec *));
 
   /* Routines to handle dynamic symbols and relocs.  */
 #define BFD_JUMP_TABLE_DYNAMIC(NAME)\

@@ -10,6 +10,7 @@ OBJS = \
 	getopt.o \
 	getopt1.o \
 	getruntime.o \
+	hex.o \
 	msdos.o \
 	obstack.o \
 	spaces.o \

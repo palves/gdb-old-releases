@@ -90,7 +90,11 @@ int main ()
   ival3 = count; ival4 = count;
   marker2 ();
   if (doread)
-    read (0, &buf[0], 5);
+    {
+      static char msg[] = "type stuff for buf now:";
+      write (1, msg, sizeof (msg) - 1);
+      read (0, &buf[0], 5);
+    }
   marker4 ();
 
   /* We have a watchpoint on ptr1->val.  It should be triggered if

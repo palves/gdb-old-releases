@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Parse an expression from text in a string,
    and return the result as a  struct expression  pointer.
@@ -29,7 +29,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    come first in the result.  */
    
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "frame.h"
@@ -875,20 +875,22 @@ follow_types (follow_type)
 	break;
       case tp_array:
 	array_size = pop_type_int ();
-	if (array_size != -1)
-	  {
-	    range_type =
-	      create_range_type ((struct type *) NULL,
-				 builtin_type_int, 0,
-				 array_size - 1);
-	    follow_type =
-	      create_array_type ((struct type *) NULL,
-				 follow_type, range_type);
-	  }
-	else
-	  follow_type = lookup_pointer_type (follow_type);
+	/* FIXME-type-allocation: need a way to free this type when we are
+	   done with it.  */
+	range_type =
+	  create_range_type ((struct type *) NULL,
+			     builtin_type_int, 0,
+			     array_size >= 0 ? array_size - 1 : 0);
+	follow_type =
+	  create_array_type ((struct type *) NULL,
+			     follow_type, range_type);
+	if (array_size < 0)
+	  TYPE_ARRAY_UPPER_BOUND_TYPE(follow_type)
+	    = BOUND_CANNOT_BE_DETERMINED;
 	break;
       case tp_function:
+	/* FIXME-type-allocation: need a way to free this type when we are
+	   done with it.  */
 	follow_type = lookup_function_type (follow_type);
 	break;
       }

@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* NOTE: This is a header file, but it contains executable routines.
    This is done this way because these routines are substantially
@@ -52,7 +52,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif
 
 /* ECOFF auxiliary information swapping routines.  These are the same
-   for all ECOFF targets, so they are defined in ecoff.c.  */
+   for all ECOFF targets, so they are defined in ecofflink.c.  */
+
 extern void _bfd_ecoff_swap_tir_in
   PARAMS ((int, const struct tir_ext *, TIR *));
 extern void _bfd_ecoff_swap_tir_out
@@ -283,6 +284,8 @@ ecoff_swap_fdr_out (abfd, intern_copy, ext_ptr)
 #endif
 }
 
+#ifndef MPW_C
+
 /* Swap in the procedure descriptor record.  */
 
 static void
@@ -294,7 +297,9 @@ ecoff_swap_pdr_in (abfd, ext_copy, intern)
   struct pdr_ext ext[1];
 
   *ext = *(struct pdr_ext *) ext_copy;
-  
+
+  memset ((PTR) intern, 0, sizeof (*intern));
+
   intern->adr           = ecoff_get_off (abfd, (bfd_byte *)ext->p_adr);
   intern->isym          = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_isym);
   intern->iline         = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_iline);
@@ -319,6 +324,7 @@ ecoff_swap_pdr_in (abfd, ext_copy, intern)
     {
       intern->gp_used = 0 != (ext->p_bits1[0] & PDR_BITS1_GP_USED_BIG);
       intern->reg_frame = 0 != (ext->p_bits1[0] & PDR_BITS1_REG_FRAME_BIG);
+      intern->prof = 0 != (ext->p_bits1[0] & PDR_BITS1_PROF_BIG);
       intern->reserved = (((ext->p_bits1[0] & PDR_BITS1_RESERVED_BIG)
 			   << PDR_BITS1_RESERVED_SH_LEFT_BIG)
 			  | ((ext->p_bits2[0] & PDR_BITS2_RESERVED_BIG)
@@ -328,6 +334,7 @@ ecoff_swap_pdr_in (abfd, ext_copy, intern)
     {
       intern->gp_used = 0 != (ext->p_bits1[0] & PDR_BITS1_GP_USED_LITTLE);
       intern->reg_frame = 0 != (ext->p_bits1[0] & PDR_BITS1_REG_FRAME_LITTLE);
+      intern->prof = 0 != (ext->p_bits1[0] & PDR_BITS1_PROF_LITTLE);
       intern->reserved = (((ext->p_bits1[0] & PDR_BITS1_RESERVED_LITTLE)
 			   >> PDR_BITS1_RESERVED_SH_LITTLE)
 			  | ((ext->p_bits2[0] & PDR_BITS2_RESERVED_LITTLE)
@@ -376,6 +383,7 @@ ecoff_swap_pdr_out (abfd, intern_copy, ext_ptr)
     {
       ext->p_bits1[0] = ((intern->gp_used ? PDR_BITS1_GP_USED_BIG : 0)
 			 | (intern->reg_frame ? PDR_BITS1_REG_FRAME_BIG : 0)
+			 | (intern->prof ? PDR_BITS1_PROF_BIG : 0)
 			 | ((intern->reserved
 			     >> PDR_BITS1_RESERVED_SH_LEFT_BIG)
 			    & PDR_BITS1_RESERVED_BIG));
@@ -386,6 +394,7 @@ ecoff_swap_pdr_out (abfd, intern_copy, ext_ptr)
     {
       ext->p_bits1[0] = ((intern->gp_used ? PDR_BITS1_GP_USED_LITTLE : 0)
 			 | (intern->reg_frame ? PDR_BITS1_REG_FRAME_LITTLE : 0)
+			 | (intern->prof ? PDR_BITS1_PROF_LITTLE : 0)
 			 | ((intern->reserved << PDR_BITS1_RESERVED_SH_LITTLE)
 			    & PDR_BITS1_RESERVED_LITTLE));
       ext->p_bits2[0] = ((intern->reserved >>
@@ -400,6 +409,81 @@ ecoff_swap_pdr_out (abfd, intern_copy, ext_ptr)
     abort();
 #endif
 }
+
+#else /* MPW_C */
+/* Same routines, but with ECOFF_64 code removed, so ^&%$#&! MPW C doesn't
+   corrupt itself and then freak out. */
+/* Swap in the procedure descriptor record.  */
+
+static void
+ecoff_swap_pdr_in (abfd, ext_copy, intern)
+     bfd *abfd;
+     PTR ext_copy;
+     PDR *intern;
+{
+  struct pdr_ext ext[1];
+
+  *ext = *(struct pdr_ext *) ext_copy;
+  
+  intern->adr           = ecoff_get_off (abfd, (bfd_byte *)ext->p_adr);
+  intern->isym          = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_isym);
+  intern->iline         = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_iline);
+  intern->regmask       = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_regmask);
+  intern->regoffset     = bfd_h_get_signed_32 (abfd,
+					       (bfd_byte *)ext->p_regoffset);
+  intern->iopt          = bfd_h_get_signed_32 (abfd, (bfd_byte *)ext->p_iopt);
+  intern->fregmask      = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_fregmask);
+  intern->fregoffset    = bfd_h_get_signed_32 (abfd,
+					       (bfd_byte *)ext->p_fregoffset);
+  intern->frameoffset   = bfd_h_get_signed_32 (abfd,
+					       (bfd_byte *)ext->p_frameoffset);
+  intern->framereg      = bfd_h_get_16 (abfd, (bfd_byte *)ext->p_framereg);
+  intern->pcreg         = bfd_h_get_16 (abfd, (bfd_byte *)ext->p_pcreg);
+  intern->lnLow         = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_lnLow);
+  intern->lnHigh        = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_lnHigh);
+  intern->cbLineOffset  = ecoff_get_off (abfd, (bfd_byte *)ext->p_cbLineOffset);
+
+#ifdef TEST
+  if (memcmp ((char *)ext, (char *)intern, sizeof (*intern)) != 0)
+    abort();
+#endif
+}
+
+/* Swap out the procedure descriptor record.  */
+
+static void
+ecoff_swap_pdr_out (abfd, intern_copy, ext_ptr)
+     bfd *abfd;
+     const PDR *intern_copy;
+     PTR ext_ptr;
+{
+  struct pdr_ext *ext = (struct pdr_ext *) ext_ptr;
+  PDR intern[1];
+
+  *intern = *intern_copy;	/* Make it reasonable to do in-place.  */
+  
+  ecoff_put_off (abfd, intern->adr, (bfd_byte *)ext->p_adr);
+  bfd_h_put_32 (abfd, intern->isym, (bfd_byte *)ext->p_isym);
+  bfd_h_put_32 (abfd, intern->iline, (bfd_byte *)ext->p_iline);
+  bfd_h_put_32 (abfd, intern->regmask, (bfd_byte *)ext->p_regmask);
+  bfd_h_put_32 (abfd, intern->regoffset, (bfd_byte *)ext->p_regoffset);
+  bfd_h_put_32 (abfd, intern->iopt, (bfd_byte *)ext->p_iopt);
+  bfd_h_put_32 (abfd, intern->fregmask, (bfd_byte *)ext->p_fregmask);
+  bfd_h_put_32 (abfd, intern->fregoffset, (bfd_byte *)ext->p_fregoffset);
+  bfd_h_put_32 (abfd, intern->frameoffset, (bfd_byte *)ext->p_frameoffset);
+  bfd_h_put_16 (abfd, intern->framereg, (bfd_byte *)ext->p_framereg);
+  bfd_h_put_16 (abfd, intern->pcreg, (bfd_byte *)ext->p_pcreg);
+  bfd_h_put_32 (abfd, intern->lnLow, (bfd_byte *)ext->p_lnLow);
+  bfd_h_put_32 (abfd, intern->lnHigh, (bfd_byte *)ext->p_lnHigh);
+  ecoff_put_off (abfd, intern->cbLineOffset, (bfd_byte *)ext->p_cbLineOffset);
+
+#ifdef TEST
+  if (memcmp ((char *)ext, (char *)intern, sizeof (*intern)) != 0)
+    abort();
+#endif
+}
+#endif /* MPW_C */
+
 /* Swap in a symbol record.  */
 
 static void

@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -28,39 +28,4 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define COFF_LONG_FILENAMES
 
-#define coff_bfd_link_add_symbols lynx_link_add_symbols
-
-static boolean lynx_link_add_symbols PARAMS ((bfd *, struct bfd_link_info *));
-
 #include "coff-i386.c"
-
-/* On Lynx, we may have a COFF archive which contains a.out elements.
-   This screws up the COFF linker, which expects that any archive it
-   gets contains COFF elements.  We override the add_symbols function
-   to check for this case.  */
-
-static boolean
-lynx_link_add_symbols (abfd, info)
-     bfd *abfd;
-     struct bfd_link_info *info;
-{
-  if (bfd_get_format (abfd) == bfd_archive)
-    {
-      bfd *first;
-
-      first = bfd_openr_next_archived_file (abfd, (bfd *) NULL);
-      if (first == NULL)
-	return false;
-      if (! bfd_check_format (first, bfd_object))
-	return false;
-      if (bfd_get_flavour (first) != bfd_target_coff_flavour)
-	{
-	  /* Treat the archive as though it were actually of the
-	     flavour of its first element.  This ought to work,
-	     since the archive support is fairly generic.  */
-	  return (*first->xvec->_bfd_link_add_symbols) (abfd, info);
-	}
-    }
-
-  return _bfd_coff_link_add_symbols (abfd, info);
-}

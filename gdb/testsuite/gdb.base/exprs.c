@@ -4,6 +4,10 @@ main (argc, argv, envp)
      char **envp;
 {
     extern void dummy();
+#ifdef usestubs
+    set_debug_traps();
+    breakpoint();
+#endif
     dummy();
 }
 

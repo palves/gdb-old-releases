@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef SERIAL_H
 #define SERIAL_H
@@ -36,6 +36,9 @@ struct _serial_t
   /* ser-unix.c termio{,s} only, we still need to wait for this many more
      seconds.  */
   int timeout_remaining;
+  char *name;			/* The name of the device or host */
+  struct _serial_t *next;	/* Pointer to the next serial_t */
+  int refcnt;			/* Number of pointers to this block */
 };
 
 typedef struct _serial_t *serial_t;
@@ -57,6 +60,7 @@ struct serial_ops {
   int (*noflush_set_tty_state)
     PARAMS ((serial_t, serial_ttystate, serial_ttystate));
   int (*setbaudrate) PARAMS ((serial_t, int rate));
+  int (*setstopbits) PARAMS ((serial_t, int num));
 };
 
 /* Add a new serial interface to the interface list */
@@ -139,6 +143,15 @@ serial_t serial_fdopen PARAMS ((const int fd));
 
 #define SERIAL_SETBAUDRATE(SERIAL_T, RATE) ((SERIAL_T)->ops->setbaudrate((SERIAL_T), RATE))
 
+/* Set the number of stop bits to the value specified.  Returns 0 for success,
+   -1 for failure.  */
+
+#define SERIAL_1_STOPBITS 1
+#define SERIAL_1_AND_A_HALF_STOPBITS 2 /* 1.5 bits, snicker... */
+#define SERIAL_2_STOPBITS 3
+
+#define SERIAL_SETSTOPBITS(SERIAL_T, NUM) ((SERIAL_T)->ops->setstopbits((SERIAL_T), NUM))
+
 /* Write LEN chars from STRING to the port SERIAL_T.  Returns 0 for
    success, non-zero for failure.  */
 
@@ -146,13 +159,12 @@ serial_t serial_fdopen PARAMS ((const int fd));
 
 /* Push out all buffers, close the device and destroy SERIAL_T. */
 
-void serial_close PARAMS ((serial_t));
+void serial_close PARAMS ((serial_t, int));
 
-#define SERIAL_CLOSE(SERIAL_T) serial_close(SERIAL_T)
+#define SERIAL_CLOSE(SERIAL_T) serial_close(SERIAL_T, 1)
 
-/* Destroy SERIAL_T without doing the rest of the stuff that SERIAL_CLOSE
-   does.  */
+/* Push out all buffers and destroy SERIAL_T without closing the device.  */
 
-#define SERIAL_UN_FDOPEN(SERIAL_T) (free (SERIAL_T))
+#define SERIAL_UN_FDOPEN(SERIAL_T) serial_close(SERIAL_T, 0)
 
 #endif /* SERIAL_H */

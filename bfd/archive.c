@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /*
 @setfilename archive-info
@@ -677,6 +677,40 @@ bfd_generic_archive_p (abfd)
       return NULL;
     }
 
+  if (bfd_has_map (abfd) && abfd->target_defaulted)
+    {
+      bfd *first;
+
+      /* This archive has a map, so we may presume that the contents
+	 are object files.  Make sure that the first file in the
+	 archive can be recognized as an object file for this target.
+	 If not, assume that this is the wrong format.
+
+	 This is done because any normal format will recognize any
+	 normal archive, regardless of the format of the object files.
+	 We do accept an empty archive.  */
+
+      first = bfd_openr_next_archived_file (abfd, (bfd *) NULL);
+      if (first != NULL)
+	{
+	  first->target_defaulted = false;
+	  if (! bfd_check_format (first, bfd_object))
+	    {
+	      bfd_error_type err;
+
+	      err = bfd_get_error ();
+	      (void) bfd_close (first);
+	      bfd_release (abfd, bfd_ardata (abfd));
+	      abfd->tdata.aout_ar_data = NULL;
+	      bfd_set_error (err);
+	      return NULL;
+	    }
+
+	  /* We ought to close first here, but we can't, because we
+             have no way to remove it from the archive cache.  FIXME.  */
+	}
+    }
+
   return abfd->xvec;
 }
 
@@ -871,8 +905,29 @@ do_slurp_coff_armap (abfd)
   /* Pad to an even boundary if you have to */
   ardata->first_file_filepos += (ardata->first_file_filepos) % 2;
 
+
   bfd_has_map (abfd) = true;
   bfd_release (abfd, (PTR) raw_armap);
+
+
+  /* Check for a second archive header (as used by PE) */
+  {
+    struct areltdata *tmp;
+
+    bfd_seek (abfd,   ardata->first_file_filepos, SEEK_SET);
+    tmp = _bfd_snarf_ar_hdr (abfd);
+    if (tmp != NULL) 
+      {
+	if (tmp->arch_header[0] == '/'
+	    && tmp->arch_header[1] == ' ') 
+	  {
+	    ardata->first_file_filepos +=
+	      (tmp->parsed_size + sizeof(struct ar_hdr) + 1) & ~1;
+	  }
+	bfd_release (abfd, tmp);
+      }
+  }
+
   return true;
 
 release_raw_armap:
@@ -1038,9 +1093,9 @@ _bfd_slurp_extended_name_table (abfd)
 
   /* FIXME:  Formatting sucks here, and in case of failure of BFD_READ,
      we probably don't want to return true.  */
+  bfd_seek (abfd, bfd_ardata (abfd)->first_file_filepos, SEEK_SET);
   if (bfd_read ((PTR) nextname, 1, 16, abfd) == 16)
     {
-
       if (bfd_seek (abfd, (file_ptr) - 16, SEEK_CUR) != 0)
 	return false;
 
@@ -1078,13 +1133,17 @@ _bfd_slurp_extended_name_table (abfd)
       /* Since the archive is supposed to be printable if it contains
 	 text, the entries in the list are newline-padded, not null
 	 padded. In SVR4-style archives, the names also have a
-	 trailing '/'.  We'll fix both problems here..  */
+	 trailing '/'.  DOS/NT created archive often have \ in them
+	 We'll fix all problems here..  */
       {
 	char *temp = bfd_ardata (abfd)->extended_names;
 	char *limit = temp + namedata->parsed_size;
-	for (; temp < limit; ++temp)
+	for (; temp < limit; ++temp) {
 	  if (*temp == '\012')
 	    temp[temp[-1] == '/' ? -1 : 0] = '\0';
+	  if (*temp == '\\')
+	    *temp = '/';
+	}
       }
 
       /* Pad to an even boundary if you have to */
@@ -1215,6 +1274,11 @@ _bfd_construct_extended_name_table (abfd, trailing_slash, tabloc, tablen)
 	return false;
 
       thislen = strlen (normal);
+
+      if (thislen > maxname
+	  && (bfd_get_file_flags (abfd) & BFD_TRADITIONAL_FORMAT) != 0)
+	thislen = maxname;
+
       if (thislen > maxname)
 	{
 	  /* Add one to leave room for \n.  */
@@ -1423,6 +1487,12 @@ bfd_dont_truncate_arname (abfd, pathname, arhdr)
   int length;
   const char *filename;
   int maxlen = ar_maxnamelen (abfd);
+
+  if ((bfd_get_file_flags (abfd) & BFD_TRADITIONAL_FORMAT) != 0)
+    {
+      bfd_bsd_truncate_arname (abfd, pathname, arhdr);
+      return;
+    }
 
   filename = normalize (abfd, pathname);
   if (filename == NULL)
@@ -1850,8 +1920,8 @@ bsd_write_armap (arch, elength, map, orl_count, stridx)
   bfd_ardata (arch)->armap_datepos = (SARMAG
 				      + offsetof (struct ar_hdr, ar_date[0]));
   sprintf (hdr.ar_date, "%ld", bfd_ardata (arch)->armap_timestamp);
-  sprintf (hdr.ar_uid, "%d", getuid ());
-  sprintf (hdr.ar_gid, "%d", getgid ());
+  sprintf (hdr.ar_uid, "%ld", (long) getuid ());
+  sprintf (hdr.ar_gid, "%ld", (long) getgid ());
   sprintf (hdr.ar_size, "%-10d", (int) mapsize);
   strncpy (hdr.ar_fmag, ARFMAG, 2);
   for (i = 0; i < sizeof (struct ar_hdr); i++)

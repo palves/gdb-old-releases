@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "frame.h"
@@ -35,7 +35,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <sys/user.h>		/* After a.out.h  */
 #include <sys/file.h>
-#include <sys/stat.h>
+#include "gdb_stat.h"
 
 #include <errno.h>
 #endif
@@ -43,7 +43,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #if 0
 /* Work with core dump and executable files, for GDB. 
-   This code would be in core.c if it weren't machine-dependent. */
+   This code would be in corefile.c if it weren't machine-dependent. */
 
 /* Structure to describe the chain of shared libraries used
    by the execfile.
@@ -462,5 +462,27 @@ arm_float_info()
 void
 _initialize_arm_tdep ()
 {
-  tm_print_insn = print_insn_arm;
+  tm_print_insn = print_insn_little_arm;
 }
+
+
+/* FIXME:  Fill in with the 'right thing', see asm 
+   template in arm-convert.s */
+
+void 
+convert_from_extended (ptr, dbl)
+void *ptr;
+double *dbl;
+{
+  *dbl = *(double*)ptr;
+}
+
+
+void 
+convert_to_extended (dbl, ptr)
+void *ptr;
+double *dbl;
+{
+  *(double*)ptr = *dbl;
+}
+

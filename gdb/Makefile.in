@@ -15,12 +15,14 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-prefix = /usr/local
+prefix = @prefix@
+exec_prefix = @exec_prefix@
 
-program_transform_name =
-exec_prefix = $(prefix)
+host_alias = @host_alias@
+target_alias = @target_alias@
+program_transform_name = @program_transform_name@
 bindir = $(exec_prefix)/bin
 libdir = $(exec_prefix)/lib
 tooldir = $(libdir)/$(target_alias)
@@ -42,13 +44,13 @@ docdir = $(datadir)/doc
 
 SHELL = /bin/sh
 
-INSTALL = `cd $(srcdir)/..;pwd`/install.sh -c
-INSTALL_PROGRAM = $(INSTALL)
-INSTALL_DATA = $(INSTALL)
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
 
 AR = ar
 AR_FLAGS = qv
-RANLIB = ranlib
+RANLIB = @RANLIB@
 
 # Flags that describe where you can find the termcap library.
 # This can be overridden in the host Makefile fragment file.
@@ -59,16 +61,13 @@ TERMCAP = -ltermcap
 # -traditional flag.  Otherwise the ioctl calls in inflow.c
 # will be incorrectly compiled.  The "fixincludes" script in the gcc
 # distribution will fix your include files up.
-#CC=gcc -traditional
+CC=@CC@
 
-# Directory containing source files.  Don't clean up the spacing,
-# this exact string is matched for by the "configure" script.
-srcdir = .
+# Directory containing source files.
+srcdir = @srcdir@
+VPATH = @srcdir@
 
-# If you use bison instead of yacc, it needs to include the "-y" argument.
-#BISON=bison -y
-BISON = bison -y
-YACC=$(BISON)
+YACC=@YACC@
 
 # where to find makeinfo, preferably one designed for texinfo-2
 MAKEINFO=makeinfo
@@ -121,17 +120,27 @@ OPCODES = ../opcodes/libopcodes.a
 OP_INCLUDE = $(INCLUDE_DIR)/opcode
 OPCODES_CFLAGS = -I$(OP_INCLUDE)
 
+# The simulator is usually nonexistent; targets that include one
+# should set this to list all the .o or .a files to be linked in.
+SIM =
+
 # Where is the TCL library?  Typically in ../tcl.
-TCL_DIR = ../tcl
-TCL = -L$(TCL_DIR) -ltcl
-TCL_SRC = $(srcdir)/$(TCL_DIR)
-TCL_CFLAGS = -I$(TCL_SRC)
+TCL = @TCLLIB@
+TCL_CFLAGS = @TCLHDIR@
 
 # Where is the TK library?  Typically in ../tk.
-TK_DIR = ../tk
-TK = -L$(TK_DIR) -ltk
-TK_SRC = $(srcdir)/$(TK_DIR)
-TK_CFLAGS = -I$(TK_SRC)
+TK = @TKLIB@
+TK_CFLAGS = @TKHDIR@
+
+X11 = @X_LIBDIR@ @X_PRE_LIBS@ -lX11 @X_EXTRA_LIBS@
+X11_CFLAGS = @X_INCDIR@
+
+ENABLE_GDBTK= @ENABLE_GDBTK@
+
+ENABLE_CFLAGS= @ENABLE_CFLAGS@
+ENABLE_CLIBS= @ENABLE_CLIBS@
+ENABLE_OBS= @ENABLE_OBS@
+
 
 # All the includes used for CFLAGS and for lint.
 # -I. for config files.
@@ -141,7 +150,8 @@ TK_CFLAGS = -I$(TK_SRC)
 # It is also possible that you will need to add -I/usr/include/sys if
 # your system doesn't have fcntl.h in /usr/include (which is where it
 # should be according to Posix).
-GDB_CFLAGS = -I. -I$(srcdir) -I$(srcdir)/config
+DEFS = @DEFS@
+GDB_CFLAGS = -I. -I$(srcdir) -I$(srcdir)/config $(DEFS)
 
 # M{H,T}_CFLAGS, if defined, have host- and target-dependent CFLAGS
 # from the config directory.
@@ -185,23 +195,23 @@ REGEX1 = regex.o
 # you can use 'CLIBS=$(INSTALLED_LIBS)' 'CDEPS='
 INSTALLED_LIBS=-lbfd -lreadline $(TERMCAP) -lopcodes -lmmalloc \
 	-liberty $(XM_CLIBS) $(TM_CLIBS) $(NAT_CLIBS) $(ENABLE_CLIBS)
-CLIBS = $(BFD) $(READLINE) $(OPCODES) $(MMALLOC) $(LIBIBERTY) \
+CLIBS = $(SIM) $(BFD) $(READLINE) $(OPCODES) $(MMALLOC) $(LIBIBERTY) \
 	$(ENABLE_CLIBS) $(TERMCAP) $(XM_CLIBS) $(TM_CLIBS) $(NAT_CLIBS) \
 	$(LIBIBERTY)
-CDEPS = $(XM_CDEPS) $(TM_CDEPS) $(NAT_CDEPS) $(BFD) $(READLINE) $(OPCODES) \
-	$(MMALLOC) $(LIBIBERTY)
+CDEPS = $(XM_CDEPS) $(TM_CDEPS) $(NAT_CDEPS) $(SIM) $(BFD) $(READLINE) \
+	$(OPCODES) $(MMALLOC) $(LIBIBERTY)
 
 ADD_FILES = $(REGEX) $(XM_ADD_FILES) $(TM_ADD_FILES) $(NAT_ADD_FILES)
 ADD_DEPS = $(REGEX1) $(XM_ADD_FILES) $(TM_ADD_FILES) $(NAT_ADD_FILES)
 
-VERSION = 4.14
+VERSION = 4.15.1
 DIST=gdb
 
 LINT=/usr/5bin/lint
 LINTFLAGS= $(BFD_CFLAGS)
 
-RUNTEST = `if [ -f $${srcdir}/../dejagnu/runtest ] ; then \
-		echo $${srcdir}/../dejagnu/runtest ; else echo runtest; \
+RUNTEST = `if [ -f ${srcdir}/../dejagnu/runtest ] ; then \
+		echo ${srcdir}/../dejagnu/runtest ; else echo runtest; \
 	   fi`
 
 RUNTESTFLAGS=
@@ -216,12 +226,16 @@ SER_HARDWIRE=ser-unix.o
 
 # The `remote' debugging target is supported for most architectures,
 # but not all (e.g. 960)
-REMOTE_O = remote.o dcache.o remote-utils.o
+REMOTE_OBS = remote.o dcache.o remote-utils.o
+
+# This is remote-sim.o if a simulator is to be linked in.
+SIM_OBS =
 
 ANNOTATE_OBS = annotate.o
 
 # Host and target-dependent makefile fragments come in here.
-####
+@host_makefile_frag@
+@target_makefile_frag@
 # End of host and target-dependent makefile fragments
 
 FLAGS_TO_PASS = \
@@ -243,15 +257,14 @@ FLAGS_TO_PASS = \
 	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
 	"INSTALL_DATA=$(INSTALL_DATA)" \
 	"RUNTEST=$(RUNTEST)" \
-	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
-	"BISON=$(BISON)"
+	"RUNTESTFLAGS=$(RUNTESTFLAGS)"
 
 # Flags that we pass when building the testsuite.
 
 CC_FOR_TARGET = ` \
   if [ -f $${rootme}/../gcc/xgcc ] ; then \
     if [ -f $${rootme}/../newlib/Makefile ] ; then \
-      echo $${rootme}/../gcc/xgcc -B$${rootme}/../gcc/ -idirafter $${rootme}/newlib/targ-include -idirafter $${rootsrc}/../newlib/libc/include -nostdinc -L$${rootme}/../../newlib -B$${rootme}/../../newlib/; \
+      echo $${rootme}/../gcc/xgcc -B$${rootme}/../gcc/ -idirafter $${rootme}/newlib/targ-include -idirafter $${rootsrc}/../newlib/libc/include -nostdinc -L$${rootme}/../newlib -B$${rootme}/../newlib/; \
     else \
       echo $${rootme}/../gcc/xgcc -B$${rootme}/../gcc/; \
     fi; \
@@ -265,9 +278,9 @@ CC_FOR_TARGET = ` \
 
 CXX = gcc
 CXX_FOR_TARGET = ` \
-  if [ -f $${rootme}/../gcc/Makefile ] ; then \
+  if [ -f $${rootme}/../gcc/xgcc ] ; then \
     if [ -f $${rootme}/../newlib/Makefile ] ; then \
-      echo $${rootme}/../gcc/xgcc -B$${rootme}/../gcc/ -idirafter $${rootme}/newlib/targ-include -idirafter $${rootsrc}/../newlib/libc/include -nostdinc -L$${rootme}/../../newlib -B$${rootme}/../../newlib/; \
+      echo $${rootme}/../gcc/xgcc -B$${rootme}/../gcc/ -idirafter $${rootme}/newlib/targ-include -idirafter $${rootsrc}/../newlib/libc/include -nostdinc -L$${rootme}/../newlib -B$${rootme}/../newlib/; \
     else \
       echo $${rootme}/../gcc/xgcc -B$${rootme}/../gcc/; \
     fi; \
@@ -305,7 +318,6 @@ TARGET_FLAGS_TO_PASS = \
 	"prefix=$(prefix)" \
 	"exec_prefix=$(exec_prefix)" \
 	"against=$(against)" \
-	"BISON=$(BISON)" \
 	'CC=$$(CC_FOR_TARGET)' \
 	"CC_FOR_TARGET=$(CC_FOR_TARGET)" \
 	"CFLAGS=$(CFLAGS)" \
@@ -329,14 +341,14 @@ TARGET_FLAGS_TO_PASS = \
 
 SFILES = blockframe.c breakpoint.c buildsym.c c-exp.y c-lang.c \
 	c-typeprint.c c-valprint.c ch-exp.y ch-lang.c ch-typeprint.c \
-	ch-valprint.c coffread.c command.c complaints.c core.c cp-valprint.c \
+	ch-valprint.c coffread.c command.c complaints.c corefile.c cp-valprint.c \
 	dbxread.c demangle.c dwarfread.c \
 	elfread.c environ.c eval.c expprint.c \
 	f-exp.y f-lang.c f-typeprint.c f-valprint.c findvar.c \
 	gdbtypes.c infcmd.c inflow.c infrun.c language.c \
 	m2-exp.y m2-lang.c m2-typeprint.c m2-valprint.c main.c maint.c \
 	mem-break.c minsyms.c mipsread.c nlmread.c objfiles.c parse.c \
-	printcmd.c remote.c source.c stabsread.c stack.c symfile.c symmisc.c \
+	printcmd.c remote.c remote-nrom.c source.c stabsread.c stack.c symfile.c symmisc.c \
 	symtab.c target.c thread.c top.c \
 	typeprint.c utils.c valarith.c valops.c \
 	valprint.c values.c serial.c ser-unix.c mdebugread.c os9kread.c
@@ -422,18 +434,14 @@ REMOTE_EXAMPLES = m68k-stub.c i386-stub.c sparc-stub.c rem-multi.shar
 
 POSSLIBS = regex.c regex.h
 
-# Subdirectories of gdb, which should be included in their entirety in
-# gdb-xxx.tar.Z:
-TARDIRS = doc gdbserver sparclite
-
 # {X,T,NAT}DEPFILES are something of a pain in that it's hard to
 # default their values the way we do for SER_HARDWIRE; in the future
 # maybe much of the stuff now in {X,T,NAT}DEPFILES will go into other
 # variables analogous to SER_HARDWIRE which get defaulted in this
 # Makefile.in
 
-DEPFILES = $(TDEPFILES) $(XDEPFILES) $(SER_HARDWIRE) $(NATDEPFILES) $(REMOTE_O) \
-	   $(ENABLE_DEPFILES)
+DEPFILES = $(TDEPFILES) $(XDEPFILES) $(SER_HARDWIRE) $(NATDEPFILES) \
+	   $(REMOTE_OBS) $(SIM_OBS) $(ENABLE_OBS)
 
 SOURCES = $(SFILES) $(ALLDEPFILES) $(YYFILES)
 # Don't include YYFILES (*.tab.c) because we already include *.y in SFILES,
@@ -449,7 +457,7 @@ COMMON_OBS = version.o blockframe.o breakpoint.o findvar.o stack.o thread.o \
 	mem-break.o target.o parse.o language.o $(YYOBJ) buildsym.o \
 	exec.o objfiles.o minsyms.o maint.o demangle.o \
 	dbxread.o coffread.o elfread.o \
-	dwarfread.o mipsread.o stabsread.o core.o \
+	dwarfread.o mipsread.o stabsread.o corefile.o \
 	c-lang.o ch-lang.o f-lang.o m2-lang.o \
 	complaints.o typeprint.o \
 	c-typeprint.o ch-typeprint.o f-typeprint.o m2-typeprint.o \
@@ -512,7 +520,7 @@ gdb.z:gdb.1
 install: all install-only
 install-only:
 	transformed_name=`t='$(program_transform_name)'; \
-			  echo gdb | sed -e "s/brokensed/brokensed/" $$t` ; \
+			  echo gdb | sed -e $$t` ; \
 		if test "x$$transformed_name" = x; then \
 		  transformed_name=gdb ; \
 		else \
@@ -520,17 +528,25 @@ install-only:
 		fi ; \
 		$(INSTALL_PROGRAM) gdb $(bindir)/$$transformed_name ; \
 		$(INSTALL_DATA) $(srcdir)/gdb.1 $(man1dir)/$$transformed_name.1
+	if [ x"$(ENABLE_GDBTK)" != x ] ; then \
+		  $(INSTALL_DATA) $(srcdir)/gdbtk.tcl $(libdir)/gdbtk.tcl ; \
+		else \
+		  true ; \
+		fi
 	@$(MAKE) DO=install "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS) subdir_do 
 
 uninstall: force
 	transformed_name=`t='$(program_transform_name)'; \
-			  echo gdb | sed -e "s/brokensed/brokensed/" $$t` ; \
+			  echo gdb | sed -e $$t` ; \
 		if test "x$$transformed_name" = x; then \
 		  transformed_name=gdb ; \
 		else \
 		  true ; \
 		fi ; \
 		rm -f $(bindir)/$$transformed_name $(man1dir)/$$transformed_name.1
+	if [ x"$(ENABLE_GDBTK)" != x ] ; then \
+		rm -f $(libdir)/gdbtk.tcl ; \
+	fi
 	@$(MAKE) DO=uninstall "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS) subdir_do 
 
 # We do this by grepping through sources.  If that turns out to be too slow,
@@ -632,10 +648,6 @@ gdb1: gdb
 	rm -f gdb1
 	cp gdb gdb1
 
-config.status:
-	@echo "You must configure gdb.  Look at the README file for details."
-	@false
-
 ### fixme - this can't be right.
 # This checks the configure.in file versus the config/ directory.
 config-check: config-check-hosts config-check-targets
@@ -706,6 +718,7 @@ distclean: clean
 	@$(MAKE) $(FLAGS_TO_PASS) DO=distclean "DODIRS=$(SUBDIRS)" subdir_do 
 	rm -f nm.h tm.h xm.h config.status
 	rm -f y.output yacc.acts yacc.tmp y.tab.h
+	rm -f config.log config.cache
 	rm -f Makefile
 
 realclean: clean
@@ -714,6 +727,7 @@ realclean: clean
 	rm -f TAGS $(INFOFILES)
 	rm -f nm.h tm.h xm.h config.status
 	rm -f y.output yacc.acts yacc.tmp
+	rm -f config.log config.cache
 	rm -f Makefile
 
 diststuff: $(DISTSTUFF)
@@ -730,8 +744,11 @@ subdir_do: force
 		else true ; fi ; \
 	done
 
-Makefile: Makefile.in $(host_makefile_frag) $(target_makefile_frag)
+Makefile: Makefile.in config.status @frags@
 	$(SHELL) config.status
+
+config.status: configure
+	$(SHELL) config.status --recheck
 
 force:
 
@@ -893,11 +910,11 @@ ALLDEPFILES = 29k-share/udi/udip2soc.c 29k-share/udi/udr.c \
 	ns32k-tdep.c ns32km3-nat.c osfsolib.c \
 	somread.c somsolib.c $(HPREAD_SOURCE) \
 	procfs.c pyr-tdep.c pyr-xdep.c \
-	remote-adapt.c remote-bug.c remote-e7000.c remote-eb.c remote-es.c \
-	remote-hms.c remote-mips.c \
+	remote-adapt.c remote-array.c remote-bug.c remote-e7000.c \
+	remote-eb.c remote-es.c remote-hms.c remote-mips.c \
 	remote-mm.c remote-nindy.c remote-os9k.c remote-sim.c \
 	remote-st.c remote-utils.c dcache.c \
-	remote-udi.c remote-vx.c remote-vx29k.c remote-z8k.c \
+	remote-udi.c remote-vx.c remote-vx29k.c \
 	rs6000-nat.c rs6000-tdep.c \
 	ser-go32.c ser-tcp.c sh-tdep.c solib.c sparc-nat.c \
 	sparc-tdep.c sparcl-tdep.c sun3-nat.c sun386-nat.c \
@@ -1060,7 +1077,7 @@ core-sol2.o: core-sol2.c $(command_h) $(defs_h) $(gdbcore_h) \
 core-svr4.o: core-svr4.c $(command_h) $(defs_h) $(gdbcore_h) \
 	$(inferior_h) target.h
 
-core.o: core.c $(dis-asm_h) $(defs_h) $(gdbcmd_h) $(gdbcore_h) \
+corefile.o: corefile.c $(dis-asm_h) $(defs_h) $(gdbcmd_h) $(gdbcore_h) \
 	$(inferior_h) target.h language.h
 
 coredep.o: coredep.c $(defs_h) $(gdbcore_h) $(value_h) $(inferior_h)
@@ -1107,6 +1124,10 @@ findvar.o: findvar.c $(defs_h) $(gdbcore_h) $(inferior_h) target.h
 fork-child.o: fork-child.c $(wait_h) $(defs_h) $(gdbcore_h) \
 	$(inferior_h) target.h terminal.h thread.h
 
+gdbtk.o: gdbtk.c $(defs_h) $(symtab_h) $(inferior_h) $(command_h) \
+	$(bfd_h) symfile.h objfiles.h target.h
+	$(CC) -c $(INTERNAL_CFLAGS) $(TCL_CFLAGS) $(TK_CFLAGS) $(X11_CFLAGS) \
+		$(srcdir)/gdbtk.c -DGDBTK_FILENAME=\"$(libdir)/gdbtk.tcl\"
 
 gdbtypes.o: gdbtypes.c $(bfd_h) complaints.h $(defs_h) $(expression_h) \
 	$(gdbtypes_h) language.h objfiles.h symfile.h $(symtab_h) target.h \
@@ -1241,6 +1262,9 @@ mipsread.o: mipsread.c buildsym.h complaints.h $(bfd_h) $(defs_h) \
 
 mipsv4-nat.o: mipsv4-nat.c $(defs_h) $(gdbcore_h) $(inferior_h) target.h
 
+monitor.o: monitor.c monitor.h $(bfd_h) $(wait_h) $(defs_h) $(gdbcmd_h) \
+	$(inferior_h) target.h serial.h terminal.h
+
 news-xdep.o: news-xdep.c
 
 Onindy.o: nindy-share/Onindy.c $(wait_h) nindy-share/block_io.h \
@@ -1296,6 +1320,9 @@ regex.o: regex.c regex.h $(defs_h)
 remote-adapt.o: remote-adapt.c $(wait_h) $(defs_h) $(gdbcore_h) \
 	$(inferior_h) target.h terminal.h
 
+remote-array.o: remote-array.c $(wait_h) $(defs_h) $(gdbcore_h) target.h \
+      gdb_string.h $(command_h) serial.h monitor.h $(remote_utils_h)
+
 remote-bug.o: remote-bug.c $(wait_h) $(defs_h) $(gdbcore_h) \
 	$(inferior_h) target.h terminal.h $(remote_utils_h)
 
@@ -1345,14 +1372,17 @@ remote-vx29k.o: remote-vx29k.c $(wait_h) complaints.h $(defs_h) $(gdbcmd_h) \
         vx-share/ptrace.h vx-share/xdr_ld.h vx-share/xdr_ptrace.h \
         vx-share/xdr_rdb.h
 
-remote-z8k.o: remote-z8k.c $(wait_h) $(srcdir)/../sim/z8k/sim.h \
-	$(defs_h) $(gdbcore_h) $(inferior_h) target.h terminal.h
-
 remote-utils.o: remote-utils.c $(defs_h) $(gdbcmd_h) $(gdbcore_h) \
 	$(inferior_h) $(remote_utils_h)
 
 remote.o: remote.c $(bfd_h) $(wait_h) $(defs_h) $(gdbcmd_h) \
 	$(inferior_h) $(remote_utils_h) symfile.h terminal.h
+
+remote-nrom.o: remote-nrom.c $(bfd_h) $(wait_h) $(defs_h) $(gdbcmd_h) \
+	$(inferior_h) $(remote_utils_h) symfile.h terminal.h
+
+rom68k-rom.o: rom68k-rom.c monitor.h $(bfd_h) $(wait_h) $(defs_h) $(gdbcmd_h) \
+	$(inferior_h) target.h serial.h terminal.h
 
 rs6000-nat.o: rs6000-nat.c $(bfd_h) $(defs_h) $(inferior_h) target.h
 
@@ -1460,7 +1490,7 @@ xcoffread.o: xcoffread.c $(bfd_h) $(INCLUDE_DIR)/aout/stab.def \
 	$(INCLUDE_DIR)/aout/stab_gnu.h $(INCLUDE_DIR)/coff/internal.h \
 	$(INCLUDE_DIR)/coff/rs6000.h $(BFD_SRC)/libcoff.h buildsym.h \
 	complaints.h $(defs_h) $(gdbtypes_h) objfiles.h stabsread.h symfile.h \
-	$(symtab_h)
+	$(symtab_h) partial-stab.h
 
 xcoffsolib.o: xcoffsolib.c $(bfd_h) $(defs_h) xcoffsolib.h
 

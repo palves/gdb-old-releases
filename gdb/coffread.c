@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "symtab.h"
@@ -27,7 +27,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "bfd.h"
 #include <obstack.h>
 
-#include <string.h>
+#include "gdb_string.h"
+#include <ctype.h>
 
 #include "coff/internal.h"	/* Internal format of COFF symbols in BFD */
 #include "libcoff.h"		/* FIXME secret internal data from BFD */
@@ -44,9 +45,10 @@ struct coff_symfile_info {
   file_ptr min_lineno_offset;		/* Where in file lowest line#s are */
   file_ptr max_lineno_offset;		/* 1+last byte of line#s in file */
 
-  asection *stabsect;		/* Section pointer for .stab section */
+  CORE_ADDR textaddr;			/* Addr of .text section. */
+  unsigned int textsize;		/* Size of .text section. */
+  struct stab_section_list *stabsects;	/* .stab sections.  */
   asection *stabstrsect;		/* Section pointer for .stab section */
-  asection *stabindexsect;	/* Section pointer for .stab.index section */
   char *stabstrdata;
 };
 
@@ -131,13 +133,6 @@ static unsigned	local_auxesz;
    They are chained thru the SYMBOL_VALUE_CHAIN.  */
 
 static struct symbol *opaque_type_chain[HASHSIZE];
-
-#if 0
-/* The type of the function we are currently reading in.  This is
-   used by define_symbol to record the type of arguments to a function. */
-
-struct type *in_function_type;
-#endif
 
 /* Complaints about various problems in the file being read  */
 
@@ -265,25 +260,55 @@ static void coff_locate_sections PARAMS ((bfd *, asection *, PTR));
    -kingdon).  */
 
 static void
-coff_locate_sections (ignore_abfd, sectp, csip)
-     bfd *ignore_abfd;
+coff_locate_sections (abfd, sectp, csip)
+     bfd *abfd;
      asection *sectp;
      PTR csip;
 {
   register struct coff_symfile_info *csi;
+  const char *name;
 
   csi = (struct coff_symfile_info *) csip;
-  if (STREQ (sectp->name, ".stab"))
+  name = bfd_get_section_name (abfd, sectp);
+  if (STREQ (name, ".text"))
     {
-      csi->stabsect = sectp;
+      csi->textaddr = bfd_section_vma (abfd, sectp);
+      csi->textsize += bfd_section_size (abfd, sectp);
     }
-  else if (STREQ (sectp->name, ".stabstr"))
+  else if (strncmp (name, ".text", sizeof ".text" - 1) == 0)
+    {
+      csi->textsize += bfd_section_size (abfd, sectp);
+    }
+  else if (STREQ (name, ".stabstr"))
     {
       csi->stabstrsect = sectp;
     }
-  else if (STREQ (sectp->name, ".stab.index"))
+  else if (strncmp (name, ".stab", sizeof ".stab" - 1) == 0)
     {
-      csi->stabindexsect = sectp;
+      const char *s;
+
+      /* We can have multiple .stab sections if linked with
+         --split-by-reloc.  */
+      for (s = name + sizeof ".stab" - 1; *s != '\0'; s++)
+	if (! isdigit (*s))
+	  break;
+      if (*s == '\0')
+	{
+	  struct stab_section_list *n, **pn;
+
+	  n = ((struct stab_section_list *)
+	       xmalloc (sizeof (struct stab_section_list)));
+	  n->section = sectp;
+	  n->next = NULL;
+	  for (pn = &csi->stabsects; *pn != NULL; pn = &(*pn)->next)
+	    ;
+	  *pn = n;
+
+	  /* This will be run after coffstab_build_psymtabs is called
+             in coff_symfile_read, at which point we no longer need
+             the information.  */
+	  make_cleanup (free, n);
+	}
     }
 }
 
@@ -607,7 +632,7 @@ coff_symfile_read (objfile, section_offsets, mainline)
   int symtab_offset;
   int stringtab_offset;
   struct cleanup *back_to;
-  int stabsize, stabstrsize;
+  int stabstrsize;
 
   info = (struct coff_symfile_info *) objfile -> sym_private;
   dbxinfo = (struct dbx_symfile_info *) objfile->sym_stab_info;
@@ -681,19 +706,19 @@ coff_symfile_read (objfile, section_offsets, mainline)
 
   bfd_map_over_sections (abfd, coff_locate_sections, (PTR) info);
 
-  if (info->stabsect)
+  if (info->stabsects)
     {
       /* FIXME: dubious.  Why can't we use something normal like
 	 bfd_get_section_contents?  */
       bfd_seek (abfd, abfd->where, 0);
 
-      stabsize = bfd_section_size (abfd, info->stabsect);
       stabstrsize = bfd_section_size (abfd, info->stabstrsect);
 
       coffstab_build_psymtabs (objfile,
 			       section_offsets,
 			       mainline,
-			       info->stabsect->filepos, stabsize,
+			       info->textaddr, info->textsize,
+			       info->stabsects,
 			       info->stabstrsect->filepos, stabstrsize);
     }
 
@@ -1300,6 +1325,8 @@ enter_linenos (file_offset, first_line, last_line, section_offsets)
   register char *rawptr;
   struct internal_lineno lptr;
 
+  if (!linetab)
+    return ;
   if (file_offset < linetab_offset)
     {
       complain (&lineno_complaint, file_offset);
@@ -1442,22 +1469,8 @@ process_coff_symbol (cs, aux, section_offsets, objfile)
   if (ISFCN (cs->c_type))
     {
       SYMBOL_VALUE (sym) += ANOFFSET (section_offsets, SECT_OFF_TEXT);
-#if 0
-       /* FIXME:  This has NOT been tested.  The DBX version has.. */
-       /* Generate a template for the type of this function.  The 
-	  types of the arguments will be added as we read the symbol 
-	  table. */
-       struct type *new = (struct type *)
-		    obstack_alloc (&objfile->symbol_obstack, sizeof (struct type));
-       
-       memcpy (new, lookup_function_type (decode_function_type (cs, cs->c_type, aux)),
-		      sizeof(struct type));
-       SYMBOL_TYPE (sym) = new;
-       in_function_type = SYMBOL_TYPE(sym);
-#else
        SYMBOL_TYPE(sym) = 
 	 lookup_function_type (decode_function_type (cs, cs->c_type, aux));
-#endif
 
       SYMBOL_CLASS (sym) = LOC_BLOCK;
       if (cs->c_sclass == C_STAT)
@@ -1513,11 +1526,6 @@ process_coff_symbol (cs, aux, section_offsets, objfile)
 
 	  case C_ARG:
 	    SYMBOL_CLASS (sym) = LOC_ARG;
-#if 0
-	    /* FIXME:  This has not been tested. */
-	    /* Add parameter to function.  */
-	    add_param_to_type(&in_function_type,sym);
-#endif
 	    add_symbol_to_list (sym, &local_symbols);
 #if !defined (BELIEVE_PCC_PROMOTION)
 	    if (TARGET_BYTE_ORDER == BIG_ENDIAN)
@@ -2102,7 +2110,7 @@ coff_symfile_offsets (objfile, addr)
   section_offsets = (struct section_offsets *)
     obstack_alloc (&objfile -> psymbol_obstack,
 		   sizeof (struct section_offsets)
-		   + sizeof (section_offsets->offsets) * (SECT_OFF_MAX-1));
+		   + sizeof (section_offsets->offsets) * SECT_OFF_MAX);
 
   for (i = 0; i < SECT_OFF_MAX; i++)
     ANOFFSET (section_offsets, i) = addr;

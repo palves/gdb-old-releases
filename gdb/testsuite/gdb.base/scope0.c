@@ -7,6 +7,10 @@ static const int filelocal_ro = 201;	/* In Read-Only Data section */
 
 main ()
 {
+#ifdef usestubs
+  set_debug_traps();
+  breakpoint();
+#endif
   init ();
   foo ();
   autovars (5, 6);

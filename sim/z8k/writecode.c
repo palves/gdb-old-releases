@@ -15,8 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Z8KSIM; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with Z8KZIM; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This program generates the code which emulates each of the z8k
    instructions
@@ -1044,16 +1044,16 @@ rotate (p, through_carry, size, left)
     {
       emit ("while (op_src--) {\n");
       emit ("int rotbit;\n");
-      emit ("rotbit = tmp & 1;\n");
-      emit ("tmp = ((unsigned)op_dst) >> op_src;\n");
+      emit ("rotbit = op_dst & 1;\n");
+      emit ("op_dst = ((unsigned)op_dst) >> 1;\n");
 
       if (through_carry)
 	{
-	  emit ("tmp |= context->carry << %d;\n", size - 1);
+	  emit ("op_dst |= context->carry << %d;\n", size - 1);
 	}
       else
 	{
-	  emit ("tmp |= rotbit << %d;\n", size - 1);
+	  emit ("op_dst |= rotbit << %d;\n", size - 1);
 	}
       emit ("context->carry = rotbit;\n");
       emit ("}\n");
@@ -1098,18 +1098,27 @@ adiv (p)
 
   if (p->type == 32)
     {
-      emit ("op_dst.low = get_long_reg(context,reg_dst+2);\n");
-      emit ("op_dst.high = get_long_reg(context,reg_dst+0);\n");
-      emit ("tmp = op_dst.low / op_src;\n");
+      emit ("op_dst.low = (int)get_long_reg(context,reg_dst+2);\n");
+      emit ("op_dst.high = (int)get_long_reg(context,reg_dst+0);\n");
+#ifdef __GNUC__
+      emit ("tmp = (((long long)op_dst.high << 32) + (op_dst.low)) / (int)op_src;\n");
+#else
+      emit ("tmp = (long)op_dst.low / (int)op_src;\n");
+#endif
       emit ("put_long_reg(context,reg_dst+2, tmp);\n");
-      emit ("put_long_reg(context,reg_dst, op_dst.low %% op_src);\n");
+#ifdef __GNUC__
+      emit ("put_long_reg(context,reg_dst, (((long long)op_dst.high << 32) + (op_dst.low)) %% (int)op_src);\n");
+#else
+      emit ("put_long_reg(context,reg_dst, (int)op_dst.low %% (int)op_src);\n");
+#endif
+
       emit ("context->zero = op_src == 0 || (op_dst.low==0 && op_dst.high==0);\n");
     }
   else
     {
-      emit ("tmp = op_dst / op_src;\n");
+      emit ("tmp = (long)op_dst / (short)op_src;\n");
       emit ("put_word_reg(context,reg_dst+1, tmp);\n");
-      emit ("put_word_reg(context,reg_dst,  op_dst %% op_src);\n");
+      emit ("put_word_reg(context,reg_dst, (long) op_dst %% (short)op_src);\n");
       emit ("context->zero = op_src == 0 || op_dst==0;\n");
     }
 
@@ -1304,6 +1313,7 @@ info_docode (p)
       break;
     case OPC_rrc:
       rotate (p, 1, 16, 0);
+      break;
     case OPC_rrcb:
       rotate (p, 1, 8, 0);
       break;

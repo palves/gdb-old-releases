@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -190,8 +190,8 @@ static bfd_arch_info_type arch_info_struct[] =
     8,				/* 8 bits in a byte */
     bfd_arch_h8500,
     0,				/* only 1 machine */
-    "H8/500",			/* arch_name  */
-    "H8/500",			/* printable name */
+    "h8500",			/* arch_name  */
+    "h8500",			/* printable name */
     1,
     true,			/* the default machine */
     bfd_default_compatible,

@@ -1,5 +1,5 @@
 /* Perform non-arithmetic operations on values, for GDB.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "symtab.h"
@@ -30,7 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "language.h"
 
 #include <errno.h>
-#include <string.h>
+#include "gdb_string.h"
 
 /* Local functions.  */
 
@@ -39,8 +39,6 @@ static int typecmp PARAMS ((int staticp, struct type *t1[], value_ptr t2[]));
 static CORE_ADDR find_function_addr PARAMS ((value_ptr, struct type **));
 
 static CORE_ADDR value_push PARAMS ((CORE_ADDR, value_ptr));
-
-static CORE_ADDR value_arg_push PARAMS ((CORE_ADDR, value_ptr));
 
 static value_ptr search_struct_field PARAMS ((char *, value_ptr, int,
 					      struct type *, int));
@@ -119,21 +117,49 @@ value_cast (type, arg2)
      struct type *type;
      register value_ptr arg2;
 {
-  register enum type_code code1;
+  register enum type_code code1 = TYPE_CODE (type);
   register enum type_code code2;
   register int scalar;
 
   if (VALUE_TYPE (arg2) == type)
     return arg2;
 
+  COERCE_REF(arg2);
+
+  /* A cast to an undetermined-length array_type, such as (TYPE [])OBJECT,
+     is treated like a cast to (TYPE [N])OBJECT,
+     where N is sizeof(OBJECT)/sizeof(TYPE). */
+  if (code1 == TYPE_CODE_ARRAY
+      && TYPE_LENGTH (TYPE_TARGET_TYPE (type)) > 0
+      && TYPE_ARRAY_UPPER_BOUND_TYPE (type) == BOUND_CANNOT_BE_DETERMINED)
+    {
+      struct type *element_type = TYPE_TARGET_TYPE (type);
+      struct type *range_type = TYPE_INDEX_TYPE (type);
+      int low_bound = TYPE_LOW_BOUND (range_type);
+      int val_length = TYPE_LENGTH (VALUE_TYPE (arg2));
+      int new_length = val_length / TYPE_LENGTH (element_type);
+      if (val_length % TYPE_LENGTH (element_type) != 0)
+	warning("array element type size does not divide object size in cast");
+      /* FIXME-type-allocation: need a way to free this type when we are
+	 done with it.  */
+      range_type = create_range_type ((struct type *) NULL,
+				      TYPE_TARGET_TYPE (range_type),
+				      low_bound, new_length + low_bound - 1);
+      VALUE_TYPE (arg2) = create_array_type ((struct type *) NULL,
+					     element_type, range_type);
+      return arg2;
+    }
+
+  if (current_language->c_style_arrays
+      && (VALUE_REPEATED (arg2)
+	  || TYPE_CODE (VALUE_TYPE (arg2)) == TYPE_CODE_ARRAY))
+    arg2 = value_coerce_array (arg2);
+
+  if (TYPE_CODE (VALUE_TYPE (arg2)) == TYPE_CODE_FUNC)
+    arg2 = value_coerce_function (arg2);
+
   COERCE_VARYING_ARRAY (arg2);
 
-  /* Coerce arrays but not enums.  Enums will work as-is
-     and coercing them would cause an infinite recursion.  */
-  if (TYPE_CODE (VALUE_TYPE (arg2)) != TYPE_CODE_ENUM)
-    COERCE_ARRAY (arg2);
-
-  code1 = TYPE_CODE (type);
   code2 = TYPE_CODE (VALUE_TYPE (arg2));
 
   if (code1 == TYPE_CODE_COMPLEX) 
@@ -141,7 +167,7 @@ value_cast (type, arg2)
   if (code1 == TYPE_CODE_BOOL) 
     code1 = TYPE_CODE_INT; 
   if (code2 == TYPE_CODE_BOOL) 
-    code2 = TYPE_CODE_INT; 
+    code2 = TYPE_CODE_INT;
 
   scalar = (code2 == TYPE_CODE_INT || code2 == TYPE_CODE_FLT
 	    || code2 == TYPE_CODE_ENUM || code2 == TYPE_CODE_RANGE);
@@ -582,6 +608,8 @@ value_repeat (arg1, count)
     error ("Only values in memory can be extended with '@'.");
   if (count < 1)
     error ("Invalid number %d of repetitions.", count);
+  if (VALUE_REPEATED (arg1))
+    error ("Cannot create artificial arrays of artificial arrays.");
 
   val = allocate_repeat_value (VALUE_TYPE (arg1), count);
 
@@ -700,10 +728,6 @@ value_addr (arg1)
       VALUE_TYPE (arg2) = lookup_pointer_type (TYPE_TARGET_TYPE (type));
       return arg2;
     }
-  if (current_language->c_style_arrays
-      && (VALUE_REPEATED (arg1)
-	  || TYPE_CODE (type) == TYPE_CODE_ARRAY))
-    return value_coerce_array (arg1);
   if (TYPE_CODE (type) == TYPE_CODE_FUNC)
     return value_coerce_function (arg1);
 
@@ -803,54 +827,69 @@ value_push (sp, arg)
 }
 
 /* Perform the standard coercions that are specified
-   for arguments to be passed to C functions.  */
+   for arguments to be passed to C functions.
 
-value_ptr
-value_arg_coerce (arg)
+   If PARAM_TYPE is non-NULL, it is the expected parameter type. */
+
+static value_ptr
+value_arg_coerce (arg, param_type)
      value_ptr arg;
+     struct type *param_type;
 {
   register struct type *type;
-
-  /* FIXME: We should coerce this according to the prototype (if we have
-     one).  Right now we do a little bit of this in typecmp(), but that
-     doesn't always get called.  For example, if passing a ref to a function
-     without a prototype, we probably should de-reference it.  Currently
-     we don't.  */
-
-  if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ENUM)
-    arg = value_cast (builtin_type_unsigned_int, arg);
 
 #if 1	/* FIXME:  This is only a temporary patch.  -fnf */
   if (current_language->c_style_arrays
       && (VALUE_REPEATED (arg)
 	  || TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ARRAY))
     arg = value_coerce_array (arg);
-  if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_FUNC)
-    arg = value_coerce_function (arg);
 #endif
 
-  type = VALUE_TYPE (arg);
+  type = param_type ? param_type : VALUE_TYPE (arg);
 
-  if (TYPE_CODE (type) == TYPE_CODE_INT
-      && TYPE_LENGTH (type) < TYPE_LENGTH (builtin_type_int))
-    return value_cast (builtin_type_int, arg);
+  switch (TYPE_CODE (type))
+    {
+    case TYPE_CODE_REF:
+      if (TYPE_CODE (VALUE_TYPE (arg)) != TYPE_CODE_REF)
+	{
+	  arg = value_addr (arg);
+	  VALUE_TYPE (arg) = param_type;
+	  return arg;
+	}
+      break;
+    case TYPE_CODE_INT:
+    case TYPE_CODE_CHAR:
+    case TYPE_CODE_BOOL:
+    case TYPE_CODE_ENUM:
+      if (TYPE_LENGTH (type) < TYPE_LENGTH (builtin_type_int))
+	type = builtin_type_int;
+      break;
+    case TYPE_CODE_FLT:
+      if (TYPE_LENGTH (type) < TYPE_LENGTH (builtin_type_double))
+	type = builtin_type_double;
+      break;
+    case TYPE_CODE_FUNC:
+      type = lookup_pointer_type (type);
+      break;
+    case TYPE_CODE_UNDEF:
+    case TYPE_CODE_PTR:
+    case TYPE_CODE_ARRAY:
+    case TYPE_CODE_STRUCT:
+    case TYPE_CODE_UNION:
+    case TYPE_CODE_VOID:
+    case TYPE_CODE_SET:
+    case TYPE_CODE_RANGE:
+    case TYPE_CODE_STRING:
+    case TYPE_CODE_BITSTRING:
+    case TYPE_CODE_ERROR:
+    case TYPE_CODE_MEMBER:
+    case TYPE_CODE_METHOD:
+    case TYPE_CODE_COMPLEX:
+    default:
+      break;
+    }
 
-  if (TYPE_CODE (type) == TYPE_CODE_FLT
-      && TYPE_LENGTH (type) < TYPE_LENGTH (builtin_type_double))
-    return value_cast (builtin_type_double, arg);
-
-  return arg;
-}
-
-/* Push the value ARG, first coercing it as an argument
-   to a C function.  */
-
-static CORE_ADDR
-value_arg_push (sp, arg)
-     register CORE_ADDR sp;
-     value_ptr arg;
-{
-  return value_push (sp, value_arg_coerce (arg));
+  return value_cast (type, arg);
 }
 
 /* Determine a function's address and its return type from its value. 
@@ -926,7 +965,9 @@ find_function_addr (function, retval_type)
    FUNCTION is a value, the function to be called.
    Returns a value representing what the function returned.
    May fail to return, if a breakpoint or signal is hit
-   during the execution of the function.  */
+   during the execution of the function.
+
+   ARGS is modified to contain coerced values. */
 
 value_ptr
 call_function_by_hand (function, nargs, args)
@@ -952,6 +993,7 @@ call_function_by_hand (function, nargs, args)
   CORE_ADDR funaddr;
   int using_gcc;
   CORE_ADDR real_pc;
+  struct type *ftype = SYMBOL_TYPE (function);
 
   if (!target_has_execution)
     noprocess();
@@ -979,7 +1021,7 @@ call_function_by_hand (function, nargs, args)
   {
     struct block *b = block_for_pc (funaddr);
     /* If compiled without -g, assume GCC.  */
-    using_gcc = b == NULL || BLOCK_GCC_COMPILED (b);
+    using_gcc = b == NULL ? 0 : BLOCK_GCC_COMPILED (b);
   }
 
   /* Are we returning a value using a structure return or a normal
@@ -1045,19 +1087,86 @@ call_function_by_hand (function, nargs, args)
   sp = old_sp;		/* It really is used, for some ifdef's... */
 #endif
 
+  if (nargs < TYPE_NFIELDS (ftype))
+    error ("too few arguments in function call");
+
+  for (i = nargs - 1; i >= 0; i--)
+    {
+      struct type *param_type;
+      if (TYPE_NFIELDS (ftype) > i)
+	param_type = TYPE_FIELD_TYPE (ftype, i);
+      else
+	param_type = 0;
+      args[i] = value_arg_coerce (args[i], param_type);
+    }
+
+#if defined (REG_STRUCT_HAS_ADDR)
+  {
+    /* This is a machine like the sparc, where we may need to pass a pointer
+       to the structure, not the structure itself.  */
+    for (i = nargs - 1; i >= 0; i--)
+      if ((TYPE_CODE (VALUE_TYPE (args[i])) == TYPE_CODE_STRUCT
+	   || TYPE_CODE (VALUE_TYPE (args[i])) == TYPE_CODE_UNION
+	   || TYPE_CODE (VALUE_TYPE (args[i])) == TYPE_CODE_ARRAY
+	   || TYPE_CODE (VALUE_TYPE (args[i])) == TYPE_CODE_STRING)
+	  && REG_STRUCT_HAS_ADDR (using_gcc, VALUE_TYPE (args[i])))
+	{
+	  CORE_ADDR addr;
+	  int len = TYPE_LENGTH (VALUE_TYPE (args[i]));
+#ifdef STACK_ALIGN
+	  int aligned_len = STACK_ALIGN (len);
+#else
+	  int aligned_len = len;
+#endif
+#if !(1 INNER_THAN 2)
+	  /* The stack grows up, so the address of the thing we push
+	     is the stack pointer before we push it.  */
+	  addr = sp;
+#else
+	  sp -= aligned_len;
+#endif
+	  /* Push the structure.  */
+	  write_memory (sp, VALUE_CONTENTS (args[i]), len);
+#if 1 INNER_THAN 2
+	  /* The stack grows down, so the address of the thing we push
+	     is the stack pointer after we push it.  */
+	  addr = sp;
+#else
+	  sp += aligned_len;
+#endif
+	  /* The value we're going to pass is the address of the thing
+	     we just pushed.  */
+	  args[i] = value_from_longest (lookup_pointer_type (value_type),
+					(LONGEST) addr);
+	}
+  }
+#endif /* REG_STRUCT_HAS_ADDR.  */
+
+  /* Reserve space for the return structure to be written on the
+     stack, if necessary */
+
+  if (struct_return)
+    {
+      int len = TYPE_LENGTH (value_type);
+#ifdef STACK_ALIGN
+      len = STACK_ALIGN (len);
+#endif
+#if 1 INNER_THAN 2
+      sp -= len;
+      struct_addr = sp;
+#else
+      struct_addr = sp;
+      sp += len;
+#endif
+    }
+
 #ifdef STACK_ALIGN
   /* If stack grows down, we must leave a hole at the top. */
   {
     int len = 0;
 
-    /* Reserve space for the return structure to be written on the
-       stack, if necessary */
-
-    if (struct_return)
-      len += TYPE_LENGTH (value_type);
-    
     for (i = nargs - 1; i >= 0; i--)
-      len += TYPE_LENGTH (VALUE_TYPE (value_arg_coerce (args[i])));
+      len += TYPE_LENGTH (VALUE_TYPE (args[i]));
 #ifdef CALL_DUMMY_STACK_ADJUST
     len += CALL_DUMMY_STACK_ADJUST;
 #endif
@@ -1069,54 +1178,11 @@ call_function_by_hand (function, nargs, args)
   }
 #endif /* STACK_ALIGN */
 
-    /* Reserve space for the return structure to be written on the
-       stack, if necessary */
-
-    if (struct_return)
-      {
-#if 1 INNER_THAN 2
-	sp -= TYPE_LENGTH (value_type);
-	struct_addr = sp;
-#else
-	struct_addr = sp;
-	sp += TYPE_LENGTH (value_type);
-#endif
-      }
-
-#if defined (REG_STRUCT_HAS_ADDR)
-  {
-    /* This is a machine like the sparc, where we may need to pass a pointer
-       to the structure, not the structure itself.  */
-    for (i = nargs - 1; i >= 0; i--)
-      if (TYPE_CODE (VALUE_TYPE (args[i])) == TYPE_CODE_STRUCT
-	  && REG_STRUCT_HAS_ADDR (using_gcc, VALUE_TYPE (args[i])))
-	{
-	  CORE_ADDR addr;
-#if !(1 INNER_THAN 2)
-	  /* The stack grows up, so the address of the thing we push
-	     is the stack pointer before we push it.  */
-	  addr = sp;
-#endif
-	  /* Push the structure.  */
-	  sp = value_push (sp, args[i]);
-#if 1 INNER_THAN 2
-	  /* The stack grows down, so the address of the thing we push
-	     is the stack pointer after we push it.  */
-	  addr = sp;
-#endif
-	  /* The value we're going to pass is the address of the thing
-	     we just pushed.  */
-	  args[i] = value_from_longest (lookup_pointer_type (value_type),
-					(LONGEST) addr);
-	}
-  }
-#endif /* REG_STRUCT_HAS_ADDR.  */
-
 #ifdef PUSH_ARGUMENTS
   PUSH_ARGUMENTS(nargs, args, sp, struct_return, struct_addr);
 #else /* !PUSH_ARGUMENTS */
   for (i = nargs - 1; i >= 0; i--)
-    sp = value_arg_push (sp, args[i]);
+    sp = value_push (sp, args[i]);
 #endif /* !PUSH_ARGUMENTS */
 
 #ifdef CALL_DUMMY_STACK_ADJUST
@@ -1384,7 +1450,10 @@ typecmp (staticp, t1, t2)
 	  /* We should be doing hairy argument matching, as below.  */
 	  && (TYPE_CODE (TYPE_TARGET_TYPE (tt1)) == TYPE_CODE (tt2)))
 	{
-	  t2[i] = value_addr (t2[i]);
+	  if (TYPE_CODE (tt2) == TYPE_CODE_ARRAY || VALUE_REPEATED (t2[i]))
+	    t2[i] = value_coerce_array (t2[i]);
+	  else
+	    t2[i] = value_addr (t2[i]);
 	  continue;
 	}
 
@@ -1903,8 +1972,7 @@ value_struct_elt_for_reference (domain, offset, curtype, name, intype)
 		(lookup_reference_type
 		 (lookup_member_type (TYPE_FN_FIELD_TYPE (f, j),
 				      domain)),
-		 (LONGEST) METHOD_PTR_FROM_VOFFSET
-		  (TYPE_FN_FIELD_VOFFSET (f, j)));
+		 (LONGEST) METHOD_PTR_FROM_VOFFSET (TYPE_FN_FIELD_VOFFSET (f, j)));
 	    }
 	  else
 	    {
@@ -2007,6 +2075,7 @@ value_slice (array, lowbound, length)
      value_ptr array;
      int lowbound, length;
 {
+  COERCE_VARYING_ARRAY (array);
   if (TYPE_CODE (VALUE_TYPE (array)) == TYPE_CODE_BITSTRING)
     error ("not implemented - bitstring slice");
   if (TYPE_CODE (VALUE_TYPE (array)) != TYPE_CODE_ARRAY
@@ -2024,6 +2093,8 @@ value_slice (array, lowbound, length)
       if (lowbound < lowerbound || length < 0
 	  || lowbound + length - 1 > upperbound)
 	error ("slice out of range");
+      /* FIXME-type-allocation: need a way to free this type when we are
+	 done with it.  */
       slice_range_type = create_range_type ((struct type*) NULL,
 					    TYPE_TARGET_TYPE (range_type),
 					    lowerbound,

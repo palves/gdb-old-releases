@@ -15,22 +15,18 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
 #include "bfdlink.h"
 #include "libbfd.h"
-#include "libelf.h"
+#include "elf-bfd.h"
 
 static reloc_howto_type *bfd_elf32_bfd_reloc_type_lookup
   PARAMS ((bfd *, bfd_reloc_code_real_type));
 static void elf_info_to_howto
   PARAMS ((bfd *, arelent *, Elf_Internal_Rela *));
-static boolean elf32_sparc_create_dynamic_sections
-  PARAMS ((bfd *, struct bfd_link_info *));
-static boolean elf32_sparc_create_got_section
-  PARAMS ((bfd *, struct bfd_link_info *));
 static boolean elf32_sparc_check_relocs
   PARAMS ((bfd *, struct bfd_link_info *, asection *,
 	   const Elf_Internal_Rela *));
@@ -102,7 +98,7 @@ static reloc_howto_type elf_sparc_howto_table[] =
   HOWTO(R_SPARC_13,      0,2,13,false,0,complain_overflow_bitfield,bfd_elf_generic_reloc,"R_SPARC_13",      false,0,0x00001fff,true),
   HOWTO(R_SPARC_LO10,    0,2,10,false,0,complain_overflow_dont,    bfd_elf_generic_reloc,"R_SPARC_LO10",    false,0,0x000003ff,true),
   HOWTO(R_SPARC_GOT10,   0,2,10,false,0,complain_overflow_dont,    bfd_elf_generic_reloc,"R_SPARC_GOT10",   false,0,0x000003ff,true),
-  HOWTO(R_SPARC_GOT13,   0,2,13,false,0,complain_overflow_bitfield,bfd_elf_generic_reloc,"R_SPARC_GOT13",   false,0,0x00001fff,true),
+  HOWTO(R_SPARC_GOT13,   0,2,13,false,0,complain_overflow_signed,  bfd_elf_generic_reloc,"R_SPARC_GOT13",   false,0,0x00001fff,true),
   HOWTO(R_SPARC_GOT22,  10,2,22,false,0,complain_overflow_dont,    bfd_elf_generic_reloc,"R_SPARC_GOT22",   false,0,0x003fffff,true),
   HOWTO(R_SPARC_PC10,    0,2,10,true, 0,complain_overflow_dont,    bfd_elf_generic_reloc,"R_SPARC_PC10",    false,0,0x000003ff,true),
   HOWTO(R_SPARC_PC22,   10,2,22,true, 0,complain_overflow_bitfield,bfd_elf_generic_reloc,"R_SPARC_PC22",    false,0,0x003fffff,true),
@@ -199,124 +195,6 @@ elf_info_to_howto (abfd, cache_ptr, dst)
 /* nop.  */
 #define PLT_ENTRY_WORD2 SPARC_NOP
 
-/* Create dynamic sections when linking against a dynamic object.  */
-
-static boolean
-elf32_sparc_create_dynamic_sections (abfd, info)
-     bfd *abfd;
-     struct bfd_link_info *info;
-{
-  flagword flags;
-  register asection *s;
-  struct elf_link_hash_entry *h;
-
-  /* We need to create .plt, .rela.plt, .got, .dynbss, and .rela.bss
-     sections.  */
-
-  flags = SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS | SEC_IN_MEMORY;
-
-  s = bfd_make_section (abfd, ".plt");
-  if (s == NULL
-      || ! bfd_set_section_flags (abfd, s, flags | SEC_CODE)
-      || ! bfd_set_section_alignment (abfd, s, 2))
-    return false;
-
-  /* Define the symbol _PROCEDURE_LINKAGE_TABLE_ at the start of the
-     .plt section.  */
-  h = NULL;
-  if (! (_bfd_generic_link_add_one_symbol
-	 (info, abfd, "_PROCEDURE_LINKAGE_TABLE_", BSF_GLOBAL, s, (bfd_vma) 0,
-	  (const char *) NULL, false, get_elf_backend_data (abfd)->collect,
-	  (struct bfd_link_hash_entry **) &h)))
-    return false;
-  h->elf_link_hash_flags |= ELF_LINK_HASH_DEF_REGULAR;
-  h->type = STT_OBJECT;
-
-  if (info->shared
-      && ! bfd_elf32_link_record_dynamic_symbol (info, h))
-    return false;
-
-  s = bfd_make_section (abfd, ".rela.plt");
-  if (s == NULL
-      || ! bfd_set_section_flags (abfd, s, flags | SEC_READONLY)
-      || ! bfd_set_section_alignment (abfd, s, 2))
-    return false;
-
-  if (! elf32_sparc_create_got_section (abfd, info))
-    return false;
-
-  /* The .dynbss section is a place to put symbols which are defined
-     by dynamic objects, are referenced by regular objects, and are
-     not functions.  We must allocate space for them in the process
-     image and use a R_SPARC_COPY reloc to tell the dynamic linker to
-     initialize them at run time.  The linker script puts the .dynbss
-     section into the .bss section of the final image.  */
-  s = bfd_make_section (abfd, ".dynbss");
-  if (s == NULL
-      || ! bfd_set_section_flags (abfd, s, SEC_ALLOC))
-    return false;
-
-  /* The .rela.bss section holds copy relocs.  */
-  if (! info->shared)
-    {
-      s = bfd_make_section (abfd, ".rela.bss");
-      if (s == NULL
-	  || ! bfd_set_section_flags (abfd, s, flags | SEC_READONLY)
-	  || ! bfd_set_section_alignment (abfd, s, 2))
-	return false;
-    }
-
-  return true;
-}
-
-/* Create the .got section to hold the global offset table.  */
-
-static boolean
-elf32_sparc_create_got_section (abfd, info)
-     bfd *abfd;
-     struct bfd_link_info *info;
-{
-  register asection *s;
-  struct elf_link_hash_entry *h;
-
-  /* This function may be called more than once.  */
-  if (bfd_get_section_by_name (abfd, ".got") != NULL)
-    return true;
-
-  s = bfd_make_section (abfd, ".got");
-  if (s == NULL
-      || ! bfd_set_section_flags (abfd, s,
-				  (SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS
-				   | SEC_IN_MEMORY))
-      || ! bfd_set_section_alignment (abfd, s, 2))
-    return false;
-
-  /* Define the symbol _GLOBAL_OFFSET_TABLE_ at the start of the .got
-     section.  We don't do this in the linker script because we don't
-     want to define the symbol if we are not creating a global offset
-     table.  FIXME: The Solaris linker puts _GLOBAL_OFFSET_TABLE_ at
-     the start of the .got section, but when using the small PIC model
-     the .got is accessed using a signed 13 bit offset.  Shouldn't
-     _GLOBAL_OFFSET_TABLE_ be located at .got + 4096?  */
-  h = NULL;
-  if (! (_bfd_generic_link_add_one_symbol
-	 (info, abfd, "_GLOBAL_OFFSET_TABLE_", BSF_GLOBAL, s, (bfd_vma) 0,
-	  (const char *) NULL, false, get_elf_backend_data (abfd)->collect,
-	  (struct bfd_link_hash_entry **) &h)))
-    return false;
-  h->elf_link_hash_flags |= ELF_LINK_HASH_DEF_REGULAR;
-  h->type = STT_OBJECT;
-
-  if (info->shared
-      && ! bfd_elf32_link_record_dynamic_symbol (info, h))
-    return false;
-
-  /* The first global offset table entry is reserved.  */
-  s->_raw_size += 4;
-
-  return true;
-}  
-
 /* Look through the relocs for a section during the first phase, and
    allocate space in the global offset table or procedure linkage
    table.  */
@@ -373,7 +251,7 @@ elf32_sparc_check_relocs (abfd, info, sec, relocs)
 	    {
 	      /* Create the .got section.  */
 	      elf_hash_table (info)->dynobj = dynobj = abfd;
-	      if (! elf32_sparc_create_got_section (dynobj, info))
+	      if (! _bfd_elf_create_got_section (dynobj, info))
 		return false;
 	    }
 
@@ -515,7 +393,7 @@ elf32_sparc_check_relocs (abfd, info, sec, relocs)
 		{
 		  const char *name;
 
-		  name = (elf_string_from_elf_section
+		  name = (bfd_elf_string_from_elf_section
 			  (abfd,
 			   elf_elfheader (abfd)->e_shstrndx,
 			   elf_section_data (sec)->rel_hdr.sh_name));
@@ -580,13 +458,7 @@ elf32_sparc_adjust_dynamic_symbol (info, h)
 		      && (h->elf_link_hash_flags
 			  & ELF_LINK_HASH_REF_REGULAR) != 0
 		      && (h->elf_link_hash_flags
-			  & ELF_LINK_HASH_DEF_REGULAR) == 0
-		      && h->root.type == bfd_link_hash_defined
-		      && (bfd_get_flavour (h->root.u.def.section->owner)
-			  == bfd_target_elf_flavour)
-		      && (elf_elfheader (h->root.u.def.section->owner)->e_type
-			  == ET_DYN)
-		      && h->root.u.def.section->output_section == NULL)));
+			  & ELF_LINK_HASH_DEF_REGULAR) == 0)));
 
   /* If this is a function, put it in the procedure linkage table.  We
      will fill in the contents of the procedure linkage table later
@@ -650,7 +522,8 @@ elf32_sparc_adjust_dynamic_symbol (info, h)
      real definition first, and we can just use the same value.  */
   if (h->weakdef != NULL)
     {
-      BFD_ASSERT (h->weakdef->root.type == bfd_link_hash_defined);
+      BFD_ASSERT (h->weakdef->root.type == bfd_link_hash_defined
+		  || h->weakdef->root.type == bfd_link_hash_defweak);
       h->root.u.def.section = h->weakdef->root.u.def.section;
       h->root.u.def.value = h->weakdef->root.u.def.value;
       return true;
@@ -731,6 +604,7 @@ elf32_sparc_size_dynamic_sections (output_bfd, info)
   bfd *dynobj;
   asection *s;
   boolean reltext;
+  boolean relplt;
 
   dynobj = elf_hash_table (info)->dynobj;
   BFD_ASSERT (dynobj != NULL);
@@ -768,6 +642,7 @@ elf32_sparc_size_dynamic_sections (output_bfd, info)
      determined the sizes of the various dynamic sections.  Allocate
      memory for them.  */
   reltext = false;
+  relplt = false;
   for (s = dynobj->sections; s != NULL; s = s->next)
     {
       const char *name;
@@ -807,6 +682,9 @@ elf32_sparc_size_dynamic_sections (output_bfd, info)
 	      if (target != NULL
 		  && (target->flags & SEC_READONLY) != 0)
 		reltext = true;
+
+	      if (strcmp (name, ".rela.plt") == 0)
+		relplt = true;
 
 	      /* We use the reloc_count field as a counter if we need
 		 to copy relocs into the output file.  */
@@ -856,11 +734,18 @@ elf32_sparc_size_dynamic_sections (output_bfd, info)
 	    return false;
 	}
 
-      if (! bfd_elf32_add_dynamic_entry (info, DT_PLTGOT, 0)
-	  || ! bfd_elf32_add_dynamic_entry (info, DT_PLTRELSZ, 0)
-	  || ! bfd_elf32_add_dynamic_entry (info, DT_PLTREL, DT_RELA)
-	  || ! bfd_elf32_add_dynamic_entry (info, DT_JMPREL, 0)
-	  || ! bfd_elf32_add_dynamic_entry (info, DT_RELA, 0)
+      if (! bfd_elf32_add_dynamic_entry (info, DT_PLTGOT, 0))
+	return false;
+
+      if (relplt)
+	{
+	  if (! bfd_elf32_add_dynamic_entry (info, DT_PLTRELSZ, 0)
+	      || ! bfd_elf32_add_dynamic_entry (info, DT_PLTREL, DT_RELA)
+	      || ! bfd_elf32_add_dynamic_entry (info, DT_JMPREL, 0))
+	    return false;
+	}
+
+      if (! bfd_elf32_add_dynamic_entry (info, DT_RELA, 0)
 	  || ! bfd_elf32_add_dynamic_entry (info, DT_RELASZ, 0)
 	  || ! bfd_elf32_add_dynamic_entry (info, DT_RELAENT,
 					    sizeof (Elf32_External_Rela)))
@@ -1004,7 +889,8 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
       else
 	{
 	  h = sym_hashes[r_symndx - symtab_hdr->sh_info];
-	  if (h->root.type == bfd_link_hash_defined)
+	  if (h->root.type == bfd_link_hash_defined
+	      || h->root.type == bfd_link_hash_defweak)
 	    {
 	      sec = h->root.u.def.section;
 	      if ((r_type == R_SPARC_WPLT30
@@ -1012,7 +898,11 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 		  || ((r_type == R_SPARC_GOT10
 		       || r_type == R_SPARC_GOT13
 		       || r_type == R_SPARC_GOT22)
-		      && elf_hash_table (info)->dynamic_sections_created)
+		      && elf_hash_table (info)->dynamic_sections_created
+		      && (! info->shared
+			  || ! info->symbolic
+			  || (h->elf_link_hash_flags
+			      & ELF_LINK_HASH_DEF_REGULAR) == 0))
 		  || (info->shared
 		      && (input_section->flags & SEC_ALLOC) != 0
 		      && (r_type == R_SPARC_8
@@ -1043,9 +933,9 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 			      + sec->output_section->vma
 			      + sec->output_offset);
 	    }
-	  else if (h->root.type == bfd_link_hash_weak)
+	  else if (h->root.type == bfd_link_hash_undefweak)
 	    relocation = 0;
-	  else if (info->shared)
+	  else if (info->shared && !info->symbolic)
 	    relocation = 0;
 	  else
 	    {
@@ -1077,13 +967,18 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 	      off = h->got_offset;
 	      BFD_ASSERT (off != (bfd_vma) -1);
 
-	      if (! elf_hash_table (info)->dynamic_sections_created)
+	      if (! elf_hash_table (info)->dynamic_sections_created
+		  || (info->shared
+		      && info->symbolic
+		      && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_REGULAR)))
 		{
-		  /* This is actually a static link.  We must
-                     initialize this entry in the global offset table.
-                     Since the offset must always be a multiple of 4,
-                     we use the least significant bit to record
-                     whether we have initialized it already.
+		  /* This is actually a static link, or it is a
+                     -Bsymbolic link and the symbol is defined
+                     locally.  We must initialize this entry in the
+                     global offset table.  Since the offset must
+                     always be a multiple of 4, we use the least
+                     significant bit to record whether we have
+                     initialized it already.
 
 		     When doing a dynamic link, we create a .rela.got
 		     relocation entry to initialize the value.  This
@@ -1156,7 +1051,8 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 	  if (h->plt_offset == (bfd_vma) -1)
 	    {
 	      /* We didn't make a PLT entry for this symbol.  This
-                 happens when statically linking PIC code.  */
+                 happens when statically linking PIC code, or when
+                 using -Bsymbolic.  */
 	      break;
 	    }
 
@@ -1203,7 +1099,7 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 		{
 		  const char *name;
 
-		  name = (elf_string_from_elf_section
+		  name = (bfd_elf_string_from_elf_section
 			  (input_bfd,
 			   elf_elfheader (input_bfd)->e_shstrndx,
 			   elf_section_data (input_section)->rel_hdr.sh_name));
@@ -1300,9 +1196,9 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 		  name = h->root.root.string;
 		else
 		  {
-		    name = elf_string_from_elf_section (input_bfd,
-							symtab_hdr->sh_link,
-							sym->st_name);
+		    name = bfd_elf_string_from_elf_section (input_bfd,
+							    symtab_hdr->sh_link,
+							    sym->st_name);
 		    if (name == NULL)
 		      return false;
 		    if (*name == '\0')
@@ -1394,12 +1290,24 @@ elf32_sparc_finish_dynamic_symbol (output_bfd, info, h, sym)
       srela = bfd_get_section_by_name (dynobj, ".rela.got");
       BFD_ASSERT (sgot != NULL && srela != NULL);
 
-      bfd_put_32 (output_bfd, (bfd_vma) 0, sgot->contents + h->got_offset);
-
       rela.r_offset = (sgot->output_section->vma
 		       + sgot->output_offset
-		       + h->got_offset);
-      rela.r_info = ELF32_R_INFO (h->dynindx, R_SPARC_GLOB_DAT);
+		       + (h->got_offset &~ 1));
+
+      /* If this is a -Bsymbolic link, and the symbol is defined
+	 locally, we just want to emit a RELATIVE reloc.  The entry in
+	 the global offset table will already have been initialized in
+	 the relocate_section function.  */
+      if (info->shared
+	  && info->symbolic
+	  && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_REGULAR))
+	rela.r_info = ELF32_R_INFO (0, R_SPARC_RELATIVE);
+      else
+	{
+	  bfd_put_32 (output_bfd, (bfd_vma) 0, sgot->contents + h->got_offset);
+	  rela.r_info = ELF32_R_INFO (h->dynindx, R_SPARC_GLOB_DAT);
+	}
+
       rela.r_addend = 0;
       bfd_elf32_swap_reloca_out (output_bfd, &rela,
 				 ((Elf32_External_Rela *) srela->contents
@@ -1560,8 +1468,9 @@ elf32_sparc_finish_dynamic_sections (output_bfd, info)
 	  sym.st_shndx = indx;
 
 	  bfd_elf32_swap_symbol_out (output_bfd, &sym,
-				     ((Elf32_External_Sym *) sdynsym->contents
-				      + elf_section_data (s)->dynindx));
+				     (PTR) (((Elf32_External_Sym *)
+					     sdynsym->contents)
+					    + elf_section_data (s)->dynindx));
 	}
 
       /* Set the sh_info field of the output .dynsym section to the
@@ -1579,7 +1488,7 @@ elf32_sparc_finish_dynamic_sections (output_bfd, info)
 #define ELF_MACHINE_CODE EM_SPARC
 #define ELF_MAXPAGESIZE 0x10000
 #define elf_backend_create_dynamic_sections \
-					elf32_sparc_create_dynamic_sections
+					_bfd_elf_create_dynamic_sections
 #define elf_backend_check_relocs	elf32_sparc_check_relocs
 #define elf_backend_adjust_dynamic_symbol \
 					elf32_sparc_adjust_dynamic_symbol
@@ -1590,5 +1499,8 @@ elf32_sparc_finish_dynamic_sections (output_bfd, info)
 					elf32_sparc_finish_dynamic_symbol
 #define elf_backend_finish_dynamic_sections \
 					elf32_sparc_finish_dynamic_sections
+#define elf_backend_want_got_plt 0
+#define elf_backend_plt_readonly 1
+#define elf_backend_want_plt_sym 1
 
 #include "elf32-target.h"

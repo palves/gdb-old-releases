@@ -1,5 +1,5 @@
 /* Target machine description for MIPS running SVR4, for GDB.
-   Copyright 1994 Free Software Foundation, Inc.
+   Copyright 1994, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "mips/tm-bigmips.h"
 #include "tm-sysv4.h"
@@ -36,6 +36,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define SIGFRAME_BASE	0
 #define SIGFRAME_REGSAVE_OFF	(SIGFRAME_BASE + 40)
 #define SIGFRAME_PC_OFF		(SIGFRAME_BASE + 40 + 35 * 4)
+#define SIGFRAME_FPREGSAVE_OFF	(SIGFRAME_BASE + 40 + 36 * 4)
 
 /* Use the alternate method of determining valid frame chains. */
 #define FRAME_CHAIN_VALID_ALTERNATE

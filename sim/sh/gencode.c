@@ -151,7 +151,10 @@ op tab[] =
     "{ int tmp = PC; PC=RLAT(R[15])+2;R[15]+=4;SET_SR(RLAT(R[15]) & 0x3f3);R[15]+=4;SL(tmp+2);}"},
   {"","","rts", "0000000000001011", "ult=PC;PC=PR+2;SL(ult+2);"},
   {"","","sett", "0000000000011000", "T=1;"},
-
+  {"n","mn","shad <REG_M>,<REG_N>", "0100nnnnmmmm1100",
+     "R[n] = (R[m] < 0) ? (((int)R[n]) >> -(R[m]&0x1f) ): (R[n] << ((R[m]) & 0x1f)) ;"},
+  {"n","mn","shld <REG_M>,<REG_N>", "0100nnnnmmmm1101",
+     "R[n] = (R[m] < 0) ? (((unsigned int)R[n]) >> -(R[m]&0x1f) ): (R[n] << ((R[m]) & 0x1f)) ;"},
   {"n","n","shal <REG_N>", "0100nnnn00100000", "T=R[n]<0; R[n]<<=1;"},
   {"n","n","shar <REG_N>", "0100nnnn00100001", "T=R[n]&1; R[n] = R[n] >> 1;"},
   {"n","n","shll <REG_N>", "0100nnnn00000000", "T=R[n]<0; R[n]<<=1;"},
@@ -196,10 +199,9 @@ op tab[] =
   {"","nm","dmuls.l <REG_M>,<REG_N>", "0011nnnnmmmm1101", "dmul(1,R[n],R[m]);"},
   {"","nm","dmulu.l <REG_M>,<REG_N>", "0011nnnnmmmm0101", "dmul(0,R[n],R[m]);"},
   {"","nm","mac.l @<REG_M>+,@<REG_N>+", "0000nnnnmmmm1111", "abort();"},
-  
+  {"","n","braf <REG_N>", "0000nnnn00100011", "ult = PC; PC+=R[n]-2;SL(ult+2);"},
+  {"","n","bsrf <REG_N>", "0000nnnn00000011", "PR = PC; PC+=R[n]-2;SL(PR+2);"},
 #if 0
-  {"braf @<REG_N>", "0000nnnn00100011", ""},
-  {"bsrf @<REG_N>", "0000nnnn00000011", ""},
   {"divs.l <REG_M>,<REG_N>", "0100nnnnmmmm1110", "divl(0,R[n],R[m]);"},
   {"divu.l <REG_M>,<REG_N>", "0100nnnnmmmm1101", "divl(0,R[n],R[m]);"},
 #endif

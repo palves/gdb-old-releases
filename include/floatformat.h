@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #if !defined (FLOATFORMAT_H)
 #define FLOATFORMAT_H 1
@@ -69,6 +69,7 @@ extern const struct floatformat floatformat_i387_ext;
 extern const struct floatformat floatformat_m68881_ext;
 extern const struct floatformat floatformat_i960_ext;
 extern const struct floatformat floatformat_m88110_ext;
+extern const struct floatformat floatformat_arm_ext;
 
 /* Convert from FMT to a double.
    FROM is the address of the extended float.

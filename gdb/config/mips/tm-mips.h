@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include <bfd.h>
 #include "coff/sym.h"		/* Needed for PDR below.  */
@@ -160,6 +160,7 @@ extern int in_sigtramp PARAMS ((CORE_ADDR, char *));
 #define FCRCS_REGNUM 70         /* FP control/status */
 #define FCRIR_REGNUM 71         /* FP implementation/revision */
 #define FP_REGNUM 72		/* Pseudo register that contains true address of executing stack frame */
+#define	UNUSED_REGNUM 73	/* Never used, FIXME */
 #define	FIRST_EMBED_REGNUM 74	/* First CP0 register for embedded use */
 #define	PRID_REGNUM 89		/* Processor ID */
 #define	LAST_EMBED_REGNUM 89	/* Last one */

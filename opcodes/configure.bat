@@ -8,10 +8,13 @@ if exist config.sed del config.sed
 
 echo "/\.o[ 	]*:/ s/config.status//			">> config.sed
 echo "s/CC = cc/CC = gcc/				">> config.sed
-
-echo "/^###$/ i\					">> config.sed
-echo "BFD_MACHINES=i386-dis.o\				">> config.sed
-echo "ARCHDEFS=-DARCH_i386				">> config.sed
+echo "s/@BFD_MACHINES@/i386-dis.o/			">> config.sed
+echo "s/@archdefs@/-DARCH_i386/				">> config.sed
+echo "s/@frags@//					">> config.sed
+echo "s/@srcdir@//					">> config.sed
+echo "s!@prefix@!/usr/local!				">> config.sed
+echo "s!@exec_prefix@!/usr/local!			">> config.sed
+echo "s/@RANLIB@/ranlib/				">> config.sed
 
 echo "s/^[ 	]*rm/	-rm/				">> config.sed
 

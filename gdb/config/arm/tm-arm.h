@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define TARGET_BYTE_ORDER LITTLE_ENDIAN
 
@@ -144,7 +144,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Nonzero if register N requires conversion
    from raw format to virtual format.  */
-
 #define REGISTER_CONVERTIBLE(N) ((unsigned)(N) - F0_REGNUM < 8)
 
 /* Convert data from raw format for register REGNUM in buffer FROM
@@ -165,7 +164,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
   double val = extract_floating ((FROM), TYPE_LENGTH (TYPE)); \
   convert_to_extended (&val, (TO)); \
 }
-
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
 
@@ -274,10 +272,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    ways in the stack frame.  sp is even more special:
    the address we return for it IS the sp for the next frame.  */
 
-struct frame_info;
-struct frame_saved_regs;
-void arm_frame_find_saved_regs PARAMS ((struct frame_info *,
-					       struct frame_saved_regs *));
+
 #define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs) \
  arm_frame_find_saved_regs (frame_info, frame_saved_regs);
 

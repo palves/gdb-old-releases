@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "obstack.h"
@@ -36,10 +36,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "typeprint.h"
 #include "frame.h"  /* ??? */
 
-#include <string.h>
+#include "gdb_string.h"
 #include <errno.h>
 
+#if 0	/* Currently unused */
 static void f_type_print_args PARAMS ((struct type *, FILE *));
+#endif
 
 static void f_type_print_varspec_suffix PARAMS ((struct type *, FILE *,
 						 int, int, int));
@@ -150,6 +152,8 @@ f_type_print_varspec_prefix (type, stream, show, passed_a_ptr)
     }
 }
 
+#if 0	/* Currently unused */
+
 static void
 f_type_print_args (type, stream)
      struct type *type;
@@ -183,6 +187,8 @@ f_type_print_args (type, stream)
     }
   fprintf_filtered (stream, ")");
 }
+
+#endif	/* 0 */
 
 /* Print any array sizes, function arguments or close parentheses
    needed after the variable name (to describe its type).
@@ -425,7 +431,7 @@ f_type_print_base (type, stream, show, level)
       /* Strings may have dynamic upperbounds (lengths) like arrays. */
 
       if (TYPE_ARRAY_UPPER_BOUND_TYPE (type) == BOUND_CANNOT_BE_DETERMINED)
-	fprintf_filtered ("character*(*)");
+	fprintf_filtered (stream, "character*(*)");
       else
 	{
 	  retcode = f77_get_dynamic_upperbound (type, &upper_bound);

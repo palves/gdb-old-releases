@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -36,7 +36,7 @@ proc all_integer_memory_tests { } {
 
     send "x/8i integer_memory_tests\n"
     expect {
-	-re ".*
+	-re "
 .*ldw 0\\(sr0,r4\\),r26.*
 .*ldh 0\\(sr0,r4\\),r26.*
 .*ldb 0\\(sr0,r4\\),r26.*
@@ -52,7 +52,7 @@ proc all_integer_memory_tests { } {
 
     send "x/20i integer_indexing_load\n"
     expect {
-	-re ".*
+	-re "
 .*ldwx r5\\(sr0,r4\\),r26.*
 .*ldwx,s r5\\(sr0,r4\\),r26.*
 .*ldwx,m r5\\(sr0,r4\\),r26.*
@@ -80,7 +80,7 @@ proc all_integer_memory_tests { } {
 
     send "x/15i integer_load_short_memory\n"
     expect {
-	-re ".*
+	-re "
 .*ldws 0\\(sr0,r4\\),r26.*
 .*ldws,mb 0\\(sr0,r4\\),r26.*
 .*ldws,ma 0\\(sr0,r4\\),r26.*
@@ -104,7 +104,7 @@ proc all_integer_memory_tests { } {
 
     send "x/17i integer_store_short_memory\n"
     expect {
-	-re ".*
+	-re "
 .*stws r26,0\\(sr0,r4\\).*
 .*stws,mb r26,0\\(sr0,r4\\).*
 .*stws,ma r26,0\\(sr0,r4\\).*
@@ -135,7 +135,7 @@ proc all_immediate_tests { } {
 
     send "x/3i immediate_tests\n"
     expect {
-	-re ".*
+	-re "
 .*ldo 5\\(r26\\),r26.*
 .*ldil -21524800,r26.*
 .*addil -21524800,r5.*
@@ -152,7 +152,7 @@ proc all_branch_tests { } {
 
     send "x/10i branch_tests_1\n"
     expect {
-	-re ".*
+	-re "
 .*bl.*,rp.*
 .*bl,n.*,rp.*
 .*b.*
@@ -170,7 +170,7 @@ proc all_branch_tests { } {
 
     send "x/6i branch_tests_2\n"
     expect {
-	-re ".*
+	-re "
 .*bv r0\\(rp\\).*
 .*bv,n r0\\(rp\\).*
 .*be 1234\\(sr1,rp\\).*
@@ -185,7 +185,7 @@ proc all_branch_tests { } {
 
     send "x/8i movb_tests\n"
     expect {
-	-re ".*
+	-re "
 .*movb r4,r26,.* <movb_tests>.*
 .*movb,= r4,r26,.* <movb_tests>.*
 .*movb,< r4,r26,.* <movb_tests>.*
@@ -201,7 +201,7 @@ proc all_branch_tests { } {
 
     send "x/8i movb_nullified_tests\n"
     expect {
-	-re ".*
+	-re "
 .*movb,n.*r4,r26,.* <movb_tests>.*
 .*movb,=,n.*r4,r26,.* <movb_tests>.*
 .*movb,<,n.*r4,r26,.* <movb_tests>.*
@@ -217,7 +217,7 @@ proc all_branch_tests { } {
 
     send "x/8i movib_tests\n"
     expect {
-	-re ".*
+	-re "
 .*movib 5,r26,.* <movib_tests>.*
 .*movib,= 5,r26,.* <movib_tests>.*
 .*movib,< 5,r26,.* <movib_tests>.*
@@ -233,7 +233,7 @@ proc all_branch_tests { } {
 
     send "x/8i movib_nullified_tests\n"
     expect {
-	-re ".*
+	-re "
 .*movib,n.*5,r26,.* <movib_tests>.*
 .*movib,=,n.*5,r26,.* <movib_tests>.*
 .*movib,<,n.*5,r26,.* <movib_tests>.*
@@ -249,7 +249,7 @@ proc all_branch_tests { } {
 
     send "x/8i comb_tests_1\n"
     expect {
-	-re ".*
+	-re "
 .*comb r0,r4,.* <comb_tests_1>.*
 .*comb,= r0,r4,.* <comb_tests_1>.*
 .*comb,< r0,r4,.* <comb_tests_1>.*
@@ -265,7 +265,7 @@ proc all_branch_tests { } {
 
     send "x/8i comb_tests_2\n"
     expect {
-	-re ".*
+	-re "
 .*combf r0,r4,.* <comb_tests_2>.*
 .*combf,= r0,r4,.* <comb_tests_2>.*
 .*combf,< r0,r4,.* <comb_tests_2>.*
@@ -281,7 +281,7 @@ proc all_branch_tests { } {
 
     send "x/8i comb_nullified_tests_1\n"
     expect {
-	-re ".*
+	-re "
 .*comb,n r0,r4,.* <comb_tests_1>.*
 .*comb,=,n r0,r4,.* <comb_tests_1>.*
 .*comb,<,n r0,r4,.* <comb_tests_1>.*
@@ -297,7 +297,7 @@ proc all_branch_tests { } {
 
     send "x/8i comb_nullified_tests_2\n"
     expect {
-	-re ".*
+	-re "
 .*combf,n r0,r4,.* <comb_tests_2>.*
 .*combf,=,n r0,r4,.* <comb_tests_2>.*
 .*combf,<,n r0,r4,.* <comb_tests_2>.*
@@ -313,7 +313,7 @@ proc all_branch_tests { } {
 
     send "x/8i comib_tests_1\n"
     expect {
-	-re ".*
+	-re "
 .*comib 0,r4,.* <comib_tests_1>.*
 .*comib,= 0,r4,.* <comib_tests_1>.*
 .*comib,< 0,r4,.* <comib_tests_1>.*
@@ -329,7 +329,7 @@ proc all_branch_tests { } {
 
     send "x/8i comib_tests_2\n"
     expect {
-	-re ".*
+	-re "
 .*comibf 0,r4,.* <comib_tests_2>.*
 .*comibf,= 0,r4,.* <comib_tests_2>.*
 .*comibf,< 0,r4,.* <comib_tests_2>.*
@@ -345,7 +345,7 @@ proc all_branch_tests { } {
 
     send "x/8i comib_nullified_tests_1\n"
     expect {
-	-re ".*
+	-re "
 .*comib,n 0,r4,.* <comib_tests_1>.*
 .*comib,=,n 0,r4,.* <comib_tests_1>.*
 .*comib,<,n 0,r4,.* <comib_tests_1>.*
@@ -361,7 +361,7 @@ proc all_branch_tests { } {
 
     send "x/8i comib_nullified_tests_2\n"
     expect {
-	-re ".*
+	-re "
 .*comibf,n 0,r4,.* <comib_tests_2>.*
 .*comibf,=,n 0,r4,.* <comib_tests_2>.*
 .*comibf,<,n 0,r4,.* <comib_tests_2>.*
@@ -377,7 +377,7 @@ proc all_branch_tests { } {
 
     send "x/8i addb_tests_1\n"
     expect {
-	-re ".*
+	-re "
 .*addb r1,r4,.* <addb_tests_1>.*
 .*addb,= r1,r4,.* <addb_tests_1>.*
 .*addb,< r1,r4,.* <addb_tests_1>.*
@@ -393,7 +393,7 @@ proc all_branch_tests { } {
 
     send "x/8i addb_tests_2\n"
     expect {
-	-re ".*
+	-re "
 .*addbf r1,r4,.* <addb_tests_2>.*
 .*addbf,= r1,r4,.* <addb_tests_2>.*
 .*addbf,< r1,r4,.* <addb_tests_2>.*
@@ -409,7 +409,7 @@ proc all_branch_tests { } {
 
     send "x/8i addb_nullified_tests_1\n"
     expect {
-	-re ".*
+	-re "
 .*addb,n r1,r4,.* <addb_tests_1>.*
 .*addb,=,n r1,r4,.* <addb_tests_1>.*
 .*addb,<,n r1,r4,.* <addb_tests_1>.*
@@ -425,7 +425,7 @@ proc all_branch_tests { } {
 
     send "x/8i addb_nullified_tests_2\n"
     expect {
-	-re ".*
+	-re "
 .*addbf,n r1,r4,.* <addb_tests_2>.*
 .*addbf,=,n r1,r4,.* <addb_tests_2>.*
 .*addbf,<,n r1,r4,.* <addb_tests_2>.*
@@ -441,7 +441,7 @@ proc all_branch_tests { } {
 
     send "x/8i addib_tests_1\n"
     expect {
-	-re ".*
+	-re "
 .*addib -1,r4,.* <addib_tests_1>.*
 .*addib,= -1,r4,.* <addib_tests_1>.*
 .*addib,< -1,r4,.* <addib_tests_1>.*
@@ -457,7 +457,7 @@ proc all_branch_tests { } {
 
     send "x/8i addib_tests_2\n"
     expect {
-	-re ".*
+	-re "
 .*addibf -1,r4,.* <addib_tests_2>.*
 .*addibf,= -1,r4,.* <addib_tests_2>.*
 .*addibf,< -1,r4,.* <addib_tests_2>.*
@@ -473,7 +473,7 @@ proc all_branch_tests { } {
 
     send "x/8i addib_nullified_tests_1\n"
     expect {
-	-re ".*
+	-re "
 .*addib,n -1,r4,.* <addib_tests_1>.*
 .*addib,=,n -1,r4,.* <addib_tests_1>.*
 .*addib,<,n -1,r4,.* <addib_tests_1>.*
@@ -489,7 +489,7 @@ proc all_branch_tests { } {
 
     send "x/8i addib_nullified_tests_2\n"
     expect {
-	-re ".*
+	-re "
 .*addibf,n -1,r4,.* <addib_tests_2>.*
 .*addibf,=,n -1,r4,.* <addib_tests_2>.*
 .*addibf,<,n -1,r4,.* <addib_tests_2>.*
@@ -505,7 +505,7 @@ proc all_branch_tests { } {
 
     send "x/8i bb_tests\n"
     expect {
-	-re ".*
+	-re "
 .*bvb,< r4,.* <bb_tests>.*
 .*bvb,>= r4,.* <bb_tests>.*
 .*bvb,<,n r4,.* <bb_tests>.*
@@ -533,7 +533,7 @@ proc all_integer_computational_tests { } {
     foreach i $add_insns {
 	send "x/16i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i r4,r5,r6.*
 .*$i,= r4,r5,r6.*
 .*$i,< r4,r5,r6.*
@@ -562,7 +562,7 @@ proc all_integer_computational_tests { } {
     foreach i $sub_insns {
 	send "x/16i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i r4,r5,r6.*
 .*$i,= r4,r5,r6.*
 .*$i,< r4,r5,r6.*
@@ -590,7 +590,7 @@ proc all_integer_computational_tests { } {
     foreach i $logical_insns {
 	send "x/10i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i r4,r5,r6.*
 .*$i,= r4,r5,r6.*
 .*$i,< r4,r5,r6.*
@@ -612,7 +612,7 @@ proc all_integer_computational_tests { } {
     foreach i $unit_insns1 {
 	send "x/12i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i r4,r5,r6.*
 .*$i,sbz r4,r5,r6.*
 .*$i,shz r4,r5,r6.*
@@ -636,7 +636,7 @@ proc all_integer_computational_tests { } {
     foreach i $unit_insns2 {
 	send "x/12i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i r4,r5.*
 .*$i,sbz r4,r5.*
 .*$i,shz r4,r5.*
@@ -660,7 +660,7 @@ proc all_integer_computational_tests { } {
     foreach i $addi_insns {
 	send "x/16i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i 7b,r5,r6.*
 .*$i,= 7b,r5,r6.*
 .*$i,< 7b,r5,r6.*
@@ -688,7 +688,7 @@ proc all_integer_computational_tests { } {
     foreach i $subi_insns {
 	send "x/16i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i 7b,r5,r6.*
 .*$i,= 7b,r5,r6.*
 .*$i,< 7b,r5,r6.*
@@ -713,7 +713,7 @@ proc all_integer_computational_tests { } {
 
     send "x/8i vshd_tests\n"
     expect {
-	-re ".*
+	-re "
 .*vshd r4,r5,r6.*
 .*vshd,= r4,r5,r6.*
 .*vshd,< r4,r5,r6.*
@@ -729,7 +729,7 @@ proc all_integer_computational_tests { } {
 
     send "x/8i shd_tests\n"
     expect {
-	-re ".*
+	-re "
 .*shd r4,r5,5,r6.*
 .*shd,= r4,r5,5,r6.*
 .*shd,< r4,r5,5,r6.*
@@ -748,7 +748,7 @@ proc all_integer_computational_tests { } {
     foreach i $extract_insns1 {
 	send "x/8i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i r4,5,10,r6.*
 .*$i,= r4,5,10,r6.*
 .*$i,< r4,5,10,r6.*
@@ -768,7 +768,7 @@ proc all_integer_computational_tests { } {
     foreach i $extract_insns2 {
 	send "x/8i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i r4,5,r6.*
 .*$i,= r4,5,r6.*
 .*$i,< r4,5,r6.*
@@ -788,7 +788,7 @@ proc all_integer_computational_tests { } {
     foreach i $extract_insns3 {
 	send "x/8i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i -1,5,r6.*
 .*$i,= -1,5,r6.*
 .*$i,< -1,5,r6.*
@@ -808,7 +808,7 @@ proc all_integer_computational_tests { } {
     foreach i $extract_insns4 {
 	send "x/8i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i -1,4,10,r6.*
 .*$i,= -1,4,10,r6.*
 .*$i,< -1,4,10,r6.*
@@ -831,7 +831,7 @@ proc all_system_control_tests { } {
 
     send "x/13i system_control_tests\n"
     expect {
-	-re ".*
+	-re "
 .*break 5,c.*
 .*rfi.*
 .*rfir.*
@@ -852,7 +852,7 @@ proc all_system_control_tests { } {
 
     send "x/4i probe_tests\n"
     expect {
-	-re ".*
+	-re "
 .*prober \\(sr0,r5\\),r6,r7.*
 .*proberi \\(sr0,r5\\),1,r7.*
 .*probew \\(sr0,r5\\),r6,r7.*
@@ -864,7 +864,7 @@ proc all_system_control_tests { } {
 
     send "x/4i lpa_tests\n"
     expect {
-	-re ".*
+	-re "
 .*lpa r4\\(sr0,r5\\),r6.*
 .*lpa,m r4\\(sr0,r5\\),r6.*
 .*lha r4\\(sr0,r5\\),r6.*
@@ -876,7 +876,7 @@ proc all_system_control_tests { } {
 
     send "x/18i purge_tests\n"
     expect {
-	-re ".*
+	-re "
 .*pdtlb r4\\(sr0,r5\\).*
 .*pdtlb,m r4\\(sr0,r5\\).*
 .*pitlb r4\\(sr0,r5\\).*
@@ -902,7 +902,7 @@ proc all_system_control_tests { } {
 
     send "x/4i insert_tests\n"
     expect {
-	-re ".*
+	-re "
 .*idtlba r4,\\(sr0,r5\\).*
 .*iitlba r4,\\(sr0,r5\\).*
 .*idtlbp r4,\\(sr0,r5\\).*
@@ -921,7 +921,7 @@ proc all_fpu_memory_tests { } {
 
     send "x/20i fpu_memory_indexing_tests\n"
     expect {
-	-re ".*
+	-re "
 .*fldwx r4\\(sr0,r5\\),fr6.*
 .*fldwx,s r4\\(sr0,r5\\),fr6.*
 .*fldwx,m r4\\(sr0,r5\\),fr6.*
@@ -949,7 +949,7 @@ proc all_fpu_memory_tests { } {
 
     send "x/15i fpu_short_memory_tests\n"
     expect {
-	-re ".*
+	-re "
 .*fldws 0\\(sr0,r5\\),fr6.*
 .*fldws,mb 0\\(sr0,r5\\),fr6.*
 .*fldws,ma 0\\(sr0,r5\\),fr6.*
@@ -979,7 +979,7 @@ proc all_fpu_computational_tests { } {
 
     send "x/1i fpu_misc_tests\n"
     expect {
-	-re ".*
+	-re "
 .*ftest.*
 .*$prompt $" { pass "fpu_misc_tests" }
 	-re "$prompt $" { fail "fpu_misc_tests" }
@@ -991,7 +991,7 @@ proc all_fpu_computational_tests { } {
     foreach i $fpu_two_op_insns {
 	send "x/5i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i,sgl fr5,fr10.*
 .*$i,dbl fr5,fr10.*
 .*$i,quad fr5,fr10.*
@@ -1008,7 +1008,7 @@ proc all_fpu_computational_tests { } {
     foreach i $fpu_conversions {
 	send "x/18i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i,sgl,sgl fr5,fr10.*
 .*$i,sgl,dbl fr5,fr10.*
 .*$i,sgl,quad fr5,fr10.*
@@ -1038,7 +1038,7 @@ proc all_fpu_computational_tests { } {
     foreach i $fpu_three_op_insns {
 	send "x/6i $i"; send "_tests\n"
 	expect {
-	    -re ".*
+	    -re "
 .*$i,sgl fr4,fr8,fr12.*
 .*$i,dbl fr4,fr8,fr12.*
 .*$i,quad fr4,fr8,fr12.*
@@ -1053,7 +1053,7 @@ proc all_fpu_computational_tests { } {
 
     send "x/4i fmpy_addsub_tests\n"
     expect {
-	-re ".*
+	-re "
 .*fmpyadd,sgl fr16,fr17,fr18,fr19,fr20.*
 .*fmpyadd,dbl fr16,fr17,fr18,fr19,fr20.*
 .*fmpysub,sgl fr16,fr17,fr18,fr19,fr20.*
@@ -1065,7 +1065,7 @@ proc all_fpu_computational_tests { } {
 
     send "x/i xmpyu_tests\n"
     expect {
-	-re ".*
+	-re "
 .*xmpyu fr4,fr5,fr6.*
 .*$prompt $" {pass "xmpyu_tests" }
 	-re "$prompt $" {fail "xmpyu_tests" }
@@ -1084,7 +1084,7 @@ proc all_fpu_comparison_tests { } {
     foreach i $fpu_comparison_formats {
 	send "x/8i fcmp_$i"; send "_tests_1\n"
 	expect {
-	    -re ".*
+	    -re "
 .*fcmp,$i,false\\? fr4,fr5.*
 .*fcmp,$i,false fr4,fr5.*
 .*fcmp,$i,\\? fr4,fr5.*
@@ -1100,7 +1100,7 @@ proc all_fpu_comparison_tests { } {
 
 	send "x/8i fcmp_$i"; send "_tests_2\n"
 	expect {
-	    -re ".*
+	    -re "
 .*fcmp,$i,!\\?>= fr4,fr5.*
 .*fcmp,$i,< fr4,fr5.*
 .*fcmp,$i,\\?< fr4,fr5.*
@@ -1116,7 +1116,7 @@ proc all_fpu_comparison_tests { } {
 
 	send "x/8i fcmp_$i"; send "_tests_3\n"
 	expect {
-	    -re ".*
+	    -re "
 .*fcmp,$i,!\\?<= fr4,fr5.*
 .*fcmp,$i,> fr4,fr5.*
 .*fcmp,$i,\\?> fr4,fr5.*
@@ -1130,9 +1130,9 @@ proc all_fpu_comparison_tests { } {
 	    timeout { fail "(timeout) fcmp_$i tests (part3) " }
 	}
 
-	send "x/16i fcmp_$i"; send "_tests_4\n"
+	send "x/8i fcmp_$i"; send "_tests_4\n"
 	expect {
-	    -re ".*
+	    -re "
 .*fcmp,$i,!\\?= fr4,fr5.*
 .*fcmp,$i,<> fr4,fr5.*
 .*fcmp,$i,!= fr4,fr5.*
@@ -1155,7 +1155,7 @@ proc all_special_tests { } {
 
     send "x/4i special_tests\n"
     expect {
-	-re ".*
+	-re "
 .*gfw r4\\(sr0,r5\\).*
 .*gfw,m r4\\(sr0,r5\\).*
 .*gfr r4\\(sr0,r5\\).*
@@ -1174,7 +1174,7 @@ proc all_sfu_tests { } {
 
     send "x/16i sfu_tests\n"
     expect {
-	-re ".*
+	-re "
 .*spop0,4,5.*
 .*spop0,4,73.*
 .*spop0,4,5,n.*
@@ -1204,7 +1204,7 @@ proc all_copr_tests { } {
 
     send "x/4i copr_tests\n"
     expect {
-	-re ".*
+	-re "
 .*copr,4,5.*
 .*copr,4,73.*
 .*copr,4,5,n.*
@@ -1222,7 +1222,7 @@ proc all_copr_mem_tests { } {
 
     send "x/8i copr_indexing_load\n"
     expect {
-	-re ".*
+	-re "
 .*cldwx,4 r5\\(sr0,r4\\),r26.*
 .*cldwx,4,s r5\\(sr0,r4\\),r26.*
 .*cldwx,4,m r5\\(sr0,r4\\),r26.*
@@ -1238,7 +1238,7 @@ proc all_copr_mem_tests { } {
 
     send "x/8i copr_indexing_store\n"
     expect {
-	-re ".*
+	-re "
 .*cstwx,4 r26,r5\\(sr0,r4\\).*
 .*cstwx,4,s r26,r5\\(sr0,r4\\).*
 .*cstwx,4,m r26,r5\\(sr0,r4\\).*
@@ -1254,7 +1254,7 @@ proc all_copr_mem_tests { } {
 
     send "x/12i copr_short_memory\n"
     expect {
-	-re ".*
+	-re "
 .*cldws,4 0\\(sr0,r4\\),r26.*
 .*cldws,4,mb 0\\(sr0,r4\\),r26.*
 .*cldws,4,ma 0\\(sr0,r4\\),r26.*
@@ -1280,7 +1280,7 @@ proc fmemLRbug_tests { } {
 
     send "x/12i fmemLRbug_tests_1\n"
     expect {
-	-re ".*
+	-re "
 .*fstws fr6R,0\\(sr0,r26\\).*
 .*fstws fr6,4\\(sr0,r26\\).*
 .*fstws fr6,8\\(sr0,r26\\).*
@@ -1298,9 +1298,9 @@ proc fmemLRbug_tests { } {
 	timeout { fail "(timeout) fmem LR register selector tests  (part1)" }
     }
 
-    send "x/12i fmemLRbug_tests_1\n"
+    send "x/12i fmemLRbug_tests_2\n"
     expect {
-	-re ".*
+	-re "
 .*fstws fr6R,0\\(sr0,r26\\).*
 .*fstws fr6,4\\(sr0,r26\\).*
 .*fstws fr6,8\\(sr0,r26\\).*
@@ -1316,6 +1316,46 @@ proc fmemLRbug_tests { } {
 .*$prompt $" { pass "fmem LR register selector tests (part2)" }
 	-re "$prompt $" { fail "fmem LR register selector tests (part2)" }
 	timeout { fail "(timeout) fmem LR register selector tests  (part2)" }
+    }
+
+    send "x/12i fmemLRbug_tests_3\n"
+    expect {
+	-re "
+.*fstwx fr6R,r25\\(sr0,r26\\).*
+.*fstwx fr6,r25\\(sr0,r26\\).*
+.*fstwx fr6,r25\\(sr0,r26\\).*
+.*fstdx fr6,r25\\(sr0,r26\\).*
+.*fstdx fr6,r25\\(sr0,r26\\).*
+.*fstdx fr6,r25\\(sr0,r26\\).*
+.*fldwx r25\\(sr0,r26\\),fr6R.*
+.*fldwx r25\\(sr0,r26\\),fr6.*
+.*fldwx r25\\(sr0,r26\\),fr6.*
+.*flddx r25\\(sr0,r26\\),fr6.*
+.*flddx r25\\(sr0,r26\\),fr6.*
+.*flddx r25\\(sr0,r26\\),fr6.*
+.*$prompt $" { pass "fmem LR register selector tests (part3)" }
+	-re "$prompt $" { fail "fmem LR register selector tests (part3)" }
+	timeout { fail "(timeout) fmem LR register selector tests  (part3)" }
+    }
+
+    send "x/12i fmemLRbug_tests_4\n"
+    expect {
+	-re "
+.*fstwx fr6R,r25\\(sr0,r26\\).*
+.*fstwx fr6,r25\\(sr0,r26\\).*
+.*fstwx fr6,r25\\(sr0,r26\\).*
+.*fstdx fr6,r25\\(sr0,r26\\).*
+.*fstdx fr6,r25\\(sr0,r26\\).*
+.*fstdx fr6,r25\\(sr0,r26\\).*
+.*fldwx r25\\(sr0,r26\\),fr6R.*
+.*fldwx r25\\(sr0,r26\\),fr6.*
+.*fldwx r25\\(sr0,r26\\),fr6.*
+.*flddx r25\\(sr0,r26\\),fr6.*
+.*flddx r25\\(sr0,r26\\),fr6.*
+.*flddx r25\\(sr0,r26\\),fr6.*
+.*$prompt $" { pass "fmem LR register selector tests (part4)" }
+	-re "$prompt $" { fail "fmem LR register selector tests (part4)" }
+	timeout { fail "(timeout) fmem LR register selector tests  (part4)" }
     }
 }
 

@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1994 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1994, 1995 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -686,6 +686,22 @@ proc test_static_members {} {
            timeout { fail "print *\$ (timeout)" ; return }
 	}
     }
+
+    gdb_test "set print static-members off" ""
+    gdb_test "print csi" \
+	"{x = 10, y = 20}" \
+	"print csi without static members"
+    gdb_test "print cnsi" \
+	"{x = 30, y = 40}" \
+	"print cnsi without static members"
+
+    gdb_test "set print static-members on" ""
+    gdb_test "print csi" \
+	"{x = 10, y = 20, static null = {x = 0, y = 0, static null = <same as static member of an already seen type>}}" \
+	"print csi with static members"
+    gdb_test "print cnsi" \
+	"{x = 30, y = 40, static null = {x = 0, y = 0, static null = <same as static member of an already seen type>, static yy = {z = 5, static xx = {x = 1, y = 2, static null = <same as static member of an already seen type>, static yy = <same as static member of an already seen type>}}}, static yy = <same as static member of an already seen type>}" \
+	"print cnsi with static members"
 }
 
 proc do_tests {} {
@@ -696,7 +712,6 @@ proc do_tests {} {
     global srcdir
     global binfile
     global prompt
-    global timeout
 
     set prms_id 0
     set bug_id 0
@@ -729,7 +744,7 @@ proc do_tests {} {
 	gdb_load $objdir/$subdir/$binfile
     }
 
-    if [ runto main ] then {
+    if [ runto_main ] then {
 	test_pointers_to_class_members
 	test_static_members
     }
@@ -744,10 +759,7 @@ proc do_tests {} {
  
     if [ runto marker_reg1 ] then {
 
-	set otimeout $timeout
-	set timeout 120
-	gdb_test "finish" "Run till exit from"
-	set timeout $otimeout
+	gdb_test "finish" "Run till exit from.*" "finish from marker_reg1"
 
 	send "print v.method ()\n"
 	expect {
@@ -774,9 +786,7 @@ set binfile "misc"
 set srcfile $binfile.cc
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    if $all_flag then {
-	warning "$binfile does not exist; tests suppressed."
-    }
+    warning "$binfile does not exist; tests suppressed."
 } else {
     do_tests
 }

@@ -98,7 +98,7 @@ case "${host}" in
   m88k-harris-cxux*)	  host_makefile_frag=config/mh-cxux ;;
   m88k-motorola-sysv*)    host_makefile_frag=config/mh-delta88;;
   mips*-dec-ultrix*)      host_makefile_frag=config/mh-decstation ;;
-  mips*-sgi-irix5*)       host_makefile_frag=config/mh-irix5 ;;
+  mips*-sgi-irix[56]*)    host_makefile_frag=config/mh-irix5 ;;
   mips*-sgi-irix4*)       host_makefile_frag=config/mh-irix4 ;;
   mips*-sgi-irix3*)       host_makefile_frag=config/mh-sysv ;;
   mips*-*-sysv4*)	  host_makefile_frag=config/mh-sysv4 ;;
@@ -111,12 +111,14 @@ case "${host}" in
   i[345]86-*-solaris2*)   host_makefile_frag=config/mh-sysv4 ;;
   i[345]86-*-aix*)	  host_makefile_frag=config/mh-aix386 ;;
   i[345]86-*-go32*)	  host_makefile_frag=config/mh-go32 ;;
+  i[345]86-*-win32)	  host_makefile_frag=config/mh-i386win32 ;;
   vax-*-ultrix2*)         host_makefile_frag=config/mh-vaxult2 ;;
   *-ibm-aix*)             host_makefile_frag=config/mh-aix ;;
   *-bull-bosx*)           host_makefile_frag=config/mh-aix ;;
   *-*-solaris2*)          host_makefile_frag=config/mh-solaris ;;
   m68k-sun-*)		  host_makefile_frag=config/mh-sun3 ;;
   *-sun-*)		  host_makefile_frag=config/mh-sun ;;
+  *-hp-hpux[78]*)         host_makefile_frag=config/mh-hpux8 ;;
   *-hp-hpux*)             host_makefile_frag=config/mh-hpux ;;
   *-*-hiux*)              host_makefile_frag=config/mh-hpux ;;
   rs6000-*-lynxos*)	  host_makefile_frag=config/mh-lynxrs6k ;;
@@ -166,14 +168,18 @@ fi
 if [ x${enable_shared} = xyes ]; then
   waugh=
   case "${host}" in
-    hppa*-*-*)		waugh=config/mh-papic ;;
-    i[345]86-*-*)	waugh=config/mh-x86pic ;;
-    *-*-*)		waugh=config/mh-${host_cpu}pic ;;
+    hppa*)		waugh=config/mh-papic ;;
+    i[345]86-*)		waugh=config/mh-x86pic ;;
+    *)			waugh=config/mh-${host_cpu}pic ;;
   esac
-  if [ -n "${host_makefile_frag}" ] && [ -f ${srcdir}/${waugh} ]; then
-    cat ${srcdir}/${host_makefile_frag} > mh-frag
-    cat ${srcdir}/${waugh} >> mh-frag
-    host_makefile_frag=mh-frag
+  if [ -f ${srcdir}/${waugh} ]; then
+    if [ -n "${host_makefile_frag}" ] ; then
+      cat ${srcdir}/${host_makefile_frag} > mh-frag
+      cat ${srcdir}/${waugh} >> mh-frag
+      host_makefile_frag=mh-frag
+    else
+      host_makefile_frag=${waugh}
+    fi
   fi
 fi
 
@@ -181,6 +187,8 @@ fi
 
 case "${target}" in
   v810*)		target_makefile_frag=config/mt-v810 ;;
+  i[345]86-*-netware*)  target_makefile_frag=config/mt-netware ;;
+  powerpc-*-netware*)   target_makefile_frag=config/mt-netware ;;
 esac
 
 gasdir=gas
@@ -266,9 +274,12 @@ if [ x"${with_headers}" != x ] && [ x"${with_libs}" != x ]; then
   fi
 fi
 
-# Recognize --without-newlib.
+# Recognize --with-newlib/--without-newlib.
 if [ x${with_newlib} = xno ]; then
   configdirs=`echo " ${configdirs} " | sed -e 's/ newlib / /'`
+elif [ x${with_newlib} = xyes ]; then
+  configdirs=`echo " ${configdirs} " | sed -e 's/ newlib / /'`
+  configdirs="${configdirs} newlib"
 fi
 
 # Handle ${copy_dirs}
@@ -306,7 +317,7 @@ done
 
 case "${host}" in
   i[345]86-*-go32*)
-		  configdirs="$configdirs dosrel" ;;
+	  configdirs="$configdirs dosrel" ;;
 esac
 
 # Remove more programs from consideration, based on the host or 
@@ -316,14 +327,14 @@ esac
 noconfigdirs=""
 
 case "${host}" in
-  i[345]86-*-netbsd*)
-    noconfigdirs="tk fileutils"
-    ;;
   i[345]86-*-vsta)
     noconfigdirs="tcl expect dejagnu make texinfo bison patch flex byacc send-pr gprof uudecode dejagnu diff"
     ;;
   i[345]86-*-go32)
-    noconfigdirs="tcl expect deja-gnu make texinfo bison patch flex byacc send-pr gprof uudecode dejagnu diff"
+    noconfigdirs="tcl tk expect deja-gnu make texinfo bison patch flex byacc send-pr gprof uudecode dejagnu diff"
+	;;
+  i[345]86-*-win32)
+    noconfigdirs="tcl tk expect deja-gnu make texinfo bison patch flex byacc send-pr gprof uudecode dejagnu diff gdb"
     ;;
 esac
 
@@ -331,6 +342,9 @@ esac
 case "${target}" in
   *-*-netware)
     noconfigdirs="$noconfigdirs libg++ libstdc++ librx newlib xiberty"
+    ;;
+  *-*-vxworks5.1)
+    noconfigdirs="$noconfigdirs newlib"
     ;;
   alpha-dec-osf*)
     # ld works, but does not support shared libraries.  emacs doesn't
@@ -342,14 +356,15 @@ case "${target}" in
     # newlib is not 64 bit ready
     noconfigdirs="$noconfigdirs newlib"
     ;;
-  arm-*-*)
+  arm-*-riscix*)
     noconfigdirs="$noconfigdirs ld"
     ;;
   h8300*-*-* | \
   h8500-*-*)
     noconfigdirs="$noconfigdirs libg++ libstdc++ libio librx"
     ;;
-  hppa*-*-*elf*)
+  hppa*-*-*elf* | \
+  hppa*-*-lites*)
     # Do configure ld/binutils/gas for this case.
     ;;
   hppa*-*-*)
@@ -367,6 +382,16 @@ case "${target}" in
     # but don't build gdb
     configdirs=`echo go32 ${configdirs}`
     noconfigdirs="$noconfigdirs gdb libg++ libstdc++ libio librx"
+    ;;
+
+  i[345]86-*-win32)
+    # Can't build gdb for win32 target
+    noconfigdirs="$noconfigdirs gdb tk"
+    # but put newlib back
+    configdirs="$configdirs newlib"
+    ;;    
+  i[345]86-*-pe)
+    noconfigdirs="$noconfigdirs libg++ libstdc++ libio librx"
     ;;
   i[345]86-*-sco*)
     noconfigdirs="$noconfigdirs gprof"
@@ -388,7 +413,7 @@ case "${target}" in
     ;;
   powerpc-*-aix*)
     # copied from rs6000-*-* entry
-    noconfigdirs="$noconfigdirs ld binutils gprof textutils cvs"
+    noconfigdirs="$noconfigdirs gas ld binutils gprof textutils cvs"
     ;;
   rs6000-*-lynxos*)
     # a gcc built textutils will cause the linker to hang on 'join'
@@ -432,7 +457,7 @@ case "${target}" in
     ;;
   sparc-*-sunos4*)
     if [ x${is_cross_compiler} != xno ] ; then
-           noconfigdirs="$noconfigdirs gdb gdbtest newlib sim dejagnu expect tcl"
+           noconfigdirs="$noconfigdirs gdb gdbtest newlib"
     else
            use_gnu_ld=no
     fi
@@ -519,9 +544,9 @@ fi
 
 if [ x${enable_shared} = xyes ]; then
   case "${target}" in
-    hppa*-*-*)		target_makefile_frag=config/mt-papic ;;
-    i[345]86-*-*)	target_makefile_frag=config/mt-x86pic ;;
-    *-*-*)		target_makefile_frag=config/mt-${target_cpu}pic ;;
+    hppa*)		target_makefile_frag=config/mt-papic ;;
+    i[345]86-*)		target_makefile_frag=config/mt-x86pic ;;
+    *)			target_makefile_frag=config/mt-${target_cpu}pic ;;
   esac
 fi
 

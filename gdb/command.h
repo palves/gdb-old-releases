@@ -13,7 +13,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #if !defined (COMMAND_H)
 #define COMMAND_H 1
@@ -52,7 +52,10 @@ typedef enum var_types {
   var_filename,
   /* ZeroableInteger.  *VAR is an int.  Like Unsigned Integer except
      that zero really means zero.  */
-  var_zinteger
+  var_zinteger,
+  /* Enumerated type.  Can only have one of the specified values.  *VAR is a
+     char pointer to the name of the element that we find.  */
+  var_enum
 } var_types;
 
 /* This structure records one command'd definition.  */
@@ -139,6 +142,9 @@ struct cmd_list_element
     /* What kind of variable is *VAR?  */
     var_types var_type;
 
+    /* Pointer to NULL terminated list of enumerated values (like argv).  */
+    char **enums;
+
     /* Pointer to command strings of user-defined commands */
     struct command_line *user_commands;
 
@@ -192,8 +198,11 @@ add_info PARAMS ((char *, void (*fun) (char *, int), char *));
 extern void
 add_info_alias PARAMS ((char *, char *, int));
 
-extern char **complete_on_cmdlist PARAMS ((struct cmd_list_element *,
-					   char *, char *));
+extern char **
+complete_on_cmdlist PARAMS ((struct cmd_list_element *, char *, char *));
+
+extern char **
+complete_on_enum PARAMS ((char **enumlist, char *, char *));
 
 extern void
 delete_cmd PARAMS ((char *, struct cmd_list_element **));
@@ -212,6 +221,10 @@ help_cmd_list PARAMS ((struct cmd_list_element *, enum command_class, char *,
 extern struct cmd_list_element *
 add_set_cmd PARAMS ((char *, enum command_class, var_types, char *, char *,
 		     struct cmd_list_element **));
+
+extern struct cmd_list_element *
+add_set_enum_cmd PARAMS ((char *name, enum command_class, char *list[],
+			  char *var, char *doc, struct cmd_list_element **c));
 
 extern struct cmd_list_element *
 add_show_from_set PARAMS ((struct cmd_list_element *,

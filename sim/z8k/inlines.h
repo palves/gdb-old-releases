@@ -14,8 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with Z8KZIM; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef INLINE
 #define INLINE
@@ -115,6 +115,15 @@ get_quad_reg (context, reg)
 
 #endif
 
+static INLINE void
+put_byte_mem_da (context, addr, value)
+     sim_state_type *context;
+     int addr;
+     int value;
+{
+  ((unsigned char *) (context->memory))[addr] = value;
+}
+
 static INLINE
 void 
 put_byte_reg (context, reg, val)
@@ -170,14 +179,6 @@ get_byte_mem_da (context, addr)
   return ((unsigned char *) (context->memory))[addr];
 }
 
-static INLINE void
-put_byte_mem_da (context, addr, value)
-     sim_state_type *context;
-     int addr;
-     int value;
-{
-  ((unsigned char *) (context->memory))[addr] = value;
-}
 
 #if 0
 #define get_word_mem_da(context,addr)\

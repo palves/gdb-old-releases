@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "serial.h"
@@ -194,7 +194,9 @@ hardwire_noflush_set_tty_state (scb, new_ttystate, old_ttystate)
      serial_ttystate old_ttystate;
 {
   struct hardwire_ttystate new_state;
+#ifdef HAVE_SGTTY
   struct hardwire_ttystate *state = (struct hardwire_ttystate *) old_ttystate;
+#endif
 
   new_state = *(struct hardwire_ttystate *)new_ttystate;
 
@@ -628,6 +630,51 @@ hardwire_setbaudrate(scb, rate)
 }
 
 static int
+hardwire_setstopbits(scb, num)
+     serial_t scb;
+     int num;
+{
+  struct hardwire_ttystate state;
+  int newbit;
+
+  if (get_tty_state(scb, &state))
+    return -1;
+
+  switch (num)
+    {
+    case SERIAL_1_STOPBITS:
+      newbit = 0;
+      break;
+    case SERIAL_1_AND_A_HALF_STOPBITS:
+    case SERIAL_2_STOPBITS:
+      newbit = 1;
+      break;
+    default:
+      return 1;
+    }
+
+#ifdef HAVE_TERMIOS
+  if (!newbit)
+    state.termios.c_cflag &= ~CSTOPB;
+  else
+    state.termios.c_cflag |= CSTOPB; /* two bits */
+#endif
+
+#ifdef HAVE_TERMIO
+  if (!newbit)
+    state.termio.c_cflag &= ~CSTOPB;
+  else
+    state.termio.c_cflag |= CSTOPB; /* two bits */
+#endif
+
+#ifdef HAVE_SGTTY
+  return 0;			/* sgtty doesn't support this */
+#endif
+
+  return set_tty_state (scb, &state);
+}
+
+static int
 hardwire_write(scb, str, len)
      serial_t scb;
      const char *str;
@@ -675,6 +722,7 @@ static struct serial_ops hardwire_ops =
   hardwire_print_tty_state,
   hardwire_noflush_set_tty_state,
   hardwire_setbaudrate,
+  hardwire_setstopbits,
 };
 
 void

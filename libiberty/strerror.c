@@ -1,22 +1,6 @@
 /* Extended support for using errno values.
-   Copyright (C) 1992 Free Software Foundation, Inc.
    Written by Fred Fish.  fnf@cygnus.com
-
-This file is part of the libiberty library.
-Libiberty is free software; you can redistribute it and/or
-modify it under the terms of the GNU Library General Public
-License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
-
-Libiberty is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Library General Public License for more details.
-
-You should have received a copy of the GNU Library General Public
-License along with libiberty; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.  */
+   This file is in the public domain.  --Per Bothner.  */
 
 #include "ansidecl.h"
 #include "libiberty.h"
@@ -448,6 +432,13 @@ static const struct error_info error_table[] =
   ENTRY(0, NULL, NULL)
 };
 
+#ifdef EVMSERR
+/* This is not in the table, because the numeric value of EVMSERR (32767)
+   lies outside the range of sys_errlist[].  */
+static struct { int value; const char *name, *msg; }
+  evmserr = { EVMSERR, "EVMSERR", "VMS-specific error" };
+#endif
+
 /* Translation table allocated and initialized at runtime.  Indexed by the
    errno value to find the equivalent symbolic value. */
 
@@ -652,6 +643,11 @@ strerror (errnoval)
 
   if ((errnoval < 0) || (errnoval >= sys_nerr))
     {
+#ifdef EVMSERR
+      if (errnoval == evmserr.value)
+	msg = evmserr.msg;
+      else
+#endif
       /* Out of range, just return NULL */
       msg = NULL;
     }
@@ -718,6 +714,11 @@ strerrno (errnoval)
 
   if ((errnoval < 0) || (errnoval >= num_error_names))
     {
+#ifdef EVMSERR
+      if (errnoval == evmserr.value)
+	name = evmserr.name;
+      else
+#endif
       /* Out of range, just return NULL */
       name = NULL;
     }
@@ -775,6 +776,11 @@ strtoerrno (name)
 	}
       if (errnoval == num_error_names)
 	{
+#ifdef EVMSERR
+	  if (strcmp (name, evmserr.name) == 0)
+	    errnoval = evmserr.value;
+	  else
+#endif
 	  errnoval = 0;
 	}
     }

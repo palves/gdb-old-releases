@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define A29K 1
 
@@ -34,13 +34,16 @@ static bfd_reloc_status_type a29k_reloc
 static boolean coff_a29k_relocate_section
   PARAMS ((bfd *, struct bfd_link_info *, bfd *, asection *, bfd_byte *,
 	   struct internal_reloc *, struct internal_syment *, asection **));
+static boolean coff_a29k_adjust_symndx
+  PARAMS ((bfd *, struct bfd_link_info *, bfd *, asection *,
+	   struct internal_reloc *, boolean *));
 
 #define COFF_DEFAULT_SECTION_ALIGNMENT_POWER (2)
 
 #define INSERT_HWORD(WORD,HWORD)	\
     (((WORD) & 0xff00ff00) | (((HWORD) & 0xff00) << 8) | ((HWORD)& 0xff))
 #define EXTRACT_HWORD(WORD) \
-    (((WORD) & 0x00ff0000) >> 8) | ((WORD)& 0xff)
+    ((((WORD) & 0x00ff0000) >> 8) | ((WORD)& 0xff))
 #define SIGN_EXTEND_HWORD(HWORD) \
     ((HWORD) & 0x8000 ? (HWORD)|0xffff0000 : (HWORD))
 
@@ -385,7 +388,8 @@ coff_a29k_relocate_section (output_bfd, info, input_bfd, input_section,
 	    }
 	  else
 	    {
-	      if (h->root.type == bfd_link_hash_defined)
+	      if (h->root.type == bfd_link_hash_defined
+		  || h->root.type == bfd_link_hash_defweak)
 		{
 		  sec = h->root.u.def.section;
 		  val = (h->root.u.def.value
@@ -535,6 +539,28 @@ coff_a29k_relocate_section (output_bfd, info, input_bfd, input_section,
 }
 
 #define coff_relocate_section coff_a29k_relocate_section
+
+/* We don't want to change the symndx of a R_IHCONST reloc, since it
+   is actually an addend, not a symbol index at all.  */
+
+/*ARGSUSED*/
+static boolean
+coff_a29k_adjust_symndx (obfd, info, ibfd, sec, irel, adjustedp)
+     bfd *obfd;
+     struct bfd_link_info *info;
+     bfd *ibfd;
+     asection *sec;
+     struct internal_reloc *irel;
+     boolean *adjustedp;
+{
+  if (irel->r_type == R_IHCONST)
+    *adjustedp = true;
+  else
+    *adjustedp = false;
+  return true;
+}
+
+#define coff_adjust_symndx coff_a29k_adjust_symndx
 
 #include "coffcode.h"
 

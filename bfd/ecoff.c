@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -123,6 +123,8 @@ _bfd_ecoff_mkobject_hook (abfd, filehdr, aouthdr)
       ecoff->fprmask = internal_a->fprmask;
       if (internal_a->magic == ECOFF_AOUT_ZMAGIC)
 	abfd->flags |= D_PAGED;
+      else
+	abfd->flags &=~ D_PAGED;
     }
 
   /* It turns out that no special action is required by the MIPS or
@@ -406,201 +408,6 @@ _bfd_ecoff_styp_to_sec_flags (abfd, hdr, name)
     }
 
   return sec_flags;
-}
-
-/* Routines to swap auxiliary information in and out.  I am assuming
-   that the auxiliary information format is always going to be target
-   independent.  */
-
-/* Swap in a type information record.
-   BIGEND says whether AUX symbols are big-endian or little-endian; this
-   info comes from the file header record (fh-fBigendian).  */
-
-void
-_bfd_ecoff_swap_tir_in (bigend, ext_copy, intern)
-     int bigend;
-     const struct tir_ext *ext_copy;
-     TIR *intern;
-{
-  struct tir_ext ext[1];
-
-  *ext = *ext_copy;		/* Make it reasonable to do in-place.  */
-  
-  /* now the fun stuff... */
-  if (bigend) {
-    intern->fBitfield   = 0 != (ext->t_bits1[0] & TIR_BITS1_FBITFIELD_BIG);
-    intern->continued   = 0 != (ext->t_bits1[0] & TIR_BITS1_CONTINUED_BIG);
-    intern->bt          = (ext->t_bits1[0] & TIR_BITS1_BT_BIG)
-			>>		    TIR_BITS1_BT_SH_BIG;
-    intern->tq4         = (ext->t_tq45[0] & TIR_BITS_TQ4_BIG)
-			>>		    TIR_BITS_TQ4_SH_BIG;
-    intern->tq5         = (ext->t_tq45[0] & TIR_BITS_TQ5_BIG)
-			>>		    TIR_BITS_TQ5_SH_BIG;
-    intern->tq0         = (ext->t_tq01[0] & TIR_BITS_TQ0_BIG)
-			>>		    TIR_BITS_TQ0_SH_BIG;
-    intern->tq1         = (ext->t_tq01[0] & TIR_BITS_TQ1_BIG)
-			>>		    TIR_BITS_TQ1_SH_BIG;
-    intern->tq2         = (ext->t_tq23[0] & TIR_BITS_TQ2_BIG)
-			>>		    TIR_BITS_TQ2_SH_BIG;
-    intern->tq3         = (ext->t_tq23[0] & TIR_BITS_TQ3_BIG)
-			>>		    TIR_BITS_TQ3_SH_BIG;
-  } else {
-    intern->fBitfield   = 0 != (ext->t_bits1[0] & TIR_BITS1_FBITFIELD_LITTLE);
-    intern->continued   = 0 != (ext->t_bits1[0] & TIR_BITS1_CONTINUED_LITTLE);
-    intern->bt          = (ext->t_bits1[0] & TIR_BITS1_BT_LITTLE)
-			>>		    TIR_BITS1_BT_SH_LITTLE;
-    intern->tq4         = (ext->t_tq45[0] & TIR_BITS_TQ4_LITTLE)
-			>>		    TIR_BITS_TQ4_SH_LITTLE;
-    intern->tq5         = (ext->t_tq45[0] & TIR_BITS_TQ5_LITTLE)
-			>>		    TIR_BITS_TQ5_SH_LITTLE;
-    intern->tq0         = (ext->t_tq01[0] & TIR_BITS_TQ0_LITTLE)
-			>>		    TIR_BITS_TQ0_SH_LITTLE;
-    intern->tq1         = (ext->t_tq01[0] & TIR_BITS_TQ1_LITTLE)
-			>>		    TIR_BITS_TQ1_SH_LITTLE;
-    intern->tq2         = (ext->t_tq23[0] & TIR_BITS_TQ2_LITTLE)
-			>>		    TIR_BITS_TQ2_SH_LITTLE;
-    intern->tq3         = (ext->t_tq23[0] & TIR_BITS_TQ3_LITTLE)
-			>>		    TIR_BITS_TQ3_SH_LITTLE;
-  }
-
-#ifdef TEST
-  if (memcmp ((char *)ext, (char *)intern, sizeof (*intern)) != 0)
-    abort();
-#endif
-}
-
-/* Swap out a type information record.
-   BIGEND says whether AUX symbols are big-endian or little-endian; this
-   info comes from the file header record (fh-fBigendian).  */
-
-void
-_bfd_ecoff_swap_tir_out (bigend, intern_copy, ext)
-     int bigend;
-     const TIR *intern_copy;
-     struct tir_ext *ext;
-{
-  TIR intern[1];
-
-  *intern = *intern_copy;	/* Make it reasonable to do in-place.  */
-  
-  /* now the fun stuff... */
-  if (bigend) {
-    ext->t_bits1[0] = ((intern->fBitfield ? TIR_BITS1_FBITFIELD_BIG : 0)
-		       | (intern->continued ? TIR_BITS1_CONTINUED_BIG : 0)
-		       | ((intern->bt << TIR_BITS1_BT_SH_BIG)
-			  & TIR_BITS1_BT_BIG));
-    ext->t_tq45[0] = (((intern->tq4 << TIR_BITS_TQ4_SH_BIG)
-		       & TIR_BITS_TQ4_BIG)
-		      | ((intern->tq5 << TIR_BITS_TQ5_SH_BIG)
-			 & TIR_BITS_TQ5_BIG));
-    ext->t_tq01[0] = (((intern->tq0 << TIR_BITS_TQ0_SH_BIG)
-		       & TIR_BITS_TQ0_BIG)
-		      | ((intern->tq1 << TIR_BITS_TQ1_SH_BIG)
-			 & TIR_BITS_TQ1_BIG));
-    ext->t_tq23[0] = (((intern->tq2 << TIR_BITS_TQ2_SH_BIG)
-		       & TIR_BITS_TQ2_BIG)
-		      | ((intern->tq3 << TIR_BITS_TQ3_SH_BIG)
-			 & TIR_BITS_TQ3_BIG));
-  } else {
-    ext->t_bits1[0] = ((intern->fBitfield ? TIR_BITS1_FBITFIELD_LITTLE : 0)
-		       | (intern->continued ? TIR_BITS1_CONTINUED_LITTLE : 0)
-		       | ((intern->bt << TIR_BITS1_BT_SH_LITTLE)
-			  & TIR_BITS1_BT_LITTLE));
-    ext->t_tq45[0] = (((intern->tq4 << TIR_BITS_TQ4_SH_LITTLE)
-		       & TIR_BITS_TQ4_LITTLE)
-		      | ((intern->tq5 << TIR_BITS_TQ5_SH_LITTLE)
-			 & TIR_BITS_TQ5_LITTLE));
-    ext->t_tq01[0] = (((intern->tq0 << TIR_BITS_TQ0_SH_LITTLE)
-		       & TIR_BITS_TQ0_LITTLE)
-		      | ((intern->tq1 << TIR_BITS_TQ1_SH_LITTLE)
-			 & TIR_BITS_TQ1_LITTLE));
-    ext->t_tq23[0] = (((intern->tq2 << TIR_BITS_TQ2_SH_LITTLE)
-		       & TIR_BITS_TQ2_LITTLE)
-		      | ((intern->tq3 << TIR_BITS_TQ3_SH_LITTLE)
-			 & TIR_BITS_TQ3_LITTLE));
-  }
-
-#ifdef TEST
-  if (memcmp ((char *)ext, (char *)intern, sizeof (*intern)) != 0)
-    abort();
-#endif
-}
-
-/* Swap in a relative symbol record.  BIGEND says whether it is in
-   big-endian or little-endian format.*/
-
-void
-_bfd_ecoff_swap_rndx_in (bigend, ext_copy, intern)
-     int bigend;
-     const struct rndx_ext *ext_copy;
-     RNDXR *intern;
-{
-  struct rndx_ext ext[1];
-
-  *ext = *ext_copy;		/* Make it reasonable to do in-place.  */
-  
-  /* now the fun stuff... */
-  if (bigend) {
-    intern->rfd   = (ext->r_bits[0] << RNDX_BITS0_RFD_SH_LEFT_BIG)
-		  | ((ext->r_bits[1] & RNDX_BITS1_RFD_BIG)
-		    		    >> RNDX_BITS1_RFD_SH_BIG);
-    intern->index = ((ext->r_bits[1] & RNDX_BITS1_INDEX_BIG)
-		    		    << RNDX_BITS1_INDEX_SH_LEFT_BIG)
-		  | (ext->r_bits[2] << RNDX_BITS2_INDEX_SH_LEFT_BIG)
-		  | (ext->r_bits[3] << RNDX_BITS3_INDEX_SH_LEFT_BIG);
-  } else {
-    intern->rfd   = (ext->r_bits[0] << RNDX_BITS0_RFD_SH_LEFT_LITTLE)
-		  | ((ext->r_bits[1] & RNDX_BITS1_RFD_LITTLE)
-		    		    << RNDX_BITS1_RFD_SH_LEFT_LITTLE);
-    intern->index = ((ext->r_bits[1] & RNDX_BITS1_INDEX_LITTLE)
-		    		    >> RNDX_BITS1_INDEX_SH_LITTLE)
-		  | (ext->r_bits[2] << RNDX_BITS2_INDEX_SH_LEFT_LITTLE)
-		  | ((unsigned int) ext->r_bits[3]
-		     << RNDX_BITS3_INDEX_SH_LEFT_LITTLE);
-  }
-
-#ifdef TEST
-  if (memcmp ((char *)ext, (char *)intern, sizeof (*intern)) != 0)
-    abort();
-#endif
-}
-
-/* Swap out a relative symbol record.  BIGEND says whether it is in
-   big-endian or little-endian format.*/
-
-void
-_bfd_ecoff_swap_rndx_out (bigend, intern_copy, ext)
-     int bigend;
-     const RNDXR *intern_copy;
-     struct rndx_ext *ext;
-{
-  RNDXR intern[1];
-
-  *intern = *intern_copy;	/* Make it reasonable to do in-place.  */
-  
-  /* now the fun stuff... */
-  if (bigend) {
-    ext->r_bits[0] = intern->rfd >> RNDX_BITS0_RFD_SH_LEFT_BIG;
-    ext->r_bits[1] = (((intern->rfd << RNDX_BITS1_RFD_SH_BIG)
-		       & RNDX_BITS1_RFD_BIG)
-		      | ((intern->index >> RNDX_BITS1_INDEX_SH_LEFT_BIG)
-			 & RNDX_BITS1_INDEX_BIG));
-    ext->r_bits[2] = intern->index >> RNDX_BITS2_INDEX_SH_LEFT_BIG;
-    ext->r_bits[3] = intern->index >> RNDX_BITS3_INDEX_SH_LEFT_BIG;
-  } else {
-    ext->r_bits[0] = intern->rfd >> RNDX_BITS0_RFD_SH_LEFT_LITTLE;
-    ext->r_bits[1] = (((intern->rfd >> RNDX_BITS1_RFD_SH_LEFT_LITTLE)
-		       & RNDX_BITS1_RFD_LITTLE)
-		      | ((intern->index << RNDX_BITS1_INDEX_SH_LITTLE)
-			 & RNDX_BITS1_INDEX_LITTLE));
-    ext->r_bits[2] = intern->index >> RNDX_BITS2_INDEX_SH_LEFT_LITTLE;
-    ext->r_bits[3] = intern->index >> RNDX_BITS3_INDEX_SH_LEFT_LITTLE;
-  }
-
-#ifdef TEST
-  if (memcmp ((char *)ext, (char *)intern, sizeof (*intern)) != 0)
-    abort();
-#endif
 }
 
 /* Read in the symbolic header for an ECOFF object file.  */
@@ -1660,6 +1467,17 @@ _bfd_ecoff_get_symbol_info (abfd, symbol, ret)
   bfd_symbol_info (symbol, ret);
 }
 
+/* Return whether this is a local label.  */
+
+/*ARGSUSED*/
+boolean
+_bfd_ecoff_bfd_is_local_label (abfd, symbol)
+     bfd *abfd;
+     asymbol *symbol;
+{
+  return symbol->name[0] == '$';
+}
+
 /* Print information about an ECOFF symbol.  */
 
 void
@@ -2021,13 +1839,7 @@ _bfd_ecoff_find_nearest_line (abfd, section, ignore_symbols, offset,
   const struct ecoff_debug_swap * const debug_swap
     = &ecoff_backend (abfd)->debug_swap;
   struct ecoff_debug_info * const debug_info = &ecoff_data (abfd)->debug_info;
-  FDR *fdr_ptr;
-  FDR *fdr_start;
-  FDR *fdr_end;
-  FDR *fdr_hold;
-  boolean stabs;
-
-  offset += section->vma;
+  struct ecoff_find_line *line_info;
 
   /* If we're not in the .text section, we don't have any line
      numbers.  */
@@ -2041,310 +1853,25 @@ _bfd_ecoff_find_nearest_line (abfd, section, ignore_symbols, offset,
       || bfd_get_symcount (abfd) == 0)
     return false;
 
-  /* Each file descriptor (FDR) has a memory address.  Here we track
-     down which FDR we want.  The FDR's are stored in increasing
-     memory order.  If speed is ever important, this can become a
-     binary search.  We must ignore FDR's with no PDR entries; they
-     will have the adr of the FDR before or after them.  */
-  fdr_start = debug_info->fdr;
-  fdr_end = fdr_start + debug_info->symbolic_header.ifdMax;
-  fdr_hold = (FDR *) NULL;
-  for (fdr_ptr = fdr_start; fdr_ptr < fdr_end; fdr_ptr++)
+  if (ecoff_data (abfd)->find_line_info == NULL)
     {
-      if (fdr_ptr->cpd == 0)
-	continue;
-      if (offset < fdr_ptr->adr)
-	break;
-      fdr_hold = fdr_ptr;
+      ecoff_data (abfd)->find_line_info =
+	((struct ecoff_find_line *)
+	 bfd_alloc (abfd, sizeof (struct ecoff_find_line)));
+      if (ecoff_data (abfd)->find_line_info == NULL)
+	{
+	  bfd_set_error (bfd_error_no_memory);
+	  return false;
+	}
+      ecoff_data (abfd)->find_line_info->find_buffer = NULL;
+      ecoff_data (abfd)->find_line_info->fdrtab_len = 0;
+      ecoff_data (abfd)->find_line_info->fdrtab = NULL;
     }
-  if (fdr_hold == (FDR *) NULL)
-    return false;
-  fdr_ptr = fdr_hold;
+  line_info = ecoff_data (abfd)->find_line_info;
 
-  /* Check whether this file has stabs debugging information.  In a
-     file with stabs debugging information, the second local symbol is
-     named @stabs.  */
-  stabs = false;
-  if (fdr_ptr->csym >= 2)
-    {
-      char *sym_ptr;
-      SYMR sym;
-
-      sym_ptr = ((char *) debug_info->external_sym
-		 + (fdr_ptr->isymBase + 1) * debug_swap->external_sym_size);
-      (*debug_swap->swap_sym_in) (abfd, sym_ptr, &sym);
-      if (strcmp (debug_info->ss + fdr_ptr->issBase + sym.iss,
-		  STABS_SYMBOL) == 0)
-	stabs = true;
-    }
-
-  if (! stabs)
-    {
-      bfd_size_type external_pdr_size;
-      char *pdr_ptr;
-      char *pdr_end;
-      PDR pdr;
-      bfd_vma first_off;
-      unsigned char *line_ptr;
-      unsigned char *line_end;
-      int lineno;
-
-      /* This file uses ECOFF debugging information.  Each FDR has a
-	 list of procedure descriptors (PDR).  PDR's also have an
-	 address, which is relative to the FDR address, and are also
-	 stored in increasing memory order.  */
-      if (offset < fdr_ptr->adr)
-	return false;
-      offset -= fdr_ptr->adr;
-      external_pdr_size = debug_swap->external_pdr_size;
-      pdr_ptr = ((char *) debug_info->external_pdr
-		 + fdr_ptr->ipdFirst * external_pdr_size);
-      pdr_end = pdr_ptr + fdr_ptr->cpd * external_pdr_size;
-      (*debug_swap->swap_pdr_in) (abfd, (PTR) pdr_ptr, &pdr);
-
-      /* The address of the first PDR is an offset which applies to
-	 the addresses of all the PDR's.  */
-      first_off = pdr.adr;
-
-      for (pdr_ptr += external_pdr_size;
-	   pdr_ptr < pdr_end;
-	   pdr_ptr += external_pdr_size)
-	{
-	  (*debug_swap->swap_pdr_in) (abfd, (PTR) pdr_ptr, &pdr);
-	  if (offset < pdr.adr - first_off)
-	    break;
-	}
-
-      /* Now we can look for the actual line number.  The line numbers
-	 are stored in a very funky format, which I won't try to
-	 describe.  Note that right here pdr_ptr and pdr hold the PDR
-	 *after* the one we want; we need this to compute line_end.  */
-      line_end = debug_info->line;
-      if (pdr_ptr == pdr_end)
-	line_end += fdr_ptr->cbLineOffset + fdr_ptr->cbLine;
-      else
-	line_end += fdr_ptr->cbLineOffset + pdr.cbLineOffset;
-
-      /* Now change pdr and pdr_ptr to the one we want.  */
-      pdr_ptr -= external_pdr_size;
-      (*debug_swap->swap_pdr_in) (abfd, (PTR) pdr_ptr, &pdr);
-
-      offset -= pdr.adr - first_off;
-      lineno = pdr.lnLow;
-      line_ptr = debug_info->line + fdr_ptr->cbLineOffset + pdr.cbLineOffset;
-      while (line_ptr < line_end)
-	{
-	  int delta;
-	  int count;
-
-	  delta = *line_ptr >> 4;
-	  if (delta >= 0x8)
-	    delta -= 0x10;
-	  count = (*line_ptr & 0xf) + 1;
-	  ++line_ptr;
-	  if (delta == -8)
-	    {
-	      delta = (((line_ptr[0]) & 0xff) << 8) + ((line_ptr[1]) & 0xff);
-	      if (delta >= 0x8000)
-		delta -= 0x10000;
-	      line_ptr += 2;
-	    }
-	  lineno += delta;
-	  if (offset < count * 4)
-	    break;
-	  offset -= count * 4;
-	}
-
-      /* If fdr_ptr->rss is -1, then this file does not have full
-	 symbols, at least according to gdb/mipsread.c.  */
-      if (fdr_ptr->rss == -1)
-	{
-	  *filename_ptr = NULL;
-	  if (pdr.isym == -1)
-	    *functionname_ptr = NULL;
-	  else
-	    {
-	      EXTR proc_ext;
-
-	      (*debug_swap->swap_ext_in)
-		(abfd,
-		 ((char *) debug_info->external_ext
-		  + pdr.isym * debug_swap->external_ext_size),
-		 &proc_ext);
-	      *functionname_ptr = debug_info->ssext + proc_ext.asym.iss;
-	    }
-	}
-      else
-	{
-	  SYMR proc_sym;
-
-	  *filename_ptr = debug_info->ss + fdr_ptr->issBase + fdr_ptr->rss;
-	  (*debug_swap->swap_sym_in)
-	    (abfd,
-	     ((char *) debug_info->external_sym
-	      + (fdr_ptr->isymBase + pdr.isym) * debug_swap->external_sym_size),
-	     &proc_sym);
-	  *functionname_ptr = debug_info->ss + fdr_ptr->issBase + proc_sym.iss;
-	}
-      if (lineno == ilineNil)
-	lineno = 0;
-      *retline_ptr = lineno;
-    }
-  else
-    {
-      bfd_size_type external_sym_size;
-      const char *directory_name;
-      const char *main_file_name;
-      const char *current_file_name;
-      const char *function_name;
-      const char *line_file_name;
-      bfd_vma low_func_vma;
-      bfd_vma low_line_vma;
-      char *sym_ptr, *sym_ptr_end;
-      size_t len, funclen;
-      char *buffer = NULL;
-
-      /* This file uses stabs debugging information.  */
-
-      *filename_ptr = NULL;
-      *functionname_ptr = NULL;
-      *retline_ptr = 0;
-
-      directory_name = NULL;
-      main_file_name = NULL;
-      current_file_name = NULL;
-      function_name = NULL;
-      line_file_name = NULL;
-      low_func_vma = 0;
-      low_line_vma = 0;
-
-      external_sym_size = debug_swap->external_sym_size;
-
-      sym_ptr = ((char *) debug_info->external_sym
-		 + (fdr_ptr->isymBase + 2) * external_sym_size);
-      sym_ptr_end = sym_ptr + fdr_ptr->csym * external_sym_size;
-      for (; sym_ptr < sym_ptr_end; sym_ptr += external_sym_size)
-	{
-	  SYMR sym;
-
-	  (*debug_swap->swap_sym_in) (abfd, sym_ptr, &sym);
-
-	  if (ECOFF_IS_STAB (&sym))
-	    {
-	      switch (ECOFF_UNMARK_STAB (sym.index))
-		{
-		case N_SO:
-		  main_file_name = current_file_name =
-		    debug_info->ss + fdr_ptr->issBase + sym.iss;
-
-		  /* Check the next symbol to see if it is also an
-                     N_SO symbol.  */
-		  if (sym_ptr + external_sym_size < sym_ptr_end)
-		    {
-		      SYMR nextsym;
-
-		      (*debug_swap->swap_sym_in) (abfd,
-						  sym_ptr + external_sym_size,
-						  &nextsym);
-		      if (ECOFF_IS_STAB (&nextsym)
-			  && ECOFF_UNMARK_STAB (nextsym.index) == N_SO)
-			{
- 			  directory_name = current_file_name;
-			  main_file_name = current_file_name =
-			    debug_info->ss + fdr_ptr->issBase + sym.iss;
-			  sym_ptr += external_sym_size;
-			}
-		    }
-		  break;
-
-		case N_SOL:
-		  current_file_name =
-		    debug_info->ss + fdr_ptr->issBase + sym.iss;
-		  break;
-
-		case N_FUN:
-		  if (sym.value >= low_func_vma
-		      && sym.value <= offset + section->vma)
-		    {
-		      low_func_vma = sym.value;
-		      function_name =
-			debug_info->ss + fdr_ptr->issBase + sym.iss;
-		    }
-		  break;
-		}
-	    }
-	  else if (sym.st == stLabel && sym.index != indexNil)
-	    {
-	      if (sym.value > offset + section->vma)
-		{
-		  /* We have passed the location in the file we are
-                     looking for, so we can get out of the loop.  */
-		  break;
-		}
-
-	      if (sym.value >= low_line_vma)
-		{
-		  low_line_vma = sym.value;
-		  line_file_name = current_file_name;
-		  *retline_ptr = sym.index;
-		}
-	    }
-	}
-
-      if (*retline_ptr != 0)
-	main_file_name = line_file_name;
-
-      /* We need to remove the stuff after the colon in the function
-         name.  We also need to put the directory name and the file
-         name together.  */
-      if (function_name == NULL)
-	len = funclen = 0;
-      else
-	len = funclen = strlen (function_name) + 1;
-
-      if (main_file_name != NULL
-	  && directory_name != NULL
-	  && main_file_name[0] != '/')
-	len += strlen (directory_name) + strlen (main_file_name) + 1;
-
-      if (len != 0)
-	{
-	  if (ecoff_data (abfd)->find_buffer != NULL)
-	    free (ecoff_data (abfd)->find_buffer);
-	  buffer = (char *) malloc (len);
-	  if (buffer == NULL)
-	    {
-	      bfd_set_error (bfd_error_no_memory);
-	      return false;
-	    }
-	  ecoff_data (abfd)->find_buffer = buffer;
-	}
-
-      if (function_name != NULL)
-	{
-	  char *colon;
-
-	  strcpy (buffer, function_name);
-	  colon = strchr (buffer, ':');
-	  if (colon != NULL)
-	    *colon = '\0';
-	  *functionname_ptr = buffer;
-	}
-
-      if (main_file_name != NULL)
-	{
-	  if (directory_name == NULL || main_file_name[0] == '/')
-	    *filename_ptr = main_file_name;
-	  else
-	    {
-	      sprintf (buffer + funclen, "%s%s", directory_name,
-		       main_file_name);
-	      *filename_ptr = buffer + funclen;
-	    }
-	}
-    }
-
-  return true;
+  return _bfd_ecoff_locate_line (abfd, section, offset, debug_info,
+				 debug_swap, line_info, filename_ptr,
+				 functionname_ptr, retline_ptr);
 }
 
 /* Copy private BFD data.  This is called by objcopy and strip.  We
@@ -2910,7 +2437,7 @@ _bfd_ecoff_write_object_contents (abfd)
       siz = filhsz;
     if (siz < aoutsz)
       siz = aoutsz;
-    buff = (PTR) malloc (siz);
+    buff = (PTR) malloc ((size_t) siz);
     if (buff == NULL)
       {
 	bfd_set_error (bfd_error_no_memory);
@@ -2972,8 +2499,8 @@ _bfd_ecoff_write_object_contents (abfd)
       section.s_flags = ecoff_sec_to_styp_flags (current->name,
 						 current->flags);
 
-      bfd_coff_swap_scnhdr_out (abfd, (PTR) &section, buff);
-      if (bfd_write (buff, 1, scnhsz, abfd) != scnhsz)
+      if (bfd_coff_swap_scnhdr_out (abfd, (PTR) &section, buff) == 0
+	  || bfd_write (buff, 1, scnhsz, abfd) != scnhsz)
 	goto error_return;
 
       if ((section.s_flags & STYP_TEXT) != 0
@@ -3786,12 +3313,12 @@ _bfd_ecoff_bfd_link_hash_table_create (abfd)
   struct ecoff_link_hash_table *ret;
 
   ret = ((struct ecoff_link_hash_table *)
-	 malloc (sizeof (struct ecoff_link_hash_table)));
-  if (!ret)
-      {
-	bfd_set_error (bfd_error_no_memory);
-	return NULL;
-      }
+	 bfd_alloc (abfd, sizeof (struct ecoff_link_hash_table)));
+  if (ret == NULL)
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return NULL;
+    }
   if (! _bfd_link_hash_table_init (&ret->root, abfd,
 				   ecoff_link_hash_newfunc))
     {
@@ -3865,7 +3392,7 @@ ecoff_link_add_archive_symbols (abfd, info)
       /* An empty archive is a special case.  */
       if (bfd_openr_next_archived_file (abfd, (bfd *) NULL) == NULL)
 	return true;
-      bfd_set_error (bfd_error_no_symbols);
+      bfd_set_error (bfd_error_no_armap);
       return false;
     }
 
@@ -4365,7 +3892,8 @@ ecoff_link_add_externals (abfd, info, external_ext, ssext)
 	  if (h->abfd == (bfd *) NULL
 	      || (! bfd_is_und_section (section)
 		  && (! bfd_is_com_section (section)
-		      || h->root.type != bfd_link_hash_defined)))
+		      || (h->root.type != bfd_link_hash_defined
+			  && h->root.type != bfd_link_hash_defweak))))
 	    {
 	      h->abfd = abfd;
 	      h->esym = esym;
@@ -4382,10 +3910,11 @@ ecoff_link_add_externals (abfd, info, external_ext, ssext)
 	     on Ultrix 4.2 to handle the symbol cred in -lckrb.  */
 	  if (h->small
 	      && h->root.type == bfd_link_hash_common
-	      && strcmp (h->root.u.c.section->name, SCOMMON) != 0)
+	      && strcmp (h->root.u.c.p->section->name, SCOMMON) != 0)
 	    {
-	      h->root.u.c.section = bfd_make_section_old_way (abfd, SCOMMON);
-	      h->root.u.c.section->flags = SEC_ALLOC;
+	      h->root.u.c.p->section = bfd_make_section_old_way (abfd,
+								 SCOMMON);
+	      h->root.u.c.p->section->flags = SEC_ALLOC;
 	      if (h->esym.asym.sc == scCommon)
 		h->esym.asym.sc = scSCommon;
 	    }
@@ -4632,7 +4161,7 @@ ecoff_final_link_debug_accumulate (output_bfd, input_bfd, info, handle)
     debug->ptr = NULL;							\
   else									\
     {									\
-      debug->ptr = (type) malloc (size * symhdr->count);		\
+      debug->ptr = (type) malloc ((size_t) (size * symhdr->count));	\
       if (debug->ptr == NULL)						\
 	{								\
           bfd_set_error (bfd_error_no_memory);				\
@@ -4737,7 +4266,8 @@ ecoff_link_write_external (h, data)
       h->esym.asym.value = 0;
       h->esym.asym.st = stGlobal;
 
-      if (h->root.type != bfd_link_hash_defined)
+      if (h->root.type != bfd_link_hash_defined
+	  && h->root.type != bfd_link_hash_defweak)
 	h->esym.asym.sc = scAbs;
       else
 	{
@@ -4792,12 +4322,13 @@ ecoff_link_write_external (h, data)
     case bfd_link_hash_new:
       abort ();
     case bfd_link_hash_undefined:
-    case bfd_link_hash_weak:
+    case bfd_link_hash_undefweak:
       if (h->esym.asym.sc != scUndefined
 	  && h->esym.asym.sc != scSUndefined)
 	h->esym.asym.sc = scUndefined;
       break;
     case bfd_link_hash_defined:
+    case bfd_link_hash_defweak:
       if (h->esym.asym.sc == scUndefined
 	  || h->esym.asym.sc == scSUndefined)
 	h->esym.asym.sc = scAbs;
@@ -4873,8 +4404,8 @@ ecoff_indirect_link_order (output_bfd, info, output_section, link_order)
   /* Get the section contents.  We allocate memory for the larger of
      the size before relocating and the size after relocating.  */
   contents = (bfd_byte *) malloc (raw_size >= cooked_size
-				  ? raw_size
-				  : cooked_size);
+				  ? (size_t) raw_size
+				  : (size_t) cooked_size);
   if (contents == NULL && raw_size != 0)
     {
       bfd_set_error (bfd_error_no_memory);
@@ -4886,7 +4417,7 @@ ecoff_indirect_link_order (output_bfd, info, output_section, link_order)
      simply reuse the old buffer in case cooked_size > raw_size.  */
   if (section_tdata != (struct ecoff_section_tdata *) NULL
       && section_tdata->contents != (bfd_byte *) NULL)
-    memcpy (contents, section_tdata->contents, raw_size);
+    memcpy (contents, section_tdata->contents, (size_t) raw_size);
   else
     {
       if (! bfd_get_section_contents (input_bfd, input_section,
@@ -4904,7 +4435,7 @@ ecoff_indirect_link_order (output_bfd, info, output_section, link_order)
     external_relocs = section_tdata->external_relocs;
   else
     {
-      external_relocs = (PTR) malloc (external_relocs_size);
+      external_relocs = (PTR) malloc ((size_t) external_relocs_size);
       if (external_relocs == NULL && external_relocs_size != 0)
 	{
 	  bfd_set_error (bfd_error_no_memory);
@@ -5120,7 +4651,7 @@ ecoff_reloc_link_order (output_bfd, info, output_section, link_order)
 
   /* Get some memory and swap out the reloc.  */
   external_reloc_size = ecoff_backend (output_bfd)->external_reloc_size;
-  rbuf = (bfd_byte *) malloc (external_reloc_size);
+  rbuf = (bfd_byte *) malloc ((size_t) external_reloc_size);
   if (rbuf == (bfd_byte *) NULL)
     {
       bfd_set_error (bfd_error_no_memory);

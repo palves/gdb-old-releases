@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define PTRACE_IN_WRONG_PLACE
 
@@ -41,5 +41,3 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
  * USER area using the "PEEKUSER" ptrace call.
  */
 #define PT_READ_U 3
-
-#define	MEM_FNS_DECLARED	/* /usr/include/string.h can get it wrong */

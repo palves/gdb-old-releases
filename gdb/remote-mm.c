@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This is like remote.c but ecpects MiniMON to be running on the Am29000 
    target hardware.
@@ -37,7 +37,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <fcntl.h>
 #include <signal.h>
 #include <errno.h>
-#include <string.h>
+#include "gdb_string.h"
 #include "terminal.h"
 #include "minimon.h"
 #include "target.h"

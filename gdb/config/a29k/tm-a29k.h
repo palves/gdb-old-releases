@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Parameters for an EB29K (a board which plugs into a PC and is
    accessed through EBMON software running on the PC, which we
@@ -55,14 +55,6 @@ CORE_ADDR skip_prologue ();
 #define SAVED_PC_AFTER_CALL(frame) ((frame->flags & TRANSPARENT) \
 				    ? read_register (TPC_REGNUM) \
 				    : read_register (LR0_REGNUM))
-
-/* I'm not sure about the exact value of this, but based on looking
-   at the stack pointer when we get to main this seems to be right.
-
-   This is the register stack; We call it "CONTROL" in GDB for consistency
-   with Pyramid.  */
-/* I suspect this is obsolete, just like STACK_END_ADDR.  */
-#define CONTROL_END_ADDR 0x80200000
 
 /* Stack grows downward.  */
 

@@ -1,5 +1,5 @@
 /* Remote debugging interface for MIPS remote debugging protocol.
-   Copyright 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
    Contributed by Cygnus Support.  Written by Ian Lance Taylor
    <ian@cygnus.com>.
 
@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "inferior.h"
@@ -31,7 +31,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "remote-utils.h"
 
 #include <signal.h>
+#ifdef ANSI_PROTOTYPES
+#include <stdarg.h>
+#else
 #include <varargs.h>
+#endif
 
 extern char *mips_read_processor_type PARAMS ((void));
 
@@ -124,7 +128,7 @@ extern struct target_ops mips_ops;
 	The value is
 		0x40 + seq
 	An acknowlegment packet contains the sequence number of the
-	packet being acknowledged plus 1 module 64.  Data packets are
+	packet being acknowledged plus 1 modulo 64.  Data packets are
 	transmitted in sequence.  There may only be one outstanding
 	unacknowledged data packet at a time.  The sequence numbers
 	are independent in each direction.  If an acknowledgement for
@@ -271,19 +275,28 @@ static serial_t mips_desc;
    inconsistent state.  */
 
 static NORETURN void
+#ifdef ANSI_PROTOTYPES
+mips_error (char *string, ...)
+#else
 mips_error (va_alist)
      va_dcl
+#endif
 {
   va_list args;
-  char *string;
 
+#ifdef ANSI_PROTOTYPES
+  va_start (args, string);
+#else
+  char *string;
   va_start (args);
+  string = va_arg (args, char *);
+#endif
+ 
   target_terminal_ours ();
   wrap_here("");			/* Force out any buffered output */
   gdb_flush (gdb_stdout);
   if (error_pre_print)
     fprintf_filtered (gdb_stderr, error_pre_print);
-  string = va_arg (args, char *);
   vfprintf_filtered (gdb_stderr, string, args);
   fprintf_filtered (gdb_stderr, "\n");
   va_end (args);
@@ -321,10 +334,24 @@ mips_readchar (timeout)
   int ch;
   static int state = 0;
   static char nextstate[5] = { '<', 'I', 'D', 'T', '>' };
+#ifdef MAINTENANCE_CMDS
+  int i;
+
+  i = timeout;
+  if (i == -1 && watchdog > 0)
+    i = watchdog;
+#endif
 
   if (state == 5) 
     timeout = 1;
   ch = SERIAL_READCHAR (mips_desc, timeout);
+#ifdef MAINTENANCE_CMDS
+  if (ch == SERIAL_TIMEOUT && timeout == -1) /* Watchdog went off */
+    {
+      target_mourn_inferior ();
+      error ("Watchdog has expired.  Target detached.\n");
+    }
+#endif
   if (ch == SERIAL_EOF)
     mips_error ("End of file from remote");
   if (ch == SERIAL_ERROR)
@@ -360,7 +387,10 @@ mips_readchar (timeout)
 
       state = 0;
 
-      mips_error ("Remote board reset");
+      /* At this point, about the only thing we can do is abort the command
+	 in progress and get back to command level as quickly as possible. */
+
+      error ("Remote board reset, debug protocol re-initialized.");
     }
 
   if (ch == nextstate[state])
@@ -861,7 +891,7 @@ mips_request (cmd, addr, data, perr, timeout)
   char rcmd;
   int rerrflg;
   int rresponse;
-  
+
   if (cmd != '\0')
     {
       if (mips_need_reply)
@@ -1018,6 +1048,18 @@ device is attached to the target board (e.g., /dev/ttya).");
   ptype = mips_read_processor_type ();
   if (ptype)
     mips_set_processor_type_command (strsave (ptype), 0);
+
+/* This is really the job of start_remote however, that makes an assumption
+   that the target is about to print out a status message of some sort.  That
+   doesn't happen here (in fact, it may not be possible to get the monitor to
+   send the appropriate packet).  */
+
+  flush_cached_frames ();
+  registers_changed ();
+  stop_pc = read_pc ();
+  set_current_frame (create_new_frame (read_fp (), stop_pc));
+  select_frame (get_current_frame (), 0);
+  print_stack_frame (selected_frame, -1, 1);
 }
 
 /* Close a connection to the remote board.  */
@@ -1521,6 +1563,7 @@ HOST:PORT to access a board over a network",  /* to_doc */
   mips_mourn_inferior,		/* to_mourn_inferior */
   NULL,				/* to_can_run */
   NULL,				/* to_notice_signals */
+  0,				/* to_thread_alive */
   0,				/* to_stop */
   process_stratum,		/* to_stratum */
   NULL,				/* to_next */

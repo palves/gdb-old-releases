@@ -1,5 +1,5 @@
 /* Shared code to pre-read a stab (dbx-style), when building a psymtab.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -16,12 +16,23 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* The following need to be defined:
    SET_NAMESTRING() --Set namestring to name of symbol.
    CUR_SYMBOL_TYPE --Type code of current symbol.
    CUR_SYMBOL_VALUE --Value field of current symbol.  May be adjusted here.
+   namestring - variable pointing to the name of the stab.
+   section_offsets - variable pointing to the section offsets.
+   pst - the partial symbol table being built.
+
+   psymtab_include_list, includes_used, includes_allocated - list of include
+     file names (N_SOL) seen so far.
+   dependency_list, dependencies_used, dependencies_allocated - list of
+     N_EXCL stabs seen so far.
+
+   END_PSYMTAB -- end a partial symbol table.
+   START_PSYMTAB -- start a partial symbol table.
  */
 
 /* End of macro definitions, now let's handle them symbols!  */
@@ -200,6 +211,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	  char *p;
 
 	  valu = CUR_SYMBOL_VALUE + ANOFFSET (section_offsets, SECT_OFF_TEXT);
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+	  /* A zero value is probably an indication for the SunPRO 3.0
+	     compiler. end_psymtab explicitly tests for zero, so
+	     don't relocate it.  */
+	  if (CUR_SYMBOL_VALUE == 0)
+	    valu = 0;
+#endif
 
 	  past_first_source_file = 1;
 
@@ -575,6 +593,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	    case '7':
 	    case '8':
 	    case '9':
+	    case '-':
 	      continue;
 
 	    case ':':

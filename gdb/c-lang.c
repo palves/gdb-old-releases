@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "symtab.h"
@@ -399,6 +399,7 @@ const struct language_defn c_language_defn = {
   type_check_off,
   c_parse,
   c_error,
+  evaluate_subexp_standard,
   c_printchar,			/* Print a character constant */
   c_printstr,			/* Function to print string constant */
   c_create_fundamental_type,	/* Create fundamental type in this language */
@@ -424,6 +425,7 @@ const struct language_defn cplus_language_defn = {
   type_check_off,
   c_parse,
   c_error,
+  evaluate_subexp_standard,
   c_printchar,			/* Print a character constant */
   c_printstr,			/* Function to print string constant */
   c_create_fundamental_type,	/* Create fundamental type in this language */
@@ -449,6 +451,7 @@ const struct language_defn asm_language_defn = {
   type_check_off,
   c_parse,
   c_error,
+  evaluate_subexp_standard,
   c_printchar,			/* Print a character constant */
   c_printstr,			/* Function to print string constant */
   c_create_fundamental_type,	/* Create fundamental type in this language */

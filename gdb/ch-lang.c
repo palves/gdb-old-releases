@@ -15,11 +15,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "symtab.h"
 #include "gdbtypes.h"
+#include "value.h"
 #include "expression.h"
 #include "parser-defs.h"
 #include "language.h"
@@ -252,6 +253,10 @@ static const struct op_print chill_op_print_tab[] = {
     {"NOT", UNOP_LOGICAL_NOT, PREC_PREFIX, 0},
     {"MOD", BINOP_MOD, PREC_MUL, 0},
     {"REM", BINOP_REM, PREC_MUL, 0},
+    {"SIZE",UNOP_SIZEOF, PREC_BUILTIN_FUNCTION, 0},
+    {"LOWER",UNOP_LOWER, PREC_BUILTIN_FUNCTION, 0},
+    {"UPPER",UNOP_UPPER, PREC_BUILTIN_FUNCTION, 0},
+    {"LOWER",UNOP_UPPER, PREC_BUILTIN_FUNCTION, 0},
     {":=",  BINOP_ASSIGN, PREC_ASSIGN, 1},
     {"=",   BINOP_EQUAL, PREC_EQUAL, 0},
     {"/=",  BINOP_NOTEQUAL, PREC_EQUAL, 0},
@@ -269,7 +274,6 @@ static const struct op_print chill_op_print_tab[] = {
     {"->",  UNOP_ADDR, PREC_PREFIX, 0},
     {NULL,  0, 0, 0}
 };
-
 
 /* The built-in types of Chill.  */
 
@@ -289,6 +293,175 @@ struct type ** const (chill_builtin_types[]) =
   0
 };
 
+/* Calculate LOWER or UPPER of TYPE.
+   Returns the result as an integer.
+   *RESULT_TYPE is the appropriate type for the result. */
+
+LONGEST
+type_lower_upper (op, type, result_type)
+     enum exp_opcode op;  /* Either UNOP_LOWER or UNOP_UPPER */
+     struct type *type;
+     struct type **result_type;
+{
+  LONGEST tmp;
+  *result_type = builtin_type_int;
+  switch (TYPE_CODE (type))
+    {
+    case TYPE_CODE_STRUCT:
+      if (chill_varying_type (type))
+	return type_lower_upper (op, TYPE_FIELD_TYPE (type, 1), result_type);
+      break;
+    case TYPE_CODE_ARRAY:
+    case TYPE_CODE_BITSTRING:
+    case TYPE_CODE_STRING:
+      type = TYPE_FIELD_TYPE (type, 0);  /* Get index type */
+
+      /* ... fall through ... */
+    case TYPE_CODE_RANGE:
+      if (TYPE_DUMMY_RANGE (type) > 0)
+	return type_lower_upper (op, TYPE_TARGET_TYPE (type), result_type);
+      *result_type = TYPE_TARGET_TYPE (type);
+      return op == UNOP_LOWER ? TYPE_LOW_BOUND (type) : TYPE_HIGH_BOUND (type);
+
+    case TYPE_CODE_ENUM:
+      *result_type = type;
+      if (TYPE_NFIELDS (type) > 0)
+	return TYPE_FIELD_BITPOS (type,
+				  op == UNOP_LOWER ? 0
+				  : TYPE_NFIELDS (type) - 1);
+
+    case TYPE_CODE_BOOL:
+      *result_type = type;
+      return op == UNOP_LOWER ? 0 : 1;
+    case TYPE_CODE_INT:
+    case TYPE_CODE_CHAR:
+      *result_type = type;
+      tmp = (LONGEST) 1 << (TARGET_CHAR_BIT * TYPE_LENGTH (type));
+      if (TYPE_UNSIGNED (type))
+	return op == UNOP_LOWER ? 0 : tmp - (LONGEST) 1;
+      tmp = tmp >> 1;
+      return op == UNOP_LOWER ? -tmp : (tmp - 1);
+    case TYPE_CODE_UNDEF:
+    case TYPE_CODE_PTR:
+    case TYPE_CODE_UNION:
+    case TYPE_CODE_FUNC:
+    case TYPE_CODE_FLT:
+    case TYPE_CODE_VOID:
+    case TYPE_CODE_SET:
+    case TYPE_CODE_ERROR:
+    case TYPE_CODE_MEMBER:
+    case TYPE_CODE_METHOD:
+    case TYPE_CODE_REF:
+    case TYPE_CODE_COMPLEX:
+    default:
+      break;
+    }
+  error ("unknown mode for LOWER/UPPER builtin");
+}
+
+static value_ptr
+value_chill_length (val)
+     value_ptr val;
+{
+  LONGEST tmp;
+  struct type *type = VALUE_TYPE (val);
+  struct type *ttype;
+  switch (TYPE_CODE (type))
+    {
+    case TYPE_CODE_ARRAY:
+    case TYPE_CODE_BITSTRING:
+    case TYPE_CODE_STRING:
+      tmp = type_lower_upper (UNOP_UPPER, type, &ttype)
+	- type_lower_upper (UNOP_LOWER, type, &ttype) + 1;
+      break;
+    case TYPE_CODE_STRUCT:
+      if (chill_varying_type (type))
+	{
+	  tmp = unpack_long (TYPE_FIELD_TYPE (type, 0), VALUE_CONTENTS (val));
+	  break;
+	}
+      /* ... else fall through ... */
+    default:
+      error ("bad argument to LENGTH builtin");
+    }
+  return value_from_longest (builtin_type_int, tmp);
+}
+
+static value_ptr
+evaluate_subexp_chill (expect_type, exp, pos, noside)
+     struct type *expect_type;
+     register struct expression *exp;
+     register int *pos;
+     enum noside noside;
+{
+  int pc = *pos;
+  struct type *type;
+  int tem, nargs;
+  value_ptr arg1;
+  value_ptr *argvec;
+  enum exp_opcode op = exp->elts[*pos].opcode;
+  switch (op)
+    {
+    case MULTI_SUBSCRIPT:
+      if (noside == EVAL_SKIP || noside == EVAL_AVOID_SIDE_EFFECTS)
+	break;
+      (*pos) += 3;
+      nargs = longest_to_int (exp->elts[pc + 1].longconst);
+      arg1 = evaluate_subexp_with_coercion (exp, pos, noside);
+
+      switch (TYPE_CODE (VALUE_TYPE (arg1)))
+	{
+	case TYPE_CODE_PTR:
+	case TYPE_CODE_FUNC:
+	  /* It's a function call. */
+	  /* Allocate arg vector, including space for the function to be
+	     called in argvec[0] and a terminating NULL */
+	  argvec = (value_ptr *) alloca (sizeof (value_ptr) * (nargs + 2));
+	  argvec[0] = arg1;
+	  tem = 1;
+	  for (; tem <= nargs; tem++)
+	    argvec[tem] = evaluate_subexp_with_coercion (exp, pos, noside);
+	  argvec[tem] = 0; /* signal end of arglist */
+
+	  return call_function_by_hand (argvec[0], nargs, argvec + 1);
+	default:
+	  break;
+	}
+
+      while (nargs-- > 0)
+	{
+	  value_ptr index = evaluate_subexp_with_coercion (exp, pos, noside);
+	  arg1 = value_subscript (arg1, index);
+	}
+      return (arg1);
+
+    case UNOP_LOWER:
+    case UNOP_UPPER:
+      (*pos)++;
+      if (noside == EVAL_SKIP)
+	{
+	  (*exp->language_defn->evaluate_exp) (NULL_TYPE, exp, pos, EVAL_SKIP);
+	  goto nosideret;
+	}
+      arg1 = (*exp->language_defn->evaluate_exp) (NULL_TYPE, exp, pos,
+						  EVAL_AVOID_SIDE_EFFECTS);
+      tem = type_lower_upper (op, VALUE_TYPE (arg1), &type);
+      return value_from_longest (type, tem);
+
+    case UNOP_LENGTH:
+      (*pos)++;
+      arg1 = (*exp->language_defn->evaluate_exp) (NULL_TYPE, exp, pos, noside);
+      return value_chill_length (arg1);
+
+    default:
+      break;
+    }
+
+  return evaluate_subexp_standard (expect_type, exp, pos, noside);
+ nosideret:
+  return value_from_longest (builtin_type_long, (LONGEST) 1);
+}
+
 const struct language_defn chill_language_defn = {
   "chill",
   language_chill,
@@ -297,6 +470,7 @@ const struct language_defn chill_language_defn = {
   type_check_on,
   chill_parse,			/* parser */
   chill_error,			/* parser error function */
+  evaluate_subexp_chill,
   chill_printchar,		/* print a character constant */
   chill_printstr,		/* function to print a string constant */
   chill_create_fundamental_type,/* Create fundamental type in this language */

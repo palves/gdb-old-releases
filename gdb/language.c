@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This file contains functions that return things that are specific
    to languages.  Each function should examine current_language if necessary,
@@ -28,8 +28,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    whenever the working language changes.  That would be a lot faster.  */
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
+#ifdef ANSI_PROTOTYPES
+#include <stdarg.h>
+#else
 #include <varargs.h>
+#endif
 
 #include "symtab.h"
 #include "gdbtypes.h"
@@ -978,19 +982,27 @@ op_error (fmt,op,fatal)
    by the value of warning_pre_print and we do not return to the top level. */
 
 void
+#ifdef ANSI_PROTOTYPES
+type_error (char *string, ...)
+#else
 type_error (va_alist)
      va_dcl
+#endif
 {
    va_list args;
+#ifdef ANSI_PROTOTYPES
+   va_start (args, string);
+#else
    char *string;
+   va_start (args);
+   string = va_arg (args, char *);
+#endif
 
    if (type_check == type_check_warn)
      fprintf_filtered (gdb_stderr, warning_pre_print);
    else
      error_begin ();
 
-   va_start (args);
-   string = va_arg (args, char *);
    vfprintf_filtered (gdb_stderr, string, args);
    fprintf_filtered (gdb_stderr, "\n");
    va_end (args);
@@ -999,19 +1011,27 @@ type_error (va_alist)
 }
 
 void
+#ifdef ANSI_PROTOTYPES
+range_error (char *string, ...)
+#else
 range_error (va_alist)
      va_dcl
+#endif
 {
    va_list args;
+#ifdef ANSI_PROTOTYPES
+   va_start (args, string);
+#else
    char *string;
+   va_start (args);
+   string = va_arg (args, char *);
+#endif
 
    if (range_check == range_check_warn)
      fprintf_filtered (gdb_stderr, warning_pre_print);
    else
      error_begin ();
 
-   va_start (args);
-   string = va_arg (args, char *);
    vfprintf_filtered (gdb_stderr, string, args);
    fprintf_filtered (gdb_stderr, "\n");
    va_end (args);
@@ -1189,6 +1209,7 @@ const struct language_defn unknown_language_defn = {
   type_check_off,
   unk_lang_parser,
   unk_lang_error,
+  evaluate_subexp_standard,
   unk_lang_printchar,		/* Print character constant */
   unk_lang_printstr,
   unk_lang_create_fundamental_type,
@@ -1215,6 +1236,7 @@ const struct language_defn auto_language_defn = {
   type_check_off,
   unk_lang_parser,
   unk_lang_error,
+  evaluate_subexp_standard,
   unk_lang_printchar,		/* Print character constant */
   unk_lang_printstr,
   unk_lang_create_fundamental_type,
@@ -1240,6 +1262,7 @@ const struct language_defn local_language_defn = {
   type_check_off,
   unk_lang_parser,
   unk_lang_error,
+  evaluate_subexp_standard,
   unk_lang_printchar,		/* Print character constant */
   unk_lang_printstr,
   unk_lang_create_fundamental_type,

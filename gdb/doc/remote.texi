@@ -13,7 +13,7 @@
 To debug a program running on another machine (the debugging
 @dfn{target} machine), you must first arrange for all the usual
 prerequisites for the program to run by itself.  For example, for a C
-program, you need
+program, you need:
 
 @enumerate
 @item
@@ -89,6 +89,9 @@ recently added stubs.
 * Protocol::            Outline of the communication protocol
 @ifset GDBSERVER
 * Server::		Using the `gdbserver' program
+@end ifset
+@ifset GDBSERVE
+* NetWare::		Using the `gdbserve.nlm' program
 @end ifset
 @end menu
 
@@ -203,14 +206,14 @@ should be a simple jump, not a jump to subroutine.
 For the 386, @var{exception_address} should be installed as an interrupt
 gate so that interrupts are masked while the handler runs.  The gate
 should be at privilege level 0 (the most privileged level).  The
-@sc{sparc} and 68k stubs are able to mask interrupts themself without
+@sc{sparc} and 68k stubs are able to mask interrup themselves without
 help from @code{exceptionHandler}.
 
 @item void flush_i_cache()
 @kindex flush_i_cache
-Write this subroutine to flush the instruction cache, if any, on your
-target machine.  If there is no instruction cache, this subroutine may
-be a no-op.
+(sparc and sparclite only) Write this subroutine to flush the
+instruction cache, if any, on your target machine.  If there is no
+instruction cache, this subroutine may be a no-op.
 
 On target machines that have instruction caches, @value{GDBN} requires this
 function to make certain that the state of your program is stable.
@@ -260,7 +263,7 @@ breakpoint();
 
 @item
 For the 680x0 stub only, you need to provide a variable called
-@code{exceptionHook}.  Normally you just use
+@code{exceptionHook}.  Normally you just use:
 
 @example
 void (*exceptionHook)() = 0;
@@ -278,7 +281,7 @@ your target architecture, and the supporting subroutines.
 
 @item
 Make sure you have a serial connection between your target machine and
-the @value{GDBN} host, and identify the serial port used for this on the host.
+the @value{GDBN} host, and identify the serial port on the host.
 
 @item
 @c The "remote" target now provides a `load' command, so we should
@@ -386,7 +389,8 @@ sends data when your program stops.
 Command packets are distinguished by their first character, which
 identifies the kind of command.
 
-These are the commands currently supported:
+These are some of the commands currently supported (for a complete list of 
+commands, look in @file{gdb/remote.c.}):
 
 @table @code
 @item g
@@ -419,6 +423,16 @@ Kill the target program.
 Report the most recent signal.  To allow you to take advantage of the
 @value{GDBN} signal handling commands, one of the functions of the debugging
 stub is to report CPU traps as the corresponding POSIX signal values.
+
+@item T
+Allows the remote stub to send only the registers that @value{GDBN} needs
+to make a quick decision about single-stepping or conditional breakpoints.
+This eliminates the need to fetch the entire register set for each instruction
+being stepped through.
+
+The @value{GDBN} remote serial protocol now implements a write-through 
+cache for registers.  @value{GDBN} only re-reads the registers if the 
+target has run.
 @end table
 
 @kindex set remotedebug
@@ -533,6 +547,65 @@ For TCP connections, you must start up @code{gdbserver} prior to using
 the @code{target remote} command.  Otherwise you may get an error whose
 text depends on the host system, but which usually looks something like
 @samp{Connection refused}.
+@end table
+@end ifset
+
+@ifset GDBSERVE
+@node NetWare
+@subsubsection Using the @code{gdbserve.nlm} program
+
+@kindex gdbserve.nlm
+@code{gdbserve.nlm} is a control program for NetWare systems, which
+allows you to connect your program with a remote @value{GDBN} via
+@code{target remote}.
+
+@value{GDBN} and @code{gdbserve.nlm} communicate via a serial line,
+using the standard @value{GDBN} remote serial protocol.
+
+@table @emph
+@item On the target machine,
+you need to have a copy of the program you want to debug.
+@code{gdbserve.nlm} does not need your program's symbol table, so you
+can strip the program if necessary to save space.  @value{GDBN} on the
+host system does all the symbol handling.
+
+To use the server, you must tell it how to communicate with
+@value{GDBN}; the name of your program; and the arguments for your
+program.  The syntax is:
+
+@smallexample 
+load gdbserve [ BOARD=@var{board} ] [ PORT=@var{port} ]
+              [ BAUD=@var{baud} ] @var{program} [ @var{args} @dots{} ]
+@end smallexample
+
+@var{board} and @var{port} specify the serial line; @var{baud} specifies
+the baud rate used by the connection.  @var{port} and @var{node} default
+to 0, @var{baud} defaults to 9600 bps.
+
+For example, to debug Emacs with the argument @samp{foo.txt}and
+communicate with @value{GDBN} over serial port number 2 or board 1 
+using a 19200 bps connection:
+
+@smallexample
+load gdbserve BOARD=1 PORT=2 BAUD=19200 emacs foo.txt
+@end smallexample
+
+@item On the @value{GDBN} host machine,
+you need an unstripped copy of your program, since @value{GDBN} needs
+symbols and debugging information.  Start up @value{GDBN} as usual,
+using the name of the local copy of your program as the first argument.
+(You may also need the @w{@samp{--baud}} option if the serial line is
+running at anything other than 9600 bps.  After that, use @code{target
+remote} to establish communications with @code{gdbserve.nlm}.  Its
+argument is a device name (usually a serial device, like
+@file{/dev/ttyb}).  For example:
+
+@smallexample
+(@value{GDBP}) target remote /dev/ttyb
+@end smallexample
+
+@noindent
+communications with the server via serial line @file{/dev/ttyb}.
 @end table
 @end ifset
 
@@ -653,7 +726,7 @@ a break is detected.
 protocol for debugging the a29k processor family.  To use this
 configuration with AMD targets running the MiniMON monitor, you need the
 program @code{MONTIP}, available from AMD at no charge.  You can also
-use @value{GDBN} with the UDI conformant a29k simulator program
+use @value{GDBN} with the UDI-conformant a29k simulator program
 @code{ISSTIP}, also available from AMD.
 
 @table @code
@@ -863,7 +936,7 @@ unexpected events on the PC side of the connection.
 @subsection @value{GDBN} with a Tandem ST2000
 
 To connect your ST2000 to the host system, see the manufacturer's
-manual.  Once the ST2000 is physically attached, you can run
+manual.  Once the ST2000 is physically attached, you can run:
 
 @example
 target st2000 @var{dev} @var{speed}
@@ -918,6 +991,16 @@ both the Unix host and on the VxWorks target.  The program
 @code{gdb} is installed and executed on the Unix host.  (It may be
 installed with the name @code{vxgdb}, to distinguish it from a
 @value{GDBN} for debugging programs on the host itself.)
+
+@table @code
+@item VxWorks-timeout @var{args}
+@kindex vxworks-timeout
+All VxWorks-based targets now support the option @code{vxworks-timeout}.  
+This option is set by the user, and  @var{args} represents the number of 
+seconds @value{GDBN} waits for responses to rpc's.  You might use this if 
+your VxWorks target is a slow software simulator or is on the far side 
+of a thin network line.
+@end table
 
 The following information on connecting to VxWorks was current when
 this manual was produced; newer releases of VxWorks may use revised
@@ -1007,7 +1090,7 @@ program, type this on VxWorks:
 @example
 -> cd "@var{vxpath}/vw/demo/rdb"
 @end example
-
+v
 Then, in @value{GDBN}, type:
 
 @example
@@ -1286,6 +1369,18 @@ concentrator) instead of a serial port, using the syntax
 @value{GDBN} also supports these special commands for MIPS targets:
 
 @table @code
+@item set processor @var{args}
+@itemx show processor
+@kindex set processor @var{args}
+@kindex show processor
+Use the @code{set processor} command to set the type of MIPS
+processor when you want to access processor-type-specific registers.
+For example, @code{set processor @var{r3041}} tells @value{GDBN} 
+to use the CPO registers appropriate for the 3041 chip.
+Use the @code{show processor} command to see what MIPS processor @value{GDBN} 
+is using.  Use the @code{info reg} command to see what registers
+@value{GDBN} is using. 
+
 @item set mipsfpu double
 @itemx set mipsfpu single
 @itemx set mipsfpu none

@@ -16,6 +16,6 @@ if ![file exists $binfile] then {
 gdb_load $binfile
 if [runto middle] then {
     # PR 3016
-    gdb_test "backtrace" "#0.*middle.*#1.*top.*#2.*main"
+    gdb_test "backtrace" "#0.*middle.*#1.*top.*#2.*main.*"
 }
 return 0

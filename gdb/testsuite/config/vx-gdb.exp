@@ -1,4 +1,4 @@
-#   Copyright (C) 1988, 1990, 1991, 1992 Free Software Foundation, Inc.
+#   Copyright (C) 1988, 1990, 1991, 1992, 1995 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 # Please email any bugs, comments, and/or additions to this file to:
 # DejaGnu@cygnus.com
@@ -27,11 +27,7 @@ load_lib gdb.exp
 load_lib vxworks.exp
 
 set shell_prompt "->"
-
-# these need to be initialized only if site.exp doesn't set them
-if ![info exists prompt] then {
-    set prompt "\(vxgdb\)"
-}
+set prompt "\\(vxgdb\\)"
 
 #
 # gdb_version -- extract and print the version number of gcc
@@ -53,8 +49,8 @@ proc gdb_load { arg } {
 #    spawn_vxgdb
     set result 0
 
-    if [vxworks_ld $shell_id $arg]<0 then {
- perror "Couldn't load $arg"
+    if { [vxworks_ld $shell_id $arg] != 0 } {
+	perror "Couldn't load $arg"
 	return -1
     }
 
@@ -65,9 +61,6 @@ proc gdb_load { arg } {
 # gdb_start -- start gdb running and 
 #
 proc gdb_start { } {
-    global GDB
-    global GDBFLAGS
-    global spawn_id
     global prompt
     global verbose
     global targetname
@@ -87,7 +80,7 @@ proc gdb_start { } {
     if $reboot then {
 	verbose "Rebooting VxWorks, Please wait...\n"
 
-	send -i $shell_id "\CX"
+	send -i $shell_id "\030"
 	set timeout 120
 	expect {
 	    -i $shell_id -re "Connection closed.*$" {
@@ -111,49 +104,12 @@ proc gdb_start { } {
 }
 
 proc spawn_vxgdb { } {
-    global GDB
-    global GDBFLAGS
-    global spawn_id
     global prompt
     global verbose
     global targetname
 
-    # start GDB
-    if [ llength $GDBFLAGS ] then {
-	if {[which $GDB] != 0} then {
-	    spawn $GDB $GDBFLAGS
-	} else {
-            perror "$GDB does not exist."
-            exit 1
-        }
-    } else {
-        if {[which $GDB] != 0} then {
-	    spawn $GDB
-        } else {
-            perror "$GDB does not exist."
-            exit 1
-        }
-    }
-    expect  {
-	-re ".*$prompt $" {
-	    verbose "$GDB initialized for cross mode to Vxworks\n"
-	}
-	-re "$prompt $" {
-	    perror "GDB never initialized."
-	    return -1
-	}
-	timeout {
-	    perror "(timeout) GDB never initialized."
-	    return -1
-	}
-    }
+    default_gdb_start
 
-    # force the height to "unlimited", so no pagers get used
-    send "set height 0\n"
-    expect -re ".*$prompt $" {}
-    # force the width to "unlimited", so no wraparound occurs
-    send "set width 0\n"
-    expect -re ".*$prompt $" {}
     # set the default arguments to "main", so that "run" with no
     # arguments will work correctly.
     send "set args main\n"

@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -28,7 +28,6 @@ set bug_id 0
 
 # are we on a target board
 if ![isnative] then {
-    warning "corefile test case can't run on a target system"
     return
 }
 
@@ -56,6 +55,9 @@ if ![file exists $objdir/$subdir/corefile] then {
 	catch "exec mv $objdir/$subdir/core.$binfile $objdir/$subdir/corefile"
     } elseif [file exists $objdir/$subdir/$binfile.core] {
 	catch "exec mv $objdir/$subdir/$binfile.core $objdir/$subdir/corefile"
+    } else {
+	warning "can't generate a core file - core tests suppressed - check ulimit -c"
+	return 0
     }
 }
 
@@ -124,6 +126,8 @@ gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load $objdir/$subdir/$binfile
 
+source gdb.base/coremaker.ci
+
 # Test basic corefile recognition via core-file command.
 
 setup_xfail "rs6000-*-*"
@@ -138,12 +142,17 @@ $prompt $"			{ pass "core-file command" }
 
 # Somehow we better test the ability to read the registers out of the core
 # file correctly.  I don't think the other tests do this.
-gdb_test "bt" "abort.*func2.*func1.*main"
+
+# Haven't investigated this xfail
+setup_xfail "m68k-*-hpux*" "i*86-*-linux*" "i*86-*-sysv4*" "i*86-*-freebsd*"
+# Strange that this one depends upon being native compiled.
+if {!$gcc_compiled} then { setup_xfail  "hppa*-*-hpux*" }
+gdb_test "bt" "abort.*func2.*func1.*main.*" "backtrace in corefile.exp"
 
 # test reinit_frame_cache
 
 gdb_load $objdir/$subdir/$binfile
 setup_xfail "*-*-*"
-gdb_test "up" "#\[0-9\]* *\[0-9xa-fH'\]* in .* \\(\\)"
+gdb_test "up" "#\[0-9\]* *\[0-9xa-fH'\]* in .* \\(\\)" "up in corefile.exp"
 
 gdb_test "core" "No core file now."

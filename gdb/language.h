@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #if !defined (LANGUAGE_H)
 #define LANGUAGE_H 1
@@ -25,6 +25,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifdef __STDC__		/* Forward decls for prototypes */
 struct value;
 struct objfile;
+struct expression;
 /* enum exp_opcode;	ANSI's `wisdom' didn't include forward enum decls. */
 #endif
 
@@ -131,6 +132,10 @@ struct language_defn
   /* Parser error function */
 
   void (*la_error) PARAMS ((char *));
+
+  /* Evaluate an expression. */
+  struct value * (*evaluate_exp) PARAMS ((struct type*, struct expression *, 
+					  int *, enum noside));
 
   void (*la_printchar) PARAMS ((int, GDB_FILE *));
 
@@ -390,10 +395,12 @@ op_error PARAMS ((char *fmt, enum exp_opcode, int));
    op_error((f),(o),range_check==range_check_on ? 1 : 0)
 
 extern void
-type_error ();
+type_error PARAMS ((char *, ...))
+     ATTR_FORMAT(printf, 1, 2);
 
 void
-range_error ();
+range_error PARAMS ((char *, ...))
+     ATTR_FORMAT(printf, 1, 2);
 
 /* Data:  Does this value represent "truth" to the current language?  */
 

@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "bfd.h"
@@ -30,7 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "stabsread.h"
 #include "gdb-stabs.h"
 #include "complaints.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "demangle.h"
 #include <sys/file.h>
 
@@ -227,9 +227,15 @@ som_symtab_read (abfd, objfile, section_offsets)
 		 the nasty habit of placing section symbols from the literal
 		 subspaces in the middle of the program's text.  Filter
 		 those out as best we can.  Check for first and last character
-		 being '$'.  */
+		 being '$'. 
+
+		 And finally, the newer HP compilers emit crud like $PIC_foo$N
+		 in some circumstance (PIC code I guess).  It's also claimed
+		 that they emit D$ symbols too.  What stupidity.  */
 	      if ((symname[0] == 'L' && symname[1] == '$')
-		  || (symname[0] == '$' && symname[strlen(symname) - 1] == '$'))
+		  || (symname[0] == '$' && symname[strlen(symname) - 1] == '$')
+		  || (symname[0] == 'D' && symname[1] == '$')
+		  || (strncmp (symname, "$PIC", 4) == 0))
 		continue;
 	      break;
 
@@ -277,6 +283,23 @@ som_symtab_read (abfd, objfile, section_offsets)
 
 	    default:
 	      continue;
+	    }
+	  break;
+
+	/* This can happen for common symbols when -E is passed to the
+	   final link.  No idea _why_ that would make the linker force
+	   common symbols to have an SS_UNSAT scope, but it does.  */
+	case SS_UNSAT:
+	  switch (bufp->symbol_type)
+	    {
+	      case ST_STORAGE:
+		symname = bufp->name.n_strx + stringtab;
+		bufp->symbol_value += data_offset;
+		ms_type = mst_data;
+		break;
+
+	      default:
+		continue;
 	    }
 	  break;
 

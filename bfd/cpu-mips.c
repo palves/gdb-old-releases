@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -60,6 +60,20 @@ static bfd_arch_info_type arch_info_struct[] =
     4000,
     "mips",
     "mips:4000",
+    3,
+    false,
+    bfd_default_compatible, 
+    bfd_default_scan ,
+    0,
+  },
+  {
+    64, /* 64 bits in a word */
+    64, /* 64 bits in an address */
+    8,  /* 8 bits in a byte */
+    bfd_arch_mips,
+    8000,
+    "mips",
+    "mips:8000",
     3,
     false,
     bfd_default_compatible, 

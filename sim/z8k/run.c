@@ -14,13 +14,16 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Z8KSIM; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with Z8KZIM; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include <stdio.h>
 #include "bfd.h"
 #include "tm.h"
 #include "sysdep.h"
+
+void usage();
+extern int optind;
 
 main(ac,av)
 int ac;
@@ -33,22 +36,27 @@ char **av;
   int verbose = 0;
   int trace = 0;
   char *name = "";
-  for (i = 1; i < ac; i++)
-  {
-    if (strcmp(av[i],"-v") == 0) 
-    {
-      verbose = 1;
-    }
-    else if (strcmp(av[i],"-t") == 0) 
-    {
-      trace = 1;
-    }
 
-    else 
-    {
-      name = av[i];
-    }
-  }
+  while ((i = getopt (ac, av, "tv")) != EOF) 
+    switch (i)
+      {
+      case 't':
+	trace = 1;
+	break;
+      case 'v':
+	verbose = 1;
+	break;
+      default:
+	usage();
+      }
+  ac -= optind;
+  av += optind;
+
+  if (ac != 1)
+    usage();
+
+  name = *av;
+
   if (verbose)
   {
     printf("run %s\n", name);
@@ -89,9 +97,20 @@ char **av;
       {
 	sim_info(0);
       }
-      return 0;
+      {
+	char b[4];
+     sim_fetch_register (2,b);
+	return b[1];
+      }
     }
   }
 
   return 1;
+}
+
+void
+usage()
+{
+  fprintf (stderr, "usage: run [-tv] program\n");
+  exit (1);
 }

@@ -17,7 +17,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 # Please report any problems running this configure script to
 # configure@cygnus.com
@@ -53,6 +53,8 @@ Makefile=Makefile
 Makefile_in=Makefile.in
 arguments=$*
 build_alias=
+cache_file=
+cache_file_option=
 configdirs=
 exec_prefix=
 exec_prefixoption=
@@ -84,7 +86,7 @@ subdirs=
 target_alias=NOTARGET
 target_makefile_frag=
 undefs=NOUNDEFS
-version="$Revision: 1.199 $"
+version="$Revision: 1.204 $"
 x11=default
 
 ### we might need to use some other shell than /bin/sh for running subshells
@@ -161,8 +163,8 @@ do
 		   ;;
 		esac
 		;;
-# Accepted for compatibility with new autoconf; ignored.
 	--cache*)
+		cache_file=$optarg
 		;;
 	--disable-*)
 		enableopt=`echo ${option} | sed 's:^--disable-:enable_:;s:-:_:g'`
@@ -468,6 +470,34 @@ esac
 case "`grep '^# per\-host:' ${srcdir}/configure.in`" in
 "")
         echo '***' ${srcdir}/configure.in has no \"per-host:\" line. 1>&2
+	# Check for a directory that's been converted to use autoconf since
+	# it was last configured.
+	if grep AC_OUTPUT ${srcdir}/configure.in >/dev/null ; then
+	  echo '***' Hmm, looks like this directory has been autoconfiscated. 1>&2
+	  if [ -r ${srcdir}/configure ] ; then
+	    echo '***' Running the local configure script. 1>&2
+	    case "${cache_file}" in
+	    "") cache_file_option= ;;
+	    *)  cache_file_option="--cache-file=${cache_file}" ;;
+	    esac
+	    srcdiroption="--srcdir=${srcdir}"
+	    case "${build_alias}" in
+	    "") buildopt= ;;
+	    *)  buildopt="--build=${build_alias}" ;;
+	    esac
+	    eval exec ${config_shell} ${srcdir}/configure ${verbose} \
+		${buildopt} --host=${host_alias} --target=${target_alias} \
+		${prefixoption} ${tmpdiroption} ${exec_prefixoption} \
+		${srcdiroption} \
+		${program_prefixoption} ${program_suffixoption} \
+		${program_transform_nameoption} ${site_option} \
+		${withoptions} ${withoutoptions} \
+		${enableoptions} ${disableoptions} \
+		${cache_file_option} ${removing} ${other_options} ${redirect}
+	  else
+	    echo '***' There is no configure script present though. 1>&2
+	  fi
+	fi
         exit 1
         ;;
 *) ;;
@@ -521,7 +551,15 @@ case "${srctrigger}" in
 esac
 
 case "${build_alias}" in
-"")	;;
+"")
+	if result=`${config_shell} ${configsub} ${host_alias}` ; then
+	    build_cpu=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\1/'`
+	    build_vendor=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\2/'`
+	    build_os=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\3/'`
+	    build=${host_cpu}-${host_vendor}-${host_os}
+	    build_alias=${host_alias}
+	fi
+	;;
 *)
 	if result=`${config_shell} ${configsub} ${build_alias}` ; then
 	    buildopt="--build=${build_alias}"
@@ -971,6 +1009,18 @@ if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then
                                 ;;
                         esac
 
+			# Handle --cache-file=../XXX
+			case "${cache_file}" in
+			"") # empty
+				;;
+			/*) # absolute path
+				cache_file_option="--cache-file=${cache_file}"
+				;;
+			*) # relative path
+				cache_file_option="--cache-file=../${cache_file}"
+				;;
+			esac
+
 ### check for guested configure, otherwise fix possibly relative progname
                         if [ -f ${newsrcdir}/configure ] ; then
                                 recprog=${newsrcdir}/configure
@@ -988,7 +1038,7 @@ if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then
 			if [ ! -z "${recprog}" ] ; then
 	                        if eval ${config_shell} ${recprog} ${verbose} ${buildopt} --host=${host_alias} --target=${target_alias} \
         	                        ${prefixoption} ${tmpdiroption} ${exec_prefixoption} \
-                	                ${srcdiroption} ${program_prefixoption} ${program_suffixoption} ${program_transform_nameoption} ${site_option} ${withoptions} ${withoutoptions} ${enableoptions} ${disableoptions} ${removing} ${other_options} ${redirect} ; then
+                	                ${srcdiroption} ${program_prefixoption} ${program_suffixoption} ${program_transform_nameoption} ${site_option} ${withoptions} ${withoutoptions} ${enableoptions} ${disableoptions} ${cache_file_option} ${removing} ${other_options} ${redirect} ; then
 	                                true
         	                else
 					echo Configure in `pwd` failed, exiting. 1>&2

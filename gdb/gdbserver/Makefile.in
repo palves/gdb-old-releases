@@ -14,7 +14,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 prefix = /usr/local
 
@@ -136,6 +136,7 @@ LINTFLAGS= $(BFD_CFLAGS)
 # All source files that go into linking GDB remote server.
 
 SFILES = $(srcdir)/low-lynx.c $(srcdir)/low-sparc.c $(srcdir)/low-sun3.c \
+	 $(srcdir)/low-hppabsd.c \
 	 $(srcdir)/utils.c $(srcdir)/server.c $(srcdir)/remote-utils.c
 
 DEPFILES = $(GDBSERVER_DEPFILES)
@@ -238,6 +239,7 @@ remote-utils.o : ${srcdir}/remote-utils.c ${srcdir}/server.h
 low-lynx.o : ${srcdir}/low-lynx.c ${srcdir}/server.h
 low-sparc.o : $(srcdir)/low-sparc.c $(srcdir)/server.h
 low-sun3.o : $(srcdir)/low-sun3.c $(srcdir)/server.h
+low-hppabsd.o : $(srcdir)/low-hppabsd.c $(srcdir)/server.h
 utils.o : ${srcdir}/utils.c ${srcdir}/server.h
 
 # This is the end of "Makefile.in".

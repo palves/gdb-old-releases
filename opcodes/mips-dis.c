@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include <ansidecl.h>
 #include "sysdep.h"
@@ -90,6 +90,12 @@ print_insn_arg (d, l, pc, info)
 			     delta);
       break;
 
+    case 'h':
+      (*info->fprintf_func) (info->stream, "0x%x",
+			     (unsigned int) ((l >> OP_SH_PREFX)
+					     & OP_MASK_PREFX));
+      break;
+
     case 'k':
       (*info->fprintf_func) (info->stream, "0x%x",
 			     (unsigned int) ((l >> OP_SH_CACHE)
@@ -158,6 +164,11 @@ print_insn_arg (d, l, pc, info)
 			     (l >> OP_SH_FD) & OP_MASK_FD);
       break;
 
+    case 'R':
+      (*info->fprintf_func) (info->stream, "$f%d",
+			     (l >> OP_SH_FR) & OP_MASK_FR);
+      break;
+
     case 'E':
       (*info->fprintf_func) (info->stream, "$%d",
 			     (l >> OP_SH_RT) & OP_MASK_RT);
@@ -166,6 +177,16 @@ print_insn_arg (d, l, pc, info)
     case 'G':
       (*info->fprintf_func) (info->stream, "$%d",
 			     (l >> OP_SH_RD) & OP_MASK_RD);
+      break;
+
+    case 'N':
+      (*info->fprintf_func) (info->stream, "%d",
+			     (l >> OP_SH_BCC) & OP_MASK_BCC);
+      break;
+
+    case 'M':
+      (*info->fprintf_func) (info->stream, "%d",
+			     (l >> OP_SH_CCC) & OP_MASK_CCC);
       break;
 
     default:
@@ -180,7 +201,7 @@ print_insn_arg (d, l, pc, info)
    always 4.  BIGENDIAN must be 1 if this is big-endian code, 0 if
    this is little-endian code.  */
 
-int
+static int
 _print_insn_mips (memaddr, word, info)
      bfd_vma memaddr;
      struct disassemble_info *info;
@@ -249,7 +270,7 @@ print_insn_big_mips (memaddr, info)
   bfd_byte buffer[4];
   int status = (*info->read_memory_func) (memaddr, buffer, 4, info);
   if (status == 0)
-    return _print_insn_mips (memaddr, bfd_getb32 (buffer), info);
+    return _print_insn_mips (memaddr, (unsigned long) bfd_getb32 (buffer), info);
   else
     {
       (*info->memory_error_func) (status, memaddr, info);
@@ -265,7 +286,7 @@ print_insn_little_mips (memaddr, info)
   bfd_byte buffer[4];
   int status = (*info->read_memory_func) (memaddr, buffer, 4, info);
   if (status == 0)
-    return _print_insn_mips (memaddr, bfd_getl32 (buffer), info);
+    return _print_insn_mips (memaddr, (unsigned long) bfd_getl32 (buffer), info);
   else
     {
       (*info->memory_error_func) (status, memaddr, info);

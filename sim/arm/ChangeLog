@@ -1,0 +1,35 @@
+Tue Oct 10 11:09:48 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (BISON): Remove macro.
+
+Thu Aug  3 10:45:37 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Update all FSF addresses except those in COPYING* files.
+
+Wed Jul  5 16:15:54 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* Makefile.in (clean): Remove run, libsim.a.
+
+ 	* Makefile.in, configure.in: converted to autoconf.
+	* configure: New file, generated with autconf 2.4.
+
+	* arm.mt: Removed.
+
+Fri Jun 30 16:49:47 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* wrapper.c (sim_do_command): New function.
+
+Tue Jun 13 10:57:32 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* armos.c (ARMul_OSHandleSWI): New version to work with
+	newlib simply.
+
+Thu Jun  8 14:37:14 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* run.c (main): Grab return value from right register.
+
+Wed May 24 14:37:31 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* New.
+
+

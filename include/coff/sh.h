@@ -190,7 +190,7 @@ union external_auxent {
 struct external_reloc {
   char r_vaddr[4];
   char r_symndx[4];
-  char ignore_r_offset[4];
+  char r_offset[4];
   char r_type[2];
   char r_stuff[2];
 };
@@ -198,6 +198,57 @@ struct external_reloc {
 
 #define RELOC struct external_reloc
 #define RELSZ 16
+
+/* SH relocation types.  Not all of these are actually used.  */
+
+#define R_SH_UNUSED	0		/* only used internally */
+#define R_SH_PCREL8 	3		/*  8 bit pcrel 	*/
+#define R_SH_PCREL16 	4		/* 16 bit pcrel 	*/
+#define R_SH_HIGH8  	5		/* high 8 bits of 24 bit address */
+#define R_SH_LOW16 	7		/* low 16 bits of 24 bit immediate */
+#define R_SH_IMM24	6		/* 24 bit immediate */
+#define R_SH_PCDISP8BY4	9  		/* PC rel 8 bits *4 +ve */
+#define R_SH_PCDISP8BY2	10  		/* PC rel 8 bits *2 +ve */
+#define R_SH_PCDISP8    11  		/* 8 bit branch */
+#define R_SH_PCDISP     12  		/* 12 bit branch */
+#define R_SH_IMM32      14    		/* 32 bit immediate */
+#define R_SH_IMM8   	16		/* 8 bit immediate */
+#define R_SH_IMM8BY2    17		/* 8 bit immediate *2 */
+#define R_SH_IMM8BY4    18		/* 8 bit immediate *4 */
+#define R_SH_IMM4   	19		/* 4 bit immediate */
+#define R_SH_IMM4BY2    20		/* 4 bit immediate *2 */
+#define R_SH_IMM4BY4    21		/* 4 bit immediate *4 */
+#define R_SH_PCRELIMM8BY2   22		/* PC rel 8 bits *2 unsigned */
+#define R_SH_PCRELIMM8BY4   23		/* PC rel 8 bits *4 unsigned */
+#define R_SH_IMM16      24    		/* 16 bit immediate */
+
+/* The switch table reloc types are used for relaxing.  They are
+   generated for expressions such as
+     .word L1 - L2
+   The r_offset field holds the difference between the reloc address
+   and L2.  */
+#define R_SH_SWITCH16	25		/* 16 bit switch table entry */
+#define R_SH_SWITCH32	26		/* 16 bit switch table entry */
+
+/* The USES reloc type is used for relaxing.  The compiler will
+   generate .uses pseudo-ops when it finds a function call which it
+   can relax.  The r_offset field of the USES reloc holds the PC
+   relative offset to the instruction which loads the register used in
+   the function call.  */
+#define R_SH_USES	27		/* .uses pseudo-op */
+
+/* The COUNT reloc type is used for relaxing.  The assembler will
+   generate COUNT relocs for addresses referred to by the register
+   loads associated with USES relocs.  The r_offset field of the COUNT
+   reloc holds the number of times the address is references in the
+   object file.  */
+#define R_SH_COUNT	28		/* Count of constant pool uses */
+
+/* The ALIGN reloc type is used for relaxing.  The r_offset field is
+   the power of two to which subsequent portions of the object file
+   must be aligned.  */
+#define R_SH_ALIGN	29		/* .align pseudo-op */
+
 
 #define DEFAULT_DATA_SECTION_ALIGNMENT 4
 #define DEFAULT_BSS_SECTION_ALIGNMENT 4

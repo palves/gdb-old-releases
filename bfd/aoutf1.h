@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -33,10 +33,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    gdb/testsuite/gdb.t10/crossload.exp. <kingdon@cygnus.com>
    I needed to add M_UNKNOWN to recognize a 68000 object, so this will
    probably no longer reject a NewsOS object.  <ian@cygnus.com>. */
-#define MACHTYPE_OK(mtype) ((mtype) == M_UNKNOWN \
-			    || (mtype) == M_68010 \
-			    || (mtype) == M_68020 \
-			    || (mtype) == M_SPARC)
+#ifndef MACHTYPE_OK
+#define MACHTYPE_OK(mtype) \
+  (((mtype) == M_SPARC && bfd_lookup_arch (bfd_arch_sparc, 0) != NULL) \
+   || (((mtype) == M_UNKNOWN || (mtype) == M_68010 || (mtype) == M_68020) \
+       && bfd_lookup_arch (bfd_arch_m68k, 0) != NULL))
+#endif
 
 /*
 The file @code{aoutf1.h} contains the code for BFD's

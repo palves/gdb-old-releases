@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #if !defined (VALUE_H)
 #define VALUE_H 1
@@ -90,8 +90,8 @@ struct value
 
     /* If an lval is forced to repeat, a new value is created with
        these fields set.  The new value is not an lval.  */
+    int repetitions;
     short repeated;
-    short repetitions;
     /* Register number if the value is from a register.  Is not kept
        if you take a field of a structure that is stored in a
        register.  Shouldn't it be?  */
@@ -334,6 +334,9 @@ extern value_ptr evaluate_expression PARAMS ((struct expression *exp));
 
 extern value_ptr evaluate_type PARAMS ((struct expression *exp));
 
+extern value_ptr evaluate_subexp_with_coercion PARAMS ((struct expression *,
+							int *, enum noside));
+
 extern value_ptr parse_and_eval PARAMS ((char *exp));
 
 extern value_ptr parse_to_comma_and_eval PARAMS ((char **expp));
@@ -460,8 +463,6 @@ val_print_string PARAMS ((CORE_ADDR addr, unsigned int len, GDB_FILE *stream));
 extern void
 print_variable_value PARAMS ((struct symbol *var, struct frame_info *frame,
 			      GDB_FILE *stream));
-
-extern value_ptr value_arg_coerce PARAMS ((value_ptr));
 
 extern int check_field PARAMS ((value_ptr, const char *));
 

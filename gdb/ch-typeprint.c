@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "obstack.h"
@@ -33,7 +33,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "ch-lang.h"
 #include "typeprint.h"
 
-#include <string.h>
+#include "gdb_string.h"
 #include <errno.h>
 
 static void
@@ -165,7 +165,26 @@ chill_type_print_base (type, stream, show, level)
         chill_type_print_base (TYPE_TARGET_TYPE (type), stream, show, level);
 	break;
       case TYPE_CODE_FUNC:
-	fprintf_filtered (stream, "PROC (?)");
+	fprintf_filtered (stream, "PROC (");
+	len = TYPE_NFIELDS (type);
+	for (i = 0; i < len; i++)
+	  {
+	    struct type *param_type = TYPE_FIELD_TYPE (type, i);
+	    if (i > 0)
+	      {
+		fputs_filtered (", ", stream);
+		wrap_here ("    ");
+	      }
+	    if (TYPE_CODE (param_type) == TYPE_CODE_REF)
+	      {
+		chill_type_print_base (TYPE_TARGET_TYPE (param_type),
+				       stream, show, level);
+		fputs_filtered (" LOC", stream);
+	      }
+	    else
+	      chill_type_print_base (param_type, stream, show, level);
+	  }
+	fprintf_filtered (stream, ")");
 	if (TYPE_CODE (TYPE_TARGET_TYPE (type)) != TYPE_CODE_VOID)
 	  {
 	    fputs_filtered (" RETURNS (", stream);

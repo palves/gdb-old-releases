@@ -14,7 +14,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #
 
 srcdir = .
@@ -42,6 +42,7 @@ man9dir = $(mandir)/man9
 infodir = $(prefix)/info
 includedir = $(prefix)/include
 docdir = $(datadir)/doc
+GDB_NLM_DEPS = 
 
 SHELL = /bin/sh
 
@@ -69,6 +70,8 @@ CFLAGS = -g
 LIBCFLAGS = $(CFLAGS)
 CFLAGS_FOR_TARGET = $(CFLAGS)
 LIBCFLAGS_FOR_TARGET = $(CFLAGS_FOR_TARGET)
+PICFLAG = 
+PICFLAG_FOR_TARGET = 
 
 CXX = gcc
 
@@ -82,6 +85,11 @@ RANLIB = ranlib
 NM = nm
 # Not plain GZIP, since gzip looks there for extra command-line options.
 GZIPPROG = gzip
+
+BISON = bison -y
+LEX = `if [ -f $$r/flex/flex ] ; \
+	then echo $$r/flex/flex ; \
+	else echo flex ; fi`
 
 M4 = `if [ -f $$r/m4/m4 ] ; \
 	then echo $$r/m4/m4 ; \
@@ -167,6 +175,17 @@ AS_FOR_TARGET = ` \
     fi; \
   fi`
 
+DLLTOOL_FOR_TARGET = ` \
+  if [ -f $$r/binutils/dlltool ] ; then \
+    echo $$r/binutils/dlltool ; \
+  else \
+    if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
+      echo $(DLLTOOL); \
+    else \
+       t='$(program_transform_name)'; echo dlltool | sed -e 's/x/x/' $$t ; \
+    fi; \
+  fi`
+
 AR_FOR_TARGET = ` \
   if [ -f $$r/binutils/ar ] ; then \
     echo $$r/binutils/ar ; \
@@ -218,6 +237,7 @@ BASE_FLAGS_TO_PASS = \
 	"CXXFLAGS=$(CXXFLAGS)" \
 	"CXXFLAGS_FOR_TARGET=$(CXXFLAGS_FOR_TARGET)" \
 	"CXX_FOR_TARGET=$(CXX_FOR_TARGET)" \
+	"DLLTOOL_FOR_TARGET=$(DLLTOOL_FOR_TARGET)" \
 	"GCC_FOR_TARGET=$(CC_FOR_TARGET)" \
 	"INSTALL=$(INSTALL)" \
 	"INSTALL_DATA=$(INSTALL_DATA)" \
@@ -232,6 +252,8 @@ BASE_FLAGS_TO_PASS = \
 	"M4=$(M4)" \
 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
+	"PICFLAG=$(PICFLAG)" \
+	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
 	"RANLIB_FOR_TARGET=$(RANLIB_FOR_TARGET)" \
 	"SHELL=$(SHELL)" \
 	"EXPECT=$(EXPECT)" \
@@ -273,9 +295,11 @@ EXTRA_TARGET_FLAGS = \
 	'CFLAGS=$$(CFLAGS_FOR_TARGET)' \
 	'CXX=$$(CXX_FOR_TARGET)' \
 	'CXXFLAGS=$$(CXXFLAGS_FOR_TARGET)' \
+	'DLLTOOL=$$(DLLTOOL_FOR_TARGET)' \
 	'LIBCFLAGS=$$(LIBCFLAGS_FOR_TARGET)' \
 	'LIBCXXFLAGS=$$(LIBCXXFLAGS_FOR_TARGET)' \
 	'NM=$$(NM_FOR_TARGET)' \
+	'PICFLAG=$$(PICFLAG_FOR_TARGET)' \
 	'RANLIB=$$(RANLIB_FOR_TARGET)'
 
 TARGET_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_TARGET_FLAGS)
@@ -316,7 +340,6 @@ ALL_MODULES = \
 	all-flex \
 	all-gas \
 	all-gawk \
-	all-gdb \
 	all-gprof \
 	all-grep \
 	all-gzip \
@@ -372,7 +395,6 @@ CROSS_CHECK_MODULES = \
 	check-find \
 	check-gas \
 	check-gawk \
-	check-gdb \
 	check-gprof \
 	check-grep \
 	check-gzip \
@@ -422,8 +444,6 @@ INSTALL_MODULES = \
 	install-flex \
 	install-gas \
 	install-gawk \
-	install-gdb \
-	install-glob \
 	install-gprof \
 	install-grep \
 	install-gzip \
@@ -458,6 +478,7 @@ INSTALL_MODULES = \
 ALL_X11_MODULES = \
 	all-emacs \
 	all-emacs19 \
+	all-gdb \
 	all-expect \
 	all-gash \
 	all-tclX \
@@ -467,6 +488,7 @@ ALL_X11_MODULES = \
 # compiled using $(X11_FLAGS_TO_PASS).
 CHECK_X11_MODULES = \
 	check-emacs \
+	check-gdb \
 	check-expect \
 	check-gash \
 	check-tclX \
@@ -477,6 +499,7 @@ CHECK_X11_MODULES = \
 INSTALL_X11_MODULES = \
 	install-emacs \
 	install-emacs19 \
+	install-gdb \
 	install-expect \
 	install-gash \
 	install-tclX \
@@ -614,11 +637,19 @@ check: $(CHECK_MODULES) \
 
 # Installation targets.
 
-.PHONY: install uninstall vault-install
+.PHONY: install uninstall source-vault binary-vault vault-install
 install: $(INSTALL_TARGET) 
 
 uninstall:
 	@echo "the uninstall target is not supported in this tree"
+
+source-vault:
+	$(MAKE) -f ./release/Build-A-Release \
+		host=$(host_alias) source-vault
+
+binary-vault:
+	$(MAKE) -f ./release/Build-A-Release \
+		host=$(host_alias) target=$(target_alias)
 
 vault-install:
 	@if [ -f ./release/vault-install ] ; then \
@@ -669,13 +700,12 @@ gcc-no-fixedincludes:
 
 # This rule is used to build the modules which use FLAGS_TO_PASS.  To
 # build a target all-X means to cd to X and make all.
-# all-glob is handled specially because it doesn't actually build.
 #
 # all-gui, and all-libproc are handled specially because
 # they are still experimental, and if they fail to build, that
 # shouldn't stop "make all".
-.PHONY: $(ALL_MODULES) all-glob all-gui all-libproc
-$(ALL_MODULES) all-glob all-gui all-libproc:
+.PHONY: $(ALL_MODULES) all-gui all-libproc
+$(ALL_MODULES) all-gui all-libproc:
 	@dir=`echo $@ | sed -e 's/all-//'`; \
 	if [ -f ./$${dir}/Makefile ] ; then \
 	  r=`pwd`; export r; \
@@ -874,9 +904,8 @@ all-flex: all-libiberty all-byacc
 all-gas: all-libiberty all-opcodes all-bfd
 all-gash: all-tcl
 all-gawk:
-all-gcc: all-libiberty all-byacc all-binutils all-gas
-all-gdb: all-libiberty all-opcodes all-bfd all-mmalloc all-readline all-glob all-byacc all-sim all-gcc all-ld
-all-glob:
+all-gcc: all-libiberty all-byacc all-binutils all-gas all-ld
+all-gdb: all-libiberty all-opcodes all-bfd all-mmalloc all-readline all-byacc all-sim $(gdbnlmrequirements)
 all-gprof: all-libiberty all-bfd
 all-grep: all-libiberty
 all-gui: all-gdb all-libproc all-librx
@@ -885,7 +914,7 @@ all-hello: all-libiberty
 all-indent:
 all-ispell: all-emacs19
 all-ld: all-libiberty all-bfd all-byacc all-flex
-all-libg++: all-gas all-ld all-gcc all-xiberty all-newlib all-libio all-librx
+all-libg++: all-gas all-ld all-gcc all-xiberty all-newlib all-libio all-librx all-libstdc++
 all-libio: all-gas all-ld all-gcc all-xiberty all-newlib 
 all-libiberty:
 all-libstdc++: all-gas all-ld all-gcc all-xiberty all-newlib all-libio
@@ -974,6 +1003,7 @@ Makefile: Makefile.in configure.in $(host_makefile_frag) $(target_makefile_frag)
 # distribution (perhaps it would be better to include it anyway).
 DEVO_SUPPORT= README Makefile.in configure configure.in \
 	config.guess config.sub config move-if-change \
+	mpw-README mpw-build.in mpw-config.in mpw-configure \
 	COPYING COPYING.LIB install.sh
 
 # Files in devo/etc used in any net release.
@@ -1030,8 +1060,7 @@ taz: $(DEVO_SUPPORT) $(SUPPORT_FILES) \
 	  if [ -d $$d ]; then \
 	    case " $$p " in \
 	    *" $$d "*)	\
-		echo making diststuff in $$d ; \
-		(cd $$d ; pwd ; $(MAKE) diststuff ) || exit 1  ;; \
+		(cd $$d ; $(MAKE) diststuff ) || exit 1  ;; \
 	    esac ; \
 	    if [ -d $$d/proto-$$d.dir ]; then \
 	      ln -s ../$$d/proto-$$d.dir proto-toplev/$$d ; \
@@ -1051,10 +1080,9 @@ taz: $(DEVO_SUPPORT) $(SUPPORT_FILES) \
 		ln -s ../../etc/$$i* . ; \
 	 done)
 	#
-	# Take out texinfo and glob from configurable dirs
+	# Take out texinfo from configurable dirs
 	rm proto-toplev/configure.in
 	sed -e '/^host_tools=/s/texinfo //' \
-	    -e '/^host_libs=/s/glob //' \
 	    <configure.in >proto-toplev/configure.in
 	#
 	mkdir proto-toplev/texinfo
@@ -1103,14 +1131,29 @@ gnats.tar.gz: $(DIST_SUPPORT) $(GNATS_SUPPORT_DIRS) gnats
 		SUPPORT_FILES="$(GNATS_SUPPORT_DIRS)"
 
 .PHONY: gdb.tar.gz
-GDB_SUPPORT_DIRS= bfd glob include libiberty mmalloc opcodes readline sim
+GDB_SUPPORT_DIRS= bfd include libiberty mmalloc opcodes readline sim utils
+GDBTK_SUPPORT_DIRS= `if [ -d tcl -a -d tk ] ; then echo tcl tk ; fi`
 gdb.tar.gz: $(DIST_SUPPORT) $(GDB_SUPPORT_DIRS) gdb
 	$(MAKE) -f Makefile.in taz TOOL=gdb \
-		SUPPORT_FILES="$(GDB_SUPPORT_DIRS)"
+		SUPPORT_FILES="$(GDB_SUPPORT_DIRS) $(GDBTK_SUPPORT_DIRS)"
 
 .PHONY: newlib.tar.gz
-NEWLIB_SUPPORT_DIRS=
+NEWLIB_SUPPORT_DIRS=libgloss
+# taz configures for the sun4 target which won't configure newlib.
+# We need newlib configured so that the .info files are made.
+# Unfortunately, it is not enough to just configure newlib separately:
+# taz will build the .info files but since SUBDIRS won't contain newlib,
+# distclean won't be run (leaving Makefile, config.status, and the tmp files
+# used in building the .info files, eg: *.def, *.ref).
+# Compensate here by configuring newlib for a simple (no multilib support)
+# cross target (sparc64), building the info files, and doing make distclean
+# ourselves.
 newlib.tar.gz: $(DIST_SUPPORT) $(NEWLIB_SUPPORT_DIRS) newlib
+	rootme=`pwd` ; \
+	  cd newlib && ../configure --srcdir $$rootme/newlib \
+		--host sun4 --target sparc64-elf
+	cd newlib ; make info
+	cd newlib ; make distclean
 	$(MAKE) -f Makefile.in taz TOOL=newlib \
 		SUPPORT_FILES="$(NEWLIB_SUPPORT_DIRS)" \
 		DEVO_SUPPORT="$(DEVO_SUPPORT) COPYING.NEWLIB" \

@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -86,66 +86,65 @@ proc test_lookup_operator_functions {} {
 	return
     }
 
-    info_func "operator&&("  "void foo::operator&&\[(\]+foo &\[)\]+;"
-    info_func "operator&=("  "void foo::operator&=\[(\]+foo &\[)\]+;"
-    info_func "operator&("  "void foo::operator&\[(\]+foo &\[)\]+;"
-    info_func "operator/=("  "void foo::operator/=\[(\]+foo &\[)\]+;"
-    info_func "operator^=("  "void foo::operator.=\[(\]+foo &\[)\]+;"
-    info_func "operator<<=("  "void foo::operator<<=\[(\]+foo &\[)\]+;"
-    info_func "operator%=("  "void foo::operator%=\[(\]+foo &\[)\]+;"
-    info_func "operator-=("  "void foo::operator-=\[(\]+foo &\[)\]+;"
+    info_func "operator&&("  "void foo::operator&&\\(foo &\\);"
+    info_func "operator&=("  "void foo::operator&=\\(foo &\\);"
+    info_func "operator&("  "void foo::operator&\\(foo &\\);"
+    info_func "operator/=("  "void foo::operator/=\\(foo &\\);"
+    info_func "operator^=("  "void foo::operator.=\\(foo &\\);"
+    info_func "operator<<=("  "void foo::operator<<=\\(foo &\\);"
+    info_func "operator%=("  "void foo::operator%=\\(foo &\\);"
+    info_func "operator-=("  "void foo::operator-=\\(foo &\\);"
 
-    # There doesn't appear to be anyway to get '*' treated as a character
-    # to match, rather than as a regex special character.
+    # There doesn't appear to be any way to get GDB to treat '*' as a
+    # character to match, rather than as a regex special character.
     setup_xfail "*-*-*"
-    info_func "operator\*=("  "void foo::operator\[*\]=\[(\]+foo &\[)\]+;"
+    info_func "operator\*=("  "void foo::operator\\*=\\(foo &\\);"
 
-    info_func "operator|=("  "void foo::operator\[|\]+=\[(\]+foo &\[)\]+;"
-    info_func "operator+=("  "void foo::operator.=\[(\]+foo &\[)\]+;"
-    info_func "operator>>=("  "void foo::operator\>\>=\[(\]+foo &\[)\]+;"
-    info_func "operator=("  "void foo::operator=\[(\]+foo &\[)\]+;"
-    info_func "operator()("  "void foo::operator\[(\]+\[)\]+\[(\]+foo &\[)\]+;"
+    info_func "operator|=("  "void foo::operator\\|=\\(foo &\\);"
+    info_func "operator+=("  "void foo::operator.=\\(foo &\\);"
+    info_func "operator>>=("  "void foo::operator\>\>=\\(foo &\\);"
+    info_func "operator=("  "void foo::operator=\\(foo &\\);"
+    info_func "operator()("  "void foo::operator\\(\\)\\(foo &\\);"
 
     # The function should be "operator," not "operator, ".  (note space)
     # This test will work; I've commented it out because it should not
     # count as a pass, since it is incorrect.  Ian Taylor.
-    # info_func "operator, ("  "void foo::operator, \[(\]+foo &\[)\]+;"
+    # info_func "operator, ("  "void foo::operator, \\(foo &\\);"
     setup_xfail "*-*-*"
-    info_func "operator,("  "void foo::operator,\[(\]+foo &\[)\]+;"
+    info_func "operator,("  "void foo::operator,\\(foo &\\);"
 
-    info_func "operator~("  "void foo::operator~\[(\]+void\[)\]+;"
-    info_func "operator delete("  "void foo::operator delete\[(\]+void \[*\]+\[)\]+;"
-    info_func "operator/("  "void foo::operator/\[(\]+foo &\[)\]+;"
-    info_func "operator==("  "void foo::operator==\[(\]+foo &\[)\]+;"
-    # FIXME: there seems to be no way to match a "^" anymore. rob
-    info_func "operator^("  "void foo::operator.\[(\]+foo &\[)\]+;"
+    info_func "operator~("  "void foo::operator~\\(void\\);"
+    info_func "operator delete("  "void foo::operator delete\\(void \\*\\);"
+    info_func "operator/("  "void foo::operator/\\(foo &\\);"
+    info_func "operator==("  "void foo::operator==\\(foo &\\);"
+    info_func "operator^("  "void foo::operator\\^\\(foo &\\);"
 
-    info_func "operator>=("  "void foo::operator>=\[(\]+foo &\[)\]+;"
-    info_func "operator>("  "void foo::operator>\[(\]+foo &\[)\]+;"
-    info_func "operator<=("  "void foo::operator<=\[(\]+foo &\[)\]+;"
-    info_func "operator<<("  "void foo::operator<<\[(\]+foo &\[)\]+;"
-    info_func "operator<("  "void foo::operator<\[(\]+foo &\[)\]+;"
-    info_func "operator%("  "void foo::operator%\[(\]+foo &\[)\]+;"
-    info_func "operator-("  "void foo::operator-\[(\]+foo &\[)\]+;"
+    info_func "operator>=("  "void foo::operator>=\\(foo &\\);"
+    info_func "operator>("  "void foo::operator>\\(foo &\\);"
+    info_func "operator<=("  "void foo::operator<=\\(foo &\\);"
+    info_func "operator<<("  "void foo::operator<<\\(foo &\\);"
+    info_func "operator<("  "void foo::operator<\\(foo &\\);"
+    info_func "operator%("  "void foo::operator%\\(foo &\\);"
+    info_func "operator-("  "void foo::operator-\\(foo &\\);"
 
     # There doesn't appear to be anyway to get '*' treated as a character
     # to match, rather than as a regex special character.
     setup_xfail "*-*-*"
-    info_func "operator\*("  "void foo::operator\[*\]+\[(\]+foo &\[)\]+;"
+    info_func "operator\*("  "void foo::operator\\*\\(foo &\\);"
 
-    info_func "operator--("  "void foo::operator--\[(\]+int\[)\]+;"
-    info_func "operator!=("  "void foo::operator!=\[(\]+foo &\[)\]+;"
-    info_func "operator!("  "void foo::operator!\[(\]+void\[)\]+;"
-    info_func "operator new("  "void \[*\]+foo::operator new\[(\]+.*\[)\]+;"
-    info_func "operator||("  "void foo::operator\[|\]+\[(\]+foo &\[)\]+;"
-    info_func "operator char \\*("  "char \[*\]+foo::operator char \[*(\]+void\[)\]+;"
-    info_func "operator int("  "int foo::operator int\[(\]+void\[)\]+;"
-    info_func "operator|("  "void foo::operator\[|\]+\[(\]+foo &\[)\]+;"
-    info_func "operator+("  "void foo::operator\[+\]+\[(\]+foo &\[)\]+;"
-    info_func "operator++("  "void foo::operator\[+\]+\[(\]+int\[)\]+;"
-    info_func "operator->("  "void foo::operator->\[(\]+void\[)\]+;"
-    info_func "operator->\\*("  "void foo::operator\[->*(\]+foo &\[)\]+;"
-    info_func "operator>>("  "void foo::operator\>\>\[(\]+foo &\[)\]+;"
+    info_func "operator--("  "void foo::operator--\\(int\\);"
+    info_func "operator!=("  "void foo::operator!=\\(foo &\\);"
+    info_func "operator!("  "void foo::operator!\\(void\\);"
+    info_func "operator new("  "void \\*foo::operator new\\(.*\\);"
+    info_func "operator||("  "void foo::operator\\|\\|\\(foo &\\);"
+    info_func "operator char \\*("  "char \\*foo::operator char \\*\\(void\\);"
+    info_func "operator int("  "int foo::operator int\\(void\\);"
+    info_func "operator|("  "void foo::operator\\|\\(foo &\\);"
+    info_func "operator+("  "void foo::operator\\+\\(foo &\\);"
+    info_func "operator++("  "void foo::operator\\+\\+\\(int\\);"
+    info_func "operator->("  "void foo::operator->\\(void\\);"
+    info_func "operator->\\*("  "void foo::operator->\\*\\(foo &\\);"
+    info_func "operator>>("  "void foo::operator\>\>\\(foo &\\);"
 
     # GDB says "`operator \[\](' not supported".  I don't know why.
     setup_xfail "*-*-*"
@@ -189,8 +188,8 @@ proc test_paddr_operator_functions {} {
     print_addr_of "foo::operator--(int)"
     print_addr_of "foo::operator!=(foo &)"
     print_addr_of "foo::operator!(void)"
-    test_print_accept "print &'foo::operator new'" \
-	".* $hex <foo::operator new\\(.*\\)>"
+    gdb_test "print &'foo::operator new'" \
+	" = .* $hex <foo::operator new\\(.*\\)>"
     print_addr_of "foo::operator||(foo &)"
     print_addr_of "foo::operator char *(void)"
     print_addr_of "foo::operator int(void)"
@@ -200,7 +199,8 @@ proc test_paddr_operator_functions {} {
     print_addr_of "foo::operator->(void)"
     print_addr_of "foo::operator->*(foo &)"
     print_addr_of "foo::operator>>(foo &)"
-    gdb_test "print &'foo::operator\[\](foo &)'" " = .*0x\[0-9a-f\]+ <foo::operator\\\[\\\]\\(foo &\\)>\r\n"
+    gdb_test "print &'foo::operator\[\](foo &)'" \
+	" = .*0x\[0-9a-f\]+ <foo::operator\\\[\\\]\\(foo &\\)>"
 }
 
 #
@@ -281,9 +281,7 @@ set binfile "cplusfuncs"
 set srcfile $binfile.cc
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    if $all_flag then {
-	warning "$binfile does not exist; tests suppressed."
-    }
+    warning "$binfile does not exist; tests suppressed."
 } else {
     do_tests
 }

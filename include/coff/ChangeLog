@@ -1,3 +1,34 @@
+Mon Jul 24 14:05:39 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* internal.h: Move R_SH_* relocs from here...
+	* sh.h: ...to here.
+	(R_SH_SWITCH16, R_SH_SWITCH32): Define.
+	(R_SH_USES, R_SH_COUNT, R_SH_ALIGN): Define.
+
+Thu Jun 29 00:04:25 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* internal.h (NT_DEF_RESERVE, NT_DEF_COMMIT): Increase a lot.
+
+Tue May 16 15:08:20 1995  Ken Raeburn  <raeburn@cujo.cygnus.com>
+
+	* internal.h (NT_subsystem, NT_stack_heap): Delete
+
+Tue May 16 15:08:20 1995  Ken Raeburn  <raeburn@cujo.cygnus.com>
+
+	* internal.h (NT_subsystem, NT_stack_heap): Now extern.
+
+Tue Feb 14 17:59:37 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* ecoff.h (struct ecoff_fdrtab_entry): Define.
+	(struct ecoff_find_line): Define.
+
+Sat Feb  4 14:38:03 1995  David Mosberger-Tang  <davidm@piston.cs.arizona.edu>
+
+	* sym.h (struct pdr): field "prof" added.
+
+	* alpha.h (PDR_BITS1_PROF_*): added, macros for PDR_BITS*_RESERVED_*
+	updated accordingly.
+
 Sun Jan 15 18:38:33 1995  Steve Chamberlain  <sac@splat>
 
 	* w65.h: New file.

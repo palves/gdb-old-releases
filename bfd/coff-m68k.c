@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -30,7 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define LYNX_SPECIAL_FN 0
 #endif
 
-#define COFF_DEFAULT_SECTION_ALIGNMENT_POWER (1)
+#define COFF_DEFAULT_SECTION_ALIGNMENT_POWER (2)
 
 /* The page size is a guess based on ELF.  */
 #define COFF_PAGE_SIZE 0x2000
@@ -173,7 +173,7 @@ const bfd_target
 #endif
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
-  1,				/* minimum section alignment */
+  2,				/* minimum section alignment */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
      bfd_getb32, bfd_getb_signed_32, bfd_putb32,
      bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* data */

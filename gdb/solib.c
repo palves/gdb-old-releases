@@ -16,16 +16,17 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 
 #include "defs.h"
 
 #include <sys/types.h>
 #include <signal.h>
-#include <string.h>
+#include "gdb_string.h"
 #include <sys/param.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #ifndef SVR4_SHARED_LIBS
  /* SunOS shared libs need the nlist structure.  */
@@ -79,9 +80,15 @@ static char *bkpt_names[] = {
 #ifndef SVR4_SHARED_LIBS
 static char *debug_base_symbols[] = {
   "_DYNAMIC",
+  "_DYNAMIC__MGC",
   NULL
 };
 #endif
+
+static char *main_name_list[] = {
+  "main_$main",
+  NULL
+};
 
 /* local data declarations */
 
@@ -929,6 +936,23 @@ symbol_add_stub (arg)
   return (1);
 }
 
+/* This function will check the so name to see if matches the main list.
+   In some system the main object is in the list, which we want to exclude */
+
+static int match_main (soname)
+    char *soname;
+{
+char **mainp;
+
+for (mainp = main_name_list; *mainp != NULL; mainp++)
+  {
+    if (strcmp (soname, *mainp) == 0)
+	return (1);
+  }
+
+return (0);
+}
+
 /*
 
 GLOBAL FUNCTION
@@ -973,7 +997,7 @@ solib_add (arg_string, from_tty, target)
       count = 0;
       while ((so = find_solib (so)) != NULL)
 	{
-	  if (so -> so_name[0])
+	  if (so -> so_name[0] && !match_main (so -> so_name))
 	    {
 	      count += so -> sections_end - so -> sections;
 	    }
@@ -1015,7 +1039,8 @@ solib_add (arg_string, from_tty, target)
   /* Now add the symbol files.  */
   while ((so = find_solib (so)) != NULL)
     {
-      if (so -> so_name[0] && re_exec (so -> so_name))
+      if (so -> so_name[0] && re_exec (so -> so_name) && 
+      !match_main (so -> so_name))
 	{
 	  so -> from_tty = from_tty;
 	  if (so -> symbols_loaded)

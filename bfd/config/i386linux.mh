@@ -1,4 +1,7 @@
+# Host: Intel 386 running linux using ELF
+
 HDEFINES=-DTRAD_CORE
 HDEPFILES=trad-core.o
-# Apparently this is needed to build objdump in certain configurations.
-EXTRALIBS=-lm
+# This used to be required to build objdump.  However, according to
+# H.J. Lu, it is no longer needed for libc version 5.0.0
+#EXTRALIBS=-lm

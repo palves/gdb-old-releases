@@ -19,7 +19,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Target system byte order. */
 
@@ -149,24 +149,53 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    to be actual register numbers as far as the user is concerned
    but do serve to get the desired values when passed to read_register.  */
 
+#define R0_REGNUM 0		/* Doesn't actually exist, used as base for
+				   other r registers.  */
 #define FLAGS_REGNUM 0		/* Various status flags */
 #define RP_REGNUM 2		/* return pointer */
 #define FP_REGNUM 3		/* Contains address of executing stack */
 				/* frame */
 #define SP_REGNUM 30		/* Contains address of top of stack */
-#define SAR_REGNUM 32		/* shift amount register */
-#define IPSW_REGNUM 41		/* processor status word. ? */
+#define SAR_REGNUM 32		/* Shift Amount Register */
+#define IPSW_REGNUM 41		/* Interrupt Processor Status Word */
 #define PCOQ_HEAD_REGNUM 33	/* instruction offset queue head */
 #define PCSQ_HEAD_REGNUM 34	/* instruction space queue head */
 #define PCOQ_TAIL_REGNUM 35	/* instruction offset queue tail */
 #define PCSQ_TAIL_REGNUM 36	/* instruction space queue tail */
+#define EIEM_REGNUM 37		/* External Interrupt Enable Mask */
+#define IIR_REGNUM 38		/* Interrupt Instruction Register */
+#define IOR_REGNUM 40		/* Interrupt Offset Register */
 #define SR4_REGNUM 43		/* space register 4 */
+#define RCR_REGNUM 51		/* Recover Counter (also known as cr0) */
+#define CCR_REGNUM 54		/* Coprocessor Configuration Register */
+#define TR0_REGNUM 57		/* Temporary Registers (cr24 -> cr31) */
 #define FP0_REGNUM 64		/* floating point reg. 0 */
 #define FP4_REGNUM 72
 
 /* compatibility with the rest of gdb. */
 #define PC_REGNUM PCOQ_HEAD_REGNUM
 #define NPC_REGNUM PCOQ_TAIL_REGNUM
+
+/*
+ * Processor Status Word Masks
+ */
+
+#define PSW_T   0x01000000      /* Taken Branch Trap Enable */
+#define PSW_H   0x00800000      /* Higher-Privilege Transfer Trap Enable */
+#define PSW_L   0x00400000      /* Lower-Privilege Transfer Trap Enable */
+#define PSW_N   0x00200000      /* PC Queue Front Instruction Nullified */
+#define PSW_X   0x00100000      /* Data Memory Break Disable */
+#define PSW_B   0x00080000      /* Taken Branch in Previous Cycle */
+#define PSW_C   0x00040000      /* Code Address Translation Enable */
+#define PSW_V   0x00020000      /* Divide Step Correction */
+#define PSW_M   0x00010000      /* High-Priority Machine Check Disable */
+#define PSW_CB  0x0000ff00      /* Carry/Borrow Bits */
+#define PSW_R   0x00000010      /* Recovery Counter Enable */
+#define PSW_Q   0x00000008      /* Interruption State Collection Enable */
+#define PSW_P   0x00000004      /* Protection ID Validation Enable */
+#define PSW_D   0x00000002      /* Data Address Translation Enable */
+#define PSW_I   0x00000001      /* External, Power Failure, Low-Priority */
+                                /* Machine Check Interruption Enable */
 
 /* When fetching register values from an inferior or a core file,
    clean them up using this macro.  BUF is a char pointer to
@@ -184,7 +213,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define DO_REGISTERS_INFO(_regnum, fp) pa_do_registers_info (_regnum, fp)
 
 /* PA specific macro to see if the current instruction is nullified. */
+#ifndef INSTRUCTION_NULLIFIED
 #define INSTRUCTION_NULLIFIED ((int)read_register (IPSW_REGNUM) & 0x00200000)
+#endif
 
 /* Number of bytes of storage in the actual machine representation
    for register N.  On the PA-RISC, all regs are 4 bytes, including
@@ -227,17 +258,34 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Extract from an array REGBUF containing the (raw) register state
    a function return value of type TYPE, and copy that, in virtual format,
-   into VALBUF.  */
+   into VALBUF. 
+
+   FIXME: Not sure what to do for soft float here.  */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  memcpy (VALBUF, (REGBUF) + REGISTER_BYTE(TYPE_LENGTH(TYPE) > 4 ? \
-					  FP4_REGNUM :28), TYPE_LENGTH (TYPE))
+  { \
+    if (TYPE_CODE (TYPE) == TYPE_CODE_FLT) \
+      memcpy ((VALBUF), \
+	      ((char *)(REGBUF)) + REGISTER_BYTE (FP4_REGNUM), \
+	      TYPE_LENGTH (TYPE)); \
+    else \
+      memcpy ((VALBUF), \
+	      (char *)(REGBUF) + REGISTER_BYTE (28) + \
+	      (TYPE_LENGTH (TYPE) >= 4 ? 0 : 4 - TYPE_LENGTH (TYPE)), \
+	      TYPE_LENGTH (TYPE)); \
+  }
 
 /* Write into appropriate registers a function return value
-   of type TYPE, given in virtual format.  */
+   of type TYPE, given in virtual format.
+
+   For software floating point the return value goes into the integer
+   registers.  But we don't have any flag to key this on, so we always
+   store the value into the integer registers, and if it's a float value,
+   then we put it in the float registers too.  */
 
 #define STORE_RETURN_VALUE(TYPE,VALBUF) \
-  write_register_bytes ((TYPE_LENGTH(TYPE) > 4 \
+  write_register_bytes (REGISTER_BYTE (28),(VALBUF), TYPE_LENGTH (TYPE)) ; \
+  write_register_bytes ((TYPE_CODE(TYPE) == TYPE_CODE_FLT \
 			 ? REGISTER_BYTE (FP4_REGNUM) \
 			 : REGISTER_BYTE (28)),		\
 			(VALBUF), TYPE_LENGTH (TYPE))
@@ -246,7 +294,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    the address in which a function should return its structure value,
    as a CORE_ADDR (or an expression that can be used as one).  */
 
-#define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) (*(int *)((REGBUF) + 28))
+#define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) \
+  (*(int *)((REGBUF) + REGISTER_BYTE (28)))
 
 /*
  * This macro defines the register numbers (from REGISTER_NAMES) that
@@ -328,6 +377,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    restoring all saved registers.  */
 #define POP_FRAME  hppa_pop_frame ()
 
+#define INSTRUCTION_SIZE 4
+
+#ifndef PA_LEVEL_0
+
+/* Non-level zero PA's have space registers (but they don't always have
+   floating-point, do they????  */
+
 /* This sequence of words is the instructions
 
 ; Call stack frame has already been built by gdb. Since we could be calling 
@@ -344,11 +400,11 @@ call_dummy
 	fldds -4(0, r1), fr5
 	fldws -8(0, r1), fr6
 	fldds -12(0, r1), fr7
-	ldil 0, r22			; target will be placed here.
-	ldo 0(r22), r22
+	ldil 0, r22			; FUNC_LDIL_OFFSET must point here
+	ldo 0(r22), r22			; FUNC_LDO_OFFSET must point here
 	ldsid (0,r22), r4
-	ldil 0, r1			; _sr4export will be placed here.
-	ldo 0(r1), r1
+	ldil 0, r1			; SR4EXPORT_LDIL_OFFSET must point here
+	ldo 0(r1), r1			; SR4EXPORT_LDO_OFFSET must point here
 	ldsid (0,r1), r20
 	combt,=,n r4, r20, text_space	; If target is in data space, do a
 	ble 0(sr5, r22)			; "normal" procedure call
@@ -358,7 +414,7 @@ call_dummy
 	ble,n 0(sr0, r22)
 text_space				; Otherwise, go through _sr4export,
 	ble (sr4, r1)			; which will return back here.
-	stw 31,-24(r30)
+	stw r31,-24(r30)
 	break 4, 8
 	mtsp r21, sr0
 	ble,n 0(sr0, r22)
@@ -390,6 +446,14 @@ text_space				; Otherwise, go through _sr4export,
    avoid the kernel bug.  The second NOP is needed to keep the call
    dummy 8 byte aligned.  */
 
+/* Define offsets into the call dummy for the target function address */
+#define FUNC_LDIL_OFFSET (INSTRUCTION_SIZE * 9)
+#define FUNC_LDO_OFFSET (INSTRUCTION_SIZE * 10)
+
+/* Define offsets into the call dummy for the _sr4export address */
+#define SR4EXPORT_LDIL_OFFSET (INSTRUCTION_SIZE * 12)
+#define SR4EXPORT_LDO_OFFSET (INSTRUCTION_SIZE * 13)
+
 #define CALL_DUMMY {0x4BDA3FB9, 0x4BD93FB1, 0x4BD83FA9, 0x4BD73FA1,\
                     0x37C13FB9, 0x24201004, 0x2C391005, 0x24311006,\
                     0x2C291007, 0x22C00000, 0x36D60000, 0x02C010A4,\
@@ -398,7 +462,42 @@ text_space				; Otherwise, go through _sr4export,
                     0xe6c00002, 0xe4202000, 0x6bdf3fd1, 0x00010004,\
                     0x00151820, 0xe6c00002, 0x08000240, 0x08000240}
 
-#define CALL_DUMMY_LENGTH 112
+#define CALL_DUMMY_LENGTH (INSTRUCTION_SIZE * 28)
+
+#else /* defined PA_LEVEL_0 */
+
+/* This is the call dummy for a level 0 PA.  Level 0's don't have space
+   registers (or floating point??), so we skip all that inter-space call stuff,
+   and avoid touching the fp regs.
+
+call_dummy
+
+	ldw -36(%sp), %arg0
+	ldw -40(%sp), %arg1
+	ldw -44(%sp), %arg2
+	ldw -48(%sp), %arg3
+	ldil 0, %r31			; FUNC_LDIL_OFFSET must point here
+	ldo 0(%r31), %r31		; FUNC_LDO_OFFSET must point here
+	ble 0(%sr0, %r31)
+	copy %r31, %r2
+	break 4, 8 
+	nop				; restore_pc_queue expects these
+	bv,n 0(%r22)			; instructions to be here...
+	nop
+*/
+
+/* Define offsets into the call dummy for the target function address */
+#define FUNC_LDIL_OFFSET (INSTRUCTION_SIZE * 4)
+#define FUNC_LDO_OFFSET (INSTRUCTION_SIZE * 5)
+
+#define CALL_DUMMY {0x4bda3fb9, 0x4bd93fb1, 0x4bd83fa9, 0x4bd73fa1,\
+		    0x23e00000, 0x37ff0000, 0xe7e00000, 0x081f0242,\
+		    0x00010004, 0x08000240, 0xeac0c002, 0x08000240}
+
+#define CALL_DUMMY_LENGTH (INSTRUCTION_SIZE * 12)
+
+#endif
+
 #define CALL_DUMMY_START_OFFSET 0
 
 /*

@@ -15,7 +15,7 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with this software; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.	*/
+the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.	*/
 
 /* FIXME-someday: perhaps the ,a's and such should be embedded in the
    instruction's name rather than the args.  This would make gas faster, pinsn
@@ -587,6 +587,7 @@ struct sparc_opcode sparc_opcodes[] = {
 { "prefetcha",	F3(3, 0x3d, 1), F3(~3, ~0x3d, ~1)|SIMM13(~0),	"[1]o,d", 0, v9 }, /* prefetcha [rs1+0],d */
 
  /* The 1<<12 is a long story.  It is necessary.  For more info, please contact rich@cygnus.com */
+ /* FIXME: 'i' is wrong, need new letter for 5 bit unsigned constants.  */
 { "sll",	F3(2, 0x25, 0), F3(~2, ~0x25, ~0)|(1<<12)|ASI(~0),	"1,2,d", 0, v6 },
 { "sll",	F3(2, 0x25, 1), F3(~2, ~0x25, ~1)|(1<<12),		"1,i,d", 0, v6 },
 { "sra",	F3(2, 0x27, 0), F3(~2, ~0x27, ~0)|(1<<12)|ASI(~0),	"1,2,d", 0, v6 },
@@ -594,12 +595,13 @@ struct sparc_opcode sparc_opcodes[] = {
 { "srl",	F3(2, 0x26, 0), F3(~2, ~0x26, ~0)|(1<<12)|ASI(~0),	"1,2,d", 0, v6 },
 { "srl",	F3(2, 0x26, 1), F3(~2, ~0x26, ~1)|(1<<12),		"1,i,d", 0, v6 },
 
+ /* FIXME: 'j' is wrong, need new letter for 6 bit unsigned constants.  */
 { "sllx",	F3(2, 0x25, 0)|(1<<12), F3(~2, ~0x25, ~0)|(ASI(~0)^(1<<12)),	"1,2,d", 0, v9 },
-{ "sllx",	F3(2, 0x25, 1)|(1<<12), F3(~2, ~0x25, ~1),		"1,i,d", 0, v9 },
+{ "sllx",	F3(2, 0x25, 1)|(1<<12), F3(~2, ~0x25, ~1)|(0x3f<<6),		"1,j,d", 0, v9 },
 { "srax",	F3(2, 0x27, 0)|(1<<12), F3(~2, ~0x27, ~0)|(ASI(~0)^(1<<12)),	"1,2,d", 0, v9 },
-{ "srax",	F3(2, 0x27, 1)|(1<<12), F3(~2, ~0x27, ~1),		"1,i,d", 0, v9 },
+{ "srax",	F3(2, 0x27, 1)|(1<<12), F3(~2, ~0x27, ~1)|(0x3f<<6),		"1,j,d", 0, v9 },
 { "srlx",	F3(2, 0x26, 0)|(1<<12), F3(~2, ~0x26, ~0)|(ASI(~0)^(1<<12)),	"1,2,d", 0, v9 },
-{ "srlx",	F3(2, 0x26, 1)|(1<<12), F3(~2, ~0x26, ~1),		"1,i,d", 0, v9 },
+{ "srlx",	F3(2, 0x26, 1)|(1<<12), F3(~2, ~0x26, ~1)|(0x3f<<6),		"1,j,d", 0, v9 },
 
 { "mulscc",	F3(2, 0x24, 0), F3(~2, ~0x24, ~0)|ASI(~0),	"1,2,d", 0, v6 },
 { "mulscc",	F3(2, 0x24, 1), F3(~2, ~0x24, ~1),		"1,i,d", 0, v6 },

@@ -15,12 +15,16 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "complaints.h"
 #include "gdbcmd.h"
+#ifdef ANSI_PROTOTYPES
+#include <stdarg.h>
+#else
 #include <varargs.h>
+#endif
 
 /* Structure to manage complaints about symbol file contents.  */
 
@@ -59,14 +63,23 @@ extern int info_verbose;
 
 /* VARARGS */
 void
+#ifdef ANSI_PROTOTYPES
+complain (struct complaint *complaint, ...)
+#else
 complain (va_alist)
      va_dcl
+#endif
 {
   va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, complaint);
+#else
   struct complaint *complaint;
 
   va_start (args);
   complaint = va_arg (args, struct complaint *);
+#endif
+
   complaint -> counter++;
   if (complaint -> next == NULL)
     {

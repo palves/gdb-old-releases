@@ -15,14 +15,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "m68k/xm-sun3.h"
 #define FPU
-
-/* SunOS 4.x has memory mapped files.  */
-
-#define HAVE_MMAP
 
 /* If you expect to use the mmalloc package to obtain mapped symbol files,
    for now you have to specify some parameters that determine how gdb places

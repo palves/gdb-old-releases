@@ -1,4 +1,4 @@
-/* i386-nlmstub.c -- NLM debugging stub for the i386.
+/* gdbserve.c -- NLM debugging stub for Novell NetWare.
 
    This is originally based on an m68k software stub written by Glenn
    Engel at HP, but has changed quite a bit.  It was modified for the
@@ -6,10 +6,10 @@
    NetWare by Ian Lance Taylor, Cygnus Support.
 
    This code is intended to produce an NLM (a NetWare Loadable Module)
-   to run under NetWare on an i386 platform.  To create the NLM,
-   compile this code into an object file using the NLM SDK on any i386
-   host, and use the nlmconv program (available in the GNU binutils)
-   to transform the resulting object file into an NLM.  */
+   to run under Novell NetWare.  To create the NLM, compile this code
+   into an object file using the NLM SDK on any i386 host, and use the
+   nlmconv program (available in the GNU binutils) to transform the
+   resulting object file into an NLM.  */
 
 /****************************************************************************
 
@@ -118,20 +118,20 @@ struct DBG_LoadDefinitionStructure
 #define LO_AUTO_LOAD  		0x0008
 
 /* Loader returned error codes */
-#define LOAD_COULD_NOT_FIND_FILE			1
-#define LOAD_ERROR_READING_FILE				2
-#define LOAD_NOT_NLM_FILE_FORMAT			3
-#define LOAD_WRONG_NLM_FILE_VERSION			4
+#define LOAD_COULD_NOT_FIND_FILE		1
+#define LOAD_ERROR_READING_FILE			2
+#define LOAD_NOT_NLM_FILE_FORMAT		3
+#define LOAD_WRONG_NLM_FILE_VERSION		4
 #define LOAD_REENTRANT_INITIALIZE_FAILURE	5
 #define LOAD_CAN_NOT_LOAD_MULTIPLE_COPIES	6
-#define LOAD_ALREADY_IN_PROGRESS			7
-#define LOAD_NOT_ENOUGH_MEMORY				8
-#define LOAD_INITIALIZE_FAILURE				9
+#define LOAD_ALREADY_IN_PROGRESS		7
+#define LOAD_NOT_ENOUGH_MEMORY			8
+#define LOAD_INITIALIZE_FAILURE			9
 #define LOAD_INCONSISTENT_FILE_FORMAT		10
 #define LOAD_CAN_NOT_LOAD_AT_STARTUP		11
 #define LOAD_AUTO_LOAD_MODULES_NOT_LOADED	12
-#define LOAD_UNRESOLVED_EXTERNAL			13
-#define LOAD_PUBLIC_ALREADY_DEFINED			14
+#define LOAD_UNRESOLVED_EXTERNAL		13
+#define LOAD_PUBLIC_ALREADY_DEFINED		14
 /****************************************************/
 
 /* The main thread ID.  */
@@ -529,9 +529,13 @@ handle_exception (frame)
   static struct DBG_LoadDefinitionStructure *ldinfo = 0;
   static unsigned char first_insn[BREAKPOINT_SIZE]; /* The first instruction in the program.  */
 
-  /* Apparently the bell can sometimes be ringing at this point, and
-     should be stopped.  */
+#if 0
+  /* According to some documentation from Novell, the bell sometimes
+     may be ringing at this point.  This can be stopped on Netware 4
+     systems by calling the undocumented StopBell() function. */
+
   StopBell ();
+#endif
 
   if (remote_debug)
     {
@@ -862,6 +866,18 @@ main (argc, argv)
 	      exit (1);
 	    }
 	}
+      else if (strnicmp(*argv, "BOARD=", 6) == 0) 
+        {
+	  bp = *argv + 6;
+	  board = strtol (bp, &ep, 0);
+	  if (ep == bp || *ep != '\0') 
+	    {
+	      fprintf (stderr, "%s: %s: expected integer argument\n", 
+		       progname, bp);
+	      exit(1);
+	    }
+	}
+#if 1				/* FIXME: this option has been depricated */
       else if (strnicmp(*argv, "NODE=", 5) == 0)
 	{
 	  bp = *argv + 5;
@@ -873,6 +889,7 @@ main (argc, argv)
 	      exit(1);
 	    }
 	}
+#endif
       else if (strnicmp(*argv, "PORT=", 5) == 0)
 	{
 	  bp = *argv + 5;

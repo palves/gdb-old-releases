@@ -1,0 +1,9 @@
+Fri Mar 17 11:51:20 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* README: Clarify instructions.
+	* fi: Remove.
+
+Wed Dec 21 15:45:53 1994  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* MoveIfChange, README, fi, forward-include, open-brace,
+        tr-7to8-src: New files.

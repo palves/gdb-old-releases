@@ -1,0 +1,42 @@
+'\"
+'\" Copyright (c) 1993 The Regents of the University of California.
+'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\"
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+'\" 
+'\" @(#) unknown.n 1.3 94/12/17 16:19:07
+'\" 
+.so man.macros
+.HS unknown tcl
+.BS
+'\" Note:  do not modify the .SH NAME line immediately below!
+.SH NAME
+unknown \- Handle attempts to use non-existent commands
+.SH SYNOPSIS
+\fBunknown \fIcmdName \fR?\fIarg arg ...\fR?
+.BE
+
+.SH DESCRIPTION
+.PP
+This command doesn't actually exist as part of Tcl, but Tcl will
+invoke it if it does exist.
+If the Tcl interpreter encounters a command name for which there
+is not a defined command, then Tcl checks for the existence of
+a command named \fBunknown\fR.
+If there is no such command, then the interpreter returns an
+error.
+If the \fBunknown\fR command exists, then it is invoked with
+arguments consisting of the fully-substituted name and arguments
+for the original non-existent command.
+The \fBunknown\fR command typically does things like searching
+through library directories for a command procedure with the name
+\fIcmdName\fR, or expanding abbreviated command names to full-length,
+or automatically executing unknown commands as sub-processes.
+In some cases (such as expanding abbreviations) \fBunknown\fR will
+change the original command slightly and then (re-)execute it.
+The result of the \fBunknown\fR command is used as the result for
+the original non-existent command.
+
+.SH KEYWORDS
+error, non-existent command

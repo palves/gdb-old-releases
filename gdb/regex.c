@@ -13,7 +13,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* To test, compile with -Dtest.
  This Dtestable feature turns this into a self-contained program
@@ -33,7 +33,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #else  /* not emacs */
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 
 /*
  * Define the syntax stuff, so we can do the \<...\> things.
@@ -876,6 +876,11 @@ re_compile_fastmap (bufp)
 		  fastmap[j] = 1;
 	      }
 	  break;
+	case unused:
+	case syntaxspec:
+	case notsyntaxspec:
+	default:
+	  break;
 	}
 
       /* Get here means we have successfully found the possible starting characters
@@ -1528,6 +1533,14 @@ re_match_2 (pbufp, string1, size1, string2, size2, pos, regs, mstop)
 		}
 	      while (--mcnt);
 	    }
+	  break;
+	case unused:
+	case before_dot:
+	case at_dot:
+	case after_dot:
+	case syntaxspec:
+	case notsyntaxspec:
+	default:
 	  break;
 	}
       continue;    /* Successfully matched one pattern command; keep matching */

@@ -1,7 +1,73 @@
-Thu Mar  2 17:03:10 1995  Stan Shebs  <shebs@andros.cygnus.com>
+Thu Aug  3 10:45:37 1995  Fred Fish  <fnf@cygnus.com>
 
-	* gdb.texinfo: Update copyright dates and versions, fix
-	the mention of hardware watchpoints.
+	* Update all FSF addresses except those in COPYING* files.
+
+Wed Jul 19 18:43:03 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	From Richard Earnshaw (rearnsha@armltd.co.uk):
+	* gdb.texinfo (convenience variables): Document $_exitcode.
+	(quit): Document optional expression to use as exit code.
+
+Thu Jun 22 21:27:33 1995  Victoria Mixon  <victoria@cygnus.com>
+
+	* gdb.texinfo, remote.texi: Brought up to date with various
+	GDB changes.
+
+Tue Jun 20 14:35:38 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.texinfo: Update dates and versions, fix comments about
+	hardware watchpoints in future releases and about the
+	sharedlibrary command.
+
+Mon May  8 09:30:36 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo: Remove node `XCOFF differences'.  Describe value of
+	C_FUN stab.  Other cleanups.
+
+Wed Apr 19 07:02:19 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* remote.texi (Bootstrapping): Clarify that flush_i_cache is only
+	for the sparc stub.
+
+Tue Apr 11 11:41:49 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* annotate.texi: Clarify which addresses have differing formats
+	depending on the language and which do not.
+
+Tue Mar 28 16:56:22 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* remote.texi (NetWare): Changed example to use BOARD= instead of
+	  NODE= argument to reflect correspoding change to gdbserve.nlm.
+
+Fri Mar 17 06:47:02 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Negative Type Numbers): Mention the fact that
+	GDB, as well as AIX dbx, supports the size type attribute.
+
+Thu Mar 16 12:11:32 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Negative Type Numbers): Document types -31 to -34.
+
+Mon Mar 13 16:49:13 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* gdb.texinfo (Define):  Document $arg0... arguments to commands,
+	and new 'if' and 'while' commands.
+
+Fri Feb 17 15:24:35 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* gdb.texinfo (Artificial arrays):  Note use of coerce-to-array-type.
+
+Wed Feb 15 11:59:18 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* all-cfg.texi: New flag, GDBSERVE, for NetWare's gdbserve.nlm.
+	* remote.texi (NetWare): New node, how to use gdbserve.nlm on
+	  NetWare targets.  Mostly stolen from the Server node.
+
+Fri Feb 10 20:20:08 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.texinfo (Setting): Talk about the language of a source file
+	versus the working language.  The old documentation did not match
+	what GDB did.
 
 Wed Feb  1 20:26:36 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
@@ -16,6 +82,10 @@ Tue Jan 17 14:09:03 1995  Ian Lance Taylor  <ian@sanguine.cygnus.com>
 
 	* remote.texi: Update documentation of set/show mipsfpu.
 
+Fri Jan  6 17:17:28 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdbgui.texinfo: New file, manual for GUI (gdbtk) users.
+	* Makefile.in (gdbgui.dvi, gdbgui.info): New actions.
 
 Sun Sep  4 16:47:21 1994  Stan Shebs  (shebs@andros.cygnus.com)
 

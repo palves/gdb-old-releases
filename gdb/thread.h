@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef THREAD_H
 #define THREAD_H
@@ -32,5 +32,15 @@ extern int in_thread_list PARAMS ((int pid));
 extern int pid_to_thread_id PARAMS ((int pid));
 
 extern int valid_thread_id PARAMS ((int thread));
+
+extern void load_infrun_state PARAMS ((int, CORE_ADDR *, CORE_ADDR *, char **,
+				       int *, struct breakpoint **,
+				       struct breakpoint **, CORE_ADDR *,
+				       CORE_ADDR *, CORE_ADDR *, int *, int *));
+
+extern void save_infrun_state PARAMS ((int, CORE_ADDR, CORE_ADDR, char *,
+				       int, struct breakpoint *,
+				       struct breakpoint *, CORE_ADDR,
+				       CORE_ADDR, CORE_ADDR, int, int));
 
 #endif	/* THREAD_H */

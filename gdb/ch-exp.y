@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Parse a Chill expression from text in a string,
    and return the result as a  struct expression  pointer.
@@ -101,10 +101,22 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	yylloc	chill_lloc
 #define	yyreds	chill_reds		/* With YYDEBUG defined */
 #define	yytoks	chill_toks		/* With YYDEBUG defined */
+#define yylhs	chill_yylhs
+#define yylen	chill_yylen
+#define yydefred chill_yydefred
+#define yydgoto	chill_yydgoto
+#define yysindex chill_yysindex
+#define yyrindex chill_yyrindex
+#define yygindex chill_yygindex
+#define yytable	 chill_yytable
+#define yycheck	 chill_yycheck
 
 #ifndef YYDEBUG
 #define	YYDEBUG	0		/* Default to no yydebug support */
 #endif
+
+static void
+write_lower_upper_value PARAMS ((enum exp_opcode, struct type *type));
 
 int
 yyparse PARAMS ((void));
@@ -144,43 +156,12 @@ yyerror PARAMS ((char *));
     int *ivec;
   }
 
-%token <voidval> FIXME_01
-%token <voidval> FIXME_02
-%token <voidval> FIXME_03
-%token <voidval> FIXME_04
-%token <voidval> FIXME_05
-%token <voidval> FIXME_06
-%token <voidval> FIXME_07
-%token <voidval> FIXME_08
-%token <voidval> FIXME_09
-%token <voidval> FIXME_10
-%token <voidval> FIXME_11
-%token <voidval> FIXME_12
-%token <voidval> FIXME_13
-%token <voidval> FIXME_14
-%token <voidval> FIXME_15
-%token <voidval> FIXME_16
-%token <voidval> FIXME_17
-%token <voidval> FIXME_18
-%token <voidval> FIXME_19
-%token <voidval> FIXME_20
-%token <voidval> FIXME_21
-%token <voidval> FIXME_22
-%token <voidval> FIXME_24
-%token <voidval> FIXME_25
-%token <voidval> FIXME_26
-%token <voidval> FIXME_27
-%token <voidval> FIXME_28
-%token <voidval> FIXME_29
-%token <voidval> FIXME_30
-
 %token <typed_val>	INTEGER_LITERAL
 %token <ulval>		BOOLEAN_LITERAL
 %token <typed_val>	CHARACTER_LITERAL
 %token <dval>		FLOAT_LITERAL
 %token <ssym>		GENERAL_PROCEDURE_NAME
 %token <ssym>		LOCATION_NAME
-%token <voidval>	SET_LITERAL
 %token <voidval>	EMPTINESS_LITERAL
 %token <sval>		CHARACTER_STRING_LITERAL
 %token <sval>		BIT_STRING_LITERAL
@@ -233,10 +214,12 @@ yyerror PARAMS ((char *));
 %token <voidval>	CARD
 %token <voidval>	MAX_TOKEN
 %token <voidval>	MIN_TOKEN
+%token <voidval>	ADDR_TOKEN
 %token <voidval>	SIZE
 %token <voidval>	UPPER
 %token <voidval>	LOWER
 %token <voidval>	LENGTH
+%token <voidval>	ARRAY
 
 /* Tokens which are not Chill tokens used in expressions, but rather GDB
    specific things that we recognize in the same context as Chill tokens
@@ -254,20 +237,13 @@ yyerror PARAMS ((char *));
 %type <voidval>		tuple
 %type <voidval>		slice
 %type <voidval>		expression_conversion
-%type <voidval>		value_procedure_call
 %type <voidval>		value_built_in_routine_call
-%type <voidval>		chill_value_built_in_routine_call
-%type <voidval>		start_expression
-%type <voidval>		zero_adic_operator
 %type <voidval>		parenthesised_expression
 %type <voidval>		value
-%type <voidval>		undefined_value
 %type <voidval>		expression
 %type <voidval>		conditional_expression
 %type <voidval>		then_alternative
 %type <voidval>		else_alternative
-%type <voidval>		sub_expression
-%type <voidval>		value_case_alternative
 %type <voidval>		operand_0
 %type <voidval>		operand_1
 %type <voidval>		operand_2
@@ -275,25 +251,18 @@ yyerror PARAMS ((char *));
 %type <voidval>		operand_4
 %type <voidval>		operand_5
 %type <voidval>		operand_6
-%type <voidval>		synonym_name
-%type <voidval>		value_enumeration_name
-%type <voidval>		value_do_with_name
-%type <voidval>		value_receive_name
 %type <voidval>		expression_list
 %type <tval>		mode_argument
-%type <voidval>		upper_lower_argument
-%type <voidval>		length_argument
-%type <voidval>		array_mode_name
-%type <voidval>		string_mode_name
-%type <voidval>		variant_structure_mode_name
-%type <voidval>		boolean_expression
-%type <voidval>		case_selector_list
-%type <voidval>		subexpression
-%type <voidval>		case_label_specification
-%type <voidval>		buffer_location
 %type <voidval>		single_assignment_action
 %type <tsym>		mode_name
 %type <lval>		rparen
+
+/* Not implemented:
+%type <voidval>		undefined_value
+%type <voidval>		array_mode_name
+%type <voidval>		string_mode_name
+%type <voidval>		variant_structure_mode_name
+*/
 
 %%
 
@@ -307,19 +276,10 @@ start	:	value { }
 	;
 
 value		:	expression
-			{
-			  $$ = 0;	/* FIXME */
-			}
+/*
 		|	undefined_value
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		;
-
-undefined_value	:	FIXME_01
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ ??? }
+*/
 		;
 
 /* Z.200, 4.2.2 */
@@ -349,10 +309,6 @@ access_name	:	LOCATION_NAME
 			  write_exp_elt_intern ($1);
 			  write_exp_elt_opcode (OP_INTERNALVAR); 
 			}
-  		|	FIXME_03
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		;
 
 /* Z.200, 4.2.8 */
@@ -365,6 +321,13 @@ expression_list	:	expression
 			{
 			  arglist_len++;
 			}
+		;
+
+maybe_expression_list:	/* EMPTY */
+			{
+			  arglist_len = 0;
+			}
+		|	expression_list
 		;
 
 
@@ -382,7 +345,7 @@ rparen		:	')'
 
 primitive_value	:
 			access_name
-		|	primitive_value_lparen expression_list rparen
+		|	primitive_value_lparen maybe_expression_list rparen
 			{
 			  write_exp_elt_opcode (MULTI_SUBSCRIPT);
 			  write_exp_elt_longcst ($3);
@@ -397,67 +360,31 @@ primitive_value	:
 			{
 			  write_exp_elt_opcode (UNOP_IND);
 			}
+  		|	primitive_value POINTER mode_name
+			{
+			  write_exp_elt_opcode (UNOP_CAST);
+			  write_exp_elt_type (lookup_pointer_type ($3.type));
+			  write_exp_elt_opcode (UNOP_CAST);
+			  write_exp_elt_opcode (UNOP_IND);
+			}
                 |	value_name
-			{
-			  $$ = 0;	/* FIXME */
-			}
                 |	literal
-			{
-			  $$ = 0;	/* FIXME */
-			}
                 |	tuple
-			{
-			  $$ = 0;	/* FIXME */
-			}
                 |	slice
-			{
-			  $$ = 0;	/* FIXME */
-			}
                 |	expression_conversion
-			{
-			  $$ = 0;	/* FIXME */
-			}
-                |	value_procedure_call
-			{
-			  $$ = 0;	/* FIXME */
-			}
                 |	value_built_in_routine_call
-			{
-			  $$ = 0;	/* FIXME */
-			}
+/*
                 |	start_expression
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ ??? }
                 |	zero_adic_operator
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ ??? }
+*/
                 |	parenthesised_expression
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		;
 
 /* Z.200, 5.2.3 */
 
-value_name	:	synonym_name
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		|	value_enumeration_name
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		|	value_do_with_name
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		|	value_receive_name
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		|	GENERAL_PROCEDURE_NAME
+value_name	:	GENERAL_PROCEDURE_NAME
 			{
 			  write_exp_elt_opcode (OP_VAR_VALUE);
 			  write_exp_elt_block (NULL);
@@ -494,10 +421,6 @@ literal		:	INTEGER_LITERAL
 			  write_exp_elt_type (builtin_type_double);
 			  write_exp_elt_dblcst ($1);
 			  write_exp_elt_opcode (OP_DOUBLE);
-			}
-		|	SET_LITERAL
-			{
-			  $$ = 0;	/* FIXME */
 			}
 		|	EMPTINESS_LITERAL
 			{
@@ -601,115 +524,62 @@ expression_conversion:	mode_name parenthesised_expression
 			  write_exp_elt_type ($1.type);
 			  write_exp_elt_opcode (UNOP_CAST);
 			}
-		;
-
-/* Z.200, 5.2.12 */
-
-value_procedure_call:	FIXME_05
+		|	ARRAY '(' ')' mode_name parenthesised_expression
+			/* This is pseudo-Chill, similar to C's '(TYPE[])EXPR'
+			   which casts to an artificial array. */
 			{
-			  $$ = 0;	/* FIXME */
-			}
-		;
-
-/* Z.200, 5.2.13 */
-
-value_built_in_routine_call:	chill_value_built_in_routine_call
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		;
-
-/* Z.200, 5.2.14 */
-
-start_expression:	FIXME_06
-			{
-			  $$ = 0;	/* FIXME */
-			}	/* Not in GNU-Chill */
-		;
-
-/* Z.200, 5.2.15 */
-
-zero_adic_operator:	FIXME_07
-			{
-			  $$ = 0;	/* FIXME */
+			  struct type *range_type
+			    = create_range_type ((struct type *) NULL,
+						 builtin_type_int, 0, 0);
+			  struct type *array_type
+			    = create_array_type ((struct type *) NULL,
+						 $4.type, range_type);
+			  TYPE_ARRAY_UPPER_BOUND_TYPE(array_type)
+			    = BOUND_CANNOT_BE_DETERMINED;
+			  write_exp_elt_opcode (UNOP_CAST);
+			  write_exp_elt_type (array_type);
+			  write_exp_elt_opcode (UNOP_CAST);
 			}
 		;
 
 /* Z.200, 5.2.16 */
 
 parenthesised_expression:	'(' expression ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		;
 
 /* Z.200, 5.3.2 */
 
 expression	:	operand_0
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		|	single_assignment_action
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		|	conditional_expression
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		;
 
-conditional_expression : IF boolean_expression then_alternative else_alternative FI
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		|	CASE case_selector_list OF value_case_alternative ELSE sub_expression ESAC
-			{
-			  $$ = 0;	/* FIXME */
-			}
+conditional_expression : IF expression then_alternative else_alternative FI
+			{ write_exp_elt_opcode (TERNOP_COND); }
+/*
+		|	CASE case_selector_list OF value_case_alternative ELSE expression ESAC
+			{ error ("not implemented:  CASE expression" }
+*/
 		;
 
-then_alternative:	THEN subexpression
-			{
-			  $$ = 0;	/* FIXME */
-			}
+then_alternative:	THEN expression
 		;
 
-else_alternative:	ELSE subexpression
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		|	ELSIF boolean_expression then_alternative else_alternative
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		;
-
-sub_expression	:	expression
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		;
-
-value_case_alternative:	case_label_specification ':' sub_expression ';'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+else_alternative:	ELSE expression
+		|	ELSIF expression then_alternative else_alternative
+			{ write_exp_elt_opcode (TERNOP_COND); }
 		;
 
 /* Z.200, 5.3.3 */
 
 operand_0	:	operand_1
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		|	operand_0 LOGIOR operand_1
 			{
 			  write_exp_elt_opcode (BINOP_BITWISE_IOR);
 			}
 		|	operand_0 ORIF operand_1
 			{
-			  $$ = 0;	/* FIXME */
+			  write_exp_elt_opcode (BINOP_LOGICAL_OR);
 			}
 		|	operand_0 LOGXOR operand_1
 			{
@@ -720,25 +590,19 @@ operand_0	:	operand_1
 /* Z.200, 5.3.4 */
 
 operand_1	:	operand_2
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		|	operand_1 LOGAND operand_2
 			{
 			  write_exp_elt_opcode (BINOP_BITWISE_AND);
 			}
 		|	operand_1 ANDIF operand_2
 			{
-			  $$ = 0;	/* FIXME */
+			  write_exp_elt_opcode (BINOP_LOGICAL_AND);
 			}
 		;
 
 /* Z.200, 5.3.5 */
 
 operand_2	:	operand_3
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		|	operand_2 '=' operand_3
 			{
 			  write_exp_elt_opcode (BINOP_EQUAL);
@@ -773,9 +637,6 @@ operand_2	:	operand_3
 /* Z.200, 5.3.6 */
 
 operand_3	:	operand_4
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		|	operand_3 '+' operand_4
 			{
 			  write_exp_elt_opcode (BINOP_ADD);
@@ -793,9 +654,6 @@ operand_3	:	operand_4
 /* Z.200, 5.3.7 */
 
 operand_4	:	operand_5
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		|	operand_4 '*' operand_5
 			{
 			  write_exp_elt_opcode (BINOP_MUL);
@@ -817,9 +675,6 @@ operand_4	:	operand_5
 /* Z.200, 5.3.8 */
 
 operand_5	:	operand_6
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		|	'-' operand_6
 			{
 			  write_exp_elt_opcode (UNOP_NEG);
@@ -842,14 +697,9 @@ operand_6	:	POINTER primitive_value
 			{
 			  write_exp_elt_opcode (UNOP_ADDR);
 			}
-		|	RECEIVE buffer_location
-			{
-			  $$ = 0;	/* FIXME */
-			}
+		|	RECEIVE expression
+			{ error ("not implemented:  RECEIVE expression"); }
 		|	primitive_value
-			{
-			  $$ = 0;	/* FIXME */
-			}
 		;
 
 
@@ -864,35 +714,27 @@ single_assignment_action :
 
 /* Z.200, 6.20.3 */
 
-chill_value_built_in_routine_call :
+value_built_in_routine_call :
 			NUM '(' expression ')'
 			{
-			  $$ = 0;	/* FIXME */
+			  write_exp_elt_opcode (UNOP_CAST);
+			  write_exp_elt_type (builtin_type_int);
+			  write_exp_elt_opcode (UNOP_CAST);
 			}
 		|	PRED '(' expression ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ error ("not implemented:  PRED builtin function"); }
 		|	SUCC '(' expression ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ error ("not implemented:  SUCC builtin function"); }
+		|	ADDR_TOKEN '(' expression ')'
+			{ write_exp_elt_opcode (UNOP_ADDR); }
 		|	ABS '(' expression ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ error ("not implemented:  ABS builtin function"); }
 		|	CARD '(' expression ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ error ("not implemented:  CARD builtin function"); }
 		|	MAX_TOKEN '(' expression ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ error ("not implemented:  MAX builtin function"); }
 		|	MIN_TOKEN '(' expression ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ error ("not implemented:  MIN builtin function"); }
 		|	SIZE '(' expression ')'
 			{ write_exp_elt_opcode (UNOP_SIZEOF); }
 		|	SIZE '(' mode_argument ')'
@@ -900,71 +742,34 @@ chill_value_built_in_routine_call :
 			  write_exp_elt_type (builtin_type_int);
 			  write_exp_elt_longcst ((LONGEST) TYPE_LENGTH ($3));
 			  write_exp_elt_opcode (OP_LONG); }
-		|	UPPER '(' upper_lower_argument ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		|	LOWER '(' upper_lower_argument ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		|	LENGTH '(' length_argument ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+		|	LOWER '(' mode_argument ')'
+			{ write_lower_upper_value (UNOP_LOWER, $3); }
+		|	UPPER '(' mode_argument ')'
+			{ write_lower_upper_value (UNOP_UPPER, $3); }
+		|	LOWER '(' expression ')'
+			{ write_exp_elt_opcode (UNOP_LOWER); }
+		|	UPPER '(' expression ')'
+			{ write_exp_elt_opcode (UNOP_UPPER); }
+		|	LENGTH '(' expression ')'
+			{ write_exp_elt_opcode (UNOP_LENGTH); }
 		;
 
 mode_argument :		mode_name
 			{
 			  $$ = $1.type;
 			}
+/*
 		|	array_mode_name '(' expression ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ ??? }
 		|	string_mode_name '(' expression ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ ??? }
 		|	variant_structure_mode_name '(' expression_list ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ ??? }
+*/
 		;
 
 mode_name :		TYPENAME
 		;
-
-upper_lower_argument :	expression
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		|	mode_name
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		;
-
-length_argument :	expression
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		;
-
-/* Things which still need productions... */
-
-array_mode_name	 	:	FIXME_08 { $$ = 0; }
-string_mode_name 	:	FIXME_09 { $$ = 0; }
-variant_structure_mode_name:	FIXME_10 { $$ = 0; }
-synonym_name	 	:	FIXME_11 { $$ = 0; }
-value_enumeration_name 	:	FIXME_12 { $$ = 0; }
-value_do_with_name 	:	FIXME_13 { $$ = 0; }
-value_receive_name 	:	FIXME_14 { $$ = 0; }
-boolean_expression 	:	FIXME_26 { $$ = 0; }
-case_selector_list 	:	FIXME_27 { $$ = 0; }
-subexpression 		:	FIXME_28 { $$ = 0; }
-case_label_specification:	FIXME_29 { $$ = 0; }
-buffer_location 	:	FIXME_30 { $$ = 0; }
 
 %%
 
@@ -1710,6 +1515,7 @@ struct token
 
 static const struct token idtokentab[] =
 {
+    { "array", ARRAY },
     { "length", LENGTH },
     { "lower", LOWER },
     { "upper", UPPER },
@@ -1731,6 +1537,7 @@ static const struct token idtokentab[] =
     { "in", IN },
     { "or", LOGIOR },
     { "up", UP },
+    { "addr", ADDR_TOKEN },
     { "null", EMPTINESS_LITERAL }
 };
 
@@ -1975,6 +1782,20 @@ yylex ()
       }
 
     return (ILLEGAL_TOKEN);
+}
+
+static void
+write_lower_upper_value (opcode, type)
+     enum exp_opcode opcode;  /* Either UNOP_LOWER or UNOP_UPPER */
+     struct type *type;
+{
+  extern LONGEST type_lower_upper ();
+  struct type *result_type;
+  LONGEST val = type_lower_upper (opcode, type, &result_type);
+  write_exp_elt_opcode (OP_LONG);
+  write_exp_elt_type (result_type);
+  write_exp_elt_longcst (val);
+  write_exp_elt_opcode (OP_LONG);
 }
 
 void

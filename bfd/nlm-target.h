@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define nlm_core_file_p _bfd_dummy_target
 
@@ -28,6 +28,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define nlm_get_lineno _bfd_nosymbols_get_lineno
 #define nlm_find_nearest_line _bfd_nosymbols_find_nearest_line
 #define nlm_bfd_make_debug_symbol _bfd_nosymbols_bfd_make_debug_symbol
+#define nlm_read_minisymbols _bfd_generic_read_minisymbols
+#define nlm_minisymbol_to_symbol _bfd_generic_minisymbol_to_symbol
 
 #define nlm_get_reloc_upper_bound nlmNAME(get_reloc_upper_bound)
 #define nlm_canonicalize_reloc nlmNAME(canonicalize_reloc)
@@ -42,6 +44,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define nlm_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
 #define nlm_bfd_link_add_symbols _bfd_generic_link_add_symbols
 #define nlm_bfd_final_link _bfd_generic_final_link
+#define nlm_bfd_link_split_section _bfd_generic_link_split_section
 
 /* This structure contains everything that BFD knows about a target.
    It includes things like its byte order, name, what routines to call

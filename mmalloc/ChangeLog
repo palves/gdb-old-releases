@@ -1,3 +1,34 @@
+Tue Oct 10 11:04:47 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (BISON):  Remove macro.
+
+Thu Aug  3 10:45:37 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Update all FSF addresses except those in COPYING* files
+	and shar archive of original FSF files.
+
+Mon Jun 12 12:11:57 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* Makefile.in (distclean, realclean): Remove config.cache and
+	  config.log.
+
+Wed May 17 17:47:44 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* Makefile.in (Makefile): Added config.status to dependency list.
+	  (config.status): New target.
+
+Fri May  5 15:17:53 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* mmap-sup.c: Removed munmap prototype.  Some systems have a
+	  slightly different prototype.
+
+Wed May  3 17:18:13 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* Makefile.in, configure.in: Converted to use autoconf.
+	* configure: New file, generated with autoconf 2.3.
+	* config/{mh-go32, mh-irix, mh-ncr3000, mh-sunos4, 
+	  mh-sysv4}: Removed.
+
 Thu Nov  3 23:55:21 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
 
 	* Makefile.in (install-info): Name destination file correctly,

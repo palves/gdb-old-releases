@@ -14,14 +14,14 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Z8KSIM; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with Z8KZIM; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include <ansidecl.h>
 #include "sim.h"
 #include "tm.h"
 #include "signal.h"
-#include "remote-sim.h"
+#include "../../gdb/remote-sim.h"
 
 void
 sim_store_register (regno, value)
@@ -113,7 +113,7 @@ sim_stop_reason (reason, sigrc)
       *sigrc = SIGTRAP;
       break;
     case SIM_BAD_SYSCALL:
-      *sigrc = SIGSYS;
+      *sigrc = SIGILL;
       break;
     case SIM_BAD_ALIGN:
       *sigrc = SIGSEGV;
@@ -174,4 +174,11 @@ void
 sim_kill ()
 {
   /* nothing to do */
+}
+
+void
+sim_do_command (cmd)
+     char *cmd;
+{
+
 }

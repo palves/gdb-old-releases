@@ -1,0 +1,274 @@
+Tcl
+
+by John Ousterhout
+john.ousterhout@eng.sun.com
+
+@(#) README 1.8 95/01/10 09:42:25
+
+1. Introduction
+---------------
+
+This directory contains the sources and documentation for Tcl, an
+embeddable tool command language.  The information here corresponds
+to release 7.4b2 (a beta release of Tcl 7.4).  This release contains
+many bug fixes and a few new features; it should be backwards
+compatible with Tcl 7.3 except for one change related to Tcl_AppInit
+(see below for details).
+
+2. Documentation
+----------------
+
+The best way to get started is to read "the Tcl book":
+
+    Title:			Tcl and the Tk Toolkit
+    Author:			John K. Ousterhout
+    Publisher:			Addison-Wesley
+    ISBN:			0-201-63337-X
+
+The "doc" subdirectory in this release contains a complete set of reference
+manual entries for Tcl.  Files with extension ".1" are for programs (for
+example, tclsh.1); files with extension ".3" are for C library procedures;
+and files with extension ".n" describe Tcl commands.  The file "doc/Tcl.n"
+gives a quick summary of the Tcl language syntax.  To print any of the man
+pages, cd to the "doc" directory and invoke your favorite variant of
+troff using the normal -man macros, for example
+
+		ditroff -man Tcl.n
+
+to print Tcl.n.  If Tcl has been installed correctly and your "man"
+program supports it, you should be able to access the Tcl manual entries
+using the normal "man" mechanisms, such as
+
+		man Tcl
+
+3. Compiling and installing Tcl
+-------------------------------
+
+This release should compile and run either "out of the box" or with
+trivial changes on any UNIX-like system that approximates POSIX, BSD,
+or System V.  I know that it runs on workstations from Sun, H-P, and
+DEC.  To compile Tcl, do the following:
+
+    (a) Check for patches.  Look in the FTP directory from which you
+        retrieved the base distribution and see if there are files with
+	names like tcl7.4p1.patch, tcl7.4p2patch, etc.  These files may
+	also have .Z extensions to indicate compression.  If you find
+	any patch files, apply them to the source directory in order
+	from "p1" up.  To apply an uncompressed patch file such as
+	tcl7.4p1.patch, invoke a shell command like the following from
+	the directory containing this file:
+	    patch -p < tcl7.4p1.patch
+	If the patch file is compressed, invoke a command like the following:
+	    zcat tcl7.4p2.patch.Z | patch -p
+
+    (b) Type "./configure" in this directory.  This runs a configuration
+	script created by GNU autoconf, which configures Tcl for your
+	system and creates a Makefile.  The configure script allows you
+	to customize the Tcl configuration for your site;  for details on
+	how you can do this, check out the autoconf documenation (not
+	included here).
+
+    (c) Type "make".  This will create a library archive called "libtcl.a"
+	and an interpreter application called "tclsh" that allows you to type
+	Tcl commands interactively or execute script files.
+
+    (d) If the make fails then you'll have to personalize the Makefile
+        for your site or possibly modify the distribution in other ways.
+	First check the file "porting.notes" to see if there are hints
+	for compiling on your system.  If you need to modify Makefile,
+	there are comments at the beginning of it that describe the things
+	you might want to change and how to change them.
+
+    (e) Type "make install" to install Tcl binaries and script files in
+        standard places.  You'll need write permission on /usr/local to
+	do this.  See the Makefile for details on where things get
+	installed.
+
+    (f) At this point you can play with Tcl by invoking the "tclsh"
+	program and typing Tcl commands.  However, if you haven't installed
+	Tcl then you'll first need to set your TCL_LIBRARY variable to
+	hold the full path name of the "library" subdirectory.
+
+If you have trouble compiling Tcl, I'd suggest looking at the file
+"porting.notes".  It contains information that people have sent me about
+changes they had to make to compile Tcl in various environments.  I make
+no guarantees that this information is accurate, complete, or up-to-date,
+but you may find it useful.  If you get Tcl running on a new configuration,
+I'd be happy to receive new information to add to "porting.notes".  I'm
+also interested in hearing how to change the configuration setup so that
+Tcl compiles on additional platforms "out of the box".
+
+4. Test suite
+-------------
+
+There is a relatively complete test suite for all of the Tcl core in
+the subdirectory "tests".  To use it just type "make test" in this
+directory.  You should then see a printout of the test files processed.
+If any errors occur, you'll see a much more substantial printout for
+each error.  See the README file in the "tests" directory for more
+information on the test suite.
+
+The Tcl test suite is very sensitive to proper implementation of
+ANSI C library procedures such as sprintf and sscanf.  If the test
+suite generates errors, most likely they are due to non-conformance
+of your system's ANSI C library;  such problems are unlikely to
+affect any real applications so it's probably safe to ignore them.
+
+5. Additional release information
+---------------------------------
+
+We're in the process of setting up a collection of Web pages for Tcl and
+Tk.  It should become available sometime early in January 1994.  Initially
+the Web information will be available under the URL
+    http://playground.sun.com/~ouster
+but eventually it will move to one of the following URLs:
+    http://www.smli.com/tcl
+    http://www.smli.com/research/tcl
+    http://www.smli.com/research/~ouster
+The Web pages will include release updates, reports on bug fixes and
+porting issues, and other useful information.  Check them out!
+
+6. Summary of changes in recent releases
+----------------------------------------
+
+This is the second beta release of Tcl 7.4.  Compared to Tcl 7.4b1,
+this release contains only a few bug fixes and no new features.
+
+Tcl 7.4 is a minor release.  There are many bug fixes (most of them
+minor), but only a few new features and just one potential
+incompatibility.  For complete information on what has changed, see
+the file "changes".
+
+The one incompatible change is that Tcl no longer provides a "main"
+procedure by default.  What used to be "main" is now called "Tcl_Main",
+and each application needs to provide a "main" that calls "Tcl_Main".
+Typically this is done in the tclAppInit.c file;  see the tclAppInit.c
+file in the distribution for an example.
+
+Here is a summary of the new features in Tcl 7.4:
+
+    1. Added new "subst" command for making $ and [] substitutions on
+    an strings.
+
+    2. The "array" command has several new features:
+	- "get" and "set" commands for conversion between arrays
+	  and strings.
+	- "exists" command for checking for array element existence.
+	- "names" and "size" commands now treat a non-existent array
+	  the same as an empty one.
+	- "names" takes an optional pattern argument.
+
+    3. "lindex", "linsert", "lrange", and "lreplace" all accept
+    "end" as an index.
+
+    4. Expressions support unary "+".
+
+    5. The "string" command has new "wordstart" and "wordend" options.
+
+    6. Tcl now exports the procedures Tcl_RegExpCompile, Tcl_RegExpExec,
+    and Tcl_RegExpRange for C-level access to pattern matching.
+
+    7. When an error occurs while creating a pipeline with "open", it
+    is returned immediately as the result of the "open" rather than being
+    delayed until the "close" command.
+
+    8. "regsub" now returns a count of the number of matches and
+    replacements, rather than 0/1.
+
+
+7. Tcl newsgroup
+-----------------
+
+There is a network news group "comp.lang.tcl" intended for the exchange
+of information about Tcl, Tk, and related applications.  Feel free to use
+the newsgroup both for general information questions and for bug reports.
+I read the newsgroup and will attempt to fix bugs and problems reported
+to it.
+
+8. Tcl contributed archive
+--------------------------
+
+Many people have created exciting packages and applications based on Tcl
+and made them freely available to the Tcl community.  An archive of these
+contributions is kept on the machine ftp.aud.alcatel.com.  You can
+access the archive using anonymous FTP;  the Tcl contributed archive is
+in the directory "/tcl".  The archive also contains several FAQ ("frequently
+asked questions") documents that provide solutions to problems commonly
+encountered by TCL newcomers.
+
+9. Support and bug fixes
+------------------------
+
+We're very interested in receiving bug reports and suggestions for
+improvements.  I suggest sending this information to the comp.lang.tcl
+newsgroup rather than to me.  We'll see anything on comp.lang.tcl,
+and in addition someone else who reads comp.lang.tcl may be able to
+offer a solution.  Bugs usually get fixed in 1-3 weeks, but enhancements
+may take a while and may not happen at all unless there is widespread
+support for them (I'm trying to slow the rate at which Tcl turns into
+a kitchen sink).  It's almost impossible to make incompatible changes
+to Tcl at this point.
+
+When reporting bugs, please provide a short tclsh script that we can
+use to reproduce the bug.  Make sure that the script runs with a
+bare-bones tclsh and doesn't depend on any extensions or other
+programs, particularly those that exist only  at your site.  Also,
+please include three additional pieces of information with the
+script:
+    (a) how do we use the script to make the problem happen (e.g.
+	what things do we click on, in what order)?
+    (b) what happens when you do these things (presumably this is
+        undesirable)?
+    (c) what did you expect to happen instead?
+
+The Tcl community is too large for me to provide much individual
+support for users.  If you need help I suggest that you post questions
+to comp.lang.tcl.  I read the newsgroup and will attempt to answer
+esoteric questions for which no-one else is likely to know the answer.
+In addition, Tcl support and training are available commercially from
+NeoSoft ("info@neosoft.com") and from Computerized Processes Unlimited
+("gwl@cpu.com").
+
+9. Tcl release organization
+---------------------------
+
+Each Tcl release is identified by two numbers separated by a dot, e.g.
+6.7 or 7.0.  If a new release contains changes that are likely to break
+existing C code or Tcl scripts then the major release number increments
+and the minor number resets to zero: 6.0, 7.0, etc.  If a new release
+contains only bug fixes and compatible changes, then the minor number
+increments without changing the major number, e.g. 7.1, 7.2, etc.  If
+you have C code or Tcl scripts that work with release X.Y, then they
+should also work with any release X.Z as long as Z > Y.
+
+Beta releases have an additional suffix of the form bx.  For example,
+Tcl 7.0b1 is the first beta release of Tcl version 7.0, Tcl 7.0b2 is
+the second beta release, and so on.  A beta release is an initial
+version of a new release, used to fix bugs and bad features before
+declaring the release stable.  Each new release will be preceded by
+one or more beta releases.  We hope that lots of people will try out
+the beta releases and report problems back to me.  We'll make new beta
+releases to fix the problems, until eventually there is a beta release
+that appears to be stable.  Once this occurs we'll remove the beta
+suffix so that the last beta release becomes the official release.
+
+If a new release contains incompatibilities (e.g. 7.0) then we can't
+promise to maintain compatibility among its beta releases.  For example,
+release 7.0b2 may not be backward compatible with 7.0b1.  we'll try
+to minimize incompatibilities between beta releases, but if a major
+problem turns up then we'll fix it even if it introduces an
+incompatibility.  Once the official release is made then there won't
+be any more incompatibilities until the next release with a new major
+version number.
+
+10. Compiling on non-UNIX systems
+--------------------------------
+
+The Tcl features that depend on system calls peculiar to UNIX (stat,
+fork, exec, times, etc.) are now separate from the main body of Tcl,
+which only requires a few generic library procedures such as malloc
+and strcpy.  Thus it should be relatively easy to compile Tcl for
+non-UNIX machines such as MACs and DOS PC's, although a number of
+UNIX-specific commands will be absent (e.g.  exec, time, and glob).
+See the comments at the top of Makefile for information on how to
+compile without the UNIX features.

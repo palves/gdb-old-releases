@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define I960 1
 #define BADMAG(x) I960BADMAG(x)
@@ -36,6 +36,10 @@ static bfd_reloc_status_type coff_i960_relocate
 
 #define COFF_DEFAULT_SECTION_ALIGNMENT_POWER (3)
 
+/* The i960 does not support an MMU, so COFF_PAGE_SIZE can be
+   arbitrarily small.  */
+#define COFF_PAGE_SIZE 1
+
 #define COFF_LONG_FILENAMES
 
 #define CALLS	 0x66003800	/* Template for 'calls' instruction	*/
@@ -44,12 +48,12 @@ static bfd_reloc_status_type coff_i960_relocate
 
 static bfd_reloc_status_type 
 optcall_callback (abfd, reloc_entry, symbol_in, data,
-		  ignore_input_section, ignore_bfd, error_message)
+		  input_section, ignore_bfd, error_message)
      bfd *abfd;
      arelent *reloc_entry;
      asymbol *symbol_in;
      PTR data;
-     asection *ignore_input_section;
+     asection *input_section;
      bfd *ignore_bfd;
      char **error_message;
 {
@@ -59,6 +63,13 @@ optcall_callback (abfd, reloc_entry, symbol_in, data,
   bfd_reloc_status_type result;
   coff_symbol_type *cs = coffsymbol(symbol_in);
 
+  /* Don't do anything with symbols which aren't tied up yet,
+     except move the reloc. */
+  if (bfd_is_und_section (cs->symbol.section)) {
+    reloc_entry->address += input_section->output_offset;
+    return bfd_reloc_ok;
+  }
+    
   /* So the target symbol has to be of coff type, and the symbol 
      has to have the correct native information within it */
   if ((bfd_asymbol_flavour(&cs->symbol) != bfd_target_coff_flavour)
@@ -128,8 +139,7 @@ coff_i960_relocate (abfd, reloc_entry, symbol, data, input_section,
      bfd *output_bfd;
      char **error_message;
 {
-  const char *sec_name;
-  asymbol **syms, **sym_end;
+  asection *osec;
 
   if (output_bfd == NULL)
     {
@@ -151,24 +161,35 @@ coff_i960_relocate (abfd, reloc_entry, symbol, data, input_section,
     }
 
   /* Convert the reloc to use the section symbol.  FIXME: This method
-     is ridiculous.  */
-  sec_name = bfd_get_section_name (output_bfd,
-				   bfd_get_section (symbol)->output_section);
-  syms = bfd_get_outsymbols (output_bfd);
-  sym_end = syms + bfd_get_symcount (output_bfd);
-  for (; syms < sym_end; syms++)
+     is ridiculous.  Fortunately, we don't use the used_by_bfd field
+     in COFF.  */
+  osec = bfd_get_section (symbol)->output_section;
+  if (osec->used_by_bfd != NULL)
+    reloc_entry->sym_ptr_ptr = (asymbol **) osec->used_by_bfd;
+  else
     {
-      if (bfd_asymbol_name (*syms) != NULL
-	  && strcmp (bfd_asymbol_name (*syms), sec_name) == 0
-	  && (*syms)->value == 0)
-	{
-	  reloc_entry->sym_ptr_ptr = syms;
-	  break;
-	}
-    }
+      const char *sec_name;
+      asymbol **syms, **sym_end;
 
-  if (syms >= sym_end)
-    abort ();
+      sec_name = bfd_get_section_name (output_bfd, osec);
+      syms = bfd_get_outsymbols (output_bfd);
+      sym_end = syms + bfd_get_symcount (output_bfd);
+      for (; syms < sym_end; syms++)
+	{
+	  if (bfd_asymbol_name (*syms) != NULL
+	      && (*syms)->value == 0
+	      && strcmp ((*syms)->section->output_section->name,
+			 sec_name) == 0)
+	    {
+	      osec->used_by_bfd = (PTR) syms;
+	      reloc_entry->sym_ptr_ptr = syms;
+	      break;
+	    }
+	}
+
+      if (syms >= sym_end)
+	abort ();
+    }
 
   /* Let bfd_perform_relocation do its thing, which will include
      stuffing the symbol addend into the object file.  */

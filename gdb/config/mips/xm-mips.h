@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #if !defined (HOST_BYTE_ORDER)
 #define HOST_BYTE_ORDER LITTLE_ENDIAN
@@ -32,12 +32,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifdef ultrix
 extern char *strdup();
 #endif
-
-/* DECstation memcpy and memset return void *, not char *.  */
-
-extern void *memcpy();
-extern void *memset();
-#define	MEM_FNS_DECLARED
 
 #if ! defined (__STDC__) && ! defined (offsetof)
 # define offsetof(TYPE, MEMBER) ((unsigned long) &((TYPE *)0)->MEMBER)

@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "<sys/wait.h>"
@@ -50,7 +50,7 @@ extern char **sys_errlist;
 extern char **environ;
 extern int errno;
 extern int inferior_pid;
-void error (), quit (), perror_with_name ();
+void quit (), perror_with_name ();
 int query ();
 
 /* Start an inferior process and returns its pid.
@@ -93,6 +93,14 @@ kill_inferior ()
   ptrace (8, inferior_pid, 0, 0);
   wait (0);
   /*************inferior_died ();****VK**************/
+}
+
+/* Return nonzero if the given thread is still alive.  */
+int
+mythread_alive (pid)
+     int pid;
+{
+  return 1;
 }
 
 /* Wait for process, returns status */

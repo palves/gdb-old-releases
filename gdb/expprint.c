@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "symtab.h"
@@ -29,9 +29,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 static void
 print_subexp PARAMS ((struct expression *, int *, GDB_FILE *, enum precedence));
-
-static void
-print_simple_m2_func PARAMS ((char *, struct expression *, int *, GDB_FILE *));
 
 void
 print_expression (exp, stream)
@@ -399,46 +396,6 @@ print_subexp (exp, pos, stream, prec)
       print_subexp(exp,pos,stream,PREC_PREFIX);
       fprintf_unfiltered(stream,")");
       return;
-
-    case UNOP_CAP:
-      print_simple_m2_func("CAP",exp,pos,stream);
-      return;
-
-    case UNOP_CHR:
-      print_simple_m2_func("CHR",exp,pos,stream);
-      return;
-
-    case UNOP_ORD:
-      print_simple_m2_func("ORD",exp,pos,stream);
-      return;
-      
-    case UNOP_ABS:
-      print_simple_m2_func("ABS",exp,pos,stream);
-      return;
-
-    case UNOP_FLOAT:
-      print_simple_m2_func("FLOAT",exp,pos,stream);
-      return;
-
-    case UNOP_HIGH:
-      print_simple_m2_func("HIGH",exp,pos,stream);
-      return;
-
-    case UNOP_MAX:
-      print_simple_m2_func("MAX",exp,pos,stream);
-      return;
-
-    case UNOP_MIN:
-      print_simple_m2_func("MIN",exp,pos,stream);
-      return;
-
-    case UNOP_ODD:
-      print_simple_m2_func("ODD",exp,pos,stream);
-      return;
-
-    case UNOP_TRUNC:
-      print_simple_m2_func("TRUNC",exp,pos,stream);
-      return;
       
     case BINOP_INCL:
     case BINOP_EXCL:
@@ -463,6 +420,7 @@ print_subexp (exp, pos, stream, prec)
 	error ("Invalid expression");
    }
 
+  /* Note that PREC_BUILTIN will always emit parentheses. */
   if ((int) myprec < (int) prec)
     fputs_filtered ("(", stream);
   if ((int) opcode > (int) BINOP_END)
@@ -477,7 +435,11 @@ print_subexp (exp, pos, stream, prec)
 	{
 	  /* Unary prefix operator.  */
 	  fputs_filtered (op_str, stream);
+	  if (myprec == PREC_BUILTIN_FUNCTION)
+	    fputs_filtered ("(", stream);
 	  print_subexp (exp, pos, stream, PREC_PREFIX);
+	  if (myprec == PREC_BUILTIN_FUNCTION)
+	    fputs_filtered (")", stream);
 	}
     }
   else
@@ -506,23 +468,6 @@ print_subexp (exp, pos, stream, prec)
     fputs_filtered (")", stream);
 }
 
-/* Print out something of the form <s>(<arg>).
-   This is used to print out some builtin Modula-2
-   functions.
-   FIXME:  There is probably some way to get the precedence
-   rules to do this (print a unary operand with parens around it).  */
-static void
-print_simple_m2_func(s,exp,pos,stream)
-   char *s;
-   register struct expression *exp;
-   register int *pos;
-   GDB_FILE *stream;
-{
-   fprintf_unfiltered(stream,"%s(",s);
-   print_subexp(exp,pos,stream,PREC_PREFIX);
-   fprintf_unfiltered(stream,")");
-}
-   
 /* Return the operator corresponding to opcode OP as
    a string.   NULL indicates that the opcode was not found in the
    current language table.  */
@@ -633,6 +578,9 @@ dump_expression (exp, stream, note)
 	  case UNOP_PREDECREMENT: opcode_name = "UNOP_PREDECREMENT"; break;
 	  case UNOP_POSTDECREMENT: opcode_name = "UNOP_POSTDECREMENT"; break;
 	  case UNOP_SIZEOF: opcode_name = "UNOP_SIZEOF"; break;
+	  case UNOP_LOWER: opcode_name = "UNOP_LOWER"; break;
+	  case UNOP_UPPER: opcode_name = "UNOP_UPPER"; break;
+	  case UNOP_LENGTH: opcode_name = "UNOP_LENGTH"; break;
 	  case UNOP_PLUS: opcode_name = "UNOP_PLUS"; break;
 	  case UNOP_CAP: opcode_name = "UNOP_CAP"; break;
 	  case UNOP_CHR: opcode_name = "UNOP_CHR"; break;

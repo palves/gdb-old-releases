@@ -1,5 +1,5 @@
 /* Macro definitions for GDB for a Sun 4 running sunos 4.
-   Copyright 1989, 1992, 1994 Free Software Foundation, Inc.
+   Copyright 1989, 1992, 1994, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "sparc/tm-sparc.h"
 #include "tm-sunos.h"
@@ -52,3 +52,6 @@ extern int
 get_longjmp_target PARAMS ((CORE_ADDR *));
 
 #define GET_LONGJMP_TARGET(ADDR) get_longjmp_target(ADDR)
+
+extern char *sunpro_static_transform_name PARAMS ((char *));
+#define STATIC_TRANSFORM_NAME(x) sunpro_static_transform_name (x)

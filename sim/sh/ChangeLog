@@ -1,3 +1,75 @@
+Tue Oct 10 11:12:15 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (BISON): Remove macro.
+
+Thu Aug  3 10:45:37 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Update all FSF addresses except those in COPYING* files.
+
+Tue Jul 18 23:33:10 1995  Fred Fish  <fnf@fishbowl>
+
+	* interp.c (trap): Only use SYS_execv if defined.  Might be
+	implemented as execve(arg1,arg2,0), as with Unixware 2.0.
+	(sim_resume): In sbit initializer, cast shifted arg to unsigned
+	to avoid signed integer overflow.
+
+Wed Jul  5 14:32:54 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* Makefile.in (clean): Remove run, libsim.a.
+	  (distclean, mostlyclean, realclean): Remove Makefile and 
+	  autoconf files.
+
+	* sh.mt: Removed.
+
+	* Makefile.in, configure.in: converted to autoconf.
+	* configure: New file, generated with autconf 2.4.
+
+Fri Jun 30 16:51:38 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* interp.c (sim_open): If argument supplied, interpret as
+	desired memory size.
+	(parse_and_set_memory_size): New function.
+	(sim_do_command): New function.
+
+Thu Jun 29 10:02:28 1995  Fred Fish  <fnf@deneb.cygnus.com>
+
+	* interp.c  (SYS_wait): Define as SYS_wait4 if available and
+	SYS_wait is not already defined (SunOS 4.1.3 for example).
+	(SYS_utime): Define as SYS_utimes if available and
+	SYS_utime is not already defined.
+
+Thu Jun 22 17:25:57 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* interp.c: Don't include sys/times.h or sys/param.h
+
+Wed Jun 21 15:03:49 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* interp.c (SIGBUS, SIGTERM): Define if not.
+	(sim_memory_size): default to 2^19 on PCs.
+	(sim_resume): Poll for quits on win32.
+
+Wed May 24 16:22:48 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* gencode.c (op_tab): Add SH3 support.
+
+Wed May 24 14:07:11 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* gencode.c (tab): Add bsrf and braf.
+
+Mon Apr 24 15:09:49 1995  Jason Molenda  (crash@cygnus.com)
+
+	* configure.in: use ../../bfd/hosts/std-host.h, not 
+	../bfd/hosts/std-host.h (which doesn't exist).
+
+Mon Mar 27 10:32:34 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* run.c: parse arguments with getopt().
+
+Sun Feb 26 15:27:24 1995  Steve Chamberlain  <sac@cygnus.com>
+
+	* configure.in: Use ../../bfd/hosts/std-host.h if specific
+	host unavailable.
+
 Mon Jan 23 16:10:58 1995  Torbjorn Granlund  <tege@rtl.cygnus.com>
 
 	* interp.c (macw): Sign extend MACH at bit 10 for non-saturating case.

@@ -1,5 +1,5 @@
 /* Target-dependent code for the ALPHA architecture, for GDB, the GNU Debugger.
-   Copyright 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "frame.h"
@@ -27,6 +27,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "dis-asm.h"
 #include "symfile.h"
 #include "objfiles.h"
+#include "gdb_string.h"
 
 /* FIXME: Some of this code should perhaps be merged with mips-tdep.c.  */
 
@@ -148,6 +149,40 @@ alpha_find_saved_regs (frame)
     obstack_alloc (&frame_cache_obstack, sizeof(struct frame_saved_regs));
   memset (frame->saved_regs, 0, sizeof (struct frame_saved_regs));
 
+  /* If it is the frame for __sigtramp, the saved registers are located
+     in a sigcontext structure somewhere on the stack. __sigtramp
+     passes a pointer to the sigcontext structure on the stack.
+     If the stack layout for __sigtramp changes, or if sigcontext offsets
+     change, we might have to update this code.  */
+#ifndef SIGFRAME_PC_OFF
+#define SIGFRAME_PC_OFF		(2 * 8)
+#define SIGFRAME_REGSAVE_OFF	(4 * 8)
+#define SIGFRAME_FPREGSAVE_OFF	(SIGFRAME_REGSAVE_OFF + 32 * 8 + 8)
+#endif
+  if (frame->signal_handler_caller)
+    {
+      CORE_ADDR sigcontext_pointer_addr;
+      CORE_ADDR sigcontext_addr;
+
+      if (frame->next)
+	sigcontext_pointer_addr = frame->next->frame;
+      else
+	sigcontext_pointer_addr = frame->frame;
+      sigcontext_addr = read_memory_integer(sigcontext_pointer_addr, 8);
+      for (ireg = 0; ireg < 32; ireg++)
+	{
+ 	  reg_position = sigcontext_addr + SIGFRAME_REGSAVE_OFF + ireg * 8;
+ 	  frame->saved_regs->regs[ireg] = reg_position;
+	}
+      for (ireg = 0; ireg < 32; ireg++)
+	{
+ 	  reg_position = sigcontext_addr + SIGFRAME_FPREGSAVE_OFF + ireg * 8;
+ 	  frame->saved_regs->regs[FP0_REGNUM + ireg] = reg_position;
+	}
+      frame->saved_regs->regs[PC_REGNUM] = sigcontext_addr + SIGFRAME_PC_OFF;
+      return;
+    }
+
   proc_desc = frame->proc_desc;
   if (proc_desc == NULL)
     /* I'm not sure how/whether this can happen.  Normally when we can't
@@ -163,7 +198,7 @@ alpha_find_saved_regs (frame)
 
   returnreg = PROC_PC_REG (proc_desc);
 
-  /* Note that RA is always saved first, regardless of it's actual
+  /* Note that RA is always saved first, regardless of its actual
      register number.  */
   if (mask & (1 << returnreg))
     {
@@ -201,30 +236,11 @@ read_next_frame_reg(fi, regno)
      struct frame_info *fi;
      int regno;
 {
-  /* If it is the frame for sigtramp we have a pointer to the sigcontext
-     on the stack.
-     If the stack layout for __sigtramp changes or if sigcontext offsets
-     change we might have to update this code.  */
-#ifndef SIGFRAME_PC_OFF
-#define SIGFRAME_PC_OFF		(2 * 8)
-#define SIGFRAME_REGSAVE_OFF	(4 * 8)
-#endif
   for (; fi; fi = fi->next)
     {
-      if (fi->signal_handler_caller)
-	{
-	  int offset;
-	  CORE_ADDR sigcontext_addr = read_memory_integer(fi->frame, 8);
-
-	  if (regno == PC_REGNUM)
-	    offset = SIGFRAME_PC_OFF;
-	  else if (regno < 32)
-	    offset = SIGFRAME_REGSAVE_OFF + regno * 8;
-	  else
-	    return 0;
-	  return read_memory_integer(sigcontext_addr + offset, 8);
-        }
-      else if (regno == SP_REGNUM)
+      /* We have to get the saved sp from the sigcontext
+	 if it is a signal handler frame.  */
+      if (regno == SP_REGNUM && !fi->signal_handler_caller)
 	return fi->frame;
       else
 	{
@@ -489,6 +505,11 @@ find_proc_desc (pc, next_frame)
 			     0, NULL);
     }
 
+  /* If we never found a PDR for this function in symbol reading, then
+     examine prologues to find the information.  */
+  if (sym && ((mips_extra_func_info_t) SYMBOL_VALUE (sym))->pdr.framereg == -1)
+    sym = NULL;
+
   if (sym)
     {
 	/* IF this is the topmost frame AND
@@ -505,9 +526,12 @@ find_proc_desc (pc, next_frame)
 		alpha_extra_func_info_t found_heuristic =
 		  heuristic_proc_desc (PROC_LOW_ADDR (proc_desc),
 				       pc, next_frame);
-		PROC_LOCALOFF (found_heuristic) = PROC_LOCALOFF (proc_desc);
 		if (found_heuristic)
-		  proc_desc = found_heuristic;
+		  {
+		    PROC_LOCALOFF (found_heuristic) =
+		      PROC_LOCALOFF (proc_desc);
+		    proc_desc = found_heuristic;
+		  }
 	      }
 	  }
     }
@@ -680,10 +704,21 @@ alpha_push_arguments (nargs, args, sp, struct_return, struct_addr)
 
   for (i = 0, m_arg = alpha_args; i < nargs; i++, m_arg++)
     {
-      value_ptr arg = value_arg_coerce (args[i]);
+      value_ptr arg = args[i];
       /* Cast argument to long if necessary as the compiler does it too.  */
-      if (TYPE_LENGTH (VALUE_TYPE (arg)) < TYPE_LENGTH (builtin_type_long))
-        arg = value_cast (builtin_type_long, arg);
+      switch (TYPE_CODE (VALUE_TYPE (arg)))
+	{
+	case TYPE_CODE_INT:
+	case TYPE_CODE_BOOL:
+	case TYPE_CODE_CHAR:
+	case TYPE_CODE_RANGE:
+	case TYPE_CODE_ENUM:
+	  if (TYPE_LENGTH (VALUE_TYPE (arg)) < TYPE_LENGTH (builtin_type_long))
+	    arg = value_cast (builtin_type_long, arg);
+	  break;
+	default:
+	  break;
+	}
       m_arg->len = TYPE_LENGTH (VALUE_TYPE (arg));
       m_arg->offset = accumulate_size;
       accumulate_size = (accumulate_size + m_arg->len + 7) & ~7;
@@ -1064,11 +1099,12 @@ alpha_extract_return_value (valtype, regbuf, valbuf)
     char regbuf[REGISTER_BYTES];
     char *valbuf;
 {
-  int regnum;
-  
-  regnum = TYPE_CODE (valtype) == TYPE_CODE_FLT ? FP0_REGNUM : V0_REGNUM;
-
-  memcpy (valbuf, regbuf + REGISTER_BYTE (regnum), TYPE_LENGTH (valtype));
+  if (TYPE_CODE (valtype) == TYPE_CODE_FLT)
+    alpha_register_convert_to_virtual (FP0_REGNUM, valtype,
+				       regbuf + REGISTER_BYTE (FP0_REGNUM),
+				       valbuf);
+  else
+    memcpy (valbuf, regbuf + REGISTER_BYTE (V0_REGNUM), TYPE_LENGTH (valtype));
 }
 
 /* Given a return value in `regbuf' with a type `valtype', 
@@ -1079,13 +1115,20 @@ alpha_store_return_value (valtype, valbuf)
     struct type *valtype;
     char *valbuf;
 {
-  int regnum;
   char raw_buffer[MAX_REGISTER_RAW_SIZE];
+  int regnum = V0_REGNUM;
+  int length = TYPE_LENGTH (valtype);
   
-  regnum = TYPE_CODE (valtype) == TYPE_CODE_FLT ? FP0_REGNUM : V0_REGNUM;
-  memcpy(raw_buffer, valbuf, TYPE_LENGTH (valtype));
+  if (TYPE_CODE (valtype) == TYPE_CODE_FLT)
+    {
+      regnum = FP0_REGNUM;
+      length = REGISTER_RAW_SIZE (regnum);
+      alpha_register_convert_to_raw (valtype, regnum, valbuf, raw_buffer);
+    }
+  else
+    memcpy (raw_buffer, valbuf, length);
 
-  write_register_bytes(REGISTER_BYTE (regnum), raw_buffer, TYPE_LENGTH (valtype));
+  write_register_bytes (REGISTER_BYTE (regnum), raw_buffer, length);
 }
 
 /* Just like reinit_frame_cache, but with the right arguments to be

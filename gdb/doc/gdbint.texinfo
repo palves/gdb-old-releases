@@ -1,6 +1,6 @@
 \input texinfo
 @setfilename gdbint.info
-@c $Id: gdbint.texinfo,v 1.80 1994/09/04 23:49:31 shebs Exp $
+@c $Id: gdbint.texinfo,v 1.81 1995/05/17 23:13:33 jtc Exp $
 
 @ifinfo
 @format
@@ -42,7 +42,7 @@ regarded as a program in the language TeX).
 @page
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.80 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.81 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill \manvers\par
@@ -1723,8 +1723,6 @@ infcmd.c
 buildsym.c
 @item PROLOGUE_FIRSTLINE_OVERLAP
 infrun.c
-@item PSIGNAL_IN_SIGNAL_H
-defs.h
 @item PUSH_ARGUMENTS
 valops.c
 @item PYRAMID_CONTROL_FRAME_DEBUGGING
@@ -2220,8 +2218,6 @@ seems to have been defined for the Convex target.
 buildsym.c
 @item PROLOGUE_FIRSTLINE_OVERLAP
 infrun.c
-@item PSIGNAL_IN_SIGNAL_H
-defs.h
 @item PS_REGNUM
 parse.c
 @item PUSH_ARGUMENTS

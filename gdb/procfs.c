@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 
 /*			N  O  T  E  S
@@ -41,11 +41,11 @@ regardless of whether or not the actual target has floating point hardware.
 #include <sys/procfs.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <string.h>
+#include "gdb_string.h"
 #include <stropts.h>
 #include <poll.h>
 #include <unistd.h>
-#include <sys/stat.h>
+#include "gdb_stat.h"
 
 #include "inferior.h"
 #include "target.h"
@@ -1251,8 +1251,14 @@ unconditionally_kill_inferior (pi)
 
   signo = SIGKILL;
 
+#ifdef PROCFS_NEED_CLEAR_CURSIG_FOR_KILL
+  /* Alpha OSF/1-3.x procfs needs a clear of the current signal
+     before the PIOCKILL, otherwise it might generate a corrupted core
+     file for the inferior.  */
+  ioctl (pi->fd, PIOCSSIG, NULL);
+#endif
 #ifdef PROCFS_NEED_PIOCSSIG_FOR_KILL
-  /* Alpha OSF/1 procfs needs a PIOCSSIG call with a SIGKILL signal
+  /* Alpha OSF/1-2.x procfs needs a PIOCSSIG call with a SIGKILL signal
      to kill the inferior, otherwise it might remain stopped with a
      pending SIGKILL.
      We do not check the result of the PIOCSSIG, the inferior might have
@@ -1460,12 +1466,8 @@ create_procinfo (pid)
   prfillset (&pi->prrun.pr_fault);
   prdelset (&pi->prrun.pr_fault, FLTPAGE);
 
-#ifdef PROCFS_DONT_TRACE_IFAULT
-  /* Tracing T_IFAULT under Alpha OSF/1 causes a `floating point enable'
-     fault from which we cannot continue (except by disabling the
-     tracing). We rely on the delivery of a SIGTRAP signal (which is traced)
-     for the other T_IFAULT faults if tracing them is disabled.  */
-  prdelset (&pi->prrun.pr_fault, T_IFAULT);
+#ifdef PROCFS_DONT_TRACE_FAULTS
+  premptyset (&pi->prrun.pr_fault);
 #endif
 
   if (ioctl (pi->fd, PIOCWSTOP, &pi->prstatus) < 0)
@@ -2067,12 +2069,8 @@ do_attach (pid)
   prfillset (&pi->prrun.pr_fault);
   prdelset (&pi->prrun.pr_fault, FLTPAGE);
 
-#ifdef PROCFS_DONT_TRACE_IFAULT
-  /* Tracing T_IFAULT under Alpha OSF/1 causes a `floating point enable'
-     fault from which we cannot continue (except by disabling the
-     tracing). We rely on the delivery of a SIGTRAP signal (which is traced)
-     for the other T_IFAULT faults if tracing them is disabled.  */
-  prdelset (&pi->prrun.pr_fault, T_IFAULT);
+#ifdef PROCFS_DONT_TRACE_FAULTS
+  premptyset (&pi->prrun.pr_fault);
 #endif
 
   if (ioctl (pi->fd, PIOCSFAULT, &pi->prrun.pr_fault))
@@ -2520,7 +2518,7 @@ set_proc_siginfo (pip, signo)
 
 #ifdef PROCFS_DONT_PIOCSSIG_CURSIG
   /* With Alpha OSF/1 procfs, the kernel gets really confused if it
-     receives a PIOCSSSIG with a signal identical to the current signal,
+     receives a PIOCSSIG with a signal identical to the current signal,
      it messes up the current signal. Work around the kernel bug.  */
   if (signo == pip -> prstatus.pr_cursig)
     return;
@@ -2997,7 +2995,8 @@ info_proc_siginfo (pip, summary)
 		  (sip -> si_signo == SIGSEGV) ||
 		  (sip -> si_signo == SIGBUS))
 		{
-		  printf_filtered ("addr=%#x ", sip -> si_addr);
+		  printf_filtered ("addr=%#lx ",
+				   (unsigned long) sip -> si_addr);
 		}
 	      else if ((sip -> si_signo == SIGCHLD))
 		{
@@ -3036,13 +3035,15 @@ info_proc_siginfo (pip, summary)
 	      if ((sip -> si_signo == SIGILL) ||
 		  (sip -> si_signo == SIGFPE))
 		{
-		  printf_filtered ("\t%-16#x %s.\n", sip -> si_addr,
+		  printf_filtered ("\t%#-16lx %s.\n",
+				   (unsigned long) sip -> si_addr,
 				   "Address of faulting instruction");
 		}
 	      else if ((sip -> si_signo == SIGSEGV) ||
 		       (sip -> si_signo == SIGBUS))
 		{
-		  printf_filtered ("\t%-16#x %s.\n", sip -> si_addr,
+		  printf_filtered ("\t%#-16lx %s.\n",
+				   (unsigned long) sip -> si_addr,
 				   "Address of faulting memory reference");
 		}
 	      else if ((sip -> si_signo == SIGCHLD))
@@ -3664,7 +3665,7 @@ procfs_can_run ()
 {
   return(1);
 }
-#ifdef TARGET_CAN_USE_HARDWARE_WATCHPOINT
+#ifdef TARGET_HAS_HARDWARE_WATCHPOINTS
 
 /* Insert a watchpoint */
 int
@@ -3770,6 +3771,7 @@ struct target_ops procfs_ops = {
   procfs_mourn_inferior,	/* to_mourn_inferior */
   procfs_can_run,		/* to_can_run */
   procfs_notice_signals,	/* to_notice_signals */
+  0,				/* to_thread_alive */
   procfs_stop,			/* to_stop */
   process_stratum,		/* to_stratum */
   0,				/* to_next */

@@ -1,3 +1,17 @@
+Tue Jun 20 10:18:28 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* hppa.h (CPU_PA_RISC1_0): Protect from redefinitions.
+	(CPU_PA_RISC1_1): Likewise.
+
+Wed Mar  8 18:14:37 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* ppc.h: New file for PowerPC support.
+
+Tue Feb 14 13:59:13 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* common.h (EM_PPC): Use offical value of 20, not 17.
+	(EM_PPC_OLD): Define this to be the old value of EM_PPC.
+
 
 Tue Jan 24 09:40:59 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
 

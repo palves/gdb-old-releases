@@ -1,7 +1,65 @@
+Mon Jul 10 13:26:49 1995  Eric Youngdale  <eric@aib.com>
+
+	* bfdlink.h (struct bfd_link_info): Add new field symbolic.
+
+Sun Jul  2 17:48:40 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* bfdlink.h (struct bfd_link_info): Change type of base_file to
+	PTR.
+
+Thu Jun 29 00:02:45 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* bfdlink.h (struct bfd_link_info): Added base_file member.
+
+Tue Jun 20 16:40:04 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* ansidecl.h: win32s is ANSI enough.
+
+Thu May 18 04:25:50 1995  Ken Raeburn  <raeburn@kr-laptop.cygnus.com>
+
+	Wed May 10 14:28:16 1995 Richard Earnshaw (rearnsha@armltd.co.uk)
+
+	* dis-asm.h (print_insn_arm): Delete declaration.
+	(print_insn_{little,big}_arm): New declarations.
+
+	* floatformat.h (floatformat_arm_ext): Declare.
+
+Sat May 13 10:14:08 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* coff/pe.h: New file.
+	* bfdlink.h (subsytem, stack_heap_parameters): New.
+	* coff/i386.h (NT_SECTION_ALIGNMENT, NT_FILE_ALIGNMENT,
+	NT_DEF_RESERVE, NT_DEF_COMMIT): New.
+	* coff/internal.h (internal_filehdr):  New fields for PE.
+	(IMAGE_DATA_DIRECTORY): New.
+	(internal_aouthdr): New fields for PE.
+
+Thu May  4 14:36:42 1995  Jason Merrill  <jason@phydeaux.cygnus.com>
+
+	* demangle.h: Don't include ansidecl.h if IN_GCC.
+
+
 Tue Feb 21 00:37:28 1995  Jeff Law  (law@snake.cs.utah.edu)
 
 	* hp-symtab.h: Don't use bitfield enumerations, the HP C compiler
 	does not handle them correctly.
+
+
+Thu Feb  9 14:20:27 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* libiberty.h (basename): Don't declare parameter type; some
+	systems have this in their header files.
+
+Wed Feb  8 17:35:38 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* bfdlink.h (struct bfd_link_hash_entry): Change format of common
+	symbol information, to remove restrictions on maximum size and
+	alignment power, by using a pointer to a structure instead.
+
+Mon Feb  6 14:55:32 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* bfdlink.h (enum bfd_link_hash_type): Rename bfd_link_hash_weak
+	to bfd_link_hash_undefweak.  Add bfd_link_hash_defweak.
 
 Mon Jan 16 21:00:23 1995  Stan Shebs  <shebs@andros.cygnus.com>
 

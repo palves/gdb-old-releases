@@ -17,6 +17,7 @@
 
 #define NOTHING /*nothing*/
 
+#include "alloca-conf.h"
 #include "functions.def"
 
 /* Always use our: getopt.o getopt1.o obstack.o spaces.o */

@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "value.h"
@@ -26,7 +26,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "language.h"
 #include "demangle.h"
-#include <string.h>
+#include "gdb_string.h"
 
 /* Define whether or not the C operator '/' truncates towards zero for
    differently signed operands (truncation direction is undefined in C). */
@@ -125,7 +125,6 @@ value_ptr
 value_subscript (array, idx)
      value_ptr array, idx;
 {
-  int lowerbound;
   value_ptr bound;
   int c_style = current_language->c_style_arrays;
 

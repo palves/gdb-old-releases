@@ -14,8 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Z8KSIM; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with Z8KZIM; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include <ansidecl.h>
 #include <signal.h>
@@ -121,7 +121,7 @@ int open ();
 int close ();
 int open ();
 int close ();
-int creat ();
+
 int link ();
 int fstat ();
 
@@ -169,6 +169,7 @@ support_call (context, sc)
       break;
     case SYS_exit:
       context->exception = SIM_DONE;
+      ret = args[0];
       arg_index = 0;
       break;
     case SYS_close:
@@ -247,6 +248,12 @@ support_call (context, sc)
   context->regs[2].word = ret;
   context->regs[3].word = retnext;
   context->regs[5].word = errno;
+
+
+  /* support for the stdcall calling convention */
+  context->regs[6].word = retnext;
+  context->regs[7].word = ret;
+
   errno = olderrno;
 }
 
@@ -567,19 +574,19 @@ unsigned int sub;
 
 normal_flags_16(context,d,sal,sbl,sub)
 sim_state_type *context;
-unsigned short int d;
+unsigned  int d;
 unsigned  int sal;
 unsigned  int sbl;
 unsigned short int sub;
 {
-unsigned short sa = sal;
-unsigned short sb = sbl;
+  unsigned short sa = sal;
+  unsigned short sb = sbl;
 #define MASK (1<<15)
   context->broken_flags = 0;	
   if (sub)                        
     PSW_CARRY = sal < sbl; 		
-  else 				
-    PSW_CARRY = d < sa; 		
+  else 			
+    PSW_CARRY = (d & 0x10000) != 0;
 
   if (sub)
     PSW_OVERFLOW = (SIGN(sa) != SIGN(sb)) && (SIGN(d) == SIGN(sb));
@@ -587,7 +594,7 @@ unsigned short sb = sbl;
     PSW_OVERFLOW = (SIGN(sa) == SIGN(sb)) && (SIGN(d) != SIGN(sb));
 
   PSW_SIGN = ((short int)d) <0; 
-  PSW_ZERO = d == 0;
+  PSW_ZERO = ((short)d) == 0;
 }
 
 normal_flags_8(context,d,sa,sb,sub)

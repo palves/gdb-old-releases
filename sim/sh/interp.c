@@ -20,15 +20,30 @@
 
 #include <signal.h>
 #include "sysdep.h"
-#include <sys/times.h>
-#include <sys/param.h>
 #include "bfd.h"
 #include "remote-sim.h"
-#include "../../newlib/libc/sys/sh/sys/syscall.h"
+#include <sys/syscall.h>
+
+#if !defined (SYS_wait) && defined (SYS_wait4)
+#define SYS_wait SYS_wait4	/* SunOS 4.1.3 for example */
+#endif
+
+#if !defined (SYS_utime) && defined (SYS_utimes)
+#define SYS_utime SYS_utimes	/* SunOS 4.1.3 for example */
+#endif
+
+#ifndef SIGBUS
+#define SIGBUS SIGSEGV
+#endif
+#ifndef SIGQUIT
+#define SIGQUIT SIGTERM
+#endif
+
 #define O_RECOMPILE 85
 #define DEFINE_TABLE
-/*#define ACE_FAST*/
 #define DISASSEMBLER_TABLE
+
+
 
 #define SBIT(x) ((x)&sbit)
 #define R0 	saved_state.asregs.regs[0]
@@ -80,6 +95,8 @@ int valid[16];
 #define CDEF(x)
 #define UNDEF(x)
 #endif
+
+static void parse_and_set_memory_size PARAMS ((char *str));
 
 static int IOMEM PARAMS ((int addr, int write, int value));
 
@@ -142,7 +159,7 @@ typedef union
 
   }
   asregs;
-  int asints[28];
+  int asints[28];																     
 
 } saved_state_type;
 saved_state_type saved_state;
@@ -305,7 +322,7 @@ int empty[16];
 #define TL(x)  if ((x) == prevlock) stalls++;
 #define TB(x,y)  if ((x) == prevlock || (y)==prevlock) stalls++;
 
-#ifdef __GO32__
+#if defined(__GO32__) || defined(WIN32)
 int sim_memory_size = 19;
 #else
 int sim_memory_size = 24;
@@ -467,7 +484,7 @@ trap (i, regs, memory, maskl, maskw, little_endian)
 	switch (regs[4])
 	  {
 
-#ifndef __GO32__
+#if !defined(__GO32__) && !defined(WIN32)
 
 	  case SYS_fork:
 	    regs[0] = fork ();
@@ -475,9 +492,11 @@ trap (i, regs, memory, maskl, maskw, little_endian)
 	  case SYS_execve:
 	    regs[0] = execve (ptr (regs[5]), ptr (regs[6]), ptr (regs[7]));
 	    break;
+#ifdef SYS_execv	/* May be implemented as execve(arg,arg,0) */
 	  case SYS_execv:
 	    regs[0] = execv (ptr (regs[5]), ptr (regs[6]));
 	    break;
+#endif
 	  case SYS_pipe:
 	    {
 	      char *buf;
@@ -799,7 +818,7 @@ sim_size (power)
 }
 
 
-extern int target_byte_order;
+int target_byte_order;
 
 static void
 set_static_little_endian(x)
@@ -888,7 +907,7 @@ sim_resume (step, siggnal)
   register int prevlock;
   register int thislock;
   register unsigned int doprofile;
-#ifdef __GO32__
+#if defined(__GO32__) || defined(WIN32)
   register int pollcount = 0;
 #endif
   register int little_endian = target_byte_order == 1234;
@@ -908,7 +927,7 @@ sim_resume (step, siggnal)
   register int maskw = ((saved_state.asregs.msize - 1) & ~1);
   register int maskl = ((saved_state.asregs.msize - 1) & ~3);
   register unsigned char *memory;
-  register unsigned int sbit = (1 << 31);
+  register unsigned int sbit = ((unsigned int) 1 << 31);
 
   prev = signal (SIGINT, control_c);
 
@@ -964,6 +983,17 @@ sim_resume (step, siggnal)
 	  }
 	}
 #endif
+#if defined (WIN32)
+      pollcount++;
+      if (pollcount > 1000)
+	{
+	  pollcount = 0;
+	  if (win32pollquit())
+	    {
+	      control_c();
+	    }
+	}
+#endif
 
 #ifndef ACE_FAST
       prevlock = thislock;
@@ -992,8 +1022,7 @@ sim_resume (step, siggnal)
   while (!saved_state.asregs.exception);
 
   if (saved_state.asregs.exception == SIGILL
-      || saved_state.asregs.exception == SIGBUS
-      || (saved_state.asregs.exception == SIGTRAP && !step))
+      || saved_state.asregs.exception == SIGBUS)
     {
       pc -= 2;
     }
@@ -1130,10 +1159,28 @@ sim_set_profile_size (n)
 
 
 void
-sim_open (name)
-     char *name;
+sim_open (args)
+     char *args;
 {
-  /* nothing to do */
+  int n;
+
+  if (args != NULL)
+    {
+      parse_and_set_memory_size (args);
+    }
+}
+
+static void
+parse_and_set_memory_size (str)
+     char *str;
+{
+  int n;
+
+  n = strtol (str, NULL, 10);
+  if (n > 0 && n <= 24)
+    sim_memory_size = n;
+  else
+    printf_filtered ("Bad memory size %d; must be 1 to 24, inclusive\n", n);
 }
 
 void
@@ -1165,4 +1212,26 @@ void
 sim_kill ()
 {
   /* nothing to do */
+}
+
+void
+sim_do_command (cmd)
+     char *cmd;
+{
+  int n;
+  char *sms_cmd = "set-memory-size";
+
+  if (strncmp (cmd, sms_cmd, strlen (sms_cmd)) == 0
+      && strchr (" 	", cmd[strlen(sms_cmd)]))
+    parse_and_set_memory_size (cmd + strlen(sms_cmd) + 1);
+
+  else if (strcmp (cmd, "help") == 0)
+    {
+	printf_filtered ("List of SH simulator commands:\n\n");
+	printf_filtered ("set-memory-size <n> -- Set the number of address bits to use\n");
+	printf_filtered ("\n");
+    }
+  else
+    fprintf (stderr, "Error: \"%s\" is not a valid SH simulator command.\n",
+	     cmd);
 }

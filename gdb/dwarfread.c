@@ -1,5 +1,5 @@
 /* DWARF debugging format support for GDB.
-   Copyright (C) 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support.  Portions based on dbxread.c,
    mipsread.c, coffread.c, and dwarfread.c from a Data General SVR4 gdb port.
 
@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /*
 
@@ -51,7 +51,7 @@ other things to work on, if you get bored. :-)
 #include "complaints.h"
 
 #include <fcntl.h>
-#include <string.h>
+#include "gdb_string.h"
 
 #ifndef	NO_SYS_FILE
 #include <sys/file.h>
@@ -300,8 +300,8 @@ struct dieinfo {
   unsigned long		at_bit_size;
   BLOCK *		at_element_list;
   unsigned long		at_stmt_list;
-  unsigned long		at_low_pc;
-  unsigned long		at_high_pc;
+  CORE_ADDR		at_low_pc;
+  CORE_ADDR		at_high_pc;
   unsigned long		at_language;
   unsigned long		at_member;
   unsigned long		at_discr;
@@ -327,6 +327,7 @@ static int dbsize;	/* Size of dwarf info in bytes */
 static int dbroff;	/* Relative offset from start of .debug section */
 static char *lnbase;	/* Base pointer to line section */
 static int isreg;	/* Kludge to identify register variables */
+static int optimized_out;  /* Kludge to identify optimized out variables */
 /* Kludge to identify basereg references.  Nonzero if we have an offset
    relative to a basereg.  */
 static int offreg;
@@ -342,37 +343,29 @@ static CORE_ADDR baseaddr;	/* Add to each symbol value */
    only used to pass one value (baseaddr) at the moment.  */
 static struct section_offsets *base_section_offsets;
 
-/* Each partial symbol table entry contains a pointer to private data for the
-   read_symtab() function to use when expanding a partial symbol table entry
-   to a full symbol table entry.  For DWARF debugging info, this data is
-   contained in the following structure and macros are provided for easy
-   access to the members given a pointer to a partial symbol table entry.
-
-   dbfoff	Always the absolute file offset to the start of the ".debug"
-		section for the file containing the DIE's being accessed.
-
-   dbroff	Relative offset from the start of the ".debug" access to the
-		first DIE to be accessed.  When building the partial symbol
-		table, this value will be zero since we are accessing the
-		entire ".debug" section.  When expanding a partial symbol
-		table entry, this value will be the offset to the first
-		DIE for the compilation unit containing the symbol that
-		triggers the expansion.
-
-   dblength	The size of the chunk of DIE's being examined, in bytes.
-
-   lnfoff	The absolute file offset to the line table fragment.  Ignored
-		when building partial symbol tables, but used when expanding
-		them, and contains the absolute file offset to the fragment
-		of the ".line" section containing the line numbers for the
-		current compilation unit.
- */
+/* We put a pointer to this structure in the read_symtab_private field
+   of the psymtab.  */
 
 struct dwfinfo {
-  file_ptr dbfoff;	/* Absolute file offset to start of .debug section */
-  int dbroff;		/* Relative offset from start of .debug section */
-  int dblength;		/* Size of the chunk of DIE's being examined */
-  file_ptr lnfoff;	/* Absolute file offset to line table fragment */
+  /* Always the absolute file offset to the start of the ".debug"
+     section for the file containing the DIE's being accessed.  */
+  file_ptr dbfoff;
+  /* Relative offset from the start of the ".debug" section to the
+     first DIE to be accessed.  When building the partial symbol
+     table, this value will be zero since we are accessing the
+     entire ".debug" section.  When expanding a partial symbol
+     table entry, this value will be the offset to the first
+     DIE for the compilation unit containing the symbol that
+     triggers the expansion.  */
+  int dbroff;
+  /* The size of the chunk of DIE's being examined, in bytes.  */
+  int dblength;
+  /* The absolute file offset to the line table fragment.  Ignored
+     when building partial symbol tables, but used when expanding
+     them, and contains the absolute file offset to the fragment
+     of the ".line" section containing the line numbers for the
+     current compilation unit.  */
+  file_ptr lnfoff;
 };
 
 #define DBFOFF(p) (((struct dwfinfo *)((p)->read_symtab_private))->dbfoff)
@@ -451,7 +444,7 @@ static const struct language_defn *cu_language_defn;
 static int
 attribute_size PARAMS ((unsigned int));
 
-static unsigned long
+static CORE_ADDR
 target_to_host PARAMS ((char *, int, int, struct objfile *));
 
 static void
@@ -479,9 +472,6 @@ scan_compilation_units PARAMS ((char *, char *, file_ptr,
 
 static void
 add_partial_symbol PARAMS ((struct dieinfo *, struct objfile *));
-
-static void
-init_psymbol_list PARAMS ((struct objfile *, int));
 
 static void
 basicdieinfo PARAMS ((struct dieinfo *, char *, struct objfile *));
@@ -1600,7 +1590,6 @@ read_subroutine_type (dip, thisdie, enddie)
       /* We have an existing partially constructed type, so bash it
 	 into the correct type. */
       TYPE_TARGET_TYPE (ftype) = type;
-      TYPE_FUNCTION_TYPE (type) = ftype;
       TYPE_LENGTH (ftype) = 1;
       TYPE_CODE (ftype) = TYPE_CODE_FUNC;
     }
@@ -2163,6 +2152,9 @@ DESCRIPTION
 
 	Given pointer to a string of bytes that define a location, compute
 	the location and return the value.
+	A location description containing no atoms indicates that the
+	object is optimized out. The global optimized_out flag is set for
+	those, the return value is meaningless.
 
 	When computing values involving the current value of the frame pointer,
 	the value zero is used, which results in a value relative to the frame
@@ -2201,9 +2193,11 @@ locval (loc)
   stack[stacki] = 0;
   isreg = 0;
   offreg = 0;
+  optimized_out = 1;
   loc_value_size = TARGET_FT_LONG_SIZE (current_objfile);
   while (loc < end)
     {
+      optimized_out = 0;
       loc_atom_code = target_to_host (loc, SIZEOF_LOC_ATOM_CODE, GET_UNSIGNED,
 				      current_objfile);
       loc += SIZEOF_LOC_ATOM_CODE;
@@ -2477,54 +2471,6 @@ dwarf_psymtab_to_symtab (pst)
 	    }
 	}
     }
-}
-
-/*
-
-LOCAL FUNCTION
-
-	init_psymbol_list -- initialize storage for partial symbols
-
-SYNOPSIS
-
-	static void init_psymbol_list (struct objfile *objfile, int total_symbols)
-
-DESCRIPTION
-
-	Initializes storage for all of the partial symbols that will be
-	created by dwarf_build_psymtabs and subsidiaries.
- */
-
-static void
-init_psymbol_list (objfile, total_symbols)
-     struct objfile *objfile;
-     int total_symbols;
-{
-  /* Free any previously allocated psymbol lists.  */
-  
-  if (objfile -> global_psymbols.list)
-    {
-      mfree (objfile -> md, (PTR)objfile -> global_psymbols.list);
-    }
-  if (objfile -> static_psymbols.list)
-    {
-      mfree (objfile -> md, (PTR)objfile -> static_psymbols.list);
-    }
-  
-  /* Current best guess is that there are approximately a twentieth
-     of the total symbols (in a debugging file) are global or static
-     oriented symbols */
-  
-  objfile -> global_psymbols.size = total_symbols / 10;
-  objfile -> static_psymbols.size = total_symbols / 10;
-  objfile -> global_psymbols.next =
-    objfile -> global_psymbols.list = (struct partial_symbol *)
-      xmmalloc (objfile -> md, objfile -> global_psymbols.size
-			     * sizeof (struct partial_symbol));
-  objfile -> static_psymbols.next =
-    objfile -> static_psymbols.list = (struct partial_symbol *)
-      xmmalloc (objfile -> md, objfile -> static_psymbols.size
-			     * sizeof (struct partial_symbol));
 }
 
 /*
@@ -2994,7 +2940,11 @@ new_symbol (dip, objfile)
 	    {
 	      SYMBOL_VALUE (sym) = locval (dip -> at_location);
 	      add_symbol_to_list (sym, list_in_scope);
-	      if (isreg)
+	      if (optimized_out)
+		{
+		  SYMBOL_CLASS (sym) = LOC_OPTIMIZED_OUT;
+		}
+	      else if (isreg)
 		{
 		  SYMBOL_CLASS (sym) = LOC_REGISTER;
 		}
@@ -3798,16 +3748,18 @@ NOTES
 	use it as signed data, then we need to explicitly sign extend the
 	result until the bfd library is able to do this for us.
 
+	FIXME: Would a 32 bit target ever need an 8 byte result?
+
  */
 
-static unsigned long
+static CORE_ADDR
 target_to_host (from, nbytes, signextend, objfile)
      char *from;
      int nbytes;
      int signextend;		/* FIXME:  Unused */
      struct objfile *objfile;
 {
-  unsigned long rtnval;
+  CORE_ADDR rtnval;
 
   switch (nbytes)
     {

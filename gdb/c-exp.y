@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Parse a C expression from text in a string,
    and return the result as a  struct expression  pointer.
@@ -84,6 +84,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	yylloc	c_lloc
 #define yyreds	c_reds		/* With YYDEBUG defined */
 #define yytoks	c_toks		/* With YYDEBUG defined */
+#define yylhs	c_yylhs
+#define yylen	c_yylen
+#define yydefred c_yydefred
+#define yydgoto	c_yydgoto
+#define yysindex c_yysindex
+#define yyrindex c_yyrindex
+#define yygindex c_yygindex
+#define yytable	 c_yytable
+#define yycheck	 c_yycheck
 
 #ifndef YYDEBUG
 #define	YYDEBUG	0		/* Default to no yydebug support */
@@ -539,8 +548,7 @@ block	:	BLOCKNAME
 			      struct symtab *tem =
 				  lookup_symtab (copy_name ($1.stoken));
 			      if (tem)
-				$$ = BLOCKVECTOR_BLOCK
-					 (BLOCKVECTOR (tem), STATIC_BLOCK);
+				$$ = BLOCKVECTOR_BLOCK (BLOCKVECTOR (tem), STATIC_BLOCK);
 			      else
 				error ("No file or function \"%s\".",
 				       copy_name ($1.stoken));
@@ -1169,6 +1177,8 @@ yylex ()
       c = *lexptr++;
       if (c == '\\')
 	c = parse_escape (&lexptr);
+      else if (c == '\'')
+	error ("Empty character constant.");
 
       yylval.typed_val.val = c;
       yylval.typed_val.type = builtin_type_char;

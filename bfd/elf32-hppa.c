@@ -21,14 +21,14 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
 #include "bfdlink.h"
 #include "libbfd.h"
 #include "obstack.h"
-#include "libelf.h"
+#include "elf-bfd.h"
 
 /* The internal type of a symbol table extension entry.  */
 typedef unsigned long symext_entryS;
@@ -841,14 +841,15 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
 
 	  indx = r_symndx - symtab_hdr->sh_info;
 	  h = elf_sym_hashes (input_bfd)[indx];
-	  if (h->root.type == bfd_link_hash_defined)
+	  if (h->root.type == bfd_link_hash_defined
+	      || h->root.type == bfd_link_hash_defweak)
 	    {
 	      sym_sec = h->root.u.def.section;
 	      relocation = (h->root.u.def.value
 			    + sym_sec->output_offset
 			    + sym_sec->output_section->vma);
 	    }
-	  else if (h->root.type == bfd_link_hash_weak)
+	  else if (h->root.type == bfd_link_hash_undefweak)
 	    relocation = 0;
 	  else
 	    {
@@ -856,7 +857,7 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
 		    (info, h->root.root.string, input_bfd,
 		     input_section, rel->r_offset)))
 		return false;
-	      relocation = 0;
+	      break;
 	    }
 	}
 
@@ -864,9 +865,9 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
 	sym_name = h->root.root.string;
       else
 	{
-	  sym_name = elf_string_from_elf_section (input_bfd,
-						  symtab_hdr->sh_link,
-						  sym->st_name);
+	  sym_name = bfd_elf_string_from_elf_section (input_bfd,
+						      symtab_hdr->sh_link,
+						      sym->st_name);
 	  if (sym_name == NULL)
 	    return false;
 	  if (*sym_name == '\0')
@@ -890,6 +891,16 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
 	{
 	  switch (r)
 	    {
+	    /* This can happen for DP relative relocs if $global$ is
+	       undefined.  This is a panic situation so we don't try
+	       to continue.  */
+	    case bfd_reloc_undefined:
+	    case bfd_reloc_notsupported:
+	      if (!((*info->callbacks->undefined_symbol)
+		    (info, "$global$", input_bfd,
+		     input_section, rel->r_offset)))
+		return false;
+	      return false;
 	    case bfd_reloc_dangerous:
 	      {
 		/* We use this return value to indicate that we performed
@@ -934,11 +945,12 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
    relocation with modifications based on format and field.  */
 
 elf32_hppa_reloc_type **
-hppa_elf_gen_reloc_type (abfd, base_type, format, field)
+hppa_elf_gen_reloc_type (abfd, base_type, format, field, ignore)
      bfd *abfd;
      elf32_hppa_reloc_type base_type;
      int format;
      int field;
+     int ignore;
 {
   elf32_hppa_reloc_type *finaltype;
   elf32_hppa_reloc_type **final_types;
@@ -1156,8 +1168,8 @@ elf32_hppa_set_section_contents (abfd, section, location, offset, count)
   if (!strcmp (section->name, ".PARISC.symextn") && !symext_chain_size)
     return true;
   else
-    return bfd_elf32_set_section_contents (abfd, section, location,
-					   offset, count);
+    return _bfd_elf_set_section_contents (abfd, section, location,
+					  offset, count);
 }
 
 /* Translate from an elf into field into a howto relocation pointer.  */
@@ -1252,6 +1264,11 @@ elf32_hppa_bfd_final_link_relocate (howto, input_bfd, output_bfd,
       if (h == NULL)
 	return bfd_reloc_notsupported;
 
+      /* If $global$ isn't a defined symbol, then we're still in deep
+	 trouble.  */
+      if (h->root.type != bfd_link_hash_defined)
+	return bfd_reloc_undefined;
+
       sec = h->root.u.def.section;
       elf32_hppa_hash_table (info)->global_value = (h->root.u.def.value
 						    + sec->output_section->vma
@@ -1288,7 +1305,11 @@ elf32_hppa_bfd_final_link_relocate (howto, input_bfd, output_bfd,
     case R_PARISC_DPREL21L:
       r_field = e_lrsel;
       if (sym_sec->flags & SEC_CODE)
-	insn &= ~0x03e00000;
+	{
+	  if ((insn & 0xfc000000) >> 26 == 0xa
+	       && (insn & 0x03e00000) >> 21 == 0x1b)
+	    insn &= ~0x03e00000;
+	}
       else
 	value -= elf32_hppa_hash_table (info)->global_value;
       goto do_basic_type_1;
@@ -1928,7 +1949,7 @@ elf32_hppa_read_symext_info (input_bfd, symtab_hdr, args_hash_table, local_syms)
       return true;
     }
 
-  contents = (bfd_byte *) malloc (symextn_sec->_raw_size);
+  contents = (bfd_byte *) malloc ((size_t) symextn_sec->_raw_size);
   if (contents == NULL)
     {
       bfd_set_error (bfd_error_no_memory);
@@ -1987,7 +2008,7 @@ elf32_hppa_read_symext_info (input_bfd, symtab_hdr, args_hash_table, local_syms)
 
 	      hdr = elf_elfsections (input_bfd)[local_syms[current_index].st_shndx];
 	      sym_sec = hdr->bfd_section;
-	      sym_name = elf_string_from_elf_section (input_bfd,
+	      sym_name = bfd_elf_string_from_elf_section (input_bfd,
 						      symtab_hdr->sh_link,
 	 			        local_syms[current_index].st_name);
 	      len = strlen (sym_name) + 10;
@@ -2509,7 +2530,7 @@ elf32_hppa_size_stubs (stub_bfd, output_bfd, link_info)
      struct bfd_link_info *link_info;
 {
   bfd *input_bfd;
-  asection *section, *stub_sec;
+  asection *section, *stub_sec = 0;
   Elf_Internal_Shdr *symtab_hdr;
   Elf_Internal_Sym *local_syms, *isym, **all_local_syms;
   Elf32_External_Sym *ext_syms, *esym;
@@ -2783,9 +2804,9 @@ elf32_hppa_size_stubs (stub_bfd, output_bfd, link_info)
 		  sym = local_syms + r_index;
 		  hdr = elf_elfsections (input_bfd)[sym->st_shndx];
 		  sym_sec = hdr->bfd_section;
-		  sym_name = elf_string_from_elf_section (input_bfd,
-							  symtab_hdr->sh_link,
-							  sym->st_name);
+		  sym_name = bfd_elf_string_from_elf_section (input_bfd,
+							      symtab_hdr->sh_link,
+							      sym->st_name);
 		  sym_value = (ELF_ST_TYPE (sym->st_info) == STT_SECTION
 			       ? 0 : sym->st_value);
 		  destination = (sym_value
@@ -2815,7 +2836,8 @@ elf32_hppa_size_stubs (stub_bfd, output_bfd, link_info)
 
 		  index = r_index - symtab_hdr->sh_info;
 		  hash = elf_sym_hashes (input_bfd)[index];
-		  if (hash->root.type == bfd_link_hash_defined)
+		  if (hash->root.type == bfd_link_hash_defined
+		      || hash->root.type == bfd_link_hash_defweak)
 		    {
 		      sym_sec = hash->root.u.def.section;
 		      sym_name = hash->root.root.string;
@@ -2968,6 +2990,10 @@ error_return:
       elf32_hppa_hash_table(link_info)->args_hash_table = NULL;
       free (args_hash_table);
     }
+  /* Set the size of the stub section to zero since we're never going
+     to create them.   Avoids losing when we try to get its contents
+     too.  */
+  bfd_set_section_size (stub_bfd, stub_sec, 0);
   return false;
 }
 

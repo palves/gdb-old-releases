@@ -709,6 +709,8 @@ expect {
 
 
 #test info float
+# Fails on freebsd because of missing corefile support?
+setup_xfail "i*86-*-freebsd*"
 send "info float\n"
 expect {
 	-re "No floating point info available for this processor..*$prompt $"\
@@ -727,7 +729,7 @@ expect {
 	timeout		{ fail "(timeout) info functions" }
 	}
 
-gdb_test "info line" "No line number information" "info line"
+gdb_test "info line" "No line number information.*" "info line"
 
 #test info locals
 send "info locals\n"
@@ -1078,7 +1080,7 @@ expect {
 
 
 #test run "r" abbreviation
-if [istarget "*-*-vxworks"] then {
+if [istarget "*-*-vxworks*"] then {
     send "set args\n"
     expect -re "$prompt $" {}
     gdb_test "r" "Starting program: .*
@@ -1107,7 +1109,7 @@ No image loaded into target.*$prompt $"\
 }
 
 #test run
-if [istarget "*-*-vxworks"] then {
+if [istarget "*-*-vxworks*"] then {
     send "set args\n"
     expect -re "$prompt $" {}
     gdb_test "run" "Starting program: .*
@@ -2356,14 +2358,7 @@ Command name abbreviations are allowed if unambiguous..*$prompt $"\
 
 
 #test up
-send "up\n"
-expect {
-	-re "No stack..*$prompt $"\
-			{ pass "up" }
-	-re ".*$prompt $"	{ fail "up" }
-	timeout		{ fail "(timeout) up" }
-	}
-
+gdb_test "up" "No stack\\." "up in default.exp"
 
 #test up-silently
 send "up-silently\n"

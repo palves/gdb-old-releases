@@ -17,10 +17,14 @@ func3 ()
   return -5.0;
 }
 
+int tmp2;
+double tmp3;
+
 main ()
 {
   func1 ();
   printf("in main after func1\n");
-  printf("func2 = %d\n", func2 ());
-  printf("func3 = %f\n", func3 ());
+  tmp2 = func2 ();
+  tmp3 = func3 ();
+  printf("exiting\n");
 }

@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This was blantantly ripped off the C expression parser, please 
    be aware of that as you look at its basic structure -FMB */ 
@@ -89,6 +89,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	yylloc	f_lloc
 #define yyreds	f_reds		/* With YYDEBUG defined */
 #define yytoks	f_toks		/* With YYDEBUG defined */
+#define yylhs	f_yylhs
+#define yylen	f_yylen
+#define yydefred f_yydefred
+#define yydgoto	f_yydgoto
+#define yysindex f_yysindex
+#define yyrindex f_yyrindex
+#define yygindex f_yygindex
+#define yytable	 f_yytable
+#define yycheck	 f_yycheck
 
 #ifndef YYDEBUG
 #define	YYDEBUG	1		/* Default to no yydebug support */
@@ -1030,8 +1039,8 @@ yylex ()
 	      got_dot = got_d = 1;
 	    else if (!hex && !got_dot && *p == '.')
 	      got_dot = 1;
-	    else if ((got_e && (p[-1] == 'e' || p[-1] == 'E'))
-		     || (got_d && (p[-1] == 'd' || p[-1] == 'D'))
+	    else if (((got_e && (p[-1] == 'e' || p[-1] == 'E'))
+		     || (got_d && (p[-1] == 'd' || p[-1] == 'D')))
 		     && (*p == '-' || *p == '+'))
 	      /* This is the sign of the exponent, not the end of the
 		 number.  */
@@ -1105,7 +1114,6 @@ yylex ()
      and $$digits (equivalent to $<-digits> if you could type that).
      Make token type LAST, and put the number (the digits) in yylval.  */
   
- tryname:
   if (*tokstart == '$')
     {
       register int negate = 0;

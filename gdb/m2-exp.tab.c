@@ -1,5 +1,5 @@
 
-/*  A Bison parser, made from ./m2-exp.y with Bison version GNU Bison version 1.22
+/*  A Bison parser, made from ./m2-exp.y with Bison version GNU Bison version 1.24
   */
 
 #define YYBISON 1  /* Identify Bison output.  */
@@ -103,6 +103,15 @@
 #define	yylloc	m2_lloc
 #define	yyreds	m2_reds		/* With YYDEBUG defined */
 #define	yytoks	m2_toks		/* With YYDEBUG defined */
+#define yylhs	m2_yylhs
+#define yylen	m2_yylen
+#define yydefred m2_yydefred
+#define yydgoto	m2_yydgoto
+#define yysindex m2_yysindex
+#define yyrindex m2_yyrindex
+#define yygindex m2_yygindex
+#define yytable	 m2_yytable
+#define yycheck	 m2_yycheck
 
 #ifndef YYDEBUG
 #define	YYDEBUG	0		/* Default to no yydebug support */
@@ -135,7 +144,7 @@ static struct block *modblock=0;
 #endif
 
 
-#line 126 "./m2-exp.y"
+#line 135 "./m2-exp.y"
 typedef union
   {
     LONGEST lval;
@@ -269,18 +278,18 @@ static const short yyrhs[] = {    72,
 
 #if YYDEBUG != 0
 static const short yyrline[] = { 0,
-   197,   198,   201,   210,   213,   215,   220,   224,   228,   229,
-   232,   236,   240,   244,   248,   254,   260,   264,   270,   274,
-   278,   282,   287,   291,   297,   301,   307,   313,   316,   320,
-   324,   327,   329,   335,   340,   346,   350,   356,   359,   363,
-   368,   373,   378,   384,   390,   398,   402,   406,   410,   414,
-   418,   422,   426,   430,   432,   436,   440,   444,   448,   452,
-   456,   460,   467,   473,   479,   486,   495,   503,   510,   514,
-   520,   526,   533,   540,   544,   553,   565,   573,   580,   596,
-   647
+   206,   207,   210,   219,   222,   224,   229,   233,   237,   238,
+   241,   245,   249,   253,   257,   263,   269,   273,   279,   283,
+   287,   291,   296,   300,   306,   310,   316,   322,   325,   329,
+   333,   336,   338,   344,   349,   355,   359,   365,   368,   372,
+   377,   382,   387,   393,   399,   407,   411,   415,   419,   423,
+   427,   431,   435,   439,   441,   445,   449,   453,   457,   461,
+   465,   469,   476,   482,   488,   495,   504,   512,   519,   523,
+   529,   535,   542,   549,   553,   562,   574,   582,   589,   605,
+   656
 };
 
-static const char * const yytname[] = {   "$","error","$illegal.","INT","HEX",
+static const char * const yytname[] = {   "$","error","$undefined.","INT","HEX",
 "ERROR","UINT","M2_TRUE","M2_FALSE","CHAR","FLOAT","STRING","NAME","BLOCKNAME",
 "IDENT","VARNAME","TYPENAME","SIZE","CAP","ORD","HIGH","ABS","MIN_FUNC","MAX_FUNC",
 "FLOAT_FUNC","VAL","CHR","ODD","TRUNC","INC","DEC","INCL","EXCL","COLONCOLON",
@@ -552,14 +561,14 @@ static const short yycheck[] = {     0,
     53,    54,    55,    56,    57,    -1,    59,    60,    61,    62
 };
 /* -*-C-*-  Note some compilers choke on comments on `#line' lines.  */
-#line 3 "/usr/unsupported/lib/bison.simple"
+#line 3 "/usr/unsupported/share/bison.simple"
 
 /* Skeleton output parser for bison,
-   Copyright (C) 1984, 1989, 1990 Bob Corbett and Richard Stallman
+   Copyright (C) 1984, 1989, 1990 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 1, or (at your option)
+   the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
    This program is distributed in the hope that it will be useful,
@@ -571,6 +580,10 @@ static const short yycheck[] = {     0,
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+/* As a special exception, when this file is copied by Bison into a
+   Bison output file, you may use that output file without restriction.
+   This special exception was added by the Free Software Foundation
+   in version 1.24 of Bison.  */
 
 #ifndef alloca
 #ifdef __GNUC__
@@ -642,10 +655,18 @@ while (0)
 
 #ifdef YYPURE
 #ifdef YYLSP_NEEDED
+#ifdef YYLEX_PARAM
+#define YYLEX		yylex(&yylval, &yylloc, YYLEX_PARAM)
+#else
 #define YYLEX		yylex(&yylval, &yylloc)
+#endif
+#else /* not YYLSP_NEEDED */
+#ifdef YYLEX_PARAM
+#define YYLEX		yylex(&yylval, YYLEX_PARAM)
 #else
 #define YYLEX		yylex(&yylval)
 #endif
+#endif /* not YYLSP_NEEDED */
 #endif
 
 /* If nonreentrant, generate the variables here */
@@ -693,14 +714,14 @@ int yyparse (void);
 #endif
 
 #if __GNUC__ > 1		/* GNU C and GNU C++ define this.  */
-#define __yy_bcopy(FROM,TO,COUNT)	__builtin_memcpy(TO,FROM,COUNT)
+#define __yy_memcpy(FROM,TO,COUNT)	__builtin_memcpy(TO,FROM,COUNT)
 #else				/* not GNU C or C++ */
 #ifndef __cplusplus
 
 /* This is the most reliable way to avoid incompatibilities
    in available built-in functions on various systems.  */
 static void
-__yy_bcopy (from, to, count)
+__yy_memcpy (from, to, count)
      char *from;
      char *to;
      int count;
@@ -718,7 +739,7 @@ __yy_bcopy (from, to, count)
 /* This is the most reliable way to avoid incompatibilities
    in available built-in functions on various systems.  */
 static void
-__yy_bcopy (char *from, char *to, int count)
+__yy_memcpy (char *from, char *to, int count)
 {
   register char *f = from;
   register char *t = to;
@@ -731,9 +752,24 @@ __yy_bcopy (char *from, char *to, int count)
 #endif
 #endif
 
-#line 184 "/usr/unsupported/lib/bison.simple"
+#line 192 "/usr/unsupported/share/bison.simple"
+
+/* The user can define YYPARSE_PARAM as the name of an argument to be passed
+   into yyparse.  The argument should have type void *.
+   It should actually point to an object.
+   Grammar actions can access the variable by casting it
+   to the proper pointer type.  */
+
+#ifdef YYPARSE_PARAM
+#define YYPARSE_PARAM_DECL void *YYPARSE_PARAM;
+#else
+#define YYPARSE_PARAM
+#define YYPARSE_PARAM_DECL
+#endif
+
 int
-yyparse()
+yyparse(YYPARSE_PARAM)
+     YYPARSE_PARAM_DECL
 {
   register int yystate;
   register int yyn;
@@ -849,12 +885,12 @@ yynewstate:
       if (yystacksize > YYMAXDEPTH)
 	yystacksize = YYMAXDEPTH;
       yyss = (short *) alloca (yystacksize * sizeof (*yyssp));
-      __yy_bcopy ((char *)yyss1, (char *)yyss, size * sizeof (*yyssp));
+      __yy_memcpy ((char *)yyss1, (char *)yyss, size * sizeof (*yyssp));
       yyvs = (YYSTYPE *) alloca (yystacksize * sizeof (*yyvsp));
-      __yy_bcopy ((char *)yyvs1, (char *)yyvs, size * sizeof (*yyvsp));
+      __yy_memcpy ((char *)yyvs1, (char *)yyvs, size * sizeof (*yyvsp));
 #ifdef YYLSP_NEEDED
       yyls = (YYLTYPE *) alloca (yystacksize * sizeof (*yylsp));
-      __yy_bcopy ((char *)yyls1, (char *)yyls, size * sizeof (*yylsp));
+      __yy_memcpy ((char *)yyls1, (char *)yyls, size * sizeof (*yylsp));
 #endif
 #endif /* no yyoverflow */
 
@@ -1015,274 +1051,274 @@ yyreduce:
   switch (yyn) {
 
 case 3:
-#line 202 "./m2-exp.y"
+#line 211 "./m2-exp.y"
 { write_exp_elt_opcode(OP_TYPE);
 		  write_exp_elt_type(yyvsp[0].tval);
 		  write_exp_elt_opcode(OP_TYPE);
 		;
     break;}
 case 4:
-#line 211 "./m2-exp.y"
+#line 220 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_IND); ;
     break;}
 case 5:
-#line 214 "./m2-exp.y"
+#line 223 "./m2-exp.y"
 { number_sign = -1; ;
     break;}
 case 6:
-#line 216 "./m2-exp.y"
+#line 225 "./m2-exp.y"
 { number_sign = 1;
 			  write_exp_elt_opcode (UNOP_NEG); ;
     break;}
 case 7:
-#line 221 "./m2-exp.y"
+#line 230 "./m2-exp.y"
 { write_exp_elt_opcode(UNOP_PLUS); ;
     break;}
 case 8:
-#line 225 "./m2-exp.y"
+#line 234 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_LOGICAL_NOT); ;
     break;}
 case 11:
-#line 233 "./m2-exp.y"
+#line 242 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_CAP); ;
     break;}
 case 12:
-#line 237 "./m2-exp.y"
+#line 246 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_ORD); ;
     break;}
 case 13:
-#line 241 "./m2-exp.y"
+#line 250 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_ABS); ;
     break;}
 case 14:
-#line 245 "./m2-exp.y"
+#line 254 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_HIGH); ;
     break;}
 case 15:
-#line 249 "./m2-exp.y"
+#line 258 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_MIN);
 			  write_exp_elt_type (yyvsp[-1].tval);
 			  write_exp_elt_opcode (UNOP_MIN); ;
     break;}
 case 16:
-#line 255 "./m2-exp.y"
+#line 264 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_MAX);
 			  write_exp_elt_type (yyvsp[-1].tval);
 			  write_exp_elt_opcode (UNOP_MIN); ;
     break;}
 case 17:
-#line 261 "./m2-exp.y"
+#line 270 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_FLOAT); ;
     break;}
 case 18:
-#line 265 "./m2-exp.y"
+#line 274 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_VAL);
 			  write_exp_elt_type (yyvsp[-3].tval);
 			  write_exp_elt_opcode (BINOP_VAL); ;
     break;}
 case 19:
-#line 271 "./m2-exp.y"
+#line 280 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_CHR); ;
     break;}
 case 20:
-#line 275 "./m2-exp.y"
+#line 284 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_ODD); ;
     break;}
 case 21:
-#line 279 "./m2-exp.y"
+#line 288 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_TRUNC); ;
     break;}
 case 22:
-#line 283 "./m2-exp.y"
+#line 292 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_SIZEOF); ;
     break;}
 case 23:
-#line 288 "./m2-exp.y"
+#line 297 "./m2-exp.y"
 { write_exp_elt_opcode(UNOP_PREINCREMENT); ;
     break;}
 case 24:
-#line 292 "./m2-exp.y"
+#line 301 "./m2-exp.y"
 { write_exp_elt_opcode(BINOP_ASSIGN_MODIFY);
 			  write_exp_elt_opcode(BINOP_ADD);
 			  write_exp_elt_opcode(BINOP_ASSIGN_MODIFY); ;
     break;}
 case 25:
-#line 298 "./m2-exp.y"
+#line 307 "./m2-exp.y"
 { write_exp_elt_opcode(UNOP_PREDECREMENT);;
     break;}
 case 26:
-#line 302 "./m2-exp.y"
+#line 311 "./m2-exp.y"
 { write_exp_elt_opcode(BINOP_ASSIGN_MODIFY);
 			  write_exp_elt_opcode(BINOP_SUB);
 			  write_exp_elt_opcode(BINOP_ASSIGN_MODIFY); ;
     break;}
 case 27:
-#line 308 "./m2-exp.y"
+#line 317 "./m2-exp.y"
 { write_exp_elt_opcode (STRUCTOP_STRUCT);
 			  write_exp_string (yyvsp[0].sval);
 			  write_exp_elt_opcode (STRUCTOP_STRUCT); ;
     break;}
 case 29:
-#line 317 "./m2-exp.y"
+#line 326 "./m2-exp.y"
 { error("Sets are not implemented.");;
     break;}
 case 30:
-#line 321 "./m2-exp.y"
-{ error("Sets are not implemented.");;
-    break;}
-case 31:
-#line 325 "./m2-exp.y"
-{ error("Sets are not implemented.");;
-    break;}
-case 32:
-#line 328 "./m2-exp.y"
-{ error("Sets are not implemented.");;
-    break;}
-case 33:
 #line 330 "./m2-exp.y"
 { error("Sets are not implemented.");;
     break;}
-case 34:
+case 31:
+#line 334 "./m2-exp.y"
+{ error("Sets are not implemented.");;
+    break;}
+case 32:
+#line 337 "./m2-exp.y"
+{ error("Sets are not implemented.");;
+    break;}
+case 33:
 #line 339 "./m2-exp.y"
+{ error("Sets are not implemented.");;
+    break;}
+case 34:
+#line 348 "./m2-exp.y"
 { start_arglist(); ;
     break;}
 case 35:
-#line 341 "./m2-exp.y"
+#line 350 "./m2-exp.y"
 { write_exp_elt_opcode (MULTI_SUBSCRIPT);
 			  write_exp_elt_longcst ((LONGEST) end_arglist());
 			  write_exp_elt_opcode (MULTI_SUBSCRIPT); ;
     break;}
 case 36:
-#line 349 "./m2-exp.y"
+#line 358 "./m2-exp.y"
 { start_arglist (); ;
     break;}
 case 37:
-#line 351 "./m2-exp.y"
+#line 360 "./m2-exp.y"
 { write_exp_elt_opcode (OP_FUNCALL);
 			  write_exp_elt_longcst ((LONGEST) end_arglist ());
 			  write_exp_elt_opcode (OP_FUNCALL); ;
     break;}
 case 39:
-#line 360 "./m2-exp.y"
-{ arglist_len = 1; ;
-    break;}
-case 40:
-#line 364 "./m2-exp.y"
-{ arglist_len++; ;
-    break;}
-case 41:
 #line 369 "./m2-exp.y"
 { arglist_len = 1; ;
     break;}
+case 40:
+#line 373 "./m2-exp.y"
+{ arglist_len++; ;
+    break;}
+case 41:
+#line 378 "./m2-exp.y"
+{ arglist_len = 1; ;
+    break;}
 case 42:
-#line 374 "./m2-exp.y"
+#line 383 "./m2-exp.y"
 { arglist_len++; ;
     break;}
 case 43:
-#line 379 "./m2-exp.y"
+#line 388 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_MEMVAL);
 			  write_exp_elt_type (yyvsp[-2].tval);
 			  write_exp_elt_opcode (UNOP_MEMVAL); ;
     break;}
 case 44:
-#line 385 "./m2-exp.y"
+#line 394 "./m2-exp.y"
 { write_exp_elt_opcode (UNOP_CAST);
 			  write_exp_elt_type (yyvsp[-3].tval);
 			  write_exp_elt_opcode (UNOP_CAST); ;
     break;}
 case 45:
-#line 391 "./m2-exp.y"
+#line 400 "./m2-exp.y"
 { ;
     break;}
 case 46:
-#line 399 "./m2-exp.y"
+#line 408 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_REPEAT); ;
     break;}
 case 47:
-#line 403 "./m2-exp.y"
+#line 412 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_MUL); ;
     break;}
 case 48:
-#line 407 "./m2-exp.y"
+#line 416 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_DIV); ;
     break;}
 case 49:
-#line 411 "./m2-exp.y"
+#line 420 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_INTDIV); ;
     break;}
 case 50:
-#line 415 "./m2-exp.y"
+#line 424 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_REM); ;
     break;}
 case 51:
-#line 419 "./m2-exp.y"
+#line 428 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_ADD); ;
     break;}
 case 52:
-#line 423 "./m2-exp.y"
+#line 432 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_SUB); ;
     break;}
 case 53:
-#line 427 "./m2-exp.y"
+#line 436 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_EQUAL); ;
     break;}
 case 54:
-#line 431 "./m2-exp.y"
+#line 440 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_NOTEQUAL); ;
     break;}
 case 55:
-#line 433 "./m2-exp.y"
+#line 442 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_NOTEQUAL); ;
     break;}
 case 56:
-#line 437 "./m2-exp.y"
+#line 446 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_LEQ); ;
     break;}
 case 57:
-#line 441 "./m2-exp.y"
+#line 450 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_GEQ); ;
     break;}
 case 58:
-#line 445 "./m2-exp.y"
+#line 454 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_LESS); ;
     break;}
 case 59:
-#line 449 "./m2-exp.y"
+#line 458 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_GTR); ;
     break;}
 case 60:
-#line 453 "./m2-exp.y"
+#line 462 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_LOGICAL_AND); ;
     break;}
 case 61:
-#line 457 "./m2-exp.y"
+#line 466 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_LOGICAL_OR); ;
     break;}
 case 62:
-#line 461 "./m2-exp.y"
+#line 470 "./m2-exp.y"
 { write_exp_elt_opcode (BINOP_ASSIGN); ;
     break;}
 case 63:
-#line 468 "./m2-exp.y"
+#line 477 "./m2-exp.y"
 { write_exp_elt_opcode (OP_BOOL);
 			  write_exp_elt_longcst ((LONGEST) yyvsp[0].ulval);
 			  write_exp_elt_opcode (OP_BOOL); ;
     break;}
 case 64:
-#line 474 "./m2-exp.y"
+#line 483 "./m2-exp.y"
 { write_exp_elt_opcode (OP_BOOL);
 			  write_exp_elt_longcst ((LONGEST) yyvsp[0].ulval);
 			  write_exp_elt_opcode (OP_BOOL); ;
     break;}
 case 65:
-#line 480 "./m2-exp.y"
+#line 489 "./m2-exp.y"
 { write_exp_elt_opcode (OP_LONG);
 			  write_exp_elt_type (builtin_type_m2_int);
 			  write_exp_elt_longcst ((LONGEST) yyvsp[0].lval);
 			  write_exp_elt_opcode (OP_LONG); ;
     break;}
 case 66:
-#line 487 "./m2-exp.y"
+#line 496 "./m2-exp.y"
 {
 			  write_exp_elt_opcode (OP_LONG);
 			  write_exp_elt_type (builtin_type_m2_card);
@@ -1291,57 +1327,57 @@ case 66:
 			;
     break;}
 case 67:
-#line 496 "./m2-exp.y"
+#line 505 "./m2-exp.y"
 { write_exp_elt_opcode (OP_LONG);
 			  write_exp_elt_type (builtin_type_m2_char);
 			  write_exp_elt_longcst ((LONGEST) yyvsp[0].ulval);
 			  write_exp_elt_opcode (OP_LONG); ;
     break;}
 case 68:
-#line 504 "./m2-exp.y"
+#line 513 "./m2-exp.y"
 { write_exp_elt_opcode (OP_DOUBLE);
 			  write_exp_elt_type (builtin_type_m2_real);
 			  write_exp_elt_dblcst (yyvsp[0].dval);
 			  write_exp_elt_opcode (OP_DOUBLE); ;
     break;}
 case 70:
-#line 515 "./m2-exp.y"
+#line 524 "./m2-exp.y"
 { write_exp_elt_opcode (OP_LAST);
 			  write_exp_elt_longcst ((LONGEST) yyvsp[0].lval);
 			  write_exp_elt_opcode (OP_LAST); ;
     break;}
 case 71:
-#line 521 "./m2-exp.y"
+#line 530 "./m2-exp.y"
 { write_exp_elt_opcode (OP_REGISTER);
 			  write_exp_elt_longcst ((LONGEST) yyvsp[0].lval);
 			  write_exp_elt_opcode (OP_REGISTER); ;
     break;}
 case 72:
-#line 527 "./m2-exp.y"
+#line 536 "./m2-exp.y"
 { write_exp_elt_opcode (OP_LONG);
 			  write_exp_elt_type (builtin_type_int);
 			  write_exp_elt_longcst ((LONGEST) TYPE_LENGTH (yyvsp[-1].tval));
 			  write_exp_elt_opcode (OP_LONG); ;
     break;}
 case 73:
-#line 534 "./m2-exp.y"
+#line 543 "./m2-exp.y"
 { write_exp_elt_opcode (OP_M2_STRING);
 			  write_exp_string (yyvsp[0].sval);
 			  write_exp_elt_opcode (OP_M2_STRING); ;
     break;}
 case 74:
-#line 541 "./m2-exp.y"
+#line 550 "./m2-exp.y"
 { yyval.bval = SYMBOL_BLOCK_VALUE(yyvsp[0].sym); ;
     break;}
 case 75:
-#line 545 "./m2-exp.y"
+#line 554 "./m2-exp.y"
 { struct symbol *sym
 			    = lookup_symbol (copy_name (yyvsp[0].sval), expression_context_block,
 					     VAR_NAMESPACE, 0, NULL);
 			  yyval.sym = sym;;
     break;}
 case 76:
-#line 554 "./m2-exp.y"
+#line 563 "./m2-exp.y"
 { struct symbol *tem
 			    = lookup_symbol (copy_name (yyvsp[0].sval), yyvsp[-2].bval,
 					     VAR_NAMESPACE, 0, NULL);
@@ -1352,20 +1388,20 @@ case 76:
 			;
     break;}
 case 77:
-#line 566 "./m2-exp.y"
+#line 575 "./m2-exp.y"
 { write_exp_elt_opcode(OP_VAR_VALUE);
 			  write_exp_elt_block (NULL);
 			  write_exp_elt_sym (yyvsp[0].sym);
 			  write_exp_elt_opcode (OP_VAR_VALUE); ;
     break;}
 case 78:
-#line 574 "./m2-exp.y"
+#line 583 "./m2-exp.y"
 { write_exp_elt_opcode (OP_INTERNALVAR);
 			  write_exp_elt_intern (yyvsp[0].ivar);
 			  write_exp_elt_opcode (OP_INTERNALVAR); ;
     break;}
 case 79:
-#line 581 "./m2-exp.y"
+#line 590 "./m2-exp.y"
 { struct symbol *sym;
 			  sym = lookup_symbol (copy_name (yyvsp[0].sval), yyvsp[-2].bval,
 					       VAR_NAMESPACE, 0, NULL);
@@ -1380,7 +1416,7 @@ case 79:
 			  write_exp_elt_opcode (OP_VAR_VALUE); ;
     break;}
 case 80:
-#line 597 "./m2-exp.y"
+#line 606 "./m2-exp.y"
 { struct symbol *sym;
 			  int is_a_field_of_this;
 
@@ -1430,13 +1466,13 @@ case 80:
 			;
     break;}
 case 81:
-#line 648 "./m2-exp.y"
+#line 657 "./m2-exp.y"
 { yyval.tval = lookup_typename (copy_name (yyvsp[0].sval),
 						expression_context_block, 0); ;
     break;}
 }
    /* the action file gets copied in in place of this dollarsign */
-#line 465 "/usr/unsupported/lib/bison.simple"
+#line 487 "/usr/unsupported/share/bison.simple"
 
   yyvsp -= yylen;
   yyssp -= yylen;
@@ -1632,7 +1668,7 @@ yyerrhandle:
   yystate = yyn;
   goto yynewstate;
 }
-#line 653 "./m2-exp.y"
+#line 662 "./m2-exp.y"
 
 
 #if 0  /* FIXME! */

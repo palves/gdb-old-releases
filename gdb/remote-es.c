@@ -20,8 +20,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 
 /* Emulator communication protocol.
@@ -96,7 +96,7 @@ STP
 #include <sys/file.h>
 #include <errno.h>
 #include <ctype.h>
-#include <string.h>
+#include "gdb_string.h"
 #include <setjmp.h>
 #include <fcntl.h>
 #include "defs.h"
@@ -2075,7 +2075,8 @@ Specify the serial device it is connected to (e.g. /dev/ttya).",
   NULL,				/* to_mourn_inferior */
   0,				/* to_can_run */
   0,				/* to_notice_signals */
-  ignore,			/* to_stop */
+  0,				/* to_thread_alive */
+  0,				/* to_stop */
   core_stratum,			/* to_stratum */
   0,				/* to_next */
   0,				/* to_has_all_memory */
@@ -2123,6 +2124,7 @@ Specify the serial device it is connected to (e.g. /dev/ttya).",
   es1800_mourn_inferior,	/* to_mourn_inferior */
   0,				/* to_can_run */
   0,				/* notice_signals */
+  0,				/* to_thread_alive */
   0,				/* to_stop */
   process_stratum,		/* to_stratum */
   0,				/* to_next */

@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #if !defined(__GO32__) && !defined(WIN32)
@@ -23,9 +23,16 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/param.h>
 #include <pwd.h>
 #endif
+#ifdef ANSI_PROTOTYPES
+#include <stdarg.h>
+#else
 #include <varargs.h>
+#endif
 #include <ctype.h>
-#include <string.h>
+#include "gdb_string.h"
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 #include "signals.h"
 #include "gdbcmd.h"
@@ -53,7 +60,7 @@ malloc_botch PARAMS ((void));
 #endif /* NO_MMALLOC, etc */
 
 static void
-fatal_dump_core ();	/* Can't prototype with <varargs.h> usage... */
+fatal_dump_core PARAMS((char *, ...));
 
 static void
 prompt_for_continue PARAMS ((void));
@@ -113,6 +120,13 @@ int sevenbit_strings = 0;
 /* String to be printed before error messages, if any.  */
 
 char *error_pre_print;
+
+/* String to be printed before quit messages, if any.  */
+
+char *quit_pre_print;
+
+/* String to be printed before warning messages, if any.  */
+
 char *warning_pre_print = "\nwarning: ";
 
 /* Add a new cleanup to the cleanup_chain,
@@ -216,49 +230,62 @@ null_cleanup (arg)
 }
 
 
-/* Provide a hook for modules wishing to print their own warning messages
-   to set up the terminal state in a compatible way, without them having
-   to import all the target_<...> macros. */
+/* Print a warning message.  Way to use this is to call warning_begin,
+   output the warning message (use unfiltered output to gdb_stderr),
+   ending in a newline.  There is not currently a warning_end that you
+   call afterwards, but such a thing might be added if it is useful
+   for a GUI to separate warning messages from other output.
+
+   FIXME: Why do warnings use unfiltered output and errors filtered?
+   Is this anything other than a historical accident?  */
 
 void
-warning_setup ()
+warning_begin ()
 {
   target_terminal_ours ();
   wrap_here("");			/* Force out any buffered output */
   gdb_flush (gdb_stdout);
+  if (warning_pre_print)
+    fprintf_unfiltered (gdb_stderr, warning_pre_print);
 }
 
 /* Print a warning message.
    The first argument STRING is the warning message, used as a fprintf string,
    and the remaining args are passed as arguments to it.
    The primary difference between warnings and errors is that a warning
-   does not force the return to command level. */
+   does not force the return to command level.  */
 
 /* VARARGS */
 void
+#ifdef ANSI_PROTOTYPES
+warning (char *string, ...)
+#else
 warning (va_alist)
      va_dcl
+#endif
 {
   va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, string);
+#else
   char *string;
 
   va_start (args);
-  target_terminal_ours ();
-  wrap_here("");			/* Force out any buffered output */
-  gdb_flush (gdb_stdout);
-  if (warning_pre_print)
-    fprintf_unfiltered (gdb_stderr, warning_pre_print);
   string = va_arg (args, char *);
+#endif
+  warning_begin ();
   vfprintf_unfiltered (gdb_stderr, string, args);
   fprintf_unfiltered (gdb_stderr, "\n");
   va_end (args);
 }
 
 /* Start the printing of an error message.  Way to use this is to call
-   this, output the error message (use filtered output), and then call
-   return_to_top_level (RETURN_ERROR).  error() provides a convenient way to
-   do this for the special case that the error message can be formatted with
-   a single printf call, but this is more general.  */
+   this, output the error message (use filtered output to gdb_stderr
+   (FIXME: Some callers, like memory_error, use gdb_stdout)), ending
+   in a newline, and then call return_to_top_level (RETURN_ERROR).
+   error() provides a convenient way to do this for the special case
+   that the error message can be formatted with a single printf call,
+   but this is more general.  */
 void
 error_begin ()
 {
@@ -276,26 +303,42 @@ error_begin ()
    The first argument STRING is the error message, used as a fprintf string,
    and the remaining args are passed as arguments to it.  */
 
-/* VARARGS */
+#ifdef ANSI_PROTOTYPES
 NORETURN void
+error (char *string, ...)
+#else
+void
 error (va_alist)
      va_dcl
+#endif
 {
   va_list args;
-  char *string;
-
+#ifdef ANSI_PROTOTYPES
+  va_start (args, string);
+#else
   va_start (args);
-
+#endif
   if (error_hook)
-    error_hook (args);		/* Never returns */
+    (*error_hook) ();
+  else 
+    {
+      error_begin ();
+#ifdef ANSI_PROTOTYPES
+      vfprintf_filtered (gdb_stderr, string, args);
+#else
+      {
+	char *string1;
 
-  error_begin ();
-  string = va_arg (args, char *);
-  vfprintf_filtered (gdb_stderr, string, args);
-  fprintf_filtered (gdb_stderr, "\n");
-  va_end (args);
-  return_to_top_level (RETURN_ERROR);
+	string1 = va_arg (args, char *);
+	vfprintf_filtered (gdb_stderr, string1, args);
+      }
+#endif
+      fprintf_filtered (gdb_stderr, "\n");
+      va_end (args);
+      return_to_top_level (RETURN_ERROR);
+    }
 }
+
 
 /* Print an error message and exit reporting failure.
    This is for a error that we cannot continue from.
@@ -306,14 +349,21 @@ error (va_alist)
 
 /* VARARGS */
 NORETURN void
+#ifdef ANSI_PROTOTYPES
+fatal (char *string, ...)
+#else
 fatal (va_alist)
      va_dcl
+#endif
 {
   va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, string);
+#else
   char *string;
-
   va_start (args);
   string = va_arg (args, char *);
+#endif
   fprintf_unfiltered (gdb_stderr, "\ngdb: ");
   vfprintf_unfiltered (gdb_stderr, string, args);
   fprintf_unfiltered (gdb_stderr, "\n");
@@ -326,14 +376,22 @@ fatal (va_alist)
 
 /* VARARGS */
 static void
+#ifdef ANSI_PROTOTYPES
+fatal_dump_core (char *string, ...)
+#else
 fatal_dump_core (va_alist)
      va_dcl
+#endif
 {
   va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, string);
+#else
   char *string;
 
   va_start (args);
   string = va_arg (args, char *);
+#endif
   /* "internal error" is always correct, since GDB should never dump
      core, no matter what the input.  */
   fprintf_unfiltered (gdb_stderr, "\ngdb internal error: ");
@@ -463,8 +521,8 @@ quit ()
   annotate_error_begin ();
 
   /* Don't use *_filtered; we don't want to prompt the user to continue.  */
-  if (error_pre_print)
-    fprintf_unfiltered (gdb_stderr, error_pre_print);
+  if (quit_pre_print)
+    fprintf_unfiltered (gdb_stderr, quit_pre_print);
 
   if (job_control
       /* If there is no terminal switching for this target, then we can't
@@ -560,11 +618,15 @@ request_quit (signo)
 
 /* Make a substitute size_t for non-ANSI compilers. */
 
-#if !defined(__STDC__) && !defined(_AIX)
+#ifdef _AIX
+#include <stddef.h>
+#else /* Not AIX */
+#ifndef __STDC__
 #ifndef size_t
 #define size_t unsigned int
 #endif
 #endif
+#endif /* Not AIX */
 
 PTR
 mmalloc (md, size)
@@ -827,24 +889,39 @@ gdb_print_address (addr, stream)
 
 /* VARARGS */
 int
+#ifdef ANSI_PROTOTYPES
+query (char *ctlstr, ...)
+#else
 query (va_alist)
      va_dcl
+#endif
 {
   va_list args;
-  char *ctlstr;
   register int answer;
   register int ans2;
   int retval;
 
+#ifdef ANSI_PROTOTYPES
+  va_start (args, ctlstr);
+#else
+  char *ctlstr;
+  va_start (args);
+  ctlstr = va_arg (args, char *);
+#endif
+
   if (query_hook)
     {
-      va_start (args);
-      return query_hook (args);
+      return query_hook (ctlstr, args);
     }
 
   /* Automatically answer "yes" if input is not from a terminal.  */
   if (!input_from_terminal_p ())
     return 1;
+#ifdef MPW
+  /* FIXME Automatically answer "yes" if called from MacGDB.  */
+  if (mac_app)
+    return 1;
+#endif /* MPW */
 
   while (1)
     {
@@ -854,14 +931,18 @@ query (va_alist)
       if (annotation_level > 1)
 	printf_filtered ("\n\032\032pre-query\n");
 
-      va_start (args);
-      ctlstr = va_arg (args, char *);
       vfprintf_filtered (gdb_stdout, ctlstr, args);
-      va_end (args);
       printf_filtered ("(y or n) ");
 
       if (annotation_level > 1)
 	printf_filtered ("\n\032\032query\n");
+
+#ifdef MPW
+      /* If not in MacGDB, move to a new line so the entered line doesn't
+	 have a prompt on the front of it. */
+      if (!mac_app)
+	fputs_unfiltered ("\n", gdb_stdout);
+#endif /* MPW */
 
       gdb_flush (gdb_stdout);
       answer = fgetc (stdin);
@@ -1363,25 +1444,29 @@ fputs_filtered (linebuffer, stream)
   fputs_maybe_filtered (linebuffer, stream, 1);
 }
 
-void
-putc_unfiltered (c)
+int
+putchar_unfiltered (c)
      int c;
 {
   char buf[2];
+
   buf[0] = c;
   buf[1] = 0;
   fputs_unfiltered (buf, gdb_stdout);
+  return c;
 }
 
-void
+int
 fputc_unfiltered (c, stream)
      int c;
      FILE * stream;
 {
   char buf[2];
+
   buf[0] = c;
   buf[1] = 0;
   fputs_unfiltered (buf, stream);
+  return c;
 }
 
 
@@ -1468,34 +1553,48 @@ vprintf_unfiltered (format, args)
 
 /* VARARGS */
 void
+#ifdef ANSI_PROTOTYPES
+fprintf_filtered (FILE *stream, char *format, ...)
+#else
 fprintf_filtered (va_alist)
      va_dcl
+#endif
 {
   va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, format);
+#else
   FILE *stream;
   char *format;
 
   va_start (args);
   stream = va_arg (args, FILE *);
   format = va_arg (args, char *);
-
+#endif
   vfprintf_filtered (stream, format, args);
   va_end (args);
 }
 
 /* VARARGS */
 void
+#ifdef ANSI_PROTOTYPES
+fprintf_unfiltered (FILE *stream, char *format, ...)
+#else
 fprintf_unfiltered (va_alist)
      va_dcl
+#endif
 {
   va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, format);
+#else
   FILE *stream;
   char *format;
 
   va_start (args);
   stream = va_arg (args, FILE *);
   format = va_arg (args, char *);
-
+#endif
   vfprintf_unfiltered (stream, format, args);
   va_end (args);
 }
@@ -1505,10 +1604,17 @@ fprintf_unfiltered (va_alist)
 
 /* VARARGS */
 void
+#ifdef ANSI_PROTOTYPES
+fprintfi_filtered (int spaces, FILE *stream, char *format, ...)
+#else
 fprintfi_filtered (va_alist)
      va_dcl
+#endif
 {
   va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, format);
+#else
   int spaces;
   FILE *stream;
   char *format;
@@ -1517,6 +1623,7 @@ fprintfi_filtered (va_alist)
   spaces = va_arg (args, int);
   stream = va_arg (args, FILE *);
   format = va_arg (args, char *);
+#endif
   print_spaces_filtered (spaces, stream);
 
   vfprintf_filtered (stream, format, args);
@@ -1526,15 +1633,22 @@ fprintfi_filtered (va_alist)
 
 /* VARARGS */
 void
+#ifdef ANSI_PROTOTYPES
+printf_filtered (char *format, ...)
+#else
 printf_filtered (va_alist)
      va_dcl
+#endif
 {
   va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, format);
+#else
   char *format;
 
   va_start (args);
   format = va_arg (args, char *);
-
+#endif
   vfprintf_filtered (gdb_stdout, format, args);
   va_end (args);
 }
@@ -1542,15 +1656,22 @@ printf_filtered (va_alist)
 
 /* VARARGS */
 void
+#ifdef ANSI_PROTOTYPES
+printf_unfiltered (char *format, ...)
+#else
 printf_unfiltered (va_alist)
      va_dcl
+#endif
 {
   va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, format);
+#else
   char *format;
 
   va_start (args);
   format = va_arg (args, char *);
-
+#endif
   vfprintf_unfiltered (gdb_stdout, format, args);
   va_end (args);
 }
@@ -1560,16 +1681,24 @@ printf_unfiltered (va_alist)
 
 /* VARARGS */
 void
+#ifdef ANSI_PROTOTYPES
+printfi_filtered (int spaces, char *format, ...)
+#else
 printfi_filtered (va_alist)
      va_dcl
+#endif
 {
   va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, format);
+#else
   int spaces;
   char *format;
 
   va_start (args);
   spaces = va_arg (args, int);
   format = va_arg (args, char *);
+#endif
   print_spaces_filtered (spaces, gdb_stdout);
   vfprintf_filtered (gdb_stdout, format, args);
   va_end (args);
@@ -1737,6 +1866,10 @@ initialize_utils ()
 #else  
   lines_per_page = 24;
   chars_per_line = 80;
+
+#ifndef MPW
+  /* No termcap under MPW, although might be cool to do something
+     by looking at worksheet or console window sizes. */
   /* Initialize the screen height and width from termcap.  */
   {
     char *termtype = getenv ("TERM");
@@ -1771,6 +1904,7 @@ initialize_utils ()
 	  }
       }
   }
+#endif /* MPW */
 
 #if defined(SIGWINCH) && defined(SIGWINCH_HANDLER)
 

@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #if !defined (SYMTAB_H)
 #define SYMTAB_H 1
@@ -726,7 +726,7 @@ struct symtab
     struct linetable *linetable;
 
     /* Section in objfile->section_offsets for the blockvector and
-       the linetable.  */
+       the linetable.  Probably always SECT_OFF_TEXT.  */
 
     int block_line_section;
 
@@ -1040,6 +1040,9 @@ extern CORE_ADDR find_stab_function_addr PARAMS ((char *,
 
 extern struct minimal_symbol *
 lookup_minimal_symbol PARAMS ((const char *, const char *, struct objfile *));
+
+extern struct minimal_symbol *
+lookup_minimal_symbol_text PARAMS ((const char *, const char *, struct objfile *));
 
 extern struct minimal_symbol *
 lookup_minimal_symbol_by_pc PARAMS ((CORE_ADDR));

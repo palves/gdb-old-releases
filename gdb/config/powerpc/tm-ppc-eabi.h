@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef TM_PPC_EABI_H
 #define TM_PPC_EABI_H
@@ -23,9 +23,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Use generic RS6000 definitions. */
 #include "rs6000/tm-rs6000.h"
 
+#undef	DEFAULT_LR_SAVE
+#define	DEFAULT_LR_SAVE 4	/* eabi saves LR at 4 off of SP */
+
 #define GDB_TARGET_POWERPC
 
 #undef PC_LOAD_SEGMENT
 #undef PROCESS_LINENUMBER_HOOK
+
+#undef TEXT_SEGMENT_BASE
+#define TEXT_SEGMENT_BASE 1
 
 #endif /* TM_PPC_EABI_H */

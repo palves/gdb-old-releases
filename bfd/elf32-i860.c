@@ -15,15 +15,15 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
-#include "libelf.h"
+#include "elf-bfd.h"
 
 #define bfd_elf32_bfd_reloc_type_lookup	bfd_default_reloc_type_lookup
-#define elf_info_to_howto		bfd_elf32_no_info_to_howto
+#define elf_info_to_howto		_bfd_elf_no_info_to_howto
 
 #define TARGET_BIG_SYM	bfd_elf32_i860_vec
 #define TARGET_BIG_NAME "elf32-i860"

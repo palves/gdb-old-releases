@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This file contains support routines for creating, manipulating, and
    destroying objfile structures. */
@@ -30,9 +30,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 
 #include <sys/types.h>
-#include <sys/stat.h>
+#include "gdb_stat.h"
 #include <fcntl.h>
 #include <obstack.h>
+#include "gdb_string.h"
 
 /* Prototypes for local functions */
 
@@ -48,10 +49,6 @@ static CORE_ADDR
 map_to_address PARAMS ((void));
 
 #endif  /* !defined(NO_MMALLOC) && defined(HAVE_MMAP) */
-
-/* Message to be printed before the error message, when an error occurs.  */
-
-extern char *error_pre_print;
 
 /* Externally visible variables that are owned by this module.
    See declarations in objfile.h for more info. */
@@ -549,10 +546,6 @@ objfile_relocate (objfile, new_offsets)
 
     ALL_OBJFILE_PSYMTABS (objfile, p)
       {
-	/* FIXME: specific to symbol readers which use gdb-stabs.h.
-	   We can only get away with it since objfile_relocate is only
-	   used on XCOFF, which lacks psymtabs, and for gdb-stabs.h
-	   targets.  */
 	p->textlow += ANOFFSET (delta, SECT_OFF_TEXT);
 	p->texthigh += ANOFFSET (delta, SECT_OFF_TEXT);
       }

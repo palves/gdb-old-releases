@@ -7,7 +7,7 @@ END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.14.
+Source-Level Debugger' for GDB Version 4.15.1.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995 Free
 Software Foundation, Inc.
@@ -24,97 +24,6 @@ of a permission notice identical to this one.
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
 versions.
-
-
-File: gdb.info,  Node: Input/Output,  Next: Attach,  Prev: Working Directory,  Up: Running
-
-Your program's input and output
-===============================
-
-   By default, the program you run under GDB does input and output to
-the same terminal that GDB uses.  GDB switches the terminal to its own
-terminal modes to interact with you, but it records the terminal modes
-your program was using and switches back to them when you continue
-running your program.
-
-`info terminal'
-     Displays information recorded by GDB about the terminal modes your
-     program is using.
-
-   You can redirect your program's input and/or output using shell
-redirection with the `run' command.  For example,
-
-     run > outfile
-
-starts your program, diverting its output to the file `outfile'.
-
-   Another way to specify where your program should do input and output
-is with the `tty' command.  This command accepts a file name as
-argument, and causes this file to be the default for future `run'
-commands.  It also resets the controlling terminal for the child
-process, for future `run' commands.  For example,
-
-     tty /dev/ttyb
-
-directs that processes started with subsequent `run' commands default
-to do input and output on the terminal `/dev/ttyb' and have that as
-their controlling terminal.
-
-   An explicit redirection in `run' overrides the `tty' command's
-effect on the input/output device, but not its effect on the controlling
-terminal.
-
-   When you use the `tty' command or redirect input in the `run'
-command, only the input *for your program* is affected.  The input for
-GDB still comes from your terminal.
-
-
-File: gdb.info,  Node: Attach,  Next: Kill Process,  Prev: Input/Output,  Up: Running
-
-Debugging an already-running process
-====================================
-
-`attach PROCESS-ID'
-     This command attaches to a running process--one that was started
-     outside GDB.  (`info files' shows your active targets.)  The
-     command takes as argument a process ID.  The usual way to find out
-     the process-id of a Unix process is with the `ps' utility, or with
-     the `jobs -l' shell command.
-
-     `attach' does not repeat if you press RET a second time after
-     executing the command.
-
-   To use `attach', your program must be running in an environment
-which supports processes; for example, `attach' does not work for
-programs on bare-board targets that lack an operating system.  You must
-also have permission to send the process a signal.
-
-   When using `attach', you should first use the `file' command to
-specify the program running in the process and load its symbol table.
-*Note Commands to Specify Files: Files.
-
-   The first thing GDB does after arranging to debug the specified
-process is to stop it.  You can examine and modify an attached process
-with all the GDB commands that are ordinarily available when you start
-processes with `run'.  You can insert breakpoints; you can step and
-continue; you can modify storage.  If you would rather the process
-continue running, you may use the `continue' command after attaching
-GDB to the process.
-
-`detach'
-     When you have finished debugging the attached process, you can use
-     the `detach' command to release it from GDB control.  Detaching
-     the process continues its execution.  After the `detach' command,
-     that process and GDB become completely independent once more, and
-     you are ready to `attach' another process or start one with `run'.
-     `detach' does not repeat if you press RET again after executing
-     the command.
-
-   If you exit GDB or use the `run' command while you have an attached
-process, you kill that process.  By default, GDB asks for confirmation
-if you try to do either of these things; you can control whether or not
-you need to confirm by using the `set confirm' command (*note Optional
-warnings and messages: Messages/Warnings.).
 
 
 File: gdb.info,  Node: Kill Process,  Next: Process Information,  Prev: Attach,  Up: Running
@@ -151,7 +60,8 @@ Additional process information
 used to examine the image of a running process using file-system
 subroutines.  If GDB is configured for an operating system with this
 facility, the command `info proc' is available to report on several
-kinds of information about the process running your program.
+kinds of information about the process running your program.  `info
+proc' works only on SVR4 systems that support `procfs'.
 
 `info proc'
      Summarize available information about the process.
@@ -198,6 +108,9 @@ execution stack, and perhaps private memory.
    * `thread THREADNO', a command to switch among threads
 
    * `info threads', a command to inquire about existing threads
+
+   * `thread apply [THREADNO] [ALL] ARGS', a command to apply a command
+     to a list of threads
 
    * thread-specific breakpoints
 
@@ -268,6 +181,14 @@ a single integer--with each thread in your program.
      As with the `[New ...]' message, the form of the text after
      `Switching to' depends on your system's conventions for identifying
      threads.
+
+`thread apply [THREADNO] [ALL]  ARGS'
+     The `thread apply' command allows you to apply a command to one or
+     more threads.  Specify the numbers of the threads that you want
+     affected with the command argument THREADNO.  THREADNO is the
+     internal GDB thread number, as shown in the first field of the
+     `info threads' display.  To apply a command to all threads, use
+     `thread apply all' ARGS.
 
    Whenever GDB stops your program, due to a breakpoint or a signal, it
 automatically selects the thread where that breakpoint or signal
@@ -354,6 +275,9 @@ program.  In languages with exception handling (such as GNU C++), you
 can also set breakpoints where an exception is raised (*note
 Breakpoints and exceptions: Exception Handling.).
 
+   In SunOS 4.x, SVR4, and Alpha OSF/1 configurations, you can now set
+breakpoints in shared libraries before the executable is run.
+
    A "watchpoint" is a special breakpoint that stops your program when
 the value of an expression changes.  You must use a different command
 to set watchpoints (*note Setting watchpoints: Set Watchpoints.), but
@@ -386,8 +310,6 @@ effect on your program until you enable it again.
 
 * Breakpoint Menus::            Breakpoint menus
 
-* Error in Breakpoints::        "Cannot insert breakpoints"
-
 
 File: gdb.info,  Node: Set Breaks,  Next: Set Watchpoints,  Up: Breakpoints
 
@@ -396,7 +318,7 @@ Setting breakpoints
 
    Breakpoints are set with the `break' command (abbreviated `b').  The
 debugger convenience variable `$bpnum' records the number of the
-beakpoint you've set most recently; see *Note Convenience variables:
+breakpoints you've set most recently; see *Note Convenience variables:
 Convenience Vars, for a discussion of what you can do with convenience
 variables.
 
@@ -468,6 +390,31 @@ variables.
      time your program stops there.  *Note Disabling breakpoints:
      Disabling.
 
+`hbreak ARGS'
+     Set a hardware-assisted breakpoint.  ARGS are the same as for the
+     `break' command and the breakpoint is set in the same way, but the
+     breakpoint requires hardware support and some target hardware may
+     not have this support.  The main purpose of this is EPROM/ROM code
+     debugging, so you can set a breakpoint at an instruction without
+     changing the instruction.  This can be used with the new
+     trap-generation provided by SPARClite DSU.  DSU will generate
+     traps when a program accesses some date or instruction address
+     that is assigned to the debug registers.  However the hardware
+     breakpoint registers can only take two data breakpoints, and GDB
+     will reject this command if more than two are used.  Delete or
+     disable usused hardware breakpoints before setting new ones.
+     *Note Break conditions: Conditions.
+
+`thbreak ARGS'
+     Set a hardware-assisted breakpoint enabled only for one stop.  ARGS
+     are the same as for the `hbreak' command and the breakpoint is set
+     in the same way.  However, like the `tbreak' command, the
+     breakpoint is automatically deleted after the first time your
+     program stops there.  Also, like the `hbreak' command, the
+     breakpoint requires hardware support and some target hardware may
+     not have this support.  *Note Disabling breakpoints: Disabling.
+     Also *Note Break conditions: Conditions.
+
 `rbreak REGEX'
      Set breakpoints on all functions matching the regular expression
      REGEX.  This command sets an unconditional breakpoint on all
@@ -513,6 +460,14 @@ variables.
      that breakpoint.  The convenience variable `$_' and the default
      examining-address for the `x' command are set to the address of
      the last breakpoint listed (*note Examining memory: Memory.).
+
+     `info break' now displays a count of the number of times the
+     breakpoint has been hit.  This is especially useful in conjunction
+     with the `ignore' command.  You can ignore a large number of
+     breakpoint hits, look at the breakpoint info to see how many times
+     the breakpoint was hit, and then run again, ignoring one less than
+     that number.  This will get you quickly to the last hit of that
+     breakpoint.
 
    GDB allows you to set any number of breakpoints at the same place in
 your program.  There is nothing silly or meaningless about this.  When
@@ -568,12 +523,31 @@ this may happen.
 than other breakpoints, but this can be well worth it to catch errors
 where you have no clue what part of your program is the culprit.
 
-   Some processors provide special hardware to support watchpoint
-evaluation; GDB will use such hardware if it is available, and if the
-support code has been added for that configuration.
-
 `watch EXPR'
-     Set a watchpoint for an expression.
+     Set a watchpoint for an expression.  GDB will break when EXPR is
+     written into by the program and its value changes.  This can be
+     used with the new trap-generation provided by SPARClite DSU.  DSU
+     will generate traps when a program accesses some date or
+     instruction address that is assigned to the debug registers.  For
+     the data addresses, DSU facilitates the `watch' command.  However
+     the hardware breakpoint registers can only take two data
+     watchpoints, and both watchpoints must be the same kind.  For
+     example, you can set two watchpoints with `watch' commands, two
+     with `rwatch' commands, *or* two with `awatch' commands, but you
+     cannot set one watchpoint with one command and the other with a
+     different command.  {No Value For "GBDN"} will reject the command
+     if you try to mix watchpoints.  Delete or disable unused
+     watchpoint commands before setting new ones.
+
+`rwatch EXPR'
+     Set a watchpoint that will break when watch ARGS is read by the
+     program.  If you use both watchpoints, both must be set with the
+     `rwatch' command.
+
+`awatch EXPR'
+     Set a watchpoint that will break when ARGS is read and written into
+     by the program.  If you use both watchpoints, both must be set
+     with the `awatch' command.
 
 `info watchpoints'
      This command prints a list of watchpoints and breakpoints; it is
@@ -742,11 +716,11 @@ and watchpoints:
      deletes any of these breakpoints as soon as your program stops
      there.
 
-   Save for a breakpoint set with `tbreak' (*note Setting breakpoints:
-Set Breaks.), breakpoints that you set are initially enabled;
-subsequently, they become disabled or enabled only when you use one of
-the commands above.  (The command `until' can set and delete a
-breakpoint of its own, but it does not change the state of your other
+   Except for a breakpoint set with `tbreak' (*note Setting
+breakpoints: Set Breaks.), breakpoints that you set are initially
+enabled; subsequently, they become disabled or enabled only when you
+use one of the commands above.  (The command `until' can set and delete
+a breakpoint of its own, but it does not change the state of your other
 breakpoints; see *Note Continuing and stepping: Continuing and
 Stepping.)
 
@@ -916,7 +890,7 @@ that no output is produced.  Here is an example:
      end
 
 
-File: gdb.info,  Node: Breakpoint Menus,  Next: Error in Breakpoints,  Prev: Break Commands,  Up: Breakpoints
+File: gdb.info,  Node: Breakpoint Menus,  Prev: Break Commands,  Up: Breakpoints
 
 Breakpoint menus
 ----------------
@@ -955,30 +929,6 @@ particular definitions of that function name:
      Use the "delete" command to delete unwanted
       breakpoints.
      (gdb)
-
-
-File: gdb.info,  Node: Error in Breakpoints,  Prev: Breakpoint Menus,  Up: Breakpoints
-
-"Cannot insert breakpoints"
----------------------------
-
-   Under some operating systems, breakpoints cannot be used in a
-program if any other process is running that program.  In this
-situation, attempting to run or continue a program with a breakpoint
-causes GDB to stop the other process.
-
-   When this happens, you have three ways to proceed:
-
-  1. Remove or disable the breakpoints, then continue.
-
-  2. Suspend GDB, and copy the file containing your program to a new
-     name.  Resume GDB and use the `exec-file' command to specify that
-     GDB should run your program under that name.  Then start your
-     program again.
-
-  3. Relink your program so that the text segment is nonsharable, using
-     the linker option `-N'.  The operating system limitation may not
-     apply to nonsharable executables.
 
 
 File: gdb.info,  Node: Continuing and Stepping,  Next: Signals,  Prev: Breakpoints,  Up: Stopping
@@ -1038,6 +988,18 @@ variables that are interesting, until you see the problem happen.
           debugging information, use the `stepi' command, described
           below.
 
+     The `step' command now only stops at the first instruction of a
+     source line.  This prevents the multiple stops that used to occur
+     in switch statements, for loops, etc.  `step' continues to stop if
+     a function that has debugging information is called within the
+     line.
+
+     Also, the `step' command now only enters a subroutine if there is
+     line number information for the subroutine.  Otherwise it acts
+     like the `next' command.  This avoids problems when using `cc -gl'
+     on MIPS machines.  Previously, `step' entered subroutines if there
+     was any debugging information about the routine.
+
 `step COUNT'
      Continue running as in `step', but do so COUNT times.  If a
      breakpoint is reached, or a signal not related to stepping occurs
@@ -1045,17 +1007,17 @@ variables that are interesting, until you see the problem happen.
 
 `next [COUNT]'
      Continue to the next source line in the current (innermost) stack
-     frame.  Similar to `step', but any function calls appearing within
-     the line of code are executed without stopping.  Execution stops
-     when control reaches a different line of code at the stack level
-     which was executing when the `next' command was given.  This
-     command is abbreviated `n'.
+     frame.  This is similar to `step', but function calls that appear
+     within the line of code are executed without stopping.  Execution
+     stops when control reaches a different line of code at the
+     original stack level that was executing when you gave the `next'
+     command.  This command is abbreviated `n'.
 
      An argument COUNT is a repeat count, as for `step'.
 
-     `next' within a function that lacks debugging information acts like
-     `step', but any function calls appearing within the code of the
-     function are executed without stopping.
+     The `next' command now only stops at the first instruction of a
+     source line.  This prevents the multiple stops that used to occur
+     in swtch statements, for loops, etc.
 
 `finish'
      Continue running until just after function in the selected stack
@@ -1064,8 +1026,8 @@ variables that are interesting, until you see the problem happen.
      Contrast this with the `return' command (*note Returning from a
      function: Returning.).
 
-`until'
 `u'
+`until'
      Continue running until a source line past the current line, in the
      current stack frame, is reached.  This command is used to avoid
      single stepping through a loop more than once.  It is like the
@@ -1168,6 +1130,8 @@ command.
      Print a table of all the kinds of signals and how GDB has been
      told to handle each one.  You can use this to see the signal
      numbers of all the defined types of signals.
+
+     `info handle' is the new alias for `info signals'.
 
 `handle SIGNAL KEYWORDS...'
      Change the way GDB handles signal SIGNAL.  SIGNAL can be the

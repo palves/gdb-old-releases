@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -146,7 +146,10 @@ DESCRIPTION
 .  bfd_target_tekhex_flavour,
 .  bfd_target_srec_flavour,
 .  bfd_target_som_flavour,
-.  bfd_target_os9k_flavour};
+.  bfd_target_os9k_flavour,
+.  bfd_target_versados_flavour,
+.  bfd_target_msdos_flavour
+.};
 .
 .{* Forward declaration.  *}
 .typedef struct bfd_link_info _bfd_link_info;
@@ -261,14 +264,26 @@ The general target vector.
 .  {* Entry points to copy private data.  *}
 .#define BFD_JUMP_TABLE_COPY(NAME)\
 .CAT(NAME,_bfd_copy_private_bfd_data),\
-.CAT(NAME,_bfd_copy_private_section_data)
+.CAT(NAME,_bfd_merge_private_bfd_data),\
+.CAT(NAME,_bfd_copy_private_section_data),\
+.CAT(NAME,_bfd_copy_private_symbol_data),\
+.CAT(NAME,_bfd_set_private_flags)
 .  {* Called to copy BFD general private data from one object file
 .     to another.  *}
 .  boolean	 (*_bfd_copy_private_bfd_data) PARAMS ((bfd *, bfd *));
+.  {* Called to merge BFD general private data from one object file
+.     to a common output file when linking.  *}
+.  boolean	 (*_bfd_merge_private_bfd_data) PARAMS ((bfd *, bfd *));
 .  {* Called to copy BFD private section data from one object file
 .     to another.  *}
 .  boolean       (*_bfd_copy_private_section_data) PARAMS ((bfd *, sec_ptr,
 .                                                       bfd *, sec_ptr));
+.  {* Called to copy BFD private symbol data from one symbol 
+.     to another.  *}
+.  boolean       (*_bfd_copy_private_symbol_data) PARAMS ((bfd *, asymbol *,
+.							   bfd *, asymbol *));
+.  {* Called to set private backend flags *}
+.  boolean	 (*_bfd_set_private_flags) PARAMS ((bfd *, flagword));
 .
 .  {* Core file entry points.  *}
 .#define BFD_JUMP_TABLE_CORE(NAME)\
@@ -313,7 +328,9 @@ The general target vector.
 .CAT(NAME,_bfd_is_local_label),\
 .CAT(NAME,_get_lineno),\
 .CAT(NAME,_find_nearest_line),\
-.CAT(NAME,_bfd_make_debug_symbol)
+.CAT(NAME,_bfd_make_debug_symbol),\
+.CAT(NAME,_read_minisymbols),\
+.CAT(NAME,_minisymbol_to_symbol)
 .  long  (*_bfd_get_symtab_upper_bound) PARAMS ((bfd *));
 .  long  (*_bfd_canonicalize_symtab) PARAMS ((bfd *,
 .                                             struct symbol_cache_entry **));
@@ -337,10 +354,18 @@ The general target vector.
 . {* Back-door to allow format-aware applications to create debug symbols
 .    while using BFD for everything else.  Currently used by the assembler
 .    when creating COFF files.  *}
-. asymbol *  (*_bfd_make_debug_symbol) PARAMS ((
+.  asymbol *  (*_bfd_make_debug_symbol) PARAMS ((
 .       bfd *abfd,
 .       void *ptr,
 .       unsigned long size));
+.#define bfd_read_minisymbols(b, d, m, s) \
+.  BFD_SEND (b, _read_minisymbols, (b, d, m, s))
+.  long  (*_read_minisymbols) PARAMS ((bfd *, boolean, PTR *,
+.                                      unsigned int *));
+.#define bfd_minisymbol_to_symbol(b, d, m, f) \
+.  BFD_SEND (b, _minisymbol_to_symbol, (b, d, m, f))
+.  asymbol *(*_minisymbol_to_symbol) PARAMS ((bfd *, boolean, const PTR,
+.                                             asymbol *));
 .
 .  {* Routines for relocs.  *}
 .#define BFD_JUMP_TABLE_RELOCS(NAME)\
@@ -371,7 +396,8 @@ The general target vector.
 .CAT(NAME,_bfd_relax_section),\
 .CAT(NAME,_bfd_link_hash_table_create),\
 .CAT(NAME,_bfd_link_add_symbols),\
-.CAT(NAME,_bfd_final_link)
+.CAT(NAME,_bfd_final_link),\
+.CAT(NAME,_bfd_link_split_section)
 .  int        (*_bfd_sizeof_headers) PARAMS ((bfd *, boolean));
 .  bfd_byte * (*_bfd_get_relocated_section_contents) PARAMS ((bfd *,
 .                    struct bfd_link_info *, struct bfd_link_order *,
@@ -391,6 +417,9 @@ The general target vector.
 .  {* Do a link based on the link_order structures attached to each
 .     section of the BFD.  *}
 .  boolean (*_bfd_final_link) PARAMS ((bfd *, struct bfd_link_info *));
+.
+.  {* Should this section be split up into smaller pieces during linking.  *}
+.  boolean (*_bfd_link_split_section) PARAMS ((bfd *, struct sec *));
 .
 . {* Routines to handle dynamic symbols and relocs.  *}
 .#define BFD_JUMP_TABLE_DYNAMIC(NAME)\
@@ -424,10 +453,16 @@ in this structure.
    we can't intermix extern's and initializers.  */
 extern const bfd_target a29kcoff_big_vec;
 extern const bfd_target a_out_adobe_vec;
+extern const bfd_target aout_arm_big_vec;
+extern const bfd_target aout_arm_little_vec;
 extern const bfd_target aout_mips_big_vec;
 extern const bfd_target aout_mips_little_vec;
 extern const bfd_target aout0_big_vec;
 extern const bfd_target apollocoff_vec;
+extern const bfd_target armpe_little_vec;
+extern const bfd_target armpe_big_vec;
+extern const bfd_target armpei_little_vec;
+extern const bfd_target armpei_big_vec;
 extern const bfd_target b_out_vec_big_host;
 extern const bfd_target b_out_vec_little_host;
 extern const bfd_target bfd_elf32_big_generic_vec;
@@ -440,6 +475,7 @@ extern const bfd_target bfd_elf32_littlemips_vec;
 extern const bfd_target bfd_elf32_m68k_vec;
 extern const bfd_target bfd_elf32_m88k_vec;
 extern const bfd_target bfd_elf32_powerpc_vec;
+extern const bfd_target bfd_elf32_powerpcle_vec;
 extern const bfd_target bfd_elf32_sparc_vec;
 extern const bfd_target bfd_elf64_big_generic_vec;
 extern const bfd_target bfd_elf64_little_generic_vec;
@@ -457,13 +493,17 @@ extern const bfd_target som_vec;
 extern const bfd_target i386aout_vec;
 extern const bfd_target i386bsd_vec;
 extern const bfd_target i386dynix_vec;
+extern const bfd_target i386freebsd_vec;
 extern const bfd_target i386os9k_vec;
 extern const bfd_target i386coff_vec;
+extern const bfd_target i386pe_vec;
+extern const bfd_target i386pei_vec;
 extern const bfd_target go32coff_vec;
 extern const bfd_target i386linux_vec;
 extern const bfd_target i386lynx_aout_vec;
 extern const bfd_target i386lynx_coff_vec;
 extern const bfd_target i386mach3_vec;
+extern const bfd_target i386msdos_vec;
 extern const bfd_target i386netbsd_vec;
 extern const bfd_target icoff_big_vec;
 extern const bfd_target icoff_little_vec;
@@ -493,6 +533,7 @@ extern const bfd_target sparcnetbsd_vec;
 extern const bfd_target sparccoff_vec;
 extern const bfd_target sunos_big_vec;
 extern const bfd_target tekhex_vec;
+extern const bfd_target versados_vec;
 extern const bfd_target we32kcoff_vec;
 extern const bfd_target w65_vec;
 extern const bfd_target z8kcoff_vec;
@@ -591,6 +632,7 @@ const bfd_target * const bfd_target_vector[] = {
 	&i386aout_vec,
 	&i386bsd_vec,
 	&i386coff_vec,
+	&i386freebsd_vec,
 	&go32coff_vec,
 #if 0
 	/* Since a.out files lack decent magic numbers, no way to recognize
@@ -603,8 +645,15 @@ const bfd_target * const bfd_target_vector[] = {
 	/* No distinguishing features for Mach 3 executables.  */
 	&i386mach3_vec,
 #endif
+	&i386msdos_vec,
 	&i386netbsd_vec,
 	&i386os9k_vec,
+	&i386pe_vec,
+	&i386pei_vec,
+	&armpe_little_vec,
+	&armpe_big_vec,
+	&armpei_little_vec,
+	&armpei_big_vec,
 	&icoff_big_vec,
 	&icoff_little_vec,
 	&ieee_vec,
@@ -632,7 +681,9 @@ const bfd_target * const bfd_target_vector[] = {
 #endif
 	&pc532machaout_vec,
 #if 0
-	/* We have no way of distinguishing this from other a.out variants */
+	/* We have no way of distinguishing these from other a.out variants */
+	&aout_arm_big_vec,
+	&aout_arm_little_vec,
 	&riscix_vec,
 #endif
 	&rs6000coff_vec,
@@ -645,6 +696,7 @@ const bfd_target * const bfd_target_vector[] = {
 	&aout0_big_vec,
 	&tekhex_vec,
 	&we32kcoff_vec,
+	&versados_vec,
 	&z8kcoff_vec,
 
 #endif /* not SELECT_VECS */
@@ -652,7 +704,8 @@ const bfd_target * const bfd_target_vector[] = {
 /* Always support S-records, for convenience.  */
 	&srec_vec,
 	&symbolsrec_vec,
-
+/* And tekhex */
+	&tekhex_vec,
 /* Likewise for binary output.  */
 	&binary_vec,
 

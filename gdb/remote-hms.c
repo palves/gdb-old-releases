@@ -1,5 +1,5 @@
 /* Remote debugging interface for Hitachi HMS Monitor Version 1.0
-   Copyright 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright 1995 Free Software Foundation, Inc.
    Contributed by Cygnus Support.  Written by Steve Chamberlain
    (sac@cygnus.com).
 
@@ -17,13 +17,162 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
+#include "defs.h"
+#include "gdbcore.h"
+#include "target.h"
+#include "monitor.h"
+#include "serial.h"
+
+static void hms_open PARAMS ((char *args, int from_tty));
+
+static void
+hms_supply_register (regname, regnamelen, val, vallen)
+     char *regname;
+     int regnamelen;
+     char *val;
+     int vallen;
+{
+  int regno;
+
+  if (regnamelen != 2)
+    return;
+  if (regname[0] != 'P')
+    return;
+  /* We scan off all the registers in one go */
+
+  val = monitor_supply_register (PC_REGNUM, val);
+  /* Skip the ccr string */
+  while (*val != '=' && *val)
+    val++;
+
+  val = monitor_supply_register (CCR_REGNUM, val + 1);
+
+  /* Skip up to rest of regs */
+  while (*val != '=' && *val)
+    val++;
+
+  for (regno = 0; regno < 7; regno++)
+    {
+      val = monitor_supply_register (regno, val + 1);
+    }
+}
+
+/*
+ * This array of registers needs to match the indexes used by GDB. The
+ * whole reason this exists is because the various ROM monitors use
+ * different names than GDB does, and don't support all the
+ * registers either. So, typing "info reg sp" becomes a "r30".
+ */
+
+static char *hms_regnames[NUM_REGS] =
+{
+  "R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "CCR", "PC"
+};
+
+/*
+ * Define the monitor command strings. Since these are passed directly
+ * through to a printf style function, we need can include formatting
+ * strings. We also need a CR or LF on the end.
+ */
+
+static struct target_ops hms_ops;
+
+static char *hms_inits[] =
+{"\003",			/* Resets the prompt, and clears repeated cmds */
+ NULL};
+
+static struct monitor_ops hms_cmds =
+{
+  MO_CLR_BREAK_USES_ADDR | MO_FILL_USES_ADDR | MO_GETMEM_NEEDS_RANGE,
+  hms_inits,			/* Init strings */
+  "g\r",			/* continue command */
+  "s\r",			/* single step */
+  "\003",			/* ^C interrupts the program */
+  "b %x\r",			/* set a breakpoint */
+  "b - %x\r",			/* clear a breakpoint */
+  "b -\r",			/* clear all breakpoints */
+  "f %x %x %x\r",		/* fill (start end val) */
+  {
+    "m.b %x=%x\r",		/* setmem.cmdb (addr, value) */
+    "m.w %x=%x\r",		/* setmem.cmdw (addr, value) */
+    NULL,			/* setmem.cmdl (addr, value) */
+    NULL,			/* setmem.cmdll (addr, value) */
+    NULL,			/* setreg.resp_delim */
+    NULL,			/* setreg.term */
+    NULL,			/* setreg.term_cmd */
+  },
+  {
+    "m.b %x %x\r",		/* getmem.cmdb (addr, addr) */
+    "m.w %x %x\r",		/* getmem.cmdw (addr, addr) */
+    NULL,			/* getmem.cmdl (addr, addr) */
+    NULL,			/* getmem.cmdll (addr, addr) */
+    ": ",			/* getmem.resp_delim */
+    ">",			/* getmem.term */
+    "\003",			/* getmem.term_cmd */
+  },
+  {
+    "\003r %s=%x\r",		/* setreg.cmd (name, value) */
+    NULL,			/* setreg.resp_delim */
+    NULL,			/* setreg.term */
+    NULL			/* setreg.term_cmd */
+  },
+  {
+    "r %s\r",			/* getreg.cmd (name) */
+    " (",			/* getreg.resp_delim */
+    "):",			/* getreg.term */
+    "\003",			/* getreg.term_cmd */
+  },
+  "r\r",			/* dump_registers */
+  "\\(\\w+\\)=\\([0-9a-fA-F]+\\)",	/* register_pattern */
+  hms_supply_register,		/* supply_register */
+  NULL,				/* load_routine (defaults to SRECs) */
+  "tl\r",			/* download command */
+  NULL,				/* load response */
+  ">",				/* monitor command prompt */
+  "\r",				/* end-of-command delimitor */
+  NULL,				/* optional command terminator */
+  &hms_ops,			/* target operations */
+  SERIAL_1_STOPBITS,		/* number of stop bits */
+  hms_regnames,			/* registers names */
+  MONITOR_OPS_MAGIC		/* magic */
+};
+
+static void
+hms_open (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  monitor_open (args, &hms_cmds, from_tty);
+}
+
+int write_dos_tick_delay;
+
+void
+_initialize_remote_hms ()
+{
+  init_monitor_ops (&hms_ops);
+
+  hms_ops.to_shortname = "hms";
+  hms_ops.to_longname = "Hitachi Microsystems H8/300 debug monitor";
+  hms_ops.to_doc = "Debug via the HMS monitor.\n\
+Specify the serial device it is connected to (e.g. /dev/ttya).";
+  hms_ops.to_open = hms_open;
+  /* By trial and error I've found that this delay doesn't break things */
+  write_dos_tick_delay = 1;
+  add_target (&hms_ops);
+}
+
+
+#if 0
+/* This is kept here because we used to support the H8/500 in this module,
+   and I haven't done the H8/500 yet */
 #include "defs.h"
 #include "inferior.h"
 #include "wait.h"
 #include "value.h"
-#include <string.h>
+#include "gdb_string.h"
 #include <ctype.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -53,8 +202,6 @@ static void remove_commands ();
 
 static int quiet = 1;		/* FIXME - can be removed after Dec '94 */
 
-static DCACHE *remote_dcache;
-serial_t desc;
 
 
 /***********************************************************************
@@ -112,7 +259,7 @@ readchar ()
   return buf & 0x7f;
 }
 
-static void 
+static void
 flush ()
 {
   while (1)
@@ -410,8 +557,6 @@ hms_resume (pid, step, sig)
      enum target_signal
        sig;
 {
-  dcache_flush (remote_dcache);
-
   if (step)
     {
       hms_write_cr ("s");
@@ -521,12 +666,12 @@ hms_wait (pid, status)
 
 	  /* Print out any characters which have been swallowed.  */
 	  for (p = swallowed; p < swallowed_p; ++p)
-	    putc_unfiltered (*p);
+	    putchar_unfiltered (*p);
 	  swallowed_p = swallowed;
 
 	  if ((ch != '\r' && ch != '\n') || swallowed_cr > 10)
 	    {
-	      putc_unfiltered (ch);
+	      putchar_unfiltered (ch);
 	      swallowed_cr = 10;
 	    }
 	  swallowed_cr++;
@@ -883,26 +1028,6 @@ translate_addr (addr)
 
 }
 
-/* Read a word from remote address ADDR and return it.
- * This goes through the data cache.
- */
-int
-hms_fetch_word (addr)
-     CORE_ADDR addr;
-{
-  return dcache_fetch (remote_dcache, addr);
-}
-
-/* Write a word WORD into remote address ADDR.
-   This goes through the data cache.  */
-
-void
-hms_store_word (addr, word)
-     CORE_ADDR addr;
-     int word;
-{
-  dcache_poke (remote_dcache, addr, word);
-}
 
 int
 hms_xfer_inferior_memory (memaddr, myaddr, len, write, target)
@@ -912,73 +1037,6 @@ hms_xfer_inferior_memory (memaddr, myaddr, len, write, target)
      int write;
      struct target_ops *target;	/* ignored */
 {
-  register int i;
-
-  /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr;
-
-  /* Round ending address up; get number of longwords that makes.  */
-  register int count;
-
-  /* Allocate buffer of that many longwords.  */
-  register int *buffer;
-
-  memaddr &= 0xffff;
-  addr = memaddr & -sizeof (int);
-  count = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);
-
-  buffer = (int *) alloca (count * sizeof (int));
-
-  if (write)
-    {
-      /* Fill start and end extra bytes of buffer with existing memory data.  */
-
-      if (addr != memaddr || len < (int) sizeof (int))
-	{
-	  /* Need part of initial word -- fetch it.  */
-	  buffer[0] = hms_fetch_word (addr);
-	}
-
-      if (count > 1)		/* FIXME, avoid if even boundary */
-	{
-	  buffer[count - 1]
-	    = hms_fetch_word (addr + (count - 1) * sizeof (int));
-	}
-
-      /* Copy data to be written over corresponding part of buffer */
-
-      memcpy ((char *) buffer + (memaddr & (sizeof (int) - 1)), myaddr, len);
-
-      /* Write the entire buffer.  */
-
-      for (i = 0; i < count; i++, addr += sizeof (int))
-	{
-	  errno = 0;
-	  hms_store_word (addr, buffer[i]);
-	  if (errno)
-	    {
-	      return 0;
-	    }
-
-	}
-    }
-  else
-    {
-      /* Read all the longwords */
-      for (i = 0; i < count; i++, addr += sizeof (int))
-	{
-	  errno = 0;
-	  buffer[i] = hms_fetch_word (addr);
-	  if (errno)
-	    {
-	      return 0;
-	    }
-	  QUIT;
-	}
-
-      /* Copy appropriate bytes out of the buffer.  */
-      memcpy (myaddr, (char *) buffer + (memaddr & (sizeof (int) - 1)), len);
-    }
 
   return len;
 }
@@ -1252,9 +1310,9 @@ hms_open (name, from_tty)
   SERIAL_RAW (desc);
   is_open = 1;
   push_target (&hms_ops);
-  dcache_init (hms_read_inferior_memory,
-	       hms_write_inferior_memory);
-
+  dcache_ptr = dcache_init (hms_read_inferior_memory,
+			    hms_write_inferior_memory);
+  remote_dcache = 1;
   /* Hello?  Are you there?  */
   SERIAL_WRITE (desc, "\r\n", 2);
   expect_prompt ();
@@ -1400,3 +1458,5 @@ _initialize_remote_hms ()
 
   dev_name = NULL;
 }
+#endif
+

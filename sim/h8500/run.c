@@ -1,7 +1,7 @@
 /* run front end support for H8/500
    Copyright (C) 1987, 1992 Free Software Foundation, Inc.
 
-This file is part of H8300 SIM
+This file is part of H8/500 SIM
 
 GNU CC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -14,8 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 
 /* Steve Chamberlain
@@ -26,6 +26,10 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "../../bfd/bfd.h"
 #include "sysdep.h"
 #include "remote-sim.h"
+
+void usage();
+extern int optind;
+extern char *optarg;
 
 int
 main (ac, av)
@@ -40,28 +44,29 @@ main (ac, av)
   int trace = 0;
   char *name = "";
 
-  for (i = 1; i < ac; i++)
-    {
-      if (strcmp (av[i], "-v") == 0)
-	{
-	  verbose = 1;
-	}
-      else if (strcmp (av[i], "-t") == 0)
-	{
-	  trace = 1;
-	}
-      else if (strcmp (av[i], "-c") == 0)
-	{
-	  int csize;
-	  csize = atoi (av[i + 1]);
-	  sim_csize (csize);
-	  i++;
-	}
-      else
-	{
-	  name = av[i];
-	}
-    }
+  while ((i = getopt (ac, av, "c:tv")) != EOF)
+    switch (i) 
+      {
+      case 'c':
+	sim_csize (atoi (optarg));
+	break;
+      case 't':
+	trace = 1;
+	break;
+      case 'v':
+	verbose = 1;
+	break;
+      default:
+	usage();
+      }
+  ac -= optind;
+  av += optind;
+
+  if (ac != 1)
+    usage();
+
+  name = *av;
+
   if (verbose)
     {
       printf ("run %s\n", name);
@@ -119,4 +124,11 @@ printf_filtered (va_alist)
   msg = va_arg (args, char *);
   vfprintf (stdout, msg, args);
   va_end (args);
+}
+
+void
+usage()
+{
+  fprintf (stderr, "usage: run [-tv] program\n");
+  exit (1);
 }

@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -421,10 +421,6 @@ proc test_ptype_of_classes {} {
 proc test_virtual_calls {} {
     global prompt
     global GDB
-    global timeout
-
-    set otimeout $timeout
-    set timeout 600
 
     send "print pAe->f()\n"
     expect {
@@ -538,8 +534,6 @@ proc test_virtual_calls {} {
 	timeout { fail "print pEe->D::vg() (timeout)" }
 	eof { fail "print pEe->D::vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
     }
-
-    set timeout $otimeout
 }
 
 
@@ -582,9 +576,7 @@ set binfile "virtfunc"
 set srcfile $binfile.cc
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    if $all_flag then {
-	warning "$binfile does not exist; tests suppressed."
-    }
+    warning "$binfile does not exist; tests suppressed."
 } else {
     do_tests
 }

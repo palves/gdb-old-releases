@@ -1,5 +1,5 @@
 /* Support routines for building symbol tables in GDB's internal format.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1995
              Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This module provides subroutines used for creating and adding to
    the symbol table.  These routines are called from various symbol-
@@ -31,8 +31,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "symfile.h"		/* Needed for "struct complaint" */
 #include "objfiles.h"
+#include "gdbtypes.h"
 #include "complaints.h"
-#include <string.h>
+#include "gdb_string.h"
 
 /* Ask buildsym.h to define the vars it normally declares `extern'.  */
 #define	EXTERN	/**/
@@ -226,8 +227,81 @@ finish_block (symbol, listhead, old_blocks, start, end, objfile)
 
   if (symbol)
     {
+      struct type *ftype = SYMBOL_TYPE (symbol);
       SYMBOL_BLOCK_VALUE (symbol) = block;
       BLOCK_FUNCTION (block) = symbol;
+
+      if (TYPE_NFIELDS (ftype) <= 0)
+	{
+	  /* No parameter type information is recorded with the function's
+	     type.  Set that from the type of the parameter symbols. */
+	  int nparams = 0, iparams;
+	  struct symbol *sym;
+	  for (i = 0; i < BLOCK_NSYMS (block); i++)
+	    {
+	      sym = BLOCK_SYM (block, i);
+	      switch (SYMBOL_CLASS (sym))
+		{
+		case LOC_ARG:
+		case LOC_REF_ARG:
+		case LOC_REGPARM:
+		case LOC_REGPARM_ADDR:
+		  nparams++;
+		  break;
+		case LOC_UNDEF:
+		case LOC_CONST:
+		case LOC_STATIC:
+		case LOC_REGISTER:
+		case LOC_LOCAL:
+		case LOC_TYPEDEF:
+		case LOC_LABEL:
+		case LOC_BLOCK:
+		case LOC_CONST_BYTES:
+		case LOC_LOCAL_ARG:
+		case LOC_BASEREG:
+		case LOC_BASEREG_ARG:
+		case LOC_OPTIMIZED_OUT:
+		default:
+		  break;
+		}
+	    }
+	  if (nparams > 0)
+	    {
+	      TYPE_NFIELDS (ftype) = nparams;
+	      TYPE_FIELDS (ftype) = (struct field *)
+		TYPE_ALLOC (ftype, nparams * sizeof (struct field));
+						
+	      for (i = iparams = 0; iparams < nparams; i++)
+		{
+		  sym = BLOCK_SYM (block, i);
+		  switch (SYMBOL_CLASS (sym))
+		    {
+		    case LOC_ARG:
+		    case LOC_REF_ARG:
+		    case LOC_REGPARM:
+		    case LOC_REGPARM_ADDR:
+		      TYPE_FIELD_TYPE (ftype, iparams) = SYMBOL_TYPE (sym);
+		      iparams++;
+		      break;
+		    case LOC_UNDEF:
+		    case LOC_CONST:
+		    case LOC_STATIC:
+		    case LOC_REGISTER:
+		    case LOC_LOCAL:
+		    case LOC_TYPEDEF:
+		    case LOC_LABEL:
+		    case LOC_BLOCK:
+		    case LOC_CONST_BYTES:
+		    case LOC_LOCAL_ARG:
+		    case LOC_BASEREG:
+		    case LOC_BASEREG_ARG:
+		    case LOC_OPTIMIZED_OUT:
+		    default:
+		      break;
+		    }
+		}
+	    }
+	}
     }
   else
     {
@@ -439,23 +513,26 @@ start_subfile (name, dirname)
      of any pending subfiles from C to C++.  We also accept any other C++
      suffixes accepted by deduce_language_from_filename (in particular,
      some people use .cxx with cfront).  */
+  /* Likewise for f2c.  */
 
   if (subfile->name)
     {
       struct subfile *s;
+      enum language sublang = deduce_language_from_filename (subfile->name);
 
-      if (deduce_language_from_filename (subfile->name) == language_cplus)
+      if (sublang == language_cplus || sublang == language_fortran)
 	for (s = subfiles; s != NULL; s = s->next)
 	  if (s->language == language_c)
-	    s->language = language_cplus;
+	    s->language = sublang;
     }
 
   /* And patch up this file if necessary.  */
   if (subfile->language == language_c
       && subfile->next != NULL
-      && subfile->next->language == language_cplus)
+      && (subfile->next->language == language_cplus
+	  || subfile->next->language == language_fortran))
     {
-      subfile->language = language_cplus;
+      subfile->language = subfile->next->language;
     }
 }
 
@@ -481,6 +558,7 @@ patch_subfile_names (subfile, name)
     {
       subfile->dirname = subfile->name;
       subfile->name = savestring (name, strlen (name));
+      last_source_file = name;
 
       /* Default the source language to whatever can be deduced from
 	 the filename.  If nothing can be deduced (such as for a C/C++

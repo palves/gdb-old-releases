@@ -1,0 +1,6 @@
+CC_FOR_BUILD=gcc
+CC=i386-win32-gcc -O2
+AR=i386-win32-ar
+RANLIB=i386-win32-ranlib
+
+

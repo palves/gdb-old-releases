@@ -1,5 +1,5 @@
 /* Disassemble h8500 instructions.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1995 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include <stdio.h>
 #define STATIC_TABLE
@@ -36,8 +36,6 @@ print_insn_shx(memaddr, info)
   int status;
   int relmask = ~0;
   sh_opcode_info *op;
-
-  int dslot = 0;
   
   status = info->read_memory_func(memaddr, insn, 2, info);
 
@@ -203,7 +201,7 @@ print_insn_shx(memaddr, info)
 	      break;
 	    case A_BDISP12:
 	    case A_BDISP8:
-	      fprintf(stream,"0x%x", imm + memaddr);	
+	      (*info->print_address_func) (imm + memaddr, info);
 	      break;
 	    case A_SR:
 	      fprintf(stream,"sr");
@@ -228,12 +226,13 @@ print_insn_shx(memaddr, info)
 	    }
 	
 	}
-      if (!(info->flags & 1) &&
-	  op->name[0] == 'j'
-	  || (op->name[0] == 'b' && (op->name[1] == 'r' 
-				     || op->name[1] == 's'))
-	  || (op->name[0] == 'r' && op->name[1] == 't')
-	  || (op->name[0] == 'b' && op->name[2] == '.'))
+      if (!(info->flags & 1)
+	  && (op->name[0] == 'j'
+	      || (op->name[0] == 'b'
+		  && (op->name[1] == 'r' 
+		      || op->name[1] == 's'))
+	      || (op->name[0] == 'r' && op->name[1] == 't')
+	      || (op->name[0] == 'b' && op->name[2] == '.')))
 	{
 	  info->flags |= 1;
 	  fprintf(stream,"\t(slot ");  print_insn_shx(memaddr +2, info);

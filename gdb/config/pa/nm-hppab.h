@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "somsolib.h"
 
@@ -96,6 +96,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    take.  (this may include restarting the inferior if the watchpoint
    fired because of a write to an address on the same page as a watchpoint,
    but no write to the watched address occured).  */
+
+#define TARGET_HAS_HARDWARE_WATCHPOINTS	/* Enable the code in procfs.c */
 
 /* The PA can watch any number of locations, there's no need for it to reject
    anything (generic routines already check that all intermediates are

@@ -16,11 +16,13 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
+
+static int real_read PARAMS ((PTR, size_t, size_t, FILE *));
 
 /*
 SECTION
@@ -180,15 +182,14 @@ bfd_zmalloc (size)
    contents (0 for non-archive elements).  For archive entries this is the
    first octet in the file, NOT the beginning of the archive header. */
 
-static 
-int
+static int
 real_read (where, a,b, file)
      PTR where;
-     int a;
-     int b;
+     size_t a;
+     size_t b;
      FILE *file;
 {
-  return fread(where, a,b,file);
+  return fread (where, a, b, file);
 }
 
 /* Return value is amount read (FIXME: how are errors and end of file dealt
@@ -202,7 +203,7 @@ bfd_read (ptr, size, nitems, abfd)
      bfd *abfd;
 {
   int nread;
-  nread = real_read (ptr, 1, (int)(size*nitems), bfd_cache_lookup(abfd));
+  nread = real_read (ptr, 1, (size_t)(size*nitems), bfd_cache_lookup(abfd));
 #ifdef FILE_OFFSET_IS_CHAR_INDEX
   if (nread > 0)
     abfd->where += nread;
@@ -233,7 +234,8 @@ bfd_write (ptr, size, nitems, abfd)
      bfd_size_type nitems;
      bfd *abfd;
 {
-  int nwrote = fwrite (ptr, 1, (int) (size * nitems), bfd_cache_lookup (abfd));
+  int nwrote = fwrite (ptr, 1, (size_t) (size * nitems),
+		       bfd_cache_lookup (abfd));
 #ifdef FILE_OFFSET_IS_CHAR_INDEX
   if (nwrote > 0)
     abfd->where += nwrote;
@@ -294,12 +296,25 @@ bfd_flush (abfd)
   return fflush (bfd_cache_lookup(abfd));
 }
 
+/* Returns 0 for success, negative value for failure (in which case
+   bfd_get_error can retrieve the error code).  */
 int
 bfd_stat (abfd, statbuf)
      bfd *abfd;
      struct stat *statbuf;
 {
-  return fstat (fileno(bfd_cache_lookup(abfd)), statbuf);
+  FILE *f;
+  int result;
+  f = bfd_cache_lookup (abfd);
+  if (f == NULL)
+    {
+      bfd_set_error (bfd_error_system_call);
+      return -1;
+    }
+  result = fstat (fileno (f), statbuf);
+  if (result < 0)
+    bfd_set_error (bfd_error_system_call);
+  return result;
 }
 
 /* Returns 0 for success, nonzero for failure (in which case bfd_get_error

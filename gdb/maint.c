@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 
 #include "defs.h"
@@ -33,6 +33,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "expression.h" /* For language.h */
 #include "language.h"
 
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
 static void maintenance_command PARAMS ((char *, int));
 
 static void maintenance_dump_me PARAMS ((char *, int));
@@ -42,6 +46,14 @@ static void maintenance_demangle PARAMS ((char *, int));
 static void maintenance_time_display PARAMS ((char *, int));
 
 static void maintenance_space_display PARAMS ((char *, int));
+
+/* Set this to the maximum number of seconds to wait instead of waiting forever
+   in target_wait().  If this timer times out, then it generates an error and
+   the command is aborted.  This replaces most of the need for timeouts in the
+   GDB test suite, and makes it possible to distinguish between a hung target
+   and one with slow communications.  */
+
+int watchdog = 0;
 
 /*
 
@@ -330,5 +342,13 @@ If a SOURCE file is specified, dump only that file's partial symbols.",
   add_cmd ("check-symtabs", class_maintenance, maintenance_check_symtabs,
 	   "Check consistency of psymtabs and symtabs.",
 	   &maintenancelist);
+
+  add_show_from_set (
+    add_set_cmd ("watchdog", class_maintenance, var_zinteger, (char *)&watchdog,
+		 "Set watchdog timer.\n\
+When non-zero, this timeout is used instead of waiting forever for a target to\n\
+finish a low-level step or continue operation.  If the specified amount of time\n\
+passes without a response from the target, an error occurs.", &setlist),
+		     &showlist);
 #endif	/* MAINTENANCE_CMDS */
 }

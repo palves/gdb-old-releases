@@ -20,7 +20,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "gdbcmd.h"
@@ -196,6 +196,7 @@ static struct dos_ttystate
 {
   int		base;
   int		irq;
+  int		refcnt;
   struct intrupt *intrupt;
   int		fifo;
   int		baudrate;
@@ -311,7 +312,7 @@ dos_comisr (irq)
 		    port->oflo++;
 		}
 
-	      if (dos_putc (c & 0x7f, port) < 0)
+	      if (dos_putc (c, port) < 0)
 		{
 		  COUNT (CNT_ORUN);
 		}
@@ -474,11 +475,11 @@ dos_open (scb, name)
 
   fd = name[3] - '1';
   port = &ports[fd];
-  if (port->intrupt)
+  if (port->refcnt++ > 0)
     {
-      /* already open (EBUSY not defined!) */
-      errno = EACCES;
-      return -1;
+      /* Device already opened another user.  Just point at it. */
+      scb->fd = fd;
+      return 0;
     }
 
   /* force access to ID reg */
@@ -559,6 +560,10 @@ dos_close (scb)
       return;
 
     port = &ports[scb->fd];
+
+    if (port->refcnt-- > 1)
+      return;
+
     if (!(intrupt = port->intrupt))
       return;
 
@@ -714,6 +719,7 @@ dos_setbaudrate (scb, rate)
     if (port->baudrate != rate) 
       {
 	int x;
+	unsigned char cfcr;
 
 	x = dos_baudconv (rate);
 	if (x <= 0)
@@ -724,10 +730,12 @@ dos_setbaudrate (scb, rate)
 	  }
 
 	disable ();
+	cfcr = inb (port, com_cfcr);
+
 	outb(port, com_cfcr, CFCR_DLAB);
 	outb(port, com_dlbl, x & 0xff);
 	outb(port, com_dlbh, x >> 8);
-	outb(port, com_cfcr, CFCR_8BITS);
+	outb(port, com_cfcr, cfcr);
 	port->baudrate = rate;
 	enable ();
       }
@@ -735,6 +743,34 @@ dos_setbaudrate (scb, rate)
     return 0;
 }
 
+static int
+dos_setstopbits (scb, num)
+     serial_t scb;
+     int num;
+{
+    struct dos_ttystate *port = &ports[scb->fd];
+    unsigned char cfcr;
+
+    disable ();
+    cfcr = inb (port, com_cfcr);
+
+    switch (num)
+      {
+      case SERIAL_1_STOPBITS:
+	outb (port, com_cfcr, cfcr & ~CFCR_STOPB);
+	break;
+      case SERIAL_1_AND_A_HALF_STOPBITS:
+      case SERIAL_2_STOPBITS:
+	outb (port, com_cfcr, cfcr | CFCR_STOPB);
+	break;
+      default:
+	enable ();
+	return 1;
+      }
+    enable ();
+
+    return 0;
+}
 
 static int
 dos_write (scb, str, len)
@@ -811,6 +847,7 @@ static struct serial_ops dos_ops =
   dos_print_tty_state,
   dos_noflush_set_tty_state,
   dos_setbaudrate,
+  dos_setstopbits,
 };
 
 

@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define TARGETNAME "a.out-sunos-big"
 #define MY(OP) CAT(sunos_big_,OP)
@@ -486,7 +486,8 @@ sunos_canonicalize_dynamic_reloc (abfd, storage, syms)
 	  p = (struct reloc_ext_external *) info->dynrel;
 	  pend = p + info->dynrel_count;
 	  for (; p < pend; p++, to++)
-	    NAME(aout,swap_ext_reloc_in) (abfd, p, to, syms);
+	    NAME(aout,swap_ext_reloc_in) (abfd, p, to, syms,
+					  info->dynsym_count);
 	}
       else
 	{
@@ -496,7 +497,8 @@ sunos_canonicalize_dynamic_reloc (abfd, storage, syms)
 	  p = (struct reloc_std_external *) info->dynrel;
 	  pend = p + info->dynrel_count;
 	  for (; p < pend; p++, to++)
-	    NAME(aout,swap_std_reloc_in) (abfd, p, to, syms);
+	    NAME(aout,swap_std_reloc_in) (abfd, p, to, syms,
+					  info->dynsym_count);
 	}
     }
 
@@ -647,7 +649,7 @@ sunos_link_hash_table_create (abfd)
   struct sunos_link_hash_table *ret;
 
   ret = ((struct sunos_link_hash_table *)
-	 malloc (sizeof (struct sunos_link_hash_table)));
+	 bfd_alloc (abfd, sizeof (struct sunos_link_hash_table)));
   if (ret == (struct sunos_link_hash_table *) NULL)
     {
       bfd_set_error (bfd_error_no_memory);
@@ -859,7 +861,8 @@ sunos_add_one_symbol (info, abfd, name, flags, section, value, string,
 
   if (! bfd_is_und_section (section)
       && h->root.root.type != bfd_link_hash_new
-      && h->root.root.type != bfd_link_hash_undefined)
+      && h->root.root.type != bfd_link_hash_undefined
+      && h->root.root.type != bfd_link_hash_defweak)
     {
       /* We are defining the symbol, and it is already defined.  This
 	 is a potential multiple definition error.  */
@@ -875,7 +878,7 @@ sunos_add_one_symbol (info, abfd, name, flags, section, value, string,
 		&& h->root.root.u.def.section->owner != NULL
 		&& (h->root.root.u.def.section->owner->flags & DYNAMIC) != 0)
 	       || (h->root.root.type == bfd_link_hash_common
-		   && ((h->root.root.u.c.section->owner->flags & DYNAMIC)
+		   && ((h->root.root.u.c.p->section->owner->flags & DYNAMIC)
 		       != 0)))
 	{
 	  /* The existing definition is from a dynamic object.  We
@@ -1083,13 +1086,14 @@ bfd_sunos_size_dynamic_sections (output_bfd, info, sdynptr, sneedptr,
       bfd_byte *contents;
 
       add = 8 - (s->_raw_size & 7);
-      contents = (bfd_byte *) realloc (s->contents, s->_raw_size + add);
+      contents = (bfd_byte *) realloc (s->contents,
+				       (size_t) (s->_raw_size + add));
       if (contents == NULL)
 	{
 	  bfd_set_error (bfd_error_no_memory);
 	  return false;
 	}
-      memset (contents + s->_raw_size, 0, add);
+      memset (contents + s->_raw_size, 0, (size_t) add);
       s->contents = contents;
       s->_raw_size += add;
     }
@@ -1169,16 +1173,17 @@ sunos_scan_relocs (info, abfd, sec, rel_size)
     return true;
 
   if (! info->keep_memory)
-    relocs = free_relocs = malloc (rel_size);
+    relocs = free_relocs = malloc ((size_t) rel_size);
   else
     {
-      aout_section_data (sec) =
-	((struct aout_section_data_struct *)
-	 bfd_alloc (abfd, sizeof (struct aout_section_data_struct)));
+      set_aout_section_data (sec,
+			     ((struct aout_section_data_struct *)
+			      bfd_alloc (abfd,
+					 sizeof (struct aout_section_data_struct))));
       if (aout_section_data (sec) == NULL)
 	relocs = NULL;
       else
-	relocs = aout_section_data (sec)->relocs = malloc (rel_size);
+	relocs = aout_section_data (sec)->relocs = malloc ((size_t) rel_size);
     }
   if (relocs == NULL)
     {
@@ -1297,9 +1302,10 @@ sunos_scan_std_relocs (info, abfd, sec, relocs, rel_size)
       /* At this point common symbols have already been allocated, so
 	 we don't have to worry about them.  We need to consider that
 	 we may have already seen this symbol and marked it undefined;
-	 if the symbols is really undefined, then SUNOS_DEF_DYNAMIC
+	 if the symbol is really undefined, then SUNOS_DEF_DYNAMIC
 	 will be zero.  */
       if (h->root.root.type != bfd_link_hash_defined
+	  && h->root.root.type != bfd_link_hash_defweak
 	  && h->root.root.type != bfd_link_hash_undefined)
 	continue;
 
@@ -1308,7 +1314,8 @@ sunos_scan_std_relocs (info, abfd, sec, relocs, rel_size)
 	continue;
 
       BFD_ASSERT ((h->flags & SUNOS_REF_REGULAR) != 0);
-      BFD_ASSERT (h->root.root.type == bfd_link_hash_defined
+      BFD_ASSERT ((h->root.root.type == bfd_link_hash_defined
+		   || h->root.root.type == bfd_link_hash_defweak)
 		  ? (h->root.root.u.def.section->owner->flags & DYNAMIC) != 0
 		  : (h->root.root.u.undef.abfd->flags & DYNAMIC) != 0);
 
@@ -1444,6 +1451,7 @@ sunos_scan_ext_relocs (info, abfd, sec, relocs, rel_size)
 	 if the symbols is really undefined, then SUNOS_DEF_DYNAMIC
 	 will be zero.  */
       if (h->root.root.type != bfd_link_hash_defined
+	  && h->root.root.type != bfd_link_hash_defweak
 	  && h->root.root.type != bfd_link_hash_undefined)
 	continue;
 
@@ -1452,7 +1460,8 @@ sunos_scan_ext_relocs (info, abfd, sec, relocs, rel_size)
 	continue;
 
       BFD_ASSERT ((h->flags & SUNOS_REF_REGULAR) != 0);
-      BFD_ASSERT (h->root.root.type == bfd_link_hash_defined
+      BFD_ASSERT ((h->root.root.type == bfd_link_hash_defined
+		   || h->root.root.type == bfd_link_hash_defweak)
 		  ? (h->root.root.u.def.section->owner->flags & DYNAMIC) != 0
 		  : (h->root.root.u.undef.abfd->flags & DYNAMIC) != 0);
 
@@ -1527,7 +1536,8 @@ sunos_scan_dynamic_symbol (h, data)
       && (h->flags & SUNOS_DEF_DYNAMIC) != 0
       && (h->flags & SUNOS_REF_REGULAR) != 0)
     {
-      if (h->root.root.type == bfd_link_hash_defined
+      if ((h->root.root.type == bfd_link_hash_defined
+	   || h->root.root.type == bfd_link_hash_defweak)
 	  && ((h->root.root.u.def.section->owner->flags & DYNAMIC) != 0)
 	  && h->root.root.u.def.section->output_section == NULL)
 	{
@@ -1574,7 +1584,8 @@ sunos_scan_dynamic_symbol (h, data)
       if (s->contents == NULL)
 	contents = (bfd_byte *) malloc (len + 1);
       else
-	contents = (bfd_byte *) realloc (s->contents, s->_raw_size + len + 1);
+	contents = (bfd_byte *) realloc (s->contents,
+					 (size_t) (s->_raw_size + len + 1));
       if (contents == NULL)
 	{
 	  bfd_set_error (bfd_error_no_memory);
@@ -1665,6 +1676,7 @@ sunos_write_dynamic_symbol (output_bfd, info, harg)
       val = 0;
       break;
     case bfd_link_hash_defined:
+    case bfd_link_hash_defweak:
       {
 	asection *sec;
 	asection *output_section;
@@ -1682,13 +1694,22 @@ sunos_write_dynamic_symbol (output_bfd, info, harg)
 	else
 	  {
 	    if (output_section == obj_textsec (output_bfd))
-	      type = N_TEXT | N_EXT;
+	      type = (h->root.root.type == bfd_link_hash_defined
+		      ? N_TEXT
+		      : N_WEAKT);
 	    else if (output_section == obj_datasec (output_bfd))
-	      type = N_DATA | N_EXT;
+	      type = (h->root.root.type == bfd_link_hash_defined
+		      ? N_DATA
+		      : N_WEAKD);
 	    else if (output_section == obj_bsssec (output_bfd))
-	      type = N_BSS | N_EXT;
+	      type = (h->root.root.type == bfd_link_hash_defined
+		      ? N_BSS
+		      : N_WEAKB);
 	    else
-	      type = N_ABS | N_EXT;
+	      type = (h->root.root.type == bfd_link_hash_defined
+		      ? N_ABS
+		      : N_WEAKA);
+	    type |= N_EXT;
 	    val = (h->root.root.u.def.value
 		   + output_section->vma
 		   + sec->output_offset);
@@ -1699,7 +1720,7 @@ sunos_write_dynamic_symbol (output_bfd, info, harg)
       type = N_UNDF | N_EXT;
       val = h->root.root.u.c.size;
       break;
-    case bfd_link_hash_weak:
+    case bfd_link_hash_undefweak:
       type = N_WEAKU;
       val = 0;
       break;

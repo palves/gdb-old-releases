@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /*
 SECTION
@@ -172,7 +172,11 @@ bfd_check_format_matches (abfd, format, matching)
   }
 
   for (target = bfd_target_vector; *target != NULL; target++) {
+    extern const bfd_target binary_vec;
     const bfd_target *temp;
+
+    if (*target == &binary_vec)
+      continue;
 
     abfd->xvec = *target;	/* Change BFD's target temporarily */
     if (bfd_seek (abfd, (file_ptr)0, SEEK_SET) != 0)

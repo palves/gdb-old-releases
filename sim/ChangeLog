@@ -1,3 +1,36 @@
+Tue Oct 10 11:08:20 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (BISON): Remove macro.
+	(FLAGS_TO_PASS): Remove BISON.
+
+Thu Aug  3 10:45:37 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Update all FSF addresses except those in COPYING* files.
+
+Thu Jul 20 15:17:29 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (CC_FOR_BUILD):  Define default and arrange to pass
+	submakes either default or passed in value.
+
+Wed Jul  5 14:32:54 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* Makefile.in (all, clean, distclean, mostlyclean, realclean,
+	  install): Changed targets so that they descend all
+	  subdirectories in $(SUBDIRS).
+	  (*-all, *-clean, *-install): Removed targets.
+
+	* configure.in: Don't bother with target makefile fragments, they
+	  are no longer needed.
+	* configure: regenerated.
+
+	* Makefile.in, configure.in: converted to autoconf.
+	* configure: New file, generated with autconf 2.4.
+
+Wed May 24 14:48:46 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* Makefile.in: Support ARM.
+	* configure.in: Ditto.
+
 Sun Jan 15 16:53:47 1995  Steve Chamberlain  <sac@splat>
 
 	* Makefile.in: Support W65.

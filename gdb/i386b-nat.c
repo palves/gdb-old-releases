@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include <machine/reg.h>
@@ -72,6 +72,7 @@ i386_register_u_addr (blockend, regnum)
 
 
 #ifdef FLOAT_INFO
+#include "language.h"			/* for local_hex_string */
 #include "floatformat.h"
 
 #include <sys/param.h>
@@ -89,7 +90,7 @@ i386_register_u_addr (blockend, regnum)
 #include <sys/user.h>
 #undef curpcb
 #include <sys/file.h>
-#include <sys/stat.h>
+#include "gdb_stat.h"
 #include <sys/ptrace.h>
 
 extern void print_387_control_word ();		/* i387-tdep.h */
@@ -115,7 +116,7 @@ struct env387
   unsigned char regs[8][10];
 };
 
-static
+static void
 print_387_status (status, ep)
      unsigned short status;
      struct env387 *ep;
@@ -124,7 +125,6 @@ print_387_status (status, ep)
   int bothstatus;
   int top;
   int fpreg;
-  unsigned char *p;
   
   bothstatus = ((status != 0) && (ep->status != 0));
   if (status != 0) 

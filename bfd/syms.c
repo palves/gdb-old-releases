@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /*
 SECTION
@@ -48,6 +48,7 @@ SECTION
 @menu
 @* Reading Symbols::
 @* Writing Symbols::
+@* Mini Symbols::
 @* typedef asymbol::
 @* symbol handling functions::
 @end menu
@@ -91,7 +92,7 @@ SUBSECTION
 
 
 INODE
-Writing Symbols, typedef asymbol, Reading Symbols, Symbols
+Writing Symbols, Mini Symbols, Reading Symbols, Symbols
 SUBSECTION
 	Writing symbols
 
@@ -137,6 +138,28 @@ SUBSECTION
 	which is not one  of <<.text>>, <<.data>> or <<.bss>> cannot
 	be described.
 
+INODE
+Mini Symbols, typedef asymbol, Writing Symbols, Symbols
+SUBSECTION
+	Mini Symbols
+
+	Mini symbols provide read-only access to the symbol table.
+	They use less memory space, but require more time to access.
+	They can be useful for tools like nm or objdump, which may
+	have to handle symbol tables of extremely large executables.
+
+	The <<bfd_read_minisymbols>> function will read the symbols
+	into memory in an internal form.  It will return a <<void *>>
+	pointer to a block of memory, a symbol count, and the size of
+	each symbol.  The pointer is allocated using <<malloc>>, and
+	should be freed by the caller when it is no longer needed.
+
+	The function <<bfd_minisymbol_to_symbol>> will take a pointer
+	to a minisymbol, and a pointer to a structure returned by
+	<<bfd_make_empty_symbol>>, and return a <<asymbol>> structure.
+	The return value may or may not be the same as the value from
+	<<bfd_make_empty_symbol>> which was passed in.
+
 */
 
 
@@ -144,7 +167,7 @@ SUBSECTION
 /*
 DOCDD
 INODE
-typedef asymbol, symbol handling functions, Writing Symbols, Symbols
+typedef asymbol, symbol handling functions, Mini Symbols, Symbols
 
 */
 /*
@@ -463,7 +486,10 @@ static CONST struct section_to_type stt[] =
 };
 
 /* Return the single-character symbol type corresponding to
-   section S, or '?' for an unknown COFF section.  */
+   section S, or '?' for an unknown COFF section.  
+
+   Check for any leading string which matches, so .text5 returns
+   't' as well as .text */
 
 static char
 coff_section_type (s)
@@ -471,9 +497,10 @@ coff_section_type (s)
 {
   CONST struct section_to_type *t;
 
-  for (t = &stt[0]; t->section; t++)
-    if (!strcmp (s, t->section))
+  for (t = &stt[0]; t->section; t++) 
+    if (!strncmp (s, t->section, strlen (t->section)))
       return t->type;
+
   return '?';
 }
 
@@ -507,6 +534,8 @@ bfd_decode_symclass (symbol)
     return 'U';
   if (bfd_is_ind_section (symbol->section))
     return 'I';
+  if (symbol->flags & BSF_WEAK)
+    return 'W';
   if (!(symbol->flags & (BSF_GLOBAL | BSF_LOCAL)))
     return '?';
 
@@ -560,4 +589,87 @@ void
 bfd_symbol_is_absolute ()
 {
   abort ();
+}
+
+/*
+FUNCTION
+	bfd_copy_private_symbol_data
+
+SYNOPSIS
+	boolean bfd_copy_private_symbol_data(bfd *ibfd, asymbol *isym, bfd *obfd, asymbol *osym);
+
+DESCRIPTION
+	Copy private symbol information from @var{isym} in the BFD
+	@var{ibfd} to the symbol @var{osym} in the BFD @var{obfd}.
+	Return <<true>> on success, <<false>> on error.  Possible error
+	returns are:
+
+	o <<bfd_error_no_memory>> -
+	Not enough memory exists to create private data for @var{osec}.
+
+.#define bfd_copy_private_symbol_data(ibfd, isymbol, obfd, osymbol) \
+.     BFD_SEND (ibfd, _bfd_copy_private_symbol_data, \
+.		(ibfd, isymbol, obfd, osymbol))
+
+*/
+
+/* The generic version of the function which returns mini symbols.
+   This is used when the backend does not provide a more efficient
+   version.  It just uses BFD asymbol structures as mini symbols.  */
+
+long
+_bfd_generic_read_minisymbols (abfd, dynamic, minisymsp, sizep)
+     bfd *abfd;
+     boolean dynamic;
+     PTR *minisymsp;
+     unsigned int *sizep;
+{
+  long storage;
+  asymbol **syms = NULL;
+  long symcount;
+
+  if (dynamic)
+    storage = bfd_get_dynamic_symtab_upper_bound (abfd);
+  else
+    storage = bfd_get_symtab_upper_bound (abfd);
+  if (storage < 0)
+    goto error_return;
+
+  syms = (asymbol **) malloc ((size_t) storage);
+  if (syms == NULL)
+    {
+      bfd_set_error (bfd_error_no_memory);
+      goto error_return;
+    }
+
+  if (dynamic)
+    symcount = bfd_canonicalize_dynamic_symtab (abfd, syms);
+  else
+    symcount = bfd_canonicalize_symtab (abfd, syms);
+  if (symcount < 0)
+    goto error_return;
+
+  *minisymsp = (PTR) syms;
+  *sizep = sizeof (asymbol *);
+  return symcount;
+
+ error_return:
+  if (syms != NULL)
+    free (syms);
+  return -1;
+}
+
+/* The generic version of the function which converts a minisymbol to
+   an asymbol.  We don't worry about the sym argument we are passed;
+   we just return the asymbol the minisymbol points to.  */
+
+/*ARGSUSED*/
+asymbol *
+_bfd_generic_minisymbol_to_symbol (abfd, dynamic, minisym, sym)
+     bfd *abfd;
+     boolean dynamic;
+     const PTR minisym;
+     asymbol *sym;
+{
+  return *(asymbol **) minisym;
 }

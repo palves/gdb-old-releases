@@ -1,6 +1,6 @@
 /* Definitions to make GDB run on an Alpha box under OSF1.  This is
    also used by the Alpha/Netware target.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef TM_ALPHA_H
 #define TM_ALPHA_H
@@ -300,9 +300,15 @@ alpha_frame_saved_pc PARAMS ((struct frame_info *));
    ways in the stack frame.  sp is even more special:
    the address we return for it IS the sp for the next frame.  */
 
-#define FRAME_FIND_SAVED_REGS(fi, frame_saved_regs) ( \
-  (frame_saved_regs) = *(fi)->saved_regs, \
-  (frame_saved_regs).regs[SP_REGNUM] = (fi)->frame)
+extern void alpha_find_saved_regs PARAMS ((struct frame_info *));
+
+#define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs) \
+  do { \
+    if ((frame_info)->saved_regs == NULL) \
+      alpha_find_saved_regs (frame_info); \
+    (frame_saved_regs) = *(frame_info)->saved_regs; \
+    (frame_saved_regs).regs[SP_REGNUM] = (frame_info)->frame; \
+  } while (0)
 
 
 /* Things needed for making the inferior call functions.  */

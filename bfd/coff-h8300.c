@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -586,6 +586,7 @@ h8300_reloc16_extra_cases (abfd, link_info, link_order, reloc, data, src_ptr,
 #define coff_reloc16_extra_cases h8300_reloc16_extra_cases
 #define coff_reloc16_estimate h8300_reloc16_estimate
 
+#define COFF_LONG_FILENAMES
 #include "coffcode.h"
 
 

@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define TARGETNAME "a.out-zero-big"
 #define MY(OP) CAT(aout0_big_,OP)
@@ -24,6 +24,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "bfd.h"
 
 #define MY_exec_hdr_flags 0
+
+#define MACHTYPE_OK(mtype) \
+  ((mtype) == M_UNKNOWN || (mtype) == M_68010 || (mtype) == M_68020)
 
 /* Include the usual a.out support.  */
 #include "aoutf1.h"

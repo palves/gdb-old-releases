@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /*  This file actually contains two distinct logical "packages".  They
     are packaged together in this one file because they are typically
@@ -42,7 +42,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <ctype.h>
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "gdbcmd.h"
 #include "target.h"
 #include "serial.h"

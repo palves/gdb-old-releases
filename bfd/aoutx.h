@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /*
 SECTION
@@ -117,8 +117,7 @@ DESCRIPTION
    (Just want to make these explicit, so the conditions tested in this
    file make sense if you're more familiar with a.out than with BFD.)  */
 
-#define KEEPIT flags
-#define KEEPITTYPE int
+#define KEEPIT udata.i
 
 #include <string.h>		/* For strchr and friends */
 #include "bfd.h"
@@ -267,7 +266,13 @@ NAME(aout,reloc_type_lookup) (abfd,code)
 	EXT (BFD_RELOC_32_PCREL_S2, 6);
 	EXT (BFD_RELOC_SPARC_WDISP22, 7);
 	EXT (BFD_RELOC_SPARC13, 10);
+	EXT (BFD_RELOC_SPARC_GOT10, 14);
 	EXT (BFD_RELOC_SPARC_BASE13, 15);
+	EXT (BFD_RELOC_SPARC_GOT13, 15);
+	EXT (BFD_RELOC_SPARC_GOT22, 16);
+	EXT (BFD_RELOC_SPARC_PC10, 17);
+	EXT (BFD_RELOC_SPARC_PC22, 18);
+	EXT (BFD_RELOC_SPARC_WPLT30, 19);
       default: return (reloc_howto_type *) NULL;
       }
   else
@@ -705,8 +710,10 @@ NAME(aout,machine_type) (arch, machine, unknown)
     case 0:
     case 2000:
     case 3000:          arch_flags = M_MIPS1; break;
-    case 4000:
+    case 4000: /* mips3 */
     case 4400:
+    case 8000: /* mips4 */
+      /* real mips2: */
     case 6000:          arch_flags = M_MIPS2; break;
     default:            arch_flags = M_UNKNOWN; break;
     }
@@ -1161,26 +1168,32 @@ NAME(aout,set_section_contents) (abfd, section, location, offset, count)
   file_ptr text_end;
   bfd_size_type text_size;
 
-  if (abfd->output_has_begun == false)
-      {
-	if (NAME(aout,adjust_sizes_and_vmas) (abfd,
-					      &text_size,
-					      &text_end) == false)
-	  return false;
-      }
+  if (! abfd->output_has_begun)
+    {
+      if (! NAME(aout,adjust_sizes_and_vmas) (abfd, &text_size, &text_end))
+	return false;
+    }
 
-  /* regardless, once we know what we're doing, we might as well get going */
-  if (section != obj_bsssec(abfd))
-      {
-	if (bfd_seek (abfd, section->filepos + offset, SEEK_SET) != 0)
-	  return false;
+  if (section == obj_bsssec (abfd))
+    {
+      bfd_set_error (bfd_error_no_contents);
+      return false;
+    }
 
-	if (count) {
-	  return (bfd_write ((PTR)location, 1, count, abfd) == count) ?
-	    true : false;
-	}
-	return true;
-      }
+  if (section != obj_textsec (abfd)
+      && section != obj_datasec (abfd))
+    {
+      bfd_set_error (bfd_error_nonrepresentable_section);
+      return false;
+    }
+
+  if (count != 0)
+    {
+      if (bfd_seek (abfd, section->filepos + offset, SEEK_SET) != 0
+	  || bfd_write (location, 1, count, abfd) != count)
+	return false;
+    }
+
   return true;
 }
 
@@ -1531,37 +1544,43 @@ translate_to_native_sym_flags (abfd, cache_ptr, sym_pointer)
      struct external_nlist *sym_pointer;
 {
   bfd_vma value = cache_ptr->value;
+  asection *sec;
+  bfd_vma off;
 
   /* Mask out any existing type bits in case copying from one section
      to another.  */
   sym_pointer->e_type[0] &= ~N_TYPE;
 
-  if (bfd_is_abs_section (bfd_get_section (cache_ptr)))
-    sym_pointer->e_type[0] |= N_ABS;
-  else if (bfd_get_section (cache_ptr) == obj_textsec (abfd)
-	   || (bfd_get_section (cache_ptr)->output_section
-	       == obj_textsec (abfd)))
-    sym_pointer->e_type[0] |= N_TEXT;
-  else if (bfd_get_section (cache_ptr) == obj_datasec (abfd)
-	   || (bfd_get_section (cache_ptr)->output_section
-	       == obj_datasec (abfd)))
-    sym_pointer->e_type[0] |= N_DATA;
-  else if (bfd_get_section (cache_ptr) == obj_bsssec (abfd)
-	   || (bfd_get_section (cache_ptr)->output_section
-	       == obj_bsssec (abfd)))
-    sym_pointer->e_type[0] |= N_BSS;
-  else if (bfd_get_section (cache_ptr) == NULL)
+  sec = bfd_get_section (cache_ptr);
+  off = 0;
+
+  if (sec == NULL)
     {
-      /* Protect the bfd_is_com_section call.  This case occurs, e.g.,
-	 for the *DEBUG* section of a COFF file.  */
+      /* This case occurs, e.g., for the *DEBUG* section of a COFF
+	 file.  */
       bfd_set_error (bfd_error_nonrepresentable_section);
       return false;
     }
-  else if (bfd_is_und_section (bfd_get_section (cache_ptr)))
+
+  if (sec->output_section != NULL)
+    {
+      off = sec->output_offset;
+      sec = sec->output_section;
+    }
+
+  if (bfd_is_abs_section (sec))
+    sym_pointer->e_type[0] |= N_ABS;
+  else if (sec == obj_textsec (abfd))
+    sym_pointer->e_type[0] |= N_TEXT;
+  else if (sec == obj_datasec (abfd))
+    sym_pointer->e_type[0] |= N_DATA;
+  else if (sec == obj_bsssec (abfd))
+    sym_pointer->e_type[0] |= N_BSS;
+  else if (bfd_is_und_section (sec))
     sym_pointer->e_type[0] = N_UNDF | N_EXT;
-  else if (bfd_is_ind_section (bfd_get_section (cache_ptr)))
+  else if (bfd_is_ind_section (sec))
     sym_pointer->e_type[0] = N_INDR;
-  else if (bfd_is_com_section (bfd_get_section (cache_ptr)))
+  else if (bfd_is_com_section (sec))
     sym_pointer->e_type[0] = N_UNDF | N_EXT;
   else
     {
@@ -1570,11 +1589,7 @@ translate_to_native_sym_flags (abfd, cache_ptr, sym_pointer)
     }
 
   /* Turn the symbol from section relative to absolute again */
-  if (cache_ptr->section->output_section != NULL)
-    value += (cache_ptr->section->output_section->vma
-	      + cache_ptr->section->output_offset);
-  else
-    value += cache_ptr->section->vma;
+  value += sec->vma + off;
 
   if ((cache_ptr->flags & BSF_WARNING) != 0)
     sym_pointer->e_type[0] = N_WARNING;
@@ -1858,7 +1873,7 @@ NAME(aout,write_syms) (abfd)
 	  != EXTERNAL_NLIST_SIZE)
 	goto error_return;
 
-      /* NB: `KEEPIT' currently overlays `flags', so set this only
+      /* NB: `KEEPIT' currently overlays `udata.p', so set this only
 	 here, at the end.  */
       g->KEEPIT = count;
     }
@@ -1951,7 +1966,7 @@ NAME(aout,swap_std_reloc_out) (abfd, g, natptr)
       {
 	/* Fill in symbol */
 	r_extern = 1;
-	r_index =  stoi((*(g->sym_ptr_ptr))->KEEPIT);
+	r_index = (*(g->sym_ptr_ptr))->KEEPIT;
 
       }
     }
@@ -2009,7 +2024,9 @@ NAME(aout,swap_ext_reloc_out) (abfd, g, natptr)
 
   r_type = (unsigned int) g->howto->type;
 
-  r_addend = g->addend + (*(g->sym_ptr_ptr))->section->output_section->vma;
+  r_addend = g->addend;
+  if ((sym->flags & BSF_SECTION_SYM) != 0)
+    r_addend += (*(g->sym_ptr_ptr))->section->output_section->vma;
 
   /* If this relocation is relative to a symbol then set the
      r_index to the symbols index, and the r_extern bit.
@@ -2018,29 +2035,22 @@ NAME(aout,swap_ext_reloc_out) (abfd, g, natptr)
      from the abs section, or as a symbol which has an abs value.
      check for that here.  */
 
-  if (bfd_is_com_section (output_section)
-      || bfd_is_abs_section (output_section)
-      || bfd_is_und_section (output_section))
-  {
-    if (bfd_abs_section_ptr->symbol == sym)
+  if (bfd_is_abs_section (bfd_get_section (sym)))
     {
-      /* Whoops, looked like an abs symbol, but is really an offset
-	 from the abs section */
-      r_index = 0;
       r_extern = 0;
-     }
-    else
+      r_index = 0;
+    }
+  else if ((sym->flags & BSF_SECTION_SYM) == 0)
     {
       r_extern = 1;
-      r_index =  stoi((*(g->sym_ptr_ptr))->KEEPIT);
+      r_index = (*(g->sym_ptr_ptr))->KEEPIT;
     }
-  }
   else
-  {
-    /* Just an ordinary section */
-    r_extern = 0;
-    r_index  = output_section->target_index;
-  }
+    {
+      /* Just an ordinary section */
+      r_extern = 0;
+      r_index = output_section->target_index;
+    }
 
   /* now the fun stuff */
   if (abfd->xvec->header_byteorder_big_p != false) {
@@ -2105,11 +2115,12 @@ NAME(aout,swap_ext_reloc_out) (abfd, g, natptr)
   }     								\
 
 void
-NAME(aout,swap_ext_reloc_in) (abfd, bytes, cache_ptr, symbols)
+NAME(aout,swap_ext_reloc_in) (abfd, bytes, cache_ptr, symbols, symcount)
      bfd *abfd;
      struct reloc_ext_external *bytes;
      arelent *cache_ptr;
      asymbol **symbols;
+     bfd_size_type symcount;
 {
   int r_index;
   int r_extern;
@@ -2136,15 +2147,33 @@ NAME(aout,swap_ext_reloc_in) (abfd, bytes, cache_ptr, symbols)
   }
 
   cache_ptr->howto =  howto_table_ext + r_type;
+
+  /* Base relative relocs are always against the symbol table,
+     regardless of the setting of r_extern.  r_extern just reflects
+     whether the symbol the reloc is against is local or global.  */
+  if (r_type == RELOC_BASE10
+      || r_type == RELOC_BASE13
+      || r_type == RELOC_BASE22)
+    r_extern = 1;
+
+  if (r_extern && r_index > symcount)
+    {
+      /* We could arrange to return an error, but it might be useful
+         to see the file even if it is bad.  */
+      r_extern = 0;
+      r_index = N_ABS;
+    }
+
   MOVE_ADDRESS(GET_SWORD(abfd, bytes->r_addend));
 }
 
 void
-NAME(aout,swap_std_reloc_in) (abfd, bytes, cache_ptr, symbols)
+NAME(aout,swap_std_reloc_in) (abfd, bytes, cache_ptr, symbols, symcount)
      bfd *abfd;
      struct reloc_std_external *bytes;
      arelent *cache_ptr;
      asymbol **symbols;
+     bfd_size_type symcount;
 {
   int r_index;
   int r_extern;
@@ -2186,6 +2215,20 @@ NAME(aout,swap_std_reloc_in) (abfd, bytes, cache_ptr, symbols)
   BFD_ASSERT (howto_idx < TABLE_SIZE (howto_table_std));
   cache_ptr->howto =  howto_table_std + howto_idx;
   BFD_ASSERT (cache_ptr->howto->type != -1);
+
+  /* Base relative relocs are always against the symbol table,
+     regardless of the setting of r_extern.  r_extern just reflects
+     whether the symbol the reloc is against is local or global.  */
+  if (r_baserel)
+    r_extern = 1;
+
+  if (r_extern && r_index > symcount)
+    {
+      /* We could arrange to return an error, but it might be useful
+         to see the file even if it is bad.  */
+      r_extern = 0;
+      r_index = N_ABS;
+    }
 
   MOVE_ADDRESS(0);
 }
@@ -2239,7 +2282,7 @@ NAME(aout,slurp_reloc_table) (abfd, asect, symbols)
     }
   memset (reloc_cache, 0, count * sizeof (arelent));
 
-  relocs = malloc (reloc_size);
+  relocs = malloc ((size_t) reloc_size);
   if (relocs == NULL && reloc_size != 0)
     {
       free (reloc_cache);
@@ -2261,7 +2304,8 @@ NAME(aout,slurp_reloc_table) (abfd, asect, symbols)
 	(struct reloc_ext_external *) relocs;
 
       for (; counter < count; counter++, rptr++, cache_ptr++)
-	NAME(aout,swap_ext_reloc_in) (abfd, rptr, cache_ptr, symbols);
+	NAME(aout,swap_ext_reloc_in) (abfd, rptr, cache_ptr, symbols,
+				      bfd_get_symcount (abfd));
     }
   else
     {
@@ -2269,7 +2313,8 @@ NAME(aout,slurp_reloc_table) (abfd, asect, symbols)
 	(struct reloc_std_external *) relocs;
 
       for (; counter < count; counter++, rptr++, cache_ptr++)
-	MY_swap_std_reloc_in(abfd, rptr, cache_ptr, symbols);
+	MY_swap_std_reloc_in (abfd, rptr, cache_ptr, symbols,
+			      bfd_get_symcount (abfd));
     }
 
   free (relocs);
@@ -2489,6 +2534,78 @@ NAME(aout,print_symbol) (ignore_abfd, afile, symbol, how)
   }
 }
 
+/* If we don't have to allocate more than 1MB to hold the generic
+   symbols, we use the generic minisymbol methord: it's faster, since
+   it only translates the symbols once, not multiple times.  */
+#define MINISYM_THRESHOLD (1000000 / sizeof (asymbol))
+
+/* Read minisymbols.  For minisymbols, we use the unmodified a.out
+   symbols.  The minisymbol_to_symbol function translates these into
+   BFD asymbol structures.  */
+
+long
+NAME(aout,read_minisymbols) (abfd, dynamic, minisymsp, sizep)
+     bfd *abfd;
+     boolean dynamic;
+     PTR *minisymsp;
+     unsigned int *sizep;
+{
+  if (dynamic)
+    {
+      /* We could handle the dynamic symbols here as well, but it's
+         easier to hand them off.  */
+      return _bfd_generic_read_minisymbols (abfd, dynamic, minisymsp, sizep);
+    }
+
+  if (! aout_get_external_symbols (abfd))
+    return -1;
+
+  if (obj_aout_external_sym_count (abfd) < MINISYM_THRESHOLD)
+    return _bfd_generic_read_minisymbols (abfd, dynamic, minisymsp, sizep);
+
+  *minisymsp = (PTR) obj_aout_external_syms (abfd);
+
+  /* By passing the external symbols back from this routine, we are
+     giving up control over the memory block.  Clear
+     obj_aout_external_syms, so that we do not try to free it
+     ourselves.  */
+  obj_aout_external_syms (abfd) = NULL;
+
+  *sizep = EXTERNAL_NLIST_SIZE;
+  return obj_aout_external_sym_count (abfd);
+}
+
+/* Convert a minisymbol to a BFD asymbol.  A minisymbol is just an
+   unmodified a.out symbol.  The SYM argument is a structure returned
+   by bfd_make_empty_symbol, which we fill in here.  */
+
+asymbol *
+NAME(aout,minisymbol_to_symbol) (abfd, dynamic, minisym, sym)
+     bfd *abfd;
+     boolean dynamic;
+     const PTR minisym;
+     asymbol *sym;
+{
+  if (dynamic
+      || obj_aout_external_sym_count (abfd) < MINISYM_THRESHOLD)
+    return _bfd_generic_minisymbol_to_symbol (abfd, dynamic, minisym, sym);
+
+  memset (sym, 0, sizeof (aout_symbol_type));
+
+  /* We call translate_symbol_table to translate a single symbol.  */
+  if (! (NAME(aout,translate_symbol_table)
+	 (abfd,
+	  (aout_symbol_type *) sym,
+	  (struct external_nlist *) minisym,
+	  (bfd_size_type) 1,
+	  obj_aout_external_strings (abfd),
+	  obj_aout_external_string_size (abfd),
+	  false)))
+    return NULL;
+
+  return sym;
+}
+
 /*
  provided a BFD, a section and an offset into the section, calculate
  and return the name of the source file and the line nearest to the
@@ -2514,7 +2631,7 @@ NAME(aout,find_nearest_line)
   CONST char *main_file_name = NULL;
   CONST char *current_file_name = NULL;
   CONST char *line_file_name = NULL; /* Value of current_file_name at line number. */
-  bfd_vma high_line_vma = ~0;
+  bfd_vma low_line_vma = 0;
   bfd_vma low_func_vma = 0;
   asymbol *func = 0;
   *filename_ptr = abfd->filename;
@@ -2549,13 +2666,15 @@ NAME(aout,find_nearest_line)
 
       case N_DSLINE:
       case N_BSLINE:
-	/* We'll keep this if it resolves nearer than the one we have already */
-	if (q->symbol.value >= offset &&
-	    q->symbol.value < high_line_vma) {
-	  *line_ptr = q->desc;
-	  high_line_vma = q->symbol.value;
-	  line_file_name = current_file_name;
-	}
+	/* We'll keep this if it resolves nearer than the one we have
+           already.  */
+	if (q->symbol.value >= low_line_vma
+	    && q->symbol.value <= offset)
+	  {
+	    *line_ptr = q->desc;
+	    low_line_vma = q->symbol.value;
+	    line_file_name = current_file_name;
+	  }
 	break;
       case N_FUN:
 	{
@@ -2565,29 +2684,8 @@ NAME(aout,find_nearest_line)
 	    low_func_vma = q->symbol.value;
 	    func = (asymbol *)q;
 	  }
-	  if (*line_ptr && func) {
-	    CONST char *function = func->name;
-	    char *p;
-
-	    /* The caller expects a symbol name.  We actually have a
-	       function name, without the leading underscore.  Put the
-	       underscore back in, so that the caller gets a symbol
-	       name.  */
-	    if (bfd_get_symbol_leading_char (abfd) == '\0')
-	      strncpy (buffer, function, sizeof (buffer) - 1);
-	    else
-	      {
-		buffer[0] = bfd_get_symbol_leading_char (abfd);
-		strncpy (buffer + 1, function, sizeof (buffer) - 2);
-	      }
-	    buffer[sizeof(buffer)-1] = 0;
-	    /* Have to remove : stuff */
-	    p = strchr(buffer,':');
-	    if (p != NULL) { *p = '\0'; }
-	    *functionname_ptr = buffer;
+	  else if (q->symbol.value > offset)
 	    goto done;
-
-	  }
 	}
 	break;
       }
@@ -2606,8 +2704,29 @@ NAME(aout,find_nearest_line)
 	  *filename_ptr = filename_buffer;
       }
   }
-  return true;
+  if (func)
+    {
+      CONST char *function = func->name;
+      char *p;
 
+      /* The caller expects a symbol name.  We actually have a
+	 function name, without the leading underscore.  Put the
+	 underscore back in, so that the caller gets a symbol name.  */
+      if (bfd_get_symbol_leading_char (abfd) == '\0')
+	strncpy (buffer, function, sizeof (buffer) - 1);
+      else
+	{
+	  buffer[0] = bfd_get_symbol_leading_char (abfd);
+	  strncpy (buffer + 1, function, sizeof (buffer) - 2);
+	}
+      buffer[sizeof(buffer)-1] = 0;
+      /* Have to remove : stuff */
+      p = strchr(buffer,':');
+      if (p != NULL)
+	*p = '\0';
+      *functionname_ptr = buffer;
+    }
+  return true;
 }
 
 /*ARGSUSED*/
@@ -2711,12 +2830,12 @@ NAME(aout,link_hash_table_create) (abfd)
   struct aout_link_hash_table *ret;
 
   ret = ((struct aout_link_hash_table *)
-	 malloc (sizeof (struct aout_link_hash_table)));
-  if (ret == (struct aout_link_hash_table *) NULL)
-      {
-	bfd_set_error (bfd_error_no_memory);
-	return (struct bfd_link_hash_table *) NULL;
-      }
+	 bfd_alloc (abfd, sizeof (struct aout_link_hash_table)));
+  if (ret == NULL)
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return (struct bfd_link_hash_table *) NULL;
+    }
   if (! NAME(aout,link_hash_table_init) (ret, abfd,
 					 NAME(aout,link_hash_newfunc)))
     {
@@ -2734,26 +2853,11 @@ NAME(aout,link_add_symbols) (abfd, info)
      bfd *abfd;
      struct bfd_link_info *info;
 {
-  bfd *first;
-
   switch (bfd_get_format (abfd))
     {
     case bfd_object:
       return aout_link_add_object_symbols (abfd, info);
     case bfd_archive:
-      first = bfd_openr_next_archived_file (abfd, (bfd *) NULL);
-      if (first == NULL)
-	return false;
-      if (! bfd_check_format (first, bfd_object))
-	return false;
-      if (bfd_get_flavour (first) != bfd_target_aout_flavour)
-	{
-	  /* On Linux, we may have an ELF archive which got recognized
-             as an a.out archive.  Therefore, we treat all archives as
-             though they were actually of the flavour of their first
-             element.  */
-	  return (*first->xvec->_bfd_link_add_symbols) (abfd, info);
-	}
       return _bfd_generic_link_add_archive_symbols
 	(abfd, info, aout_link_check_archive_element);
     default:
@@ -2950,13 +3054,13 @@ aout_link_check_ar_symbols (abfd, info, pneeded)
 		  /* Turn the current link symbol into a common
 		     symbol.  It is already on the undefs list.  */
 		  h->type = bfd_link_hash_common;
+		  h->u.c.p = ((struct bfd_link_hash_common_entry *)
+			      bfd_hash_allocate (&info->hash->table,
+				  sizeof (struct bfd_link_hash_common_entry)));
+		  if (h->u.c.p == NULL)
+		    return false;
+
 		  h->u.c.size = value;
-		  if (h->u.c.size != value)
-		    {
-		      /* The size did not fit in the bitfield.  */
-		      bfd_set_error (bfd_error_bad_value);
-		      return false;
-		    }
 
 		  /* FIXME: This isn't quite right.  The maximum
 		     alignment of a common symbol should be set by the
@@ -2965,10 +3069,10 @@ aout_link_check_ar_symbols (abfd, info, pneeded)
 		  power = bfd_log2 (value);
 		  if (power > bfd_get_arch_info (abfd)->section_align_power)
 		    power = bfd_get_arch_info (abfd)->section_align_power;
-		  h->u.c.alignment_power = power;
+		  h->u.c.p->alignment_power = power;
 
-		  h->u.c.section = bfd_make_section_old_way (symbfd,
-							     "COMMON");
+		  h->u.c.p->section = bfd_make_section_old_way (symbfd,
+								"COMMON");
 		}
 	      else
 		{
@@ -3203,9 +3307,9 @@ aout_link_add_symbols (abfd, info)
 	 This isn't quite right: it should use the architecture of the
 	 output file, not the input files.  */
       if ((*sym_hash)->root.type == bfd_link_hash_common
-	  && ((*sym_hash)->root.u.c.alignment_power >
+	  && ((*sym_hash)->root.u.c.p->alignment_power >
 	      bfd_get_arch_info (abfd)->section_align_power))
-	(*sym_hash)->root.u.c.alignment_power =
+	(*sym_hash)->root.u.c.p->alignment_power =
 	  bfd_get_arch_info (abfd)->section_align_power;
 
       /* If this is a set symbol, and we are not building sets, then
@@ -3782,6 +3886,7 @@ aout_link_write_symbols (finfo, input_bfd)
 	  else if (((type & N_TYPE) == N_INDR
 		    && (hresolve == (struct aout_link_hash_entry *) NULL
 			|| (hresolve->root.type != bfd_link_hash_defined
+			    && hresolve->root.type != bfd_link_hash_defweak
 			    && hresolve->root.type != bfd_link_hash_common)))
 		   || type == N_WARNING)
 	    {
@@ -3834,13 +3939,14 @@ aout_link_write_symbols (finfo, input_bfd)
 		      break;
 		    }
 		}
-	      else if (hresolve->root.type == bfd_link_hash_defined)
+	      else if (hresolve->root.type == bfd_link_hash_defined
+		       || hresolve->root.type == bfd_link_hash_defweak)
 		{
 		  asection *input_section;
 		  asection *output_section;
 
-		  /* This case means a common symbol which was turned
-		     into a defined symbol.  */
+		  /* This case usually means a common symbol which was
+		     turned into a defined symbol.  */
 		  input_section = hresolve->root.u.def.section;
 		  output_section = input_section->output_section;
 		  BFD_ASSERT (bfd_is_abs_section (output_section)
@@ -3861,17 +3967,25 @@ aout_link_write_symbols (finfo, input_bfd)
 		  type &=~ N_TYPE;
 
 		  if (output_section == obj_textsec (output_bfd))
-		    type |= N_TEXT;
+		    type |= (hresolve->root.type == bfd_link_hash_defined
+			     ? N_TEXT
+			     : N_WEAKT);
 		  else if (output_section == obj_datasec (output_bfd))
-		    type |= N_DATA;
+		    type |= (hresolve->root.type == bfd_link_hash_defined
+			     ? N_DATA
+			     : N_WEAKD);
 		  else if (output_section == obj_bsssec (output_bfd))
-		    type |= N_BSS;
+		    type |= (hresolve->root.type == bfd_link_hash_defined
+			     ? N_BSS
+			     : N_WEAKB);
 		  else
-		    type |= N_ABS;
+		    type |= (hresolve->root.type == bfd_link_hash_defined
+			     ? N_ABS
+			     : N_WEAKA);
 		}
 	      else if (hresolve->root.type == bfd_link_hash_common)
 		val = hresolve->root.u.c.size;
-	      else if (hresolve->root.type == bfd_link_hash_weak)
+	      else if (hresolve->root.type == bfd_link_hash_undefweak)
 		{
 		  val = 0;
 		  type = N_WEAKU;
@@ -4023,6 +4137,7 @@ aout_link_write_other_symbol (h, data)
       val = 0;
       break;
     case bfd_link_hash_defined:
+    case bfd_link_hash_defweak:
       {
 	asection *sec;
 
@@ -4030,13 +4145,14 @@ aout_link_write_other_symbol (h, data)
 	BFD_ASSERT (bfd_is_abs_section (sec)
 		    || sec->owner == output_bfd);
 	if (sec == obj_textsec (output_bfd))
-	  type = N_TEXT | N_EXT;
+	  type = h->root.type == bfd_link_hash_defined ? N_TEXT : N_WEAKT;
 	else if (sec == obj_datasec (output_bfd))
-	  type = N_DATA | N_EXT;
+	  type = h->root.type == bfd_link_hash_defined ? N_DATA : N_WEAKD;
 	else if (sec == obj_bsssec (output_bfd))
-	  type = N_BSS | N_EXT;
+	  type = h->root.type == bfd_link_hash_defined ? N_BSS : N_WEAKB;
 	else
-	  type = N_ABS | N_EXT;
+	  type = h->root.type == bfd_link_hash_defined ? N_ABS : N_WEAKA;
+	type |= N_EXT;
 	val = (h->root.u.def.value
 	       + sec->vma
 	       + h->root.u.def.section->output_offset);
@@ -4046,7 +4162,7 @@ aout_link_write_other_symbol (h, data)
       type = N_UNDF | N_EXT;
       val = h->root.u.c.size;
       break;
-    case bfd_link_hash_weak:
+    case bfd_link_hash_undefweak:
       type = N_WEAKU;
       val = 0;
     case bfd_link_hash_indirect:
@@ -4298,7 +4414,8 @@ aout_link_input_section_std (finfo, input_bfd, input_section, relocs,
 		 is what the native linker does.  */
 	      h = sym_hashes[r_index];
 	      if (h != (struct aout_link_hash_entry *) NULL
-		  && h->root.type == bfd_link_hash_defined)
+		  && (h->root.type == bfd_link_hash_defined
+		      || h->root.type == bfd_link_hash_defweak))
 		{
 		  asection *output_section;
 
@@ -4406,6 +4523,10 @@ aout_link_input_section_std (finfo, input_bfd, input_section, relocs,
 			   + input_section->output_offset
 			   - input_section->vma);
 
+#ifdef MY_relocatable_reloc
+	  MY_relocatable_reloc (howto, output_bfd, rel, relocation, r_addr);
+#endif
+
 	  if (relocation == 0)
 	    r = bfd_reloc_ok;
 	  else
@@ -4436,14 +4557,15 @@ aout_link_input_section_std (finfo, input_bfd, input_section, relocs,
 		}
 
 	      if (h != (struct aout_link_hash_entry *) NULL
-		  && h->root.type == bfd_link_hash_defined)
+		  && (h->root.type == bfd_link_hash_defined
+		      || h->root.type == bfd_link_hash_defweak))
 		{
 		  relocation = (h->root.u.def.value
 				+ h->root.u.def.section->output_section->vma
 				+ h->root.u.def.section->output_offset);
 		}
 	      else if (h != (struct aout_link_hash_entry *) NULL
-		       && h->root.type == bfd_link_hash_weak)
+		       && h->root.type == bfd_link_hash_undefweak)
 		relocation = 0;
 	      else
 		{
@@ -4599,7 +4721,8 @@ aout_link_input_section_ext (finfo, input_bfd, input_section, relocs,
 		 is what the native linker does.  */
 	      h = sym_hashes[r_index];
 	      if (h != (struct aout_link_hash_entry *) NULL
-		  && h->root.type == bfd_link_hash_defined)
+		  && (h->root.type == bfd_link_hash_defined
+		      || h->root.type == bfd_link_hash_defweak))
 		{
 		  asection *output_section;
 
@@ -4754,14 +4877,15 @@ aout_link_input_section_ext (finfo, input_bfd, input_section, relocs,
 		}
 
 	      if (h != (struct aout_link_hash_entry *) NULL
-		  && h->root.type == bfd_link_hash_defined)
+		  && (h->root.type == bfd_link_hash_defined
+		      || h->root.type == bfd_link_hash_defweak))
 		{
 		  relocation = (h->root.u.def.value
 				+ h->root.u.def.section->output_section->vma
 				+ h->root.u.def.section->output_offset);
 		}
 	      else if (h != (struct aout_link_hash_entry *) NULL
-		       && h->root.type == bfd_link_hash_weak)
+		       && h->root.type == bfd_link_hash_undefweak)
 		relocation = 0;
 	      else
 		{

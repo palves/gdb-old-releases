@@ -15,35 +15,17 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with libiberty; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.  */
+not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 
 /*  Create and destroy argument vectors.  An argument vector is simply an
     array of string pointers, terminated by a NULL pointer. */
 
-/* AIX requires this to be the first thing in the file. */
-#ifdef __GNUC__
-#define alloca __builtin_alloca
-#else /* not __GNUC__ */
-#ifdef sparc
-#include <alloca.h>
-extern char *__builtin_alloca();  /* Stupid include file doesn't declare it */
-#else
-#ifdef _AIX
- #pragma alloca
-#else
-char *alloca ();
-#endif
-#endif /* sparc */
-#endif /* not __GNUC__ */
-
-#define isspace(ch) ((ch) == ' ' || (ch) == '\t')
-
-#include "alloca-conf.h"
-
 #include "ansidecl.h"
 #include "libiberty.h"
+
+#define isspace(ch) ((ch) == ' ' || (ch) == '\t')
 
 /*  Routines imported from standard C runtime libraries. */
 
@@ -67,6 +49,8 @@ extern void free ();		/* Free malloc'd memory */
 extern char *strdup ();		/* Duplicate a string */
 
 #endif	/* __STDC__ */
+
+#include "alloca-conf.h"
 
 #ifndef NULL
 #define NULL 0

@@ -7,7 +7,7 @@ END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.14.
+Source-Level Debugger' for GDB Version 4.15.1.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995 Free
 Software Foundation, Inc.
@@ -37,6 +37,9 @@ breakpoints on all threads, or on a particular thread.
 
 `break LINESPEC thread THREADNO'
 `break LINESPEC thread THREADNO if ...'
+     LINESPEC specifies source lines; there are several ways of writing
+     them, but the effect is always to specify some source line.
+
      Use the qualifier `thread THREADNO' with a breakpoint command to
      specify that you only want GDB to stop the program when a
      particular thread reaches this breakpoint.  THREADNO is one of the
@@ -82,12 +85,12 @@ Examining the Stack
    When your program has stopped, the first thing you need to know is
 where it stopped and how it got there.
 
-   Each time your program performs a function call, the information
-about where in your program the call was made from is saved in a block
-of data called a "stack frame".  The frame also contains the arguments
-of the call and the local variables of the function that was called.
-All the stack frames are allocated in a region of memory called the
-"call stack".
+   Each time your program performs a function call, information about
+the call is generated.  That information includes the location of the
+call in your program, the arguments of the call, and the local
+variables of the function being called.  The information is saved in a
+block of data called a "stack frame".  The stack frames are allocated
+in a region of memory called the "call stack".
 
    When your program stops, the GDB commands for examining the stack
 allow you to see all of this information.
@@ -96,11 +99,12 @@ allow you to see all of this information.
 refer implicitly to the selected frame.  In particular, whenever you
 ask GDB for the value of a variable in your program, the value is found
 in the selected frame.  There are special GDB commands to select
-whichever frame you are interested in.
+whichever frame you are interested in. *Note Selecting a frame:
+Selection.
 
    When your program stops, GDB automatically selects the currently
-executing frame and describes it briefly as the `frame' command does
-(*note Information about a frame: Frame Info.).
+executing frame and describes it briefly, similar to the `frame'
+command (*note Information about a frame: Frame Info.).
 
 * Menu:
 
@@ -134,10 +138,10 @@ is the most recently created of all the stack frames that still exist.
 
    Inside your program, stack frames are identified by their addresses.
 A stack frame consists of many bytes, each of which has its own
-address; each kind of computer has a convention for choosing one of
-those bytes whose address serves as the address of the frame.  Usually
-this address is kept in a register called the "frame pointer register"
-while execution is going on in that frame.
+address; each kind of computer has a convention for choosing one byte
+whose address serves as the address of the frame.  Usually this address
+is kept in a register called the "frame pointer register" while
+execution is going on in that frame.
 
    GDB assigns numbers to all existing stack frames, starting with zero
 for the innermost frame, one for the frame that called it, and so on
@@ -155,6 +159,17 @@ GDB nevertheless regards it as though it had a separate frame, which is
 numbered zero as usual, allowing correct tracing of the function call
 chain.  However, GDB has no provision for frameless functions elsewhere
 in the stack.
+
+`frame ARGS'
+     The `frame' command allows you to move from one stack frame to
+     another, and to print the stack frame you select.  ARGS may be
+     either the address of the frame of the stack frame number.
+     Without an argument, `frame' prints the current stack frame.
+
+`select-frame'
+     The `select-frame' command allows you to move from one stack frame
+     to another without printing the frame.  This is the silent version
+     of `frame'.
 
 
 File: gdb.info,  Node: Backtrace,  Next: Selection,  Prev: Frames,  Up: Stack
@@ -297,15 +312,26 @@ selected stack frame.
 `info frame'
 `info f'
      This command prints a verbose description of the selected stack
-     frame, including the address of the frame, the addresses of the
-     next frame down (called by this frame) and the next frame up
-     (caller of this frame), the language that the source code
-     corresponding to this frame was written in, the address of the
-     frame's arguments, the program counter saved in it (the address of
-     execution in the caller frame), and which registers were saved in
-     the frame.  The verbose description is useful when something has
-     gone wrong that has made the stack format fail to fit the usual
-     conventions.
+     frame, including:
+
+        * the address of the frame
+
+        * the address of the next frame down (called by this frame)
+
+        * the address of the next frame up (caller of this frame)
+
+        * the language in which the source code corresponding to this
+          frame is written
+
+        * the address of the frame's arguments
+
+        * the program counter saved in it (the address of execution in
+          the caller frame)
+
+        * which registers were saved in the frame
+
+     The verbose description is useful when something has gone wrong
+     that has made the stack format fail to fit the usual conventions.
 
 `info frame ADDR'
 `info f ADDR'
@@ -347,8 +373,10 @@ want to limit the size of this search, using one of these commands:
 
 `set heuristic-fence-post LIMIT'
      Restrict GDB to examining at most LIMIT bytes in its search for
-     the beginning of a function.  A value of `0' (the default) means
-     there is no limit.
+     the beginning of a function.  A value of 0 (the default) means
+     there is no limit.  However, except for 0, the larger the limit
+     the more bytes `heuristic-fence-post' must search and therefore
+     the longer it takes to run.
 
 `show heuristic-fence-post'
      Display the current limit.
@@ -390,8 +418,8 @@ Printing source lines
 =====================
 
    To print lines from a source file, use the `list' command
-(abbreviated `l').  There are several ways to specify what part of the
-file you want to print.
+(abbreviated `l').  By default, ten lines are printed.  There are
+several ways to specify what part of the file you want to print.
 
    Here are the forms of the `list' command most commonly used:
 
@@ -474,8 +502,8 @@ of linespec.
      Specifies line NUMBER in the source file FILENAME.
 
 `FUNCTION'
-     Specifies the line of the open-brace that begins the body of the
-     function FUNCTION.
+     Specifies the line that begins the body of the function FUNCTION.
+     For example: in C, this is the line with the open brace.
 
 `FILENAME:FUNCTION'
      Specifies the line of the open-brace that begins the body of the
@@ -500,7 +528,7 @@ for a regular expression.
 `search REGEXP'
      The command `forward-search REGEXP' checks each line, starting
      with the one following the last line listed, for a match for
-     REGEXP.  It lists the line that is found.  You can use synonym
+     REGEXP.  It lists the line that is found.  You can use the synonym
      `search REGEXP' or abbreviate the command name as `fo'.
 
 `reverse-search REGEXP'
@@ -539,6 +567,7 @@ each line is in the file.
 directories, use the `directory' command.
 
 `directory DIRNAME ...'
+`dir DIRNAME ...'
      Add directory DIRNAME to the front of the source path.  Several
      directory names may be given to this command, separated by `:' or
      whitespace.  You may specify a directory that is already in the
@@ -575,7 +604,10 @@ Source and machine code
 
    You can use the command `info line' to map source lines to program
 addresses (and vice versa), and the command `disassemble' to display a
-range of addresses as machine instructions.
+range of addresses as machine instructions.  When run under GNU Emacs
+mode, the `info line' command now causes the arrow to point to the line
+specified.  Also, `info line' prints addresses in symbolic form as well
+as hex.
 
 `info line LINESPEC'
      Print the starting and ending addresses of the compiled code for
@@ -686,6 +718,11 @@ This includes conditional expressions, function calls, casts and string
 constants.  It unfortunately does not include symbols defined by
 preprocessor `#define' commands.
 
+   GDB now supports array constants in expressions input by the user.
+The syntax is ELEMENT, ELEMENT....  For example, you can now use the
+command `print {1 2 3}' to build up an array in memory that is malloc'd
+in the target program.
+
    Because C is so widespread, most of the expressions shown in
 examples in this manual are in C.  *Note Using GDB with Different
 Languages: Languages, for information on how to use expressions in other
@@ -695,11 +732,11 @@ languages.
 expressions regardless of your programming language.
 
    Casts are supported in all languages, not just in C, because it is so
-useful to cast a number into a pointer so as to examine a structure at
-that address in memory.
+useful to cast a number into a pointer in order to examine a structure
+at that address in memory.
 
-   GDB supports these operators in addition to those of programming
-languages:
+   GDB supports these operators, in addition to those common to
+programming languages:
 
 `@'
      `@' is a binary operator for treating parts of memory as arrays.
@@ -726,10 +763,16 @@ Program variables
 in your program.
 
    Variables in expressions are understood in the selected stack frame
-(*note Selecting a frame: Selection.); they must either be global (or
-static) or be visible according to the scope rules of the programming
-language from the point of execution in that frame.  This means that in
-the function
+(*note Selecting a frame: Selection.); they must be either:
+
+   * global (or static)
+
+or
+
+   * visible according to the scope rules of the programming language
+     from the point of execution in that frame
+
+This means that in the function
 
      foo (a)
           int a;
@@ -772,8 +815,8 @@ scope resolution operator in GDB expressions.
      wrong value at certain points in a function--just after entry to a
      new scope, and just before exit.
    You may see this problem when you are stepping by machine
-instructions.  This is because on most machines, it takes more than one
-instruction to set up a stack frame (including local variable
+instructions.  This is because, on most machines, it takes more than
+one instruction to set up a stack frame (including local variable
 definitions); if you are stepping by machine instructions, variables
 may appear to have the wrong values until the stack frame is completely
 built.  On exit, it usually also takes more than one machine
@@ -792,13 +835,13 @@ determined size for which only a pointer exists in the program.
 
    You can do this by referring to a contiguous span of memory as an
 "artificial array", using the binary operator `@'.  The left operand of
-`@' should be the first element of the desired array, as an individual
-object.  The right operand should be the desired length of the array.
-The result is an array value whose elements are all of the type of the
-left argument.  The first element is actually the left argument; the
-second element comes from bytes of memory immediately following those
-that hold the first element, and so on.  Here is an example.  If a
-program says
+`@' should be the first element of the desired array and be an
+individual object.  The right operand should be the desired length of
+the array.  The result is an array value whose elements are all of the
+type of the left argument.  The first element is actually the left
+argument; the second element comes from bytes of memory immediately
+following those that hold the first element, and so on.  Here is an
+example.  If a program says
 
      int *array = (int *) malloc (len * sizeof (int));
 
@@ -811,6 +854,18 @@ with `@' in this way behave just like other arrays in terms of
 subscripting, and are coerced to pointers when used in expressions.
 Artificial arrays most often appear in expressions via the value history
 (*note Value history: Value History.), after printing one out.
+
+   Another way to create an artificial array is to use a cast.  This
+re-interprets a value as if it were an array.  The value need not be in
+memory:
+     (gdb) p/x (short[2])0x12345678
+     $1 = {0x1234, 0x5678}
+
+   As a convenience, if you leave the array length out (as in
+`(TYPE)[])VALUE') gdb calculates the size to fill the value (as
+`sizeof(VALUE)/sizeof(TYPE)':
+     (gdb) p/x (short[])0x12345678
+     $2 = {0x1234, 0x5678}
 
    Sometimes the artificial array mechanism is not quite enough; in
 moderately complex data structures, the elements of interest may not
@@ -921,10 +976,10 @@ N, the repeat count
      specifies how much memory (counting by units U) to display.
 
 F, the display format
-     The display format is one of the formats used by `print', or `s'
-     (null-terminated string) or `i' (machine instruction).  The
-     default is `x' (hexadecimal) initially, or the format from the
-     last time you used either `x' or `print'.
+     The display format is one of the formats used by `print', `s'
+     (null-terminated string), or `i' (machine instruction).  The
+     default is `x' (hexadecimal) initially.  The default changes each
+     time you use either `x' or `print'.
 
 U, the unit size
      The unit size is any of

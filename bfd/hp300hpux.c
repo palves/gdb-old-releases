@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /*
 
@@ -130,6 +130,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define MY_get_symtab_upper_bound hp300hpux_get_symtab_upper_bound
 #define MY_canonicalize_reloc hp300hpux_canonicalize_reloc
 #define MY_write_object_contents hp300hpux_write_object_contents
+
+#define MY_read_minisymbols _bfd_generic_read_minisymbols
+#define MY_minisymbol_to_symbol _bfd_generic_minisymbol_to_symbol
 
 #define MY_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
 #define MY_bfd_link_add_symbols _bfd_generic_link_add_symbols
@@ -628,11 +631,12 @@ MY (slurp_symbol_table) (abfd)
 
 
 void
-MY (swap_std_reloc_in) (abfd, bytes, cache_ptr, symbols)
+MY (swap_std_reloc_in) (abfd, bytes, cache_ptr, symbols, symcount)
      bfd *abfd;
      struct hp300hpux_reloc *bytes;
      arelent *cache_ptr;
      asymbol **symbols;
+     bfd_size_type symcount;
 {
   int r_index;
   int r_extern = 0;
@@ -778,7 +782,8 @@ doit:
 
   for (; counter < count; counter++, rptr++, cache_ptr++)
     {
-      MY (swap_std_reloc_in) (abfd, rptr, cache_ptr, symbols);
+      MY (swap_std_reloc_in) (abfd, rptr, cache_ptr, symbols,
+			      bfd_get_symcount (abfd));
     }
 
 

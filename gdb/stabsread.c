@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Support routines for reading and decoding debugging information in
    the "stabs" format.  This format is used with many systems that use
@@ -25,7 +25,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    Avoid placing any object file format specific code in this file. */
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "bfd.h"
 #include "obstack.h"
 #include "symtab.h"
@@ -593,6 +593,12 @@ define_symbol (valu, string, desc, type, objfile)
 	    /* This was an anonymous type that was never fixed up.  */
 	    goto normal;
 
+#ifdef STATIC_TRANSFORM_NAME
+	  case 'X':
+	    /* SunPRO (3.0 at least) static variable encoding.  */
+	    goto normal;
+#endif
+
 	  default:
 	    complain (&unrecognized_cplus_name_complaint, string);
 	    goto normal;		/* Do *something* with it */
@@ -777,23 +783,7 @@ define_symbol (valu, string, desc, type, objfile)
 	 We need to convert this to the function-returning-type-X type
 	 in GDB.  E.g. "int" is converted to "function returning int".  */
       if (TYPE_CODE (SYMBOL_TYPE (sym)) != TYPE_CODE_FUNC)
-	{
-#if 0
-	  /* This code doesn't work -- it needs to realloc and can't.  */
-	  /* Attempt to set up to record a function prototype... */
-	  struct type *new = alloc_type (objfile);
-
-	  /* Generate a template for the type of this function.  The 
-	     types of the arguments will be added as we read the symbol 
-	     table. */
-	  *new = *lookup_function_type (SYMBOL_TYPE(sym));
-	  SYMBOL_TYPE(sym) = new;
-	  TYPE_OBJFILE (new) = objfile;
-	  in_function_type = new;
-#else
-	  SYMBOL_TYPE (sym) = lookup_function_type (SYMBOL_TYPE (sym));
-#endif
-	}
+	SYMBOL_TYPE (sym) = lookup_function_type (SYMBOL_TYPE (sym));
       /* fall into process_prototype_types */
 
     process_prototype_types:
@@ -864,10 +854,6 @@ define_symbol (valu, string, desc, type, objfile)
       SYMBOL_CLASS (sym) = DBX_PARM_SYMBOL_CLASS (type);
       SYMBOL_VALUE (sym) = valu;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
-#if 0
-      /* This doesn't work yet.  */
-      add_param_to_type (&in_function_type, sym);
-#endif
       add_symbol_to_list (sym, &local_symbols);
 
       if (TARGET_BYTE_ORDER != BIG_ENDIAN)
@@ -1794,7 +1780,7 @@ rs6000_builtin_type (typenum)
      int typenum;
 {
   /* We recognize types numbered from -NUMBER_RECOGNIZED to -1.  */
-#define NUMBER_RECOGNIZED 30
+#define NUMBER_RECOGNIZED 34
   /* This includes an empty slot for type number -0.  */
   static struct type *negative_types[NUMBER_RECOGNIZED + 1];
   struct type *rettype = NULL;
@@ -1927,6 +1913,20 @@ rs6000_builtin_type (typenum)
       break;
     case 30:
       rettype = init_type (TYPE_CODE_CHAR, 2, 0, "wchar", NULL);
+      break;
+    case 31:
+      rettype = init_type (TYPE_CODE_INT, 8, 0, "long long", NULL);
+      break;
+    case 32:
+      rettype = init_type (TYPE_CODE_INT, 8, TYPE_FLAG_UNSIGNED,
+			   "unsigned long long", NULL);
+      break;
+    case 33:
+      rettype = init_type (TYPE_CODE_INT, 8, TYPE_FLAG_UNSIGNED,
+			   "logical*8", NULL);
+      break;
+    case 34:
+      rettype = init_type (TYPE_CODE_INT, 8, 0, "integer*8", NULL);
       break;
     }
   negative_types[-typenum] = rettype;
@@ -3373,21 +3373,26 @@ read_range_type (pp, typenums, objfile)
      int typenums[2];
      struct objfile *objfile;
 {
+  char *orig_pp = *pp;
   int rangenums[2];
   long n2, n3;
   int n2bits, n3bits;
   int self_subrange;
   struct type *result_type;
-  struct type *index_type;
+  struct type *index_type = NULL;
 
   /* First comes a type we are a subrange of.
      In C it is usually 0, 1 or the type being defined.  */
-  /* FIXME: according to stabs.texinfo and AIX doc, this can be a type-id
-     not just a type number.  */
   if (read_type_number (pp, rangenums) != 0)
     return error_type (pp);
   self_subrange = (rangenums[0] == typenums[0] &&
 		   rangenums[1] == typenums[1]);
+
+  if (**pp == '=')
+    {
+      *pp = orig_pp;
+      index_type = read_type (pp, objfile);
+    }
 
   /* A semicolon should now follow; skip it.  */
   if (**pp == ';')
@@ -3400,7 +3405,10 @@ read_range_type (pp, typenums, objfile)
 
   if (n2bits == -1 || n3bits == -1)
     return error_type (pp);
-  
+
+  if (index_type)
+    goto handle_true_range;
+
   /* If limits are huge, must be large integral type.  */
   if (n2bits != 0 || n3bits != 0)
     {
@@ -3508,6 +3516,7 @@ read_range_type (pp, typenums, objfile)
 
   /* We have a real range type on our hands.  Allocate space and
      return a real pointer.  */
+ handle_true_range:
 
   /* At this point I don't have the faintest idea how to deal with
      a self_subrange type; I'm going to assume that this is used

@@ -9,8 +9,34 @@
 #endif
 
 /********************** FILE HEADER **********************/
+
 struct internal_filehdr
 {
+  /* DOS header data follows for PE stuff */
+  unsigned short e_magic;      /* Magic number, 0x5a4d */
+  unsigned short e_cblp;       /* Bytes on last page of file, 0x90 */
+  unsigned short e_cp;         /* Pages in file, 0x3 */
+  unsigned short e_crlc;       /* Relocations, 0x0 */
+  unsigned short e_cparhdr;    /* Size of header in paragraphs, 0x4 */
+  unsigned short e_minalloc;   /* Minimum extra paragraphs needed, 0x0 */
+  unsigned short e_maxalloc;   /* Maximum extra paragraphs needed, 0xFFFF */
+  unsigned short e_ss;         /* Initial (relative) SS value, 0x0 */
+  unsigned short e_sp;         /* Initial SP value, 0xb8 */
+  unsigned short e_csum;       /* Checksum, 0x0 */
+  unsigned short e_ip;         /* Initial IP value, 0x0 */
+  unsigned short e_cs;         /* Initial (relative) CS value, 0x0 */
+  unsigned short e_lfarlc;     /* File address of relocation table, 0x40 */
+  unsigned short e_ovno;       /* Overlay number, 0x0 */
+  unsigned short e_res[4];     /* Reserved words, all 0x0 */
+  unsigned short e_oemid;      /* OEM identifier (for e_oeminfo), 0x0 */
+  unsigned short e_oeminfo;    /* OEM information; e_oemid specific, 0x0 */
+  unsigned short e_res2[10];   /* Reserved words, all 0x0 */
+  bfd_vma  e_lfanew;           /* File address of new exe header, 0x80 */
+  unsigned long dos_message[16]; /* text which always follows dos header */
+  bfd_vma  nt_signature;   	/* required NT signature, 0x4550 */ 
+
+
+  /* standard coff  internal info */
   unsigned short f_magic;	/* magic number			*/
   unsigned short f_nscns;	/* number of sections		*/
   long f_timdat;		/* time & date stamp		*/
@@ -19,6 +45,7 @@ struct internal_filehdr
   unsigned short f_opthdr;	/* sizeof(optional hdr)		*/
   unsigned short f_flags;	/* flags			*/
 };
+
 
 /* Bits for f_flags:
  *	F_RELFLG	relocation info stripped from file
@@ -41,6 +68,18 @@ struct internal_filehdr
 #define	F_AR32W     	(0x0200)
 #define	F_DYNLOAD	(0x1000)
 #define	F_SHROBJ	(0x2000)
+
+/* extra structure which is used in the optional header */
+typedef struct _IMAGE_DATA_DIRECTORY 
+{
+  bfd_vma VirtualAddress;
+  long    Size;
+}  IMAGE_DATA_DIRECTORY;
+#define IMAGE_NUMBEROF_DIRECTORY_ENTRIES  16
+
+/* default image base for NT */
+#define NT_IMAGE_BASE 0x400000
+
 
 /********************** AOUT "OPTIONAL HEADER" **********************/
 struct internal_aouthdr
@@ -81,6 +120,41 @@ struct internal_aouthdr
   long o_inlib;			/* inlib data */
   long o_sri;			/* Static Resource Information */
   long vid[2];			/* Version id */
+
+
+  /* PE stuff  */
+  bfd_vma ImageBase;          /* address of specific location in memory that
+                                 file is located, NT default 0x10000 */
+  bfd_vma SectionAlignment;   /* section alignment default 0x1000 */
+  bfd_vma FileAlignment;      /* file alignment default 0x200 */
+  short   MajorOperatingSystemVersion;  /* minimum version of the operating */
+  short   MinorOperatingSystemVersion;  /* system req'd for exe, default to 1*/
+  short   MajorImageVersion;  /* user defineable field to store version of */
+  short   MinorImageVersion;  /* exe or dll being created, default to 0 */ 
+  short   MajorSubsystemVersion; /* minimum subsystem version required to */
+  short   MinorSubsystemVersion; /* run exe; default to 3.1 */
+  long    Reserved1;  /* seems to be 0 */
+  long    SizeOfImage; /* size of region from image base to end last section */
+  long    SizeOfHeaders; /* size of PE header and section table */
+  long    CheckSum;  /* set to 0 */
+  short   Subsystem; /* type of subsystem exe uses for user interface,
+                        possible values:
+                        1 - NATIVE   Doesn't require a subsystem
+                        2 - WINDOWS_GUI runs in Windows GUI subsystem
+                        3 - WINDOWS_CUI runs in Windows char sub. (console app)
+                        5 - OS2_CUI runs in OS/2 character subsystem
+                        7 - POSIX_CUI runs in Posix character subsystem */
+  short   DllCharacteristics; /* flags for DLL init, use 0 */
+  bfd_vma SizeOfStackReserve; /* amount of memory to reserve, def. 0x100000 */
+  bfd_vma SizeOfStackCommit; /* amount of memory initially committed for 
+                                initial thread's stack, default is 0x1000 */
+  bfd_vma SizeOfHeapReserve; /* amount of virtual memory to reserve and */
+  bfd_vma SizeOfHeapCommit;  /* commit, don't know what to defaut it to */
+  long    LoaderFlags; /* can probably set to 0 */
+  long    NumberOfRvaAndSizes; /* number of entries in next entry, 16 */
+  IMAGE_DATA_DIRECTORY DataDirectory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
+
+
 };
 
 /********************** STORAGE CLASSES **********************/
@@ -115,6 +189,9 @@ struct internal_aouthdr
 #define C_LINE		104	/* line # reformatted as symbol table entry */
 #define C_ALIAS	 	105	/* duplicate tag		*/
 #define C_HIDDEN	106	/* ext symbol in dmert public lib */
+
+/* New storage classes for WINDOWS_NT   */
+#define C_SECTION       104     /* section name */
 
  /* New storage classes for 80960 */
 
@@ -198,6 +275,9 @@ struct internal_scnhdr
 									     beginning on a word boundary. */
 
 #define STYP_LIT	0x8020	/* Literal data (like STYP_TEXT) */
+
+
+
 /********************** LINE NUMBERS **********************/
 
 /* 1 line number entry for every "breakpointable" source line in a section.
@@ -516,30 +596,6 @@ struct internal_reloc
 #define R_H8500_IMM24	6		/* 24 bit immediate */
 #define R_H8500_IMM32   8               /* 32 bit immediate */
 #define R_H8500_HIGH16  9		/* high 16 bits of 32 bit immediate */
-
-/* SH modes */
-
-#define R_SH_PCREL8 	3		/*  8 bit pcrel 	*/
-#define R_SH_PCREL16 	4		/* 16 bit pcrel 	*/
-#define R_SH_HIGH8  	5		/* high 8 bits of 24 bit address */
-#define R_SH_LOW16 	7		/* low 16 bits of 24 bit immediate */
-#define R_SH_IMM24	6		/* 24 bit immediate */
-#define R_SH_PCDISP8BY4	9  		/* PC rel 8 bits *4 +ve */
-#define R_SH_PCDISP8BY2	10  		/* PC rel 8 bits *2 +ve */
-#define R_SH_PCDISP8    11  		/* 8 bit branch */
-#define R_SH_PCDISP     12  		/* 12 bit branch */
-#define R_SH_IMM32      14    		/* 32 bit immediate */
-#define R_SH_IMM8   	16
-#define R_SH_IMM8BY2    17
-#define R_SH_IMM8BY4    18
-#define R_SH_IMM4   	19
-#define R_SH_IMM4BY2    20
-#define R_SH_IMM4BY4    21
-#define R_SH_PCRELIMM8BY2   22
-#define R_SH_PCRELIMM8BY4   23
-#define R_SH_IMM16      24    		/* 16 bit immediate */
-
-
 
 /* W65 modes */
 

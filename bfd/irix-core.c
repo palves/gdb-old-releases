@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This file can only be compiled on systems which use Irix style core
    files (namely, Irix 4 and Irix 5, so far).  In the config/XXXXXX.mh
@@ -202,6 +202,8 @@ irix_core_make_empty_symbol (abfd)
 #define irix_core_get_lineno _bfd_nosymbols_get_lineno
 #define irix_core_find_nearest_line _bfd_nosymbols_find_nearest_line
 #define irix_core_bfd_make_debug_symbol _bfd_nosymbols_bfd_make_debug_symbol
+#define irix_core_read_minisymbols _bfd_nosymbols_read_minisymbols
+#define irix_core_minisymbol_to_symbol _bfd_nosymbols_minisymbol_to_symbol
 
 /* If somebody calls any byte-swapping routines, shoot them.  */
 void

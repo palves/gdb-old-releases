@@ -16,16 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This is for the iris. */
 
 #include "mips/xm-irix3.h"
-
-/* Irix defines psignal() in signal.h, in a way which conflicts with the
-   definition in defs.h.  */
-
-#define PSIGNAL_IN_SIGNAL_H
 
 #define BROKEN_SIGINFO_H	/* <sys/siginfo.h> si_pid & si_uid are bogus */
 

@@ -1,5 +1,5 @@
 /* Target machine description for EST-300, for GDB, the GNU debugger.
-   Copyright 1994 Free Software Foundation, Inc.
+   Copyright 1994, 1995 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain @ Cygnus Support.
 
 This file is part of GDB.
@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 
 /* GCC is probably the only compiler used on this configuration.  So
@@ -26,7 +26,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define BELIEVE_PCC_PROMOTION 1
 
 /* We have more complex, useful breakpoints on the target.  */
-#define	DECR_PC_AFTER_BREAK	0
+#define DECR_PC_AFTER_BREAK 0
+
+#define NUM_REGS 18
 
 #include "m68k/tm-m68k.h"
 

@@ -1,37 +1,67 @@
-# This file is a shell script that supplies the information necessary
-# to tailor a template configure script into the configure script
-# appropriate for this directory.  For more information, check any
-# existing configure script.
+AC_PREREQ(2.0)
+AC_INIT(z8k-dis.c)
+#    configure.in script for the opcodes library.
+#    Copyright (C) 1995 Free Software Foundation, Inc.
+#    Written by Cygnus Support.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-srctrigger=z8k-dis.c
-srcname="opcodes"
+AC_ARG_ENABLE(targets,
+[  --enable-targets        alternative target configurations],
+[case "${enableval}" in
+  yes | "") AC_ERROR(enable-targets option must specify target names or 'all')
+            ;;
+  no)       enable_targets= ;;
+  *)        enable_targets=$enableval ;;
+esac])dnl
 
-# per-host:
+# host-specific stuff:
+
+AC_PROG_CC
+AC_PROG_RANLIB
+AC_CHECK_HEADERS(string.h strings.h)
+
+AC_CONFIG_AUX_DIR(`cd $srcdir/..;pwd`)
+AC_CANONICAL_SYSTEM
+if test -z "$target" ; then
+    AC_MSG_ERROR(Unrecognized target system type; please check config.sub.)
+fi
+if test -z "$host" ; then
+    AC_MSG_ERROR(Unrecognized host system type; please check config.sub.)
+fi
+AC_ARG_PROGRAM
 
 . ${srcdir}/../bfd/configure.host
 
-# Set up to make a link between the host's include file and "sysdep.h".
-files="../bfd/hosts/${my_host}.h"
-links="sysdep.h"
-
-if [ ! -f ${srcdir}/${files} ] ; then
-	files=../bfd/hosts/std-host.h
-	echo "[${srcname} has no specific support for host ${host} -- using std-host]"
+if test -f ${srcdir}/../bfd/config/${my_host}.mh ; then
+	host_makefile_frag=${srcdir}/../bfd/config/${my_host}.mh
+	frags=${host_makefile_frag}
+else
+	host_makefile_frag=/dev/null
+	frags=
 fi
+AC_SUBST_FILE(host_makefile_frag)
 
-host_makefile_frag=
-if [ -f ${srcdir}/../bfd/config/${my_host}.mh ] ; then
-	host_makefile_frag=../bfd/config/${my_host}.mh
-fi
-
-# per-target:
+# target-specific stuff:
 
 # Canonicalize the secondary target names.
-if [ -n "$enable_targets" ]; then
+if test -n "$enable_targets" ; then
     for targ in `echo $enable_targets | sed 's/,/ /g'`
     do
-	result=`$configsub $targ 2>/dev/null`
-	if [ -n "$result" ]; then
+	result=`$ac_config_sub $targ 2>/dev/null`
+	if test -n "$result" ; then
 	    canon_targets="$canon_targets $result"
 	else
 	    # Allow targets that config.sub doesn't recognize, like "all".
@@ -46,17 +76,16 @@ for targ in $target $canon_targets
 do
     bfd_target=`${config_shell} $srcdir/../bfd/config.bfd $targ`
 
-    if [ "x$bfd_target" = "xall" ]; then
+    if test "x$bfd_target" = "xall" ; then
         all_targets=true
     else
-	if [ ! -f ${srcdir}/../bfd/config/${bfd_target}.mt ] ; then
-	    echo '***' No file ${srcdir}/../bfd/config/${bfd_target}.mt 1>&2
-	    echo '***' opcodes does not support target ${bfd_target} 1>&2
-	    echo '***' Look in bfd/config.bfd for supported targets 1>&2
-	    exit 1
+	if test ! -f ${srcdir}/../bfd/config/${bfd_target}.mt ; then
+	    AC_MSG_ERROR(*** No file ${srcdir}/../bfd/config/${bfd_target}.mt
+*** opcodes does not support target ${bfd_target}
+*** Look in bfd/config.bfd for supported targets)
 	fi
 
-	if [ "x$targ" = "x$target" ]; then
+	if test "x$targ" = "x$target" ; then
 	    target_makefile_frag=${srcdir}/../bfd/config/${bfd_target}.mt
 	else
 	    target_extra_frags="$target_extra_frags ${srcdir}/../bfd/config/${bfd_target}.mt"
@@ -66,19 +95,17 @@ done
 
 # We don't do any links based on the target system, just makefile config.
 
-# post-target:
-
-rm -f Makefile.tmp Makefile.2
-mv Makefile Makefile.tmp
-
-if [ x${all_targets} = xfalse ]; then
+if test x${all_targets} = xfalse ; then
 
     allfrags="$target_makefile_frag $target_extra_frags"
+    frags="$frags $allfrags"
 
     # The architectures in all the configured targets.
+changequote(,)dnl
     SELECT_ARCHITECTURES=`sed -n '
     s/SELECT_ARCHITECTURES[ 	]*=[ 	]*//p
     ' $allfrags`
+changequote([,])dnl
 
     # Target architecture .o files.
     ta=
@@ -110,7 +137,7 @@ if [ x${all_targets} = xfalse ]; then
 	bfd_w65_arch)		ta="$ta w65-dis.o" ;;
 
 	"")			;;
-	*) echo "*** unknown target architecture $arch" 1>&2; exit 1 ;;
+	*)		AC_MSG_ERROR(*** unknown target architecture $arch) ;;
 	esac
     done
 
@@ -134,14 +161,16 @@ if [ x${all_targets} = xfalse ]; then
     done
     archdefs="$f"
 
-    echo "ARCHDEFS = $archdefs"			>> Makefile.2
-    echo "BFD_MACHINES = $ta"			>> Makefile.2
+    BFD_MACHINES="$ta"
 
 else	# all_targets is true
-    echo 'ARCHDEFS = -DARCH_all'		>> Makefile.2
-    echo 'BFD_MACHINES = $(ALL_MACHINES)'	>> Makefile.2
-fi	# all_targets is true
+    archdefs=-DARCH_all
+    BFD_MACHINES='$(ALL_MACHINES)'
+fi
 
-cat Makefile.tmp >> Makefile.2
-rm -f Makefile.tmp
-mv Makefile.2 Makefile
+AC_SUBST(archdefs)
+AC_SUBST(frags)
+AC_SUBST(BFD_MACHINES)
+
+AC_CONFIG_HEADER(config.h:config.in)
+AC_OUTPUT(Makefile)

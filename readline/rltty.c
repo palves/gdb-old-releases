@@ -120,6 +120,12 @@ extern int term_has_meta;
 extern char *term_mm;
 extern char *term_mo;
 
+#ifdef __STDC__
+/* Provide prototype to silence type conversion warnings on systems
+   that provide prototypes for tputs. */
+static void outchar (int);
+#endif
+
 static void
 outchar (c)
      int c;

@@ -13,7 +13,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "dis-asm.h"
 #include "floatformat.h"
@@ -23,11 +23,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    two data items declared near each other will be contiguous in
    memory.  This kludge can be removed, FIXME, when GCC is fixed to not
    be a hog about initializers.  */
+/* Kung: According gcc team the memory hog problem is fixed. Take this 
+   kludge out. Actually this kludge break code in m68k-dis.c. */
 
+#if 0
 #ifdef __GNUC__
 #define	BREAK_UP_BIG_DECL	}; \
-				struct m68k_opcode m68k_opcodes_2[] = {
+				static const struct m68k_opcode m68k_opcodes_2[] = {
 #define	AND_OTHER_PART		sizeof (m68k_opcodes_2)
+#endif
 #endif
 
 #include "opcode/m68k.h"
@@ -52,7 +56,7 @@ CONST char * CONST fpcr_names[] = {
   "", "fpiar", "fpsr", "fpiar/fpsr", "fpcr",
   "fpiar/fpcr", "fpsr/fpcr", "fpiar/fpsr/fpcr"};
 
-static char *reg_names[] = {
+static char *const reg_names[] = {
   "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "a0",
   "a1", "a2", "a3", "a4", "a5", "fp", "sp", "ps", "pc"};
 
@@ -171,6 +175,18 @@ dummy_print_address (vma, info)
 {
 }
 
+static const struct m68k_opcode *
+opcode (idx)
+     int idx;
+{
+#if 0				/* was __GNUC__ */
+  const int max = sizeof (m68k_opcodes) / sizeof (m68k_opcodes[0]);
+  if (idx >= max)
+    return &m68k_opcodes_2[idx - max];
+#endif
+  return &m68k_opcodes[idx];
+}
+
 /* Print the m68k instruction at address MEMADDR in debugged memory,
    on INFO->STREAM.  Returns length of the instruction, in bytes.  */
 
@@ -184,7 +200,7 @@ print_insn_m68k (memaddr, info)
   unsigned char *save_p;
   register char *d;
   register unsigned long bestmask;
-  int best;
+  const struct m68k_opcode *best = 0;
   struct private priv;
   bfd_byte *buffer = priv.the_buffer;
   fprintf_ftype save_printer = info->fprintf_func;
@@ -199,14 +215,14 @@ print_insn_m68k (memaddr, info)
     return -1;
 
   bestmask = 0;
-  best = -1;
   FETCH_DATA (info, buffer + 2);
   for (i = 0; i < numopcodes; i++)
     {
-      register unsigned long opcode = m68k_opcodes[i].opcode;
-      register unsigned long match = m68k_opcodes[i].match;
+      const struct m68k_opcode *opc = opcode (i);
+      unsigned long opcode = opc->opcode;
+      unsigned long match = opc->match;
 
-      if (m68k_opcodes[i].flags & F_ALIAS)
+      if (opc->flags & F_ALIAS)
 	continue;
 
       if (((0xff & buffer[0] & (match >> 24)) == (0xff & (opcode >> 24)))
@@ -222,7 +238,7 @@ print_insn_m68k (memaddr, info)
 	  /* Don't use for printout the variants of divul and divsl
 	     that have the same register number in two places.
 	     The more general variants will match instead.  */
-	  for (d = m68k_opcodes[i].args; *d; d += 2)
+	  for (d = opc->args; *d; d += 2)
 	    if (d[1] == 'D')
 	      break;
 
@@ -230,19 +246,19 @@ print_insn_m68k (memaddr, info)
 	     point coprocessor instructions which use the same
 	     register number in two places, as above. */
 	  if (*d == 0)
-	    for (d = m68k_opcodes[i].args; *d; d += 2)
+	    for (d = opc->args; *d; d += 2)
 	      if (d[1] == 't')
 		break;
 
 	  if (*d == 0 && match > bestmask)
 	    {
-	      best = i;
+	      best = opc;
 	      bestmask = match;
 	    }
 	}
     }
 
-  if (best < 0)
+  if (best == 0)
     goto invalid;
 
   /* Point at first word of argument data,
@@ -253,7 +269,7 @@ print_insn_m68k (memaddr, info)
      The only place this is stored in the opcode table is
      in the arguments--look for arguments which specify fields in the 2nd
      or 3rd words of the instruction.  */
-  for (d = m68k_opcodes[best].args; *d; d += 2)
+  for (d = best->args; *d; d += 2)
     {
       /* I don't think it is necessary to be checking d[0] here; I suspect
 	 all this could be moved to the case statement below.  */
@@ -295,7 +311,7 @@ print_insn_m68k (memaddr, info)
   
   FETCH_DATA (info, p);
   
-  d = m68k_opcodes[best].args;
+  d = best->args;
 
   /* We can the operands twice.  The first time we don't print anything,
      but look for errors. */
@@ -314,8 +330,8 @@ print_insn_m68k (memaddr, info)
 	{
 	  (*info->fprintf_func)(info->stream,
 				"<internal error in opcode table: %s %s>\n",
-				m68k_opcodes[best].name,
-				m68k_opcodes[best].args);
+				best->name,
+				best->args);
 	  goto invalid;
 	}
 
@@ -324,9 +340,9 @@ print_insn_m68k (memaddr, info)
   info->fprintf_func = save_printer;
   info->print_address_func = save_print_address;
 
-  d = m68k_opcodes[best].args;
+  d = best->args;
 
-  (*info->fprintf_func) (info->stream, "%s", m68k_opcodes[best].name);
+  (*info->fprintf_func) (info->stream, "%s", best->name);
 
   if (*d)
     (*info->fprintf_func) (info->stream, " ");
@@ -374,7 +390,7 @@ print_insn_arg (d, buffer, p0, addr, info)
     {
     case 'c':		/* cache identifier */
       {
-        static char *cacheFieldName[] = { "NOP", "dc", "ic", "bc" };
+        static char *const cacheFieldName[] = { "NOP", "dc", "ic", "bc" };
         val = fetch_arg (buffer, place, 2, info);
         (*info->fprintf_func) (info->stream, cacheFieldName[val]);
         break;
@@ -384,7 +400,7 @@ print_insn_arg (d, buffer, p0, addr, info)
       {
         (*info->fprintf_func)
 	  (info->stream,
-	   "%s@",
+	   "%%%s@",
 	   reg_names [fetch_arg (buffer, place, 3, info) + 8]);
         break;
       }
@@ -411,7 +427,7 @@ print_insn_arg (d, buffer, p0, addr, info)
 
     case 'J':
       {
-	static struct { char *name; int value; } names[]
+	static const struct { char *name; int value; } names[]
 	  = {{"sfc", 0x000}, {"dfc", 0x001}, {"cacr", 0x002},
 	     {"tc",  0x003}, {"itt0",0x004}, {"itt1", 0x005},
              {"dtt0",0x006}, {"dtt1",0x007}, {"buscr",0x008},
@@ -456,58 +472,58 @@ print_insn_arg (d, buffer, p0, addr, info)
       break;
 
     case 'D':
-      (*info->fprintf_func) (info->stream, "%s",
+      (*info->fprintf_func) (info->stream, "%%%s",
 			     reg_names[fetch_arg (buffer, place, 3, info)]);
       break;
 
     case 'A':
       (*info->fprintf_func)
-	(info->stream, "%s",
+	(info->stream, "%%%s",
 	 reg_names[fetch_arg (buffer, place, 3, info) + 010]);
       break;
 
     case 'R':
       (*info->fprintf_func)
-	(info->stream, "%s",
+	(info->stream, "%%%s",
 	 reg_names[fetch_arg (buffer, place, 4, info)]);
       break;
 
     case 'r':
       (*info->fprintf_func)
-	(info->stream, "%s@",
+	(info->stream, "%%%s@",
 	 reg_names[fetch_arg (buffer, place, 4, info)]);
       break;
 
     case 'F':
       (*info->fprintf_func)
-	(info->stream, "fp%d",
+	(info->stream, "%%fp%d",
 	 fetch_arg (buffer, place, 3, info));
       break;
 
     case 'O':
       val = fetch_arg (buffer, place, 6, info);
       if (val & 0x20)
-	(*info->fprintf_func) (info->stream, "%s", reg_names [val & 7]);
+	(*info->fprintf_func) (info->stream, "%%%s", reg_names [val & 7]);
       else
 	(*info->fprintf_func) (info->stream, "%d", val);
       break;
 
     case '+':
       (*info->fprintf_func)
-	(info->stream, "%s@+",
+	(info->stream, "%%%s@+",
 	 reg_names[fetch_arg (buffer, place, 3, info) + 8]);
       break;
 
     case '-':
       (*info->fprintf_func)
-	(info->stream, "%s@-",
+	(info->stream, "%%%s@-",
 	 reg_names[fetch_arg (buffer, place, 3, info) + 8]);
       break;
 
     case 'k':
       if (place == 'k')
 	(*info->fprintf_func)
-	  (info->stream, "{%s}",
+	  (info->stream, "{%%%s}",
 	   reg_names[fetch_arg (buffer, place, 3, info)]);
       else if (place == 'C')
 	{
@@ -575,12 +591,12 @@ print_insn_arg (d, buffer, p0, addr, info)
     case 'd':
       val = NEXTWORD (p);
       (*info->fprintf_func)
-	(info->stream, "%s@(%d)",
+	(info->stream, "%%%s@(%d)",
 	 reg_names[fetch_arg (buffer, place, 3, info)], val);
       break;
 
     case 's':
-      (*info->fprintf_func) (info->stream, "%s",
+      (*info->fprintf_func) (info->stream, "%%%s",
 			     fpcr_names[fetch_arg (buffer, place, 3, info)]);
       break;
 
@@ -619,28 +635,28 @@ print_insn_arg (d, buffer, p0, addr, info)
       switch (val >> 3)
 	{
 	case 0:
-	  (*info->fprintf_func) (info->stream, "%s", reg_names[val]);
+	  (*info->fprintf_func) (info->stream, "%%%s", reg_names[val]);
 	  break;
 
 	case 1:
-	  (*info->fprintf_func) (info->stream, "%s", regname);
+	  (*info->fprintf_func) (info->stream, "%%%s", regname);
 	  break;
 
 	case 2:
-	  (*info->fprintf_func) (info->stream, "%s@", regname);
+	  (*info->fprintf_func) (info->stream, "%%%s@", regname);
 	  break;
 
 	case 3:
-	  (*info->fprintf_func) (info->stream, "%s@+", regname);
+	  (*info->fprintf_func) (info->stream, "%%%s@+", regname);
 	  break;
 
 	case 4:
-	  (*info->fprintf_func) (info->stream, "%s@-", regname);
+	  (*info->fprintf_func) (info->stream, "%%%s@-", regname);
 	  break;
 
 	case 5:
 	  val = NEXTWORD (p);
-	  (*info->fprintf_func) (info->stream, "%s@(%d)", regname, val);
+	  (*info->fprintf_func) (info->stream, "%%%s@(%d)", regname, val);
 	  break;
 
 	case 6:
@@ -756,12 +772,13 @@ print_insn_arg (d, buffer, p0, addr, info)
 		  if (doneany)
 		    (*info->fprintf_func) (info->stream, "/");
 		  doneany = 1;
-		  (*info->fprintf_func) (info->stream, "%s", reg_names[regno]);
+		  (*info->fprintf_func) (info->stream, "%%%s",
+					 reg_names[regno]);
 		  first_regno = regno;
 		  while (val & (1 << (regno + 1)))
 		    ++regno;
 		  if (regno > first_regno)
-		    (*info->fprintf_func) (info->stream, "-%s",
+		    (*info->fprintf_func) (info->stream, "-%%%s",
 					   reg_names[regno]);
 		}
 	  }
@@ -1010,7 +1027,7 @@ print_indexed (basereg, p, addr, info)
      disassemble_info *info;
 {
   register int word;
-  static char *scales[] = {"", "*2", "*4", "*8"};
+  static char *const scales[] = {"", "*2", "*4", "*8"};
   register int base_disp;
   register int outer_disp;
   char buf[40];
@@ -1019,7 +1036,7 @@ print_indexed (basereg, p, addr, info)
 
   /* Generate the text for the index register.
      Where this will be output is not yet determined.  */
-  sprintf (buf, "[%s.%c%s]",
+  sprintf (buf, "[%%%s.%c%s]",
 	   reg_names[(word >> 12) & 0xf],
 	   (word & 0x800) ? 'l' : 'w',
 	   scales[(word >> 9) & 3]);
@@ -1103,5 +1120,5 @@ print_base (regno, disp, info)
   else if (regno == -1)
     (*info->fprintf_func) (info->stream, "0x%x", (unsigned) disp);
   else
-    (*info->fprintf_func) (info->stream, "%d(%s)", disp, reg_names[regno]);
+    (*info->fprintf_func) (info->stream, "%d(%%%s)", disp, reg_names[regno]);
 }

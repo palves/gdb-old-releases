@@ -7,7 +7,7 @@ END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.14.
+Source-Level Debugger' for GDB Version 4.15.1.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995 Free
 Software Foundation, Inc.
@@ -42,7 +42,7 @@ These settings are useful for debugging programs in any language:
      structure values, pointer values, breakpoints, and so forth, even
      when it also displays the contents of those addresses.  The default
      is `on'.  For example, this is what a stack frame display looks
-     like, with `set print address on':
+     like with `set print address on':
 
           (gdb) f
           #0  set_quotes (lq=0x34c78 "<<", rq=0x34c88 ">>")
@@ -70,7 +70,7 @@ These settings are useful for debugging programs in any language:
    When GDB prints a symbolic address, it normally prints the closest
 earlier symbol plus an offset.  If that symbol does not uniquely
 identify the address (for example, it is a name whose scope is a single
-source file), you may need to disambiguate.  One way to do this is with
+source file), you may need to clarify.  One way to do this is with
 `info line', for example `info line *0x4537'.  Alternately, you can set
 GDB to print the source file and line number when it prints a symbolic
 address:
@@ -97,8 +97,8 @@ printed is reasonably close to the closest earlier symbol:
 `set print max-symbolic-offset MAX-OFFSET'
      Tell GDB to only display the symbolic form of an address if the
      offset between the closest earlier symbol and the address is less
-     than MAX-OFFSET.  The default is 0, which means to always print the
-     symbolic form of an address, if any symbol precedes it.
+     than MAX-OFFSET.  The default is 0, which tells GDB to always
+     print the symbolic form of an address if any symbol precedes it.
 
 `show print max-symbolic-offset'
      Ask how large the maximum offset is that GDB prints in a symbolic
@@ -123,7 +123,7 @@ shows that a variable `ptt' points at another variable `t', defined in
 
 `set print array'
 `set print array on'
-     Pretty-print arrays.  This format is more convenient to read, but
+     Pretty print arrays.  This format is more convenient to read, but
      uses more space.  The default is off.
 
 `set print array off'
@@ -134,19 +134,25 @@ shows that a variable `ptt' points at another variable `t', defined in
      arrays.
 
 `set print elements NUMBER-OF-ELEMENTS'
-     If GDB is printing a large array, it stops printing after it has
+     Set a limit on how many elements of an array GDB will print.  If
+     GDB is printing a large array, it stops printing after it has
      printed the number of elements set by the `set print elements'
      command.  This limit also applies to the display of strings.
-     Setting the number of elements to zero means that the printing is
+     Setting  NUMBER-OF-ELEMENTS to zero means that the printing is
      unlimited.
 
 `show print elements'
-     Display the number of elements of a large array that GDB prints
-     before losing patience.
+     Display the number of elements of a large array that GDB will
+     print.  If the number is 0, then the printing is unlimited.
+
+`set print null-stop'
+     Cause GDB to stop printing the characters of an array when the
+     first NULL is encountered.  This is useful when large arrays
+     actually contain only short strings.
 
 `set print pretty on'
-     Cause GDB to print structures in an indented format with one
-     member per line, like this:
+     Cause GDB to print structures in an indented format with one member
+     per line, like this:
 
           $1 = {
             next = 0x0,
@@ -249,7 +255,7 @@ These settings are of interest when debugging C++ programs:
 
     `gnu'
           Decode based on the GNU C++ compiler (`g++') encoding
-          algorithm.
+          algorithm.  This is the default.
 
     `lucid'
           Decode based on the Lucid C++ compiler (`lcc') encoding
@@ -260,6 +266,9 @@ These settings are of interest when debugging C++ programs:
           Manual'.  *Warning:* this setting alone is not sufficient to
           allow debugging `cfront'-generated executables.  GDB would
           require further enhancement to permit that.
+
+    `foo'
+          Show the list of formats.
 
 `show demangle-style'
      Display the encoding style currently in use for decoding C++
@@ -296,11 +305,11 @@ Value history
 =============
 
    Values printed by the `print' command are saved in the GDB "value
-history" so that you can refer to them in other expressions.  Values are
-kept until the symbol table is re-read or discarded (for example with
-the `file' or `symbol-file' commands).  When the symbol table changes,
-the value history is discarded, since the values may contain pointers
-back to the types defined in the symbol table.
+history".  This allows you to refer to them in other expressions.
+Values are kept until the symbol table is re-read or discarded (for
+example with the `file' or `symbol-file' commands).  When the symbol
+table changes, the value history is discarded, since the values may
+contain pointers back to the types defined in the symbol table.
 
    The values printed are given "history numbers" by which you can
 refer to them.  These are successive integers starting with one.
@@ -346,7 +355,7 @@ remains 4 even though the value of `x' has changed.
 
 `show values +'
      Print ten history values just after the values last printed.  If
-     no more values are available, produces no display.
+     no more values are available, `show values +' produces no display.
 
    Pressing RET to repeat `show values N' has exactly the same effect
 as `show values +'.
@@ -398,7 +407,8 @@ from successive elements of an array of structures:
 
      set $i = 0
      print bar[$i++]->contents
-     ... repeat that command by typing RET.
+
+Repeat that command by typing RET.
 
    Some convenience variables are created automatically by GDB and given
 values likely to be useful.
@@ -416,6 +426,10 @@ values likely to be useful.
      The variable `$__' is automatically set by the `x' command to the
      value found in the last address examined.  Its type is chosen to
      match the format in which the data was printed.
+
+`$_exitcode'
+     The variable `$_exitcode' is automatically set to the exit code
+     when the program being debugged terminates.
 
 
 File: gdb.info,  Node: Registers,  Next: Floating Point Hardware,  Prev: Convenience Vars,  Up: Data
@@ -437,9 +451,11 @@ on your machine.
      floating-point registers.
 
 `info registers REGNAME ...'
-     Print the relativized value of each specified register REGNAME.
-     rEGNAME may be any register name valid on the machine you are
-     using, with or without the initial `$'.
+     Print the "relativized" value of each specified register REGNAME.
+     As discussed in detail below, register values are normally
+     relative to the selected stack frame.  REGNAME may be any register
+     name valid on the machine you are using, with or without the
+     initial `$'.
 
    GDB has four "standard" register names that are available (in
 expressions) on most machines--whenever they do not conflict with an
@@ -533,8 +549,8 @@ information about the status of the floating point hardware.
 `info float'
      Display hardware-dependent information about the floating point
      unit.  The exact contents and layout vary depending on the
-     floating point chip; on some platforms, `info float' is not
-     available at all.
+     floating point chip.  Currently, `info float' is supported on the
+     ARM and x86 machines.
 
 
 File: gdb.info,  Node: Languages,  Next: Symbols,  Prev: Data,  Up: Top
@@ -546,15 +562,14 @@ Using GDB with Different Languages
 are rarely expressed in the same manner.  For instance, in ANSI C,
 dereferencing a pointer `p' is accomplished by `*p', but in Modula-2,
 it is accomplished by `p^'.  Values can also be represented (and
-displayed) differently.  Hex numbers in C are written like `0x1ae',
-while in Modula-2 they appear as `1AEH'.
+displayed) differently.  Hex numbers in C appear as `0x1ae', while in
+Modula-2 they appear as `1AEH'.
 
    Language-specific information is built into GDB for some languages,
 allowing you to express operations like the above in your program's
 native language, and allowing GDB to output values in a manner
 consistent with the syntax of your program's native language.  The
-language you use to build expressions, called the "working language",
-can be selected manually, or GDB can set it automatically.
+language you use to build expressions is called the "working language".
 
 * Menu:
 
@@ -574,15 +589,67 @@ Switching between source languages
    There are two ways to control the working language--either have GDB
 set it automatically, or select it manually yourself.  You can use the
 `set language' command for either purpose.  On startup, GDB defaults to
-setting the language automatically.
+setting the language automatically.  The working language is used to
+determine how expressions you type are interpreted, how values are
+printed, etc.
+
+   In addition to the working language, every source file that GDB
+knows about has its own working language.  For some object file
+formats, the compiler might indicate which language a particular source
+file is in.  However, most of the time GDB infers the language from the
+name of the file.  The language of a source file controls whether C++
+names are demangled--this way `backtrace' can show each frame
+appropriately for its own language.  There is no way to set the
+language of a source file from within GDB.
+
+   This is most commonly a problem when you use a program, such as
+`cfront' or `f2c', that generates C but is written in another language.
+In that case, make the program use `#line' directives in its C output;
+that way GDB will know the correct language of the source code of the
+original program, and will display that source code, not the generated
+C code.
 
 * Menu:
 
+* Filenames::                   Filename extensions and languages.
 * Manually::                    Setting the working language manually
 * Automatically::               Having GDB infer the source language
 
 
-File: gdb.info,  Node: Manually,  Next: Automatically,  Up: Setting
+File: gdb.info,  Node: Filenames,  Next: Manually,  Up: Setting
+
+List of filename extensions and languages
+-----------------------------------------
+
+   If a source file name ends in one of the following extensions, then
+GDB infers that its language is the one indicated.
+
+`.mod'
+     Modula-2 source file
+
+`.c'
+     C source file
+
+`.C'
+`.cc'
+`.cxx'
+`.cpp'
+`.cp'
+`.c++'
+     C++ source file
+
+`.ch'
+`.c186'
+`.c286'
+     CHILL source file.
+
+`.s'
+`.S'
+     Assembler source file.  This actually behaves almost like C, but
+     GDB does not skip over function prologues when stepping.
+
+
+File: gdb.info,  Node: Manually,  Next: Automatically,  Prev: Filenames,  Up: Setting
 
 Setting the working language
 ----------------------------
@@ -616,22 +683,8 @@ Having GDB infer the source language
 ------------------------------------
 
    To have GDB set the working language automatically, use `set
-language local' or `set language auto'.  GDB then infers the language
-that a program was written in by looking at the name of its source
-files, and examining their extensions:
-
-`*.mod'
-     Modula-2 source file
-
-`*.c'
-     C source file
-
-`*.C'
-`*.cc'
-     C++ source file
-
-   This information is recorded for each function or procedure in a
-source file.  When your program stops in a frame (usually by
+language local' or `set language auto'.  GDB then infers the working
+language.  That is, when your program stops in a frame (usually by
 encountering a breakpoint), GDB sets the working language to the
 language recorded for the function in that frame.  If the language for
 a frame is unknown (that is, if the function or block corresponding to
@@ -660,14 +713,15 @@ working language, and also what language source files were written in.
      expressions that may involve variables in your program.
 
 `info frame'
-     Among the other information listed here (*note Information about a
-     frame: Frame Info.) is the source language for this frame.  This
-     language becomes the working language if you use an identifier
-     from this frame.
+     Display the source language for this frame.  This language becomes
+     the working language if you use an identifier from this frame.
+     *Note Information about a frame: Frame Info, to identify the other
+     information listed here.
 
 `info source'
-     Among the other information listed here (*note Examining the
-     Symbol Table: Symbols.) is the source language of this source file.
+     Display the source language of this source file.  *Note Examining
+     the Symbol Table: Symbols, to identify the other information
+     listed here.
 
 
 File: gdb.info,  Node: Checks,  Next: Support,  Prev: Show,  Up: Languages
@@ -718,19 +772,19 @@ but
    The second example fails because the `CARDINAL' 1 is not
 type-compatible with the `REAL' 2.3.
 
-   For expressions you use in GDB commands, you can tell the GDB type
-checker to skip checking; to treat any mismatches as errors and abandon
-the expression; or only issue warnings when type mismatches occur, but
-evaluate the expression anyway.  When you choose the last of these, GDB
-evaluates expressions like the second example above, but also issues a
-warning.
+   For the expressions you use in GDB commands, you can tell the GDB
+type checker to skip checking; to treat any mismatches as errors and
+abandon the expression; or to only issue warnings when type mismatches
+occur, but evaluate the expression anyway.  When you choose the last of
+these, GDB evaluates expressions like the second example above, but
+also issues a warning.
 
-   Even though you may turn type checking off, other type-based reasons
-may prevent GDB from evaluating an expression.  For instance, GDB does
-not know how to add an `int' and a `struct foo'.  These particular type
-errors have nothing to do with the language in use, and usually arise
-from expressions, such as the one described above, which make little
-sense to evaluate anyway.
+   Even if you turn type checking off, there may be other reasons
+related to type that prevent GDB from evaluating an expression.  For
+instance, GDB does not know how to add an `int' and a `struct foo'.
+These particular type errors have nothing to do with the language in
+use, and usually arise from expressions, such as the one described
+above, which make little sense to evaluate anyway.
 
    Each language defines to what degree it is strict about type.  For
 instance, both Modula-2 and C require the arguments to arithmetical
@@ -853,8 +907,8 @@ C and C++
 ---------
 
    Since C and C++ are so closely related, many features of GDB apply
-to both languages.  Whenever this is the case, we discuss both languages
-together.
+to both languages.  Whenever this is the case, we discuss those
+languages together.
 
    The C++ debugging facilities are jointly implemented by the GNU C++
 compiler and GDB.  Therefore, to debug your C++ code effectively, you
@@ -1023,9 +1077,10 @@ C and C++ constants
 following ways:
 
    * Integer constants are a sequence of digits.  Octal constants are
-     specified by a leading `0' (ie. zero), and hexadecimal constants by
-     a leading `0x' or `0X'.  Constants may also end with a letter `l',
-     specifying that the constant should be treated as a `long' value.
+     specified by a leading `0' (i.e. zero), and hexadecimal constants
+     by a leading `0x' or `0X'.  Constants may also end with a letter
+     `l', specifying that the constant should be treated as a `long'
+     value.
 
    * Floating point constants are a sequence of digits, followed by a
      decimal point, followed by a sequence of digits, and optionally
@@ -1117,13 +1172,14 @@ C and C++ defaults
 
    If you allow GDB to set type and range checking automatically, they
 both default to `off' whenever the working language changes to C or
-C++.  This happens regardless of whether you, or GDB, selected the
-working language.
+C++.  This happens regardless of whether you or GDB selects the working
+language.
 
-   If you allow GDB to set the language automatically, it sets the
-working language to C or C++ on entering code compiled from a source
-file whose name ends with `.c', `.C', or `.cc'.  *Note Having GDB infer
-the source language: Automatically, for further details.
+   If you allow GDB to set the language automatically, it recognizes
+source files whose names end with `.c', `.C', or `.cc', and when GDB
+enters code compiled from one of these files, it sets the working
+language to C or C++.  *Note Having GDB infer the source language:
+Automatically, for further details.
 
 
 File: gdb.info,  Node: C Checks,  Next: Debugging C,  Prev: C Defaults,  Up: C
@@ -1138,7 +1194,7 @@ variables type equivalent if:
    * The two variables are structured and have the same structure,
      union, or enumerated tag.
 
-   * Two two variables have the same type name, or types that have been
+   * The two variables have the same type name, or types that have been
      declared equivalent through `typedef'.
 
    Range checking, if turned on, is done on mathematical operations.
@@ -1235,113 +1291,4 @@ GDB reads in the executable's symbol table.
 * M2 Checks::                   Modula-2 type and range checks
 * M2 Scope::                    The scope operators `::' and `.'
 * GDB/M2::                      GDB and Modula-2
-
-
-File: gdb.info,  Node: M2 Operators,  Next: Built-In Func/Proc,  Up: Modula-2
-
-Operators
-.........
-
-   Operators must be defined on values of specific types.  For instance,
-`+' is defined on numbers, but not on structures.  Operators are often
-defined on groups of types.  For the purposes of Modula-2, the
-following definitions hold:
-
-   * *Integral types* consist of `INTEGER', `CARDINAL', and their
-     subranges.
-
-   * *Character types* consist of `CHAR' and its subranges.
-
-   * *Floating-point types* consist of `REAL'.
-
-   * *Pointer types* consist of anything declared as `POINTER TO TYPE'.
-
-   * *Scalar types* consist of all of the above.
-
-   * *Set types* consist of `SET' and `BITSET' types.
-
-   * *Boolean types* consist of `BOOLEAN'.
-
-The following operators are supported, and appear in order of
-increasing precedence:
-
-`,'
-     Function argument or array index separator.
-
-`:='
-     Assignment.  The value of VAR `:=' VALUE is VALUE.
-
-`<, >'
-     Less than, greater than on integral, floating-point, or enumerated
-     types.
-
-`<=, >='
-     Less than, greater than, less than or equal to, greater than or
-     equal to on integral, floating-point and enumerated types, or set
-     inclusion on set types.  Same precedence as `<'.
-
-`=, <>, #'
-     Equality and two ways of expressing inequality, valid on scalar
-     types.  Same precedence as `<'.  In GDB scripts, only `<>' is
-     available for inequality, since `#' conflicts with the script
-     comment character.
-
-`IN'
-     Set membership.  Defined on set types and the types of their
-     members.  Same precedence as `<'.
-
-`OR'
-     Boolean disjunction.  Defined on boolean types.
-
-`AND, &'
-     Boolean conjuction.  Defined on boolean types.
-
-`@'
-     The GDB "artificial array" operator (*note Expressions:
-     Expressions.).
-
-`+, -'
-     Addition and subtraction on integral and floating-point types, or
-     union and difference on set types.
-
-`*'
-     Multiplication on integral and floating-point types, or set
-     intersection on set types.
-
-`/'
-     Division on floating-point types, or symmetric set difference on
-     set types.  Same precedence as `*'.
-
-`DIV, MOD'
-     Integer division and remainder.  Defined on integral types.  Same
-     precedence as `*'.
-
-`-'
-     Negative. Defined on `INTEGER' and `REAL' data.
-
-`^'
-     Pointer dereferencing.  Defined on pointer types.
-
-`NOT'
-     Boolean negation.  Defined on boolean types.  Same precedence as
-     `^'.
-
-`.'
-     `RECORD' field selector.  Defined on `RECORD' data.  Same
-     precedence as `^'.
-
-`[]'
-     Array indexing.  Defined on `ARRAY' data.  Same precedence as `^'.
-
-`()'
-     Procedure argument list.  Defined on `PROCEDURE' objects.  Same
-     precedence as `^'.
-
-`::, .'
-     GDB and Modula-2 scope operators.
-
-     *Warning:* Sets and their operations are not yet supported, so GDB
-     treats the use of the operator `IN', or the use of operators `+',
-     `-', `*', `/', `=', , `<>', `#', `<=', and `>=' on sets as an
-     error.
 

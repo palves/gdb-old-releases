@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "symtab.h"
@@ -38,8 +38,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <sys/types.h>
 #include <fcntl.h>
-#include <string.h>
-#include <sys/stat.h>
+#include "gdb_string.h"
+#include "gdb_stat.h"
 #include <ctype.h>
 
 /* Prototypes for local functions */
@@ -2190,7 +2190,9 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line, canonical)
   /* Arg token is not digits => try it as a variable name
      Find the next token (everything up to end or next whitespace).  */
 
-  if (is_quoted)
+  if (**argptr == '$')		/* Convenience variable */
+    p = skip_quoted (*argptr + 1);
+  else if (is_quoted)
     {
       p = skip_quoted (*argptr);
       if (p[-1] != '\'')
@@ -2217,6 +2219,32 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line, canonical)
     }
   while (*p == ' ' || *p == '\t') p++;
   *argptr = p;
+
+  /* See if it's a convenience variable */
+
+  if (*copy == '$')
+    {
+      value_ptr valx;
+      int need_canonical = (s == 0) ? 1 : 0;
+
+      valx = value_of_internalvar (lookup_internalvar (copy + 1));
+      if (TYPE_CODE (VALUE_TYPE (valx)) != TYPE_CODE_INT)
+	error ("Convenience variables used in line specs must have integer values.");
+
+      val.symtab = s ? s : default_symtab;
+      val.line = value_as_long (valx);
+      val.pc = 0;
+
+      values.sals = (struct symtab_and_line *)xmalloc (sizeof val);
+      values.sals[0] = val;
+      values.nelts = 1;
+
+      if (need_canonical)
+	build_canonical_line_spec (values.sals, NULL, canonical);
+
+      return values;
+    }
+
 
   /* Look up that token as a variable.
      If file specified, use that file's per-file block to start with.  */
@@ -3205,51 +3233,6 @@ make_symbol_completion_list (text, word)
   return (return_val);
 }
 
-
-#if 0
-/* Add the type of the symbol sym to the type of the current
-   function whose block we are in (assumed).  The type of
-   this current function is contained in *TYPE.
-   
-   This basically works as follows:  When we find a function
-   symbol (N_FUNC with a 'f' or 'F' in the symbol name), we record
-   a pointer to its type in the global in_function_type.  Every 
-   time we come across a parameter symbol ('p' in its name), then
-   this procedure adds the name and type of that parameter
-   to the function type pointed to by *TYPE.  (Which should correspond
-   to in_function_type if it was called correctly).
-
-   Note that since we are modifying a type, the result of 
-   lookup_function_type() should be memcpy()ed before calling
-   this.  When not in strict typing mode, the expression
-   evaluator can choose to ignore this.
-
-   Assumption:  All of a function's parameter symbols will
-   appear before another function symbol is found.  The parameters 
-   appear in the same order in the argument list as they do in the
-   symbol table. */
-
-void
-add_param_to_type (type,sym)
-   struct type **type;
-   struct symbol *sym;
-{
-   int num = ++(TYPE_NFIELDS(*type));
-
-   if(TYPE_NFIELDS(*type)-1)
-      TYPE_FIELDS(*type) = (struct field *)
-	  (*current_objfile->xrealloc) ((char *)(TYPE_FIELDS(*type)),
-					num*sizeof(struct field));
-   else
-      TYPE_FIELDS(*type) = (struct field *)
-	  (*current_objfile->xmalloc) (num*sizeof(struct field));
-   
-   TYPE_FIELD_BITPOS(*type,num-1) = num-1;
-   TYPE_FIELD_BITSIZE(*type,num-1) = 0;
-   TYPE_FIELD_TYPE(*type,num-1) = SYMBOL_TYPE(sym);
-   TYPE_FIELD_NAME(*type,num-1) = SYMBOL_NAME(sym);
-}
-#endif 
 
 void
 _initialize_symtab ()

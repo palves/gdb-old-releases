@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "obstack.h"
@@ -34,7 +34,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "c-lang.h"
 #include "typeprint.h"
 
-#include <string.h>
+#include "gdb_string.h"
 #include <errno.h>
 #include <ctype.h>
 
@@ -386,7 +386,8 @@ c_type_print_varspec_suffix (type, stream, show, passed_a_ptr, demangled_args)
 	fprintf_filtered (stream, ")");
       
       fprintf_filtered (stream, "[");
-      if (TYPE_LENGTH (type) > 0 && TYPE_LENGTH (TYPE_TARGET_TYPE (type)) > 0)
+      if (TYPE_LENGTH (type) >= 0 && TYPE_LENGTH (TYPE_TARGET_TYPE (type)) > 0
+	  && TYPE_ARRAY_UPPER_BOUND_TYPE(type) != BOUND_CANNOT_BE_DETERMINED)
 	fprintf_filtered (stream, "%d",
 			  (TYPE_LENGTH (type)
 			   / TYPE_LENGTH (TYPE_TARGET_TYPE (type))));
@@ -420,7 +421,19 @@ c_type_print_varspec_suffix (type, stream, show, passed_a_ptr, demangled_args)
       if (passed_a_ptr)
 	fprintf_filtered (stream, ")");
       if (!demangled_args)
-	fprintf_filtered (stream, "()");
+	{ int i, len = TYPE_NFIELDS (type);
+	  fprintf_filtered (stream, "(");
+	  for (i = 0; i < len; i++)
+	    {
+	      if (i > 0)
+		{
+		  fputs_filtered (", ", stream);
+		  wrap_here ("    ");
+		}
+	      c_print_type (TYPE_FIELD_TYPE (type, i), "", stream, -1, 0);
+	    }
+	  fprintf_filtered (stream, ")");
+	}
       c_type_print_varspec_suffix (TYPE_TARGET_TYPE (type), stream, 0,
 				   passed_a_ptr, 0);
       break;

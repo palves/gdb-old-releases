@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "frame.h"
@@ -631,7 +631,7 @@ child_wait (pid, ourstatus)
       /* Initial thread value can only be acquired via wait, so we have to
 	 resort to this hack.  */
 
-      if (TIDGET (inferior_pid) == 0)
+      if (TIDGET (inferior_pid) == 0 && thread != 0)
 	{
 	  inferior_pid = BUILDPID (inferior_pid, thread);
 	  add_thread (inferior_pid);
@@ -639,6 +639,11 @@ child_wait (pid, ourstatus)
 
       pid = BUILDPID (pid, thread);
 
+      /* We've become a single threaded process again.  */
+      if (thread == 0)
+	inferior_pid = pid;
+
+      /* Check for thread creation.  */
       if (WIFSTOPPED(status)
 	  && WSTOPSIG(status) == SIGTRAP
 	  && !in_thread_list (pid))
@@ -649,11 +654,30 @@ child_wait (pid, ourstatus)
 
 	  if (realsig == SIGNEWTHREAD)
 	    {
-	      /* Simply ignore new thread notification, as we can't do anything
-		 useful with such threads.  All ptrace calls at this point just
-		 fail for no apparent reason.  The thread will eventually get a
-		 real signal when it becomes real.  */
-	      child_resume (pid, 0, TARGET_SIGNAL_0);
+	      /* It's a new thread notification.  Nothing to do here since
+		 the machine independent code in wait_for_inferior will
+		 add the thread to the thread list and restart the thread
+		 when pid != inferior_pid and pid is not in the thread
+		 list.   We don't even want to much with realsig -- the
+		 code in wait_for_inferior expects SIGTRAP.  */
+	      ;
+	    }
+	  else
+	    error ("Signal for unknown thread was not SIGNEWTHREAD");
+	}
+
+      /* Check for thread termination.  */
+      else if (WIFSTOPPED(status)
+	       && WSTOPSIG(status) == SIGTRAP
+	       && in_thread_list (pid))
+	{
+	  int realsig;
+
+	  realsig = ptrace (PTRACE_GETTRACESIG, pid, (PTRACE_ARG3_TYPE)0, 0);
+
+	  if (realsig == SIGTHREADEXIT)
+	    {
+	      ptrace (PTRACE_CONT, PIDGET (pid), (PTRACE_ARG3_TYPE)0, 0);
 	      continue;
 	    }
 	}
@@ -688,6 +712,23 @@ child_wait (pid, ourstatus)
     }
 }
 
+/* Return nonzero if the given thread is still alive.  */
+int
+child_thread_alive (pid)
+     int pid;
+{
+  /* Arggh.  Apparently pthread_kill only works for threads within
+     the process that calls pthread_kill.
+
+     We want to avoid the lynx signal extensions as they simply don't
+     map well to the generic gdb interface we want to keep.
+
+     All we want to do is determine if a particular thread is alive;
+     it appears as if we can just make a harmless thread specific
+     ptrace call to do that.  */
+  return (ptrace (PTRACE_THREADUSER, pid, 0, 0) != -1);
+}
+
 /* Resume execution of the inferior process.
    If STEP is nonzero, single-step it.
    If SIGNAL is nonzero, give it that signal.  */
@@ -702,14 +743,16 @@ child_resume (pid, step, signal)
 
   errno = 0;
 
+  /* If pid == -1, then we want to step/continue all threads, else
+     we only want to step/continue a single thread.  */
   if (pid == -1)
     {
-      /* Resume all threads.  */
-
       pid = inferior_pid;
+      func = step ? PTRACE_SINGLESTEP : PTRACE_CONT;
     }
+  else
+    func = step ? PTRACE_SINGLESTEP_ONE : PTRACE_CONT_ONE;
 
-  func = step ? PTRACE_SINGLESTEP_ONE : PTRACE_CONT;
 
   /* An address of (PTRACE_ARG3_TYPE)1 tells ptrace to continue from where
      it was.  (If GDB wanted it to start some other way, we have already

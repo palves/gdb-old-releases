@@ -13,7 +13,6 @@ struct external_filehdr {
 	char f_flags[2];	/* flags			*/
 };
 
-
 /* Bits for f_flags:
  *	F_RELFLG	relocation info stripped from file
  *	F_EXEC		file is executable (no unresolved external references)
@@ -32,6 +31,10 @@ struct external_filehdr {
 #define	I386MAGIC	0x14c
 #define I386PTXMAGIC	0x154
 #define I386AIXMAGIC	0x175
+
+/* extra NT defines */
+#define DOSMAGIC       0x5a4d
+#define NT_SIGNATURE   0x00004550
 
 /* This is Lynx's all-platform magic number for executables. */
 
@@ -59,6 +62,8 @@ typedef struct
   char	entry[4];		/* entry pt.				*/
   char 	text_start[4];		/* base of text used for this file */
   char 	data_start[4];		/* base of data used for this file */
+
+
 }
 AOUTHDR;
 
@@ -70,6 +75,13 @@ AOUTHDR;
 #define STMAGIC		0401	/* target shlib */
 #define SHMAGIC		0443	/* host   shlib */
 
+
+/* define some NT default values */
+/*  #define NT_IMAGE_BASE        0x400000 moved to internal.h */
+#define NT_SECTION_ALIGNMENT 0x1000
+#define NT_FILE_ALIGNMENT    0x200  /* 0x1000 */  /* 0x200 */
+#define NT_DEF_RESERVE       0x10000000
+#define NT_DEF_COMMIT        0x10000
 
 /********************** SECTION HEADER **********************/
 

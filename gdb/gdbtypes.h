@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #if !defined (GDBTYPES_H)
 #define GDBTYPES_H 1
@@ -146,8 +146,8 @@ enum type_code
 
 /* The target type of this type is a stub type, and this type needs to
    be updated if it gets un-stubbed in check_stub_type.  Currently only
-   used for arrays, in which TYPE_LENGTH of the array gets set based
-   on the TYPE_LENGTH of the target type.  */
+   used for arrays and ranges, in which TYPE_LENGTH of the array/range
+   gets set based on the TYPE_LENGTH of the target type.  */
 
 #define TYPE_FLAG_TARGET_STUB (1 << 3)
 
@@ -178,8 +178,16 @@ struct type
 
   char *tag_name;
 
-  /* Length, in units of TARGET_CHAR_BIT bits,
-     of storage for a value of this type */
+  /* Length of storage for a value of this type.  Various places pass
+     this to memcpy and such, meaning it must be in units of
+     HOST_CHAR_BIT.  Various other places expect they can calculate
+     addresses by adding it and such, meaning it must be in units of
+     TARGET_CHAR_BIT.  For some DSP targets, in which HOST_CHAR_BIT
+     will (presumably) be 8 and TARGET_CHAR_BIT will be (say) 32, this
+     is a problem.  One fix would be to make this field in bits
+     (requiring that it always be a multiple of HOST_CHAR_BIT and
+     TARGET_CHAR_BIT)--the other choice would be to make it
+     consistently in units of HOST_CHAR_BIT.  */
 
   unsigned length;
 
@@ -228,13 +236,6 @@ struct type
 
   struct type *reference_type;
 
-  /* Type that is a function returning this type.
-     NULL if no such function type is known here.
-     The debugger may add the address of such a type
-     if it has to construct one later.  */
-
-  struct type *function_type;
-
   /* Flags about this type.  */
 
   short flags;
@@ -249,6 +250,7 @@ struct type
      For range types, there are two "fields",
      the minimum and maximum values (both inclusive).
      For enum types, each possible value is described by one "field".
+     For a function type, a "field" for each parameter type.
      For C++ classes, there is one field for each base class (if it is
      a derived class) plus one field for each class data member.  Member
      functions are recorded elsewhere.
@@ -484,7 +486,6 @@ allocate_cplus_struct_type PARAMS ((struct type *));
 #define TYPE_TARGET_TYPE(thistype) (thistype)->target_type
 #define TYPE_POINTER_TYPE(thistype) (thistype)->pointer_type
 #define TYPE_REFERENCE_TYPE(thistype) (thistype)->reference_type
-#define TYPE_FUNCTION_TYPE(thistype) (thistype)->function_type
 #define TYPE_LENGTH(thistype) (thistype)->length
 #define TYPE_OBJFILE(thistype) (thistype)->objfile
 #define TYPE_FLAGS(thistype) (thistype)->flags

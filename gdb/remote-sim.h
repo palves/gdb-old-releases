@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #if !defined (REMOTE_SIM_H)
 #define REMOTE_SIM_H 1
@@ -118,5 +118,9 @@ void sim_stop_reason PARAMS ((enum sim_stop *reason, int *sigrc));
 /* Run (or resume) the program.  */
 
 void sim_resume PARAMS ((int step, int siggnal));
+
+/* Passthru for other commands that the simulator might support. */
+
+void sim_do_command PARAMS ((char *cmd));
 
 #endif /* !defined (REMOTE_SIM_H) */

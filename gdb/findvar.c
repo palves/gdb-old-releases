@@ -1,5 +1,5 @@
 /* Find a variable's value in memory, for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1994, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "symtab.h"
@@ -25,6 +25,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcore.h"
 #include "inferior.h"
 #include "target.h"
+#include "gdb_string.h"
+
+/* Registers we shouldn't try to store.  */
+#if !defined (CANNOT_STORE_REGISTER)
+#define CANNOT_STORE_REGISTER(regno) 0
+#endif
 
 static void write_register_pid PARAMS ((int regno, LONGEST val, int pid));
 
@@ -187,29 +193,27 @@ store_address (addr, len, val)
   store_unsigned_integer (addr, len, (LONGEST)val);
 }
 
-/* Swap LEN bytes at BUFFER between target and host byte-order.  This is
-   the wrong way to do byte-swapping because it assumes that you have a way
-   to have a host variable of exactly the right size.  Once extract_floating
-   and store_floating have been fixed, this can go away.  */
-#define SWAP_TARGET_AND_HOST(buffer,len) 				\
-  do									\
-    {									\
-      if (TARGET_BYTE_ORDER != HOST_BYTE_ORDER)				\
-	{								\
-	  char tmp;							\
-	  char *p = (char *)(buffer);					\
-	  char *q = ((char *)(buffer)) + len - 1;		   	\
-	  for (; p < q; p++, q--)				 	\
-	    {								\
-	      tmp = *q;							\
-	      *q = *p;							\
-	      *p = tmp;							\
-	    }								\
-	}								\
-    }									\
+/* Swap LEN bytes at BUFFER between target and host byte-order.  */
+#define SWAP_FLOATING(buffer,len) \
+  do                                                                    \
+    {                                                                   \
+      if (TARGET_BYTE_ORDER != HOST_BYTE_ORDER)                         \
+        {                                                               \
+          char tmp;                                                     \
+          char *p = (char *)(buffer);                                   \
+          char *q = ((char *)(buffer)) + len - 1;                       \
+          for (; p < q; p++, q--)                                       \
+            {                                                           \
+              tmp = *q;                                                 \
+              *q = *p;                                                  \
+              *p = tmp;                                                 \
+            }                                                           \
+        }                                                               \
+    }                                                                   \
   while (0)
 
-/* There are many problems with floating point cross-debugging.
+/* There are various problems with the extract_floating and store_floating
+   routines.
 
    1.  These routines only handle byte-swapping, not conversion of
    formats.  So if host is IEEE floating and target is VAX floating,
@@ -233,14 +237,14 @@ extract_floating (addr, len)
     {
       float retval;
       memcpy (&retval, addr, sizeof (retval));
-      SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
+      SWAP_FLOATING (&retval, sizeof (retval));
       return retval;
     }
   else if (len == sizeof (double))
     {
       double retval;
       memcpy (&retval, addr, sizeof (retval));
-      SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
+      SWAP_FLOATING (&retval, sizeof (retval));
       return retval;
     }
   else
@@ -258,12 +262,12 @@ store_floating (addr, len, val)
   if (len == sizeof (float))
     {
       float floatval = val;
-      SWAP_TARGET_AND_HOST (&floatval, sizeof (floatval));
+      SWAP_FLOATING (&floatval, sizeof (floatval));
       memcpy (addr, &floatval, sizeof (floatval));
     }
   else if (len == sizeof (double))
     {
-      SWAP_TARGET_AND_HOST (&val, sizeof (val));
+      SWAP_FLOATING (&val, sizeof (val));
       memcpy (addr, &val, sizeof (val));
     }
   else
@@ -500,6 +504,9 @@ registers_changed ()
 
   for (i = 0; i < numregs; i++)
     register_valid[i] = 0;
+
+  if (registers_changed_hook)
+    registers_changed_hook ();
 }
 
 /* Indicate that all registers have been fetched, so mark them all valid.  */
@@ -512,18 +519,33 @@ registers_fetched ()
     register_valid[i] = 1;
 }
 
-/* Copy LEN bytes of consecutive data from registers
-   starting with the REGBYTE'th byte of register data
+/* read_register_bytes and write_register_bytes are generally a *BAD* idea.
+   They are inefficient because they need to check for partial updates, which
+   can only be done by scanning through all of the registers and seeing if the
+   bytes that are being read/written fall inside of an invalid register.  [The
+    main reason this is necessary is that register sizes can vary, so a simple
+    index won't suffice.]  It is far better to call read_register_gen if you
+   want to get at the raw register contents, as it only takes a regno as an
+   argument, and therefore can't do a partial register update.  It would also
+   be good to have a write_register_gen for similar reasons.
+
+   Prior to the recent fixes to check for partial updates, both read and
+   write_register_bytes always checked to see if any registers were stale, and
+   then called target_fetch_registers (-1) to update the whole set.  This
+   caused really slowed things down for remote targets.  */
+
+/* Copy INLEN bytes of consecutive data from registers
+   starting with the INREGBYTE'th byte of register data
    into memory at MYADDR.  */
 
 void
-read_register_bytes (regbyte, myaddr, len)
-     int regbyte;
+read_register_bytes (inregbyte, myaddr, inlen)
+     int inregbyte;
      char *myaddr;
-     int len;
+     int inlen;
 {
-  /* Fetch all registers.  */
-  int i, numregs;
+  int inregend = inregbyte + inlen;
+  int regno;
 
   if (registers_pid != inferior_pid)
     {
@@ -531,15 +553,37 @@ read_register_bytes (regbyte, myaddr, len)
       registers_pid = inferior_pid;
     }
 
-  numregs = ARCH_NUM_REGS;
-  for (i = 0; i < numregs; i++)
-    if (!register_valid[i])
-      {
-	target_fetch_registers (-1);
-	break;
-      }
+  /* See if we are trying to read bytes from out-of-date registers.  If so,
+     update just those registers.  */
+
+  for (regno = 0; regno < NUM_REGS; regno++)
+    {
+      int regstart, regend;
+      int startin, endin;
+
+      if (register_valid[regno])
+	continue;
+
+      regstart = REGISTER_BYTE (regno);
+      regend = regstart + REGISTER_RAW_SIZE (regno);
+
+      startin = regstart >= inregbyte && regstart < inregend;
+      endin = regend > inregbyte && regend <= inregend;
+
+      if (!startin && !endin)
+	continue;
+
+      /* We've found an invalid register where at least one byte will be read.
+	 Update it from the target.  */
+
+      target_fetch_registers (regno);
+
+      if (!register_valid[regno])
+	error ("read_register_bytes:  Couldn't update register %d.", regno);
+    }
+
   if (myaddr != NULL)
-    memcpy (myaddr, &registers[regbyte], len);
+    memcpy (myaddr, &registers[inregbyte], inlen);
 }
 
 /* Read register REGNO into memory at MYADDR, which must be large enough
@@ -563,25 +607,99 @@ read_register_gen (regno, myaddr)
 	  REGISTER_RAW_SIZE (regno));
 }
 
-/* Copy LEN bytes of consecutive data from memory at MYADDR
-   into registers starting with the REGBYTE'th byte of register data.  */
+/* Write register REGNO at MYADDR to the target.  MYADDR points at
+   REGISTER_RAW_BYTES(REGNO), which must be in target byte-order.  */
 
 void
-write_register_bytes (regbyte, myaddr, len)
-     int regbyte;
+write_register_gen (regno, myaddr)
+     int regno;
      char *myaddr;
-     int len;
 {
+  int size;
+
+  /* On the sparc, writing %g0 is a no-op, so we don't even want to change
+     the registers array if something writes to this register.  */
+  if (CANNOT_STORE_REGISTER (regno))
+    return;
+
   if (registers_pid != inferior_pid)
     {
       registers_changed ();
       registers_pid = inferior_pid;
     }
 
-  /* Make sure the entire registers array is valid.  */
-  read_register_bytes (0, (char *)NULL, REGISTER_BYTES);
-  memcpy (&registers[regbyte], myaddr, len);
-  target_store_registers (-1);
+  size = REGISTER_RAW_SIZE(regno);
+
+  /* If we have a valid copy of the register, and new value == old value,
+     then don't bother doing the actual store. */
+
+  if (register_valid [regno]
+      && memcmp (&registers[REGISTER_BYTE (regno)], myaddr, size) == 0)
+    return;
+  
+  target_prepare_to_store ();
+
+  memcpy (&registers[REGISTER_BYTE (regno)], myaddr, size);
+
+  register_valid [regno] = 1;
+
+  target_store_registers (regno);
+}
+
+/* Copy INLEN bytes of consecutive data from memory at MYADDR
+   into registers starting with the MYREGSTART'th byte of register data.  */
+
+void
+write_register_bytes (myregstart, myaddr, inlen)
+     int myregstart;
+     char *myaddr;
+     int inlen;
+{
+  int myregend = myregstart + inlen;
+  int regno;
+
+  target_prepare_to_store ();
+
+  /* Scan through the registers updating any that are covered by the range
+     myregstart<=>myregend using write_register_gen, which does nice things
+     like handling threads, and avoiding updates when the new and old contents
+     are the same.  */
+
+  for (regno = 0; regno < NUM_REGS; regno++)
+    {
+      int regstart, regend;
+      int startin, endin;
+      char regbuf[MAX_REGISTER_RAW_SIZE];
+
+      regstart = REGISTER_BYTE (regno);
+      regend = regstart + REGISTER_RAW_SIZE (regno);
+
+      startin = regstart >= myregstart && regstart < myregend;
+      endin = regend > myregstart && regend <= myregend;
+
+      if (!startin && !endin)
+	continue;		/* Register is completely out of range */
+
+      if (startin && endin)	/* register is completely in range */
+	{
+	  write_register_gen (regno, myaddr + (regstart - myregstart));
+	  continue;
+	}
+
+      /* We may be doing a partial update of an invalid register.  Update it
+	 from the target before scribbling on it.  */
+      read_register_gen (regno, regbuf);
+
+      if (startin)
+	memcpy (registers + regstart,
+		myaddr + regstart - myregstart,
+		myregend - regstart);
+      else			/* endin */
+	memcpy (registers + myregstart,
+		myaddr,
+		regend - myregstart);
+      target_store_registers (regno);
+    }
 }
 
 /* Return the raw contents of register REGNO, regarding it as an integer.  */
@@ -625,13 +743,7 @@ read_register_pid (regno, pid)
   return retval;
 }
 
-/* Registers we shouldn't try to store.  */
-#if !defined (CANNOT_STORE_REGISTER)
-#define CANNOT_STORE_REGISTER(regno) 0
-#endif
-
 /* Store VALUE, into the raw contents of register number REGNO.  */
-/* FIXME: The val arg should probably be a LONGEST.  */
 
 void
 write_register (regno, val)

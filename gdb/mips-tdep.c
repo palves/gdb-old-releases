@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "frame.h"
@@ -128,6 +128,23 @@ char *mips_r3081_reg_names[] = {
 	"",	"",	"ehi",	"",	"",	"",	"epc",	"prid",
 };
 
+/* Names of LSI 33k registers.  */
+
+char *mips_lsi33k_reg_names[] = {
+	"zero",	"at",	"v0",	"v1",	"a0",	"a1",	"a2",	"a3",
+	"t0",	"t1",	"t2",	"t3",	"t4",	"t5",	"t6",	"t7",
+	"s0",	"s1",	"s2",	"s3",	"s4",	"s5",	"s6",	"s7",
+	"t8",	"t9",	"k0",	"k1",	"gp",	"sp",	"s8",	"ra",
+	"epc",	"hi",	"lo",	"sr",	"cause","badvaddr",
+	"dcic", "bpc",  "bda",  "",     "",     "",     "",      "",
+	"",     "",     "",     "",     "",     "",     "",      "",
+	"",     "",     "",     "",     "",     "",     "",      "",
+	"",     "",     "",     "",     "",     "",     "",      "",
+	"",     "",     "",	"",
+	"",	"",	"",	"",	"",	"",	"",	 "",
+	"",	"",	"",	"",	"",	"",	"",	 "",
+};
+
 struct {
   char *name;
   char **regnames;
@@ -137,6 +154,7 @@ struct {
   { "r3051", mips_r3051_reg_names },
   { "r3071", mips_r3081_reg_names },
   { "r3081", mips_r3081_reg_names },
+  { "lsi33k", mips_lsi33k_reg_names },
   { NULL, NULL }
 };
 
@@ -185,6 +203,39 @@ mips_find_saved_regs (fci)
   fci->saved_regs = (struct frame_saved_regs *)
     obstack_alloc (&frame_cache_obstack, sizeof(struct frame_saved_regs));
   memset (fci->saved_regs, 0, sizeof (struct frame_saved_regs));
+
+  /* If it is the frame for sigtramp, the saved registers are located
+     in a sigcontext structure somewhere on the stack.
+     If the stack layout for sigtramp changes we might have to change these
+     constants and the companion fixup_sigtramp in mdebugread.c  */
+#ifndef SIGFRAME_BASE
+/* To satisfy alignment restrictions, sigcontext is located 4 bytes
+   above the sigtramp frame.  */
+#define SIGFRAME_BASE		4
+#define SIGFRAME_PC_OFF		(SIGFRAME_BASE + 2 * 4)
+#define SIGFRAME_REGSAVE_OFF	(SIGFRAME_BASE + 3 * 4)
+#define SIGFRAME_FPREGSAVE_OFF	(SIGFRAME_REGSAVE_OFF + 32 * 4 + 3 * 4)
+#endif
+#ifndef SIGFRAME_REG_SIZE
+#define SIGFRAME_REG_SIZE	4
+#endif
+  if (fci->signal_handler_caller)
+    {
+      for (ireg = 0; ireg < 32; ireg++)
+	{
+ 	  reg_position = fci->frame + SIGFRAME_REGSAVE_OFF
+			 + ireg * SIGFRAME_REG_SIZE;
+ 	  fci->saved_regs->regs[ireg] = reg_position;
+	}
+      for (ireg = 0; ireg < 32; ireg++)
+	{
+ 	  reg_position = fci->frame + SIGFRAME_FPREGSAVE_OFF
+			 + ireg * SIGFRAME_REG_SIZE;
+ 	  fci->saved_regs->regs[FP0_REGNUM + ireg] = reg_position;
+	}
+      fci->saved_regs->regs[PC_REGNUM] = fci->frame + SIGFRAME_PC_OFF;
+      return;
+    }
 
   proc_desc = fci->proc_desc;
   if (proc_desc == NULL)
@@ -299,32 +350,12 @@ read_next_frame_reg(fi, regno)
      struct frame_info *fi;
      int regno;
 {
-  /* If it is the frame for sigtramp we have a complete sigcontext
-     somewhere above the frame and we get the saved registers from there.
-     If the stack layout for sigtramp changes we might have to change these
-     constants and the companion fixup_sigtramp in mdebugread.c  */
-#ifndef SIGFRAME_BASE
-/* To satisfy alignment restrictions the sigcontext is located 4 bytes
-   above the sigtramp frame.  */
-#define SIGFRAME_BASE		4
-#define SIGFRAME_PC_OFF		(SIGFRAME_BASE + 2 * 4)
-#define SIGFRAME_REGSAVE_OFF	(SIGFRAME_BASE + 3 * 4)
-#endif
-#ifndef SIGFRAME_REG_SIZE
-#define SIGFRAME_REG_SIZE	4
-#endif
   for (; fi; fi = fi->next)
     {
-      if (fi->signal_handler_caller)
-	{
-	  int offset;
-	  if (regno == PC_REGNUM) offset = SIGFRAME_PC_OFF;
-	  else if (regno < 32) offset = (SIGFRAME_REGSAVE_OFF
-					 + regno * SIGFRAME_REG_SIZE);
-	  else return 0;
-	  return read_memory_integer(fi->frame + offset, MIPS_REGSIZE);
-	}
-      else if (regno == SP_REGNUM) return fi->frame;
+      /* We have to get the saved sp from the sigcontext
+	 if it is a signal handler frame.  */
+      if (regno == SP_REGNUM && !fi->signal_handler_caller)
+	return fi->frame;
       else
 	{
 	  if (fi->saved_regs == NULL)
@@ -518,6 +549,11 @@ find_proc_desc (pc, next_frame)
 			     0, NULL);
     }
 
+  /* If we never found a PDR for this function in symbol reading, then
+     examine prologues to find the information.  */
+  if (sym && ((mips_extra_func_info_t) SYMBOL_VALUE (sym))->pdr.framereg == -1)
+    sym = NULL;
+
   if (sym)
     {
 	/* IF this is the topmost frame AND
@@ -689,7 +725,7 @@ mips_push_arguments(nargs, args, sp, struct_return, struct_addr)
   int fake_args = 0;
 
   for (i = 0, m_arg = mips_args; i < nargs; i++, m_arg++) {
-    value_ptr arg = value_arg_coerce (args[i]);
+    value_ptr arg = args[i];
     m_arg->len = TYPE_LENGTH (VALUE_TYPE (arg));
     /* This entire mips-specific routine is because doubles must be aligned
      * on 8-byte boundaries. It still isn't quite right, because MIPS decided
@@ -927,14 +963,7 @@ static void
 mips_print_register (regnum, all)
      int regnum, all;
 {
-  unsigned char raw_buffer[MAX_REGISTER_RAW_SIZE];
-  struct type *our_type =
-    init_type (TYPE_CODE_INT,
-	       /* We will fill in the length for each register.  */
-	       0,
-	       TYPE_FLAG_UNSIGNED,
-	       NULL,
-	       NULL);
+  char raw_buffer[MAX_REGISTER_RAW_SIZE];
 
   /* Get the data in raw format.  */
   if (read_relative_register_raw_bytes (regnum, raw_buffer))
@@ -945,19 +974,20 @@ mips_print_register (regnum, all)
 
   /* If an even floating pointer register, also print as double. */
   if (regnum >= FP0_REGNUM && regnum < FP0_REGNUM+32
-      && !((regnum-FP0_REGNUM) & 1)) {
-    char dbuffer[MAX_REGISTER_RAW_SIZE]; 
+      && !((regnum-FP0_REGNUM) & 1))
+    {
+      char dbuffer[MAX_REGISTER_RAW_SIZE]; 
 
-    read_relative_register_raw_bytes (regnum, dbuffer);
-    read_relative_register_raw_bytes (regnum+1, dbuffer+4);
+      read_relative_register_raw_bytes (regnum, dbuffer);
+      read_relative_register_raw_bytes (regnum+1, dbuffer+4);
 #ifdef REGISTER_CONVERT_TO_TYPE
-    REGISTER_CONVERT_TO_TYPE(regnum, builtin_type_double, dbuffer);
+      REGISTER_CONVERT_TO_TYPE(regnum, builtin_type_double, dbuffer);
 #endif
-    printf_filtered ("(d%d: ", regnum-FP0_REGNUM);
-    val_print (builtin_type_double, dbuffer, 0,
-	       gdb_stdout, 0, 1, 0, Val_pretty_default);
-    printf_filtered ("); ");
-  }
+      printf_filtered ("(d%d: ", regnum-FP0_REGNUM);
+      val_print (builtin_type_double, dbuffer, 0,
+		 gdb_stdout, 0, 1, 0, Val_pretty_default);
+      printf_filtered ("); ");
+    }
   fputs_filtered (reg_names[regnum], gdb_stdout);
 
   /* The problem with printing numeric register names (r26, etc.) is that
@@ -1197,6 +1227,7 @@ mips_extract_return_value (valtype, regbuf, valbuf)
     char *valbuf;
 {
   int regnum;
+  int offset = 0;
   
   regnum = 2;
   if (TYPE_CODE (valtype) == TYPE_CODE_FLT
@@ -1204,7 +1235,13 @@ mips_extract_return_value (valtype, regbuf, valbuf)
 	   || (mips_fpu == MIPS_FPU_SINGLE && TYPE_LENGTH (valtype) <= 4)))
     regnum = FP0_REGNUM;
 
-  memcpy (valbuf, regbuf + REGISTER_BYTE (regnum), TYPE_LENGTH (valtype));
+  if (TARGET_BYTE_ORDER == BIG_ENDIAN
+      && TYPE_CODE (valtype) != TYPE_CODE_FLT
+      && TYPE_LENGTH (valtype) < REGISTER_RAW_SIZE (regnum))
+    offset = REGISTER_RAW_SIZE (regnum) - TYPE_LENGTH (valtype);
+
+  memcpy (valbuf, regbuf + REGISTER_BYTE (regnum) + offset,
+	  TYPE_LENGTH (valtype));
 #ifdef REGISTER_CONVERT_TO_TYPE
   REGISTER_CONVERT_TO_TYPE(regnum, valtype, valbuf);
 #endif

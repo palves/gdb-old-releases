@@ -1,5 +1,5 @@
 /* Generic COFF swapping routines, for BFD.
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1995 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This file contains routines used to swap COFF data.  It is a header
    file because the details of swapping depend on the details of the
@@ -25,6 +25,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
    Any file which uses this must first include "coff/internal.h" and
    "coff/CPU.h".  The functions will then be correct for that CPU.  */
+
+#ifndef IMAGE_BASE
+#define IMAGE_BASE 0
+#endif
 
 #define PUTWORD bfd_h_put_32
 #define PUTHALF bfd_h_put_16
@@ -252,6 +256,7 @@ coff_swap_filehdr_out (abfd, in, out)
 {
   struct internal_filehdr *filehdr_in = (struct internal_filehdr *)in;
   FILHDR *filehdr_out = (FILHDR *)out;
+
   bfd_h_put_16(abfd, filehdr_in->f_magic, (bfd_byte *) filehdr_out->f_magic);
   bfd_h_put_16(abfd, filehdr_in->f_nscns, (bfd_byte *) filehdr_out->f_nscns);
   bfd_h_put_32(abfd, filehdr_in->f_timdat, (bfd_byte *) filehdr_out->f_timdat);
@@ -260,6 +265,58 @@ coff_swap_filehdr_out (abfd, in, out)
   bfd_h_put_32(abfd, filehdr_in->f_nsyms, (bfd_byte *) filehdr_out->f_nsyms);
   bfd_h_put_16(abfd, filehdr_in->f_opthdr, (bfd_byte *) filehdr_out->f_opthdr);
   bfd_h_put_16(abfd, filehdr_in->f_flags, (bfd_byte *) filehdr_out->f_flags);
+
+#ifdef COFF_IMAGE_WITH_PE
+  /* put in extra dos header stuff.  This data remains essentially
+     constant, it just has to be tacked on to the beginning of all exes 
+     for NT */
+  bfd_h_put_16(abfd, filehdr_in->e_magic, (bfd_byte *) filehdr_out->e_magic);
+  bfd_h_put_16(abfd, filehdr_in->e_cblp, (bfd_byte *) filehdr_out->e_cblp);
+  bfd_h_put_16(abfd, filehdr_in->e_cp, (bfd_byte *) filehdr_out->e_cp);
+  bfd_h_put_16(abfd, filehdr_in->e_crlc, (bfd_byte *) filehdr_out->e_crlc);
+  bfd_h_put_16(abfd, filehdr_in->e_cparhdr, 
+                     (bfd_byte *) filehdr_out->e_cparhdr);
+  bfd_h_put_16(abfd, filehdr_in->e_minalloc, 
+                     (bfd_byte *) filehdr_out->e_minalloc);
+  bfd_h_put_16(abfd, filehdr_in->e_maxalloc, 
+                     (bfd_byte *) filehdr_out->e_maxalloc);
+  bfd_h_put_16(abfd, filehdr_in->e_ss, (bfd_byte *) filehdr_out->e_ss);
+  bfd_h_put_16(abfd, filehdr_in->e_sp, (bfd_byte *) filehdr_out->e_sp);
+  bfd_h_put_16(abfd, filehdr_in->e_csum, (bfd_byte *) filehdr_out->e_csum);
+  bfd_h_put_16(abfd, filehdr_in->e_ip, (bfd_byte *) filehdr_out->e_ip);
+  bfd_h_put_16(abfd, filehdr_in->e_cs, (bfd_byte *) filehdr_out->e_cs);
+  bfd_h_put_16(abfd, filehdr_in->e_lfarlc, (bfd_byte *) filehdr_out->e_lfarlc);
+  bfd_h_put_16(abfd, filehdr_in->e_ovno, (bfd_byte *) filehdr_out->e_ovno);
+  {
+    int idx;
+    for (idx=0; idx < 4; idx++)
+      bfd_h_put_16(abfd, filehdr_in->e_res[idx], 
+                         (bfd_byte *) filehdr_out->e_res[idx]);
+  }
+  bfd_h_put_16(abfd, filehdr_in->e_oemid, (bfd_byte *) filehdr_out->e_oemid);
+  bfd_h_put_16(abfd, filehdr_in->e_oeminfo,
+                     (bfd_byte *) filehdr_out->e_oeminfo);
+  {
+    int idx;
+    for (idx=0; idx < 10; idx++)
+      bfd_h_put_16(abfd, filehdr_in->e_res2[idx],
+                         (bfd_byte *) filehdr_out->e_res2[idx]);
+  }
+  bfd_h_put_32(abfd, filehdr_in->e_lfanew, (bfd_byte *) filehdr_out->e_lfanew);
+
+  {
+    int idx;
+    for (idx=0; idx < 16; idx++)
+      bfd_h_put_32(abfd, filehdr_in->dos_message[idx],
+                         (bfd_byte *) filehdr_out->dos_message[idx]);
+  }
+
+  /* also put in the NT signature */
+  bfd_h_put_32(abfd, filehdr_in->nt_signature, 
+                     (bfd_byte *) filehdr_out->nt_signature);
+
+
+#endif
   return sizeof(FILHDR);
 }
 
@@ -286,7 +343,7 @@ coff_swap_sym_in (abfd, ext1, in1)
     memcpy(in->_n._n_name, ext->e.e_name, SYMNMLEN);
 #endif
   }
-  in->n_value = bfd_h_get_32(abfd, (bfd_byte *) ext->e_value);
+  in->n_value = bfd_h_get_32(abfd, (bfd_byte *) ext->e_value); 
   in->n_scnum = bfd_h_get_16(abfd, (bfd_byte *) ext->e_scnum);
   if (sizeof(ext->e_type) == 2){
     in->n_type = bfd_h_get_16(abfd, (bfd_byte *) ext->e_type);
@@ -296,6 +353,27 @@ coff_swap_sym_in (abfd, ext1, in1)
   }
   in->n_sclass = bfd_h_get_8(abfd, ext->e_sclass);
   in->n_numaux = bfd_h_get_8(abfd, ext->e_numaux);
+
+#ifdef COFF_WITH_PE
+  /* The section symbols for the .idata$ sections have class 68, which MS
+     documentation indicates is a section symbol.  The problem is that the
+     value field in the symbol is simply a copy of the .idata section's flags
+     rather than something useful.  When these symbols are encountered, change
+     the value to 0 and the section number to 1 so that they will be handled
+     somewhat correctly in the bfd code. */
+  if (in->n_sclass == 0x68) {
+    in->n_value = 0x0;
+    in->n_scnum = 1;
+    /* I have tried setting the class to 3 and using the following to set
+       the section number.  This will put the address of the pointer to the
+       string kernel32.dll at addresses 0 and 0x10 off start of idata section
+       which is not correct */
+/*    if (strcmp (in->_n._n_name, ".idata$4") == 0) */
+/*      in->n_scnum = 3; */
+/*    else */
+/*      in->n_scnum = 2; */
+    }
+#endif
 }
 
 static unsigned int
@@ -643,6 +721,64 @@ coff_swap_aouthdr_out (abfd, in, out)
 			  (bfd_byte *) aouthdr_out->text_start);
   PUT_AOUTHDR_DATA_START (abfd, aouthdr_in->data_start,
 			  (bfd_byte *) aouthdr_out->data_start);
+#ifdef COFF_WITH_PE
+  {
+    PEAOUTHDR *peaouthdr_out = (PEAOUTHDR *)aouthdr_out;
+  bfd_h_put_32 (abfd, aouthdr_in->ImageBase, 
+                (bfd_byte *) peaouthdr_out->ImageBase);
+  bfd_h_put_32 (abfd, aouthdr_in->SectionAlignment,
+                (bfd_byte *) peaouthdr_out->SectionAlignment);
+  bfd_h_put_32 (abfd, aouthdr_in->FileAlignment,
+                (bfd_byte *) peaouthdr_out->FileAlignment);
+  bfd_h_put_16 (abfd, aouthdr_in->MajorOperatingSystemVersion,
+                (bfd_byte *) peaouthdr_out->MajorOperatingSystemVersion);
+  bfd_h_put_16 (abfd, aouthdr_in->MinorOperatingSystemVersion,
+                (bfd_byte *) peaouthdr_out->MinorOperatingSystemVersion);
+  bfd_h_put_16 (abfd, aouthdr_in->MajorImageVersion,
+                (bfd_byte *) peaouthdr_out->MajorImageVersion);
+  bfd_h_put_16 (abfd, aouthdr_in->MinorImageVersion,
+                (bfd_byte *) peaouthdr_out->MinorImageVersion);
+  bfd_h_put_16 (abfd, aouthdr_in->MajorSubsystemVersion,
+                (bfd_byte *) peaouthdr_out->MajorSubsystemVersion);
+  bfd_h_put_16 (abfd, aouthdr_in->MinorSubsystemVersion,
+                (bfd_byte *) peaouthdr_out->MinorSubsystemVersion);
+  bfd_h_put_32 (abfd, aouthdr_in->Reserved1,
+                (bfd_byte *) peaouthdr_out->Reserved1);
+  bfd_h_put_32 (abfd, aouthdr_in->SizeOfImage,
+                (bfd_byte *) peaouthdr_out->SizeOfImage);
+  bfd_h_put_32 (abfd, aouthdr_in->SizeOfHeaders,
+                (bfd_byte *) peaouthdr_out->SizeOfHeaders);
+  bfd_h_put_32 (abfd, aouthdr_in->CheckSum,
+                (bfd_byte *) peaouthdr_out->CheckSum);
+  bfd_h_put_16 (abfd, aouthdr_in->Subsystem,
+                (bfd_byte *) peaouthdr_out->Subsystem);
+  bfd_h_put_16 (abfd, aouthdr_in->DllCharacteristics,
+                (bfd_byte *) peaouthdr_out->DllCharacteristics);
+  bfd_h_put_32 (abfd, aouthdr_in->SizeOfStackReserve,
+                (bfd_byte *) peaouthdr_out->SizeOfStackReserve);
+  bfd_h_put_32 (abfd, aouthdr_in->SizeOfStackCommit,
+                (bfd_byte *) peaouthdr_out->SizeOfStackCommit);
+  bfd_h_put_32 (abfd, aouthdr_in->SizeOfHeapReserve,
+                (bfd_byte *) peaouthdr_out->SizeOfHeapReserve);
+  bfd_h_put_32 (abfd, aouthdr_in->SizeOfHeapCommit,
+                (bfd_byte *) peaouthdr_out->SizeOfHeapCommit);
+  bfd_h_put_32 (abfd, aouthdr_in->LoaderFlags,
+                (bfd_byte *) peaouthdr_out->LoaderFlags);
+  bfd_h_put_32 (abfd, aouthdr_in->NumberOfRvaAndSizes,
+                (bfd_byte *) peaouthdr_out->NumberOfRvaAndSizes);
+  {
+    int idx;
+    for (idx=0; idx < 16; idx++)
+    {
+      bfd_h_put_32 (abfd, aouthdr_in->DataDirectory[idx].VirtualAddress,
+               (bfd_byte *) peaouthdr_out->DataDirectory[idx][0]);
+      bfd_h_put_32 (abfd, aouthdr_in->DataDirectory[idx].Size,
+                (bfd_byte *) peaouthdr_out->DataDirectory[idx][1]);
+    }
+  }
+}
+#endif
+
 #ifdef I960
   bfd_h_put_32(abfd, aouthdr_in->tagentries, (bfd_byte *) aouthdr_out->tagentries);
 #endif
@@ -704,6 +840,10 @@ coff_swap_scnhdr_in (abfd, ext, in)
 #ifdef I960
   scnhdr_int->s_align = bfd_h_get_32(abfd, (bfd_byte *) scnhdr_ext->s_align);
 #endif
+
+  if (scnhdr_int->s_vaddr != 0) {
+    scnhdr_int->s_vaddr += IMAGE_BASE;
+  }
 }
 
 static unsigned int
@@ -714,31 +854,111 @@ coff_swap_scnhdr_out (abfd, in, out)
 {
   struct internal_scnhdr *scnhdr_int = (struct internal_scnhdr *)in;
   SCNHDR *scnhdr_ext = (SCNHDR *)out;
+  unsigned int ret = sizeof (SCNHDR);
 
   memcpy(scnhdr_ext->s_name, scnhdr_int->s_name, sizeof(scnhdr_int->s_name));
-  PUT_SCNHDR_VADDR (abfd, scnhdr_int->s_vaddr,
+
+  if (scnhdr_int->s_vaddr != 0)
+    PUT_SCNHDR_VADDR (abfd, (scnhdr_int->s_vaddr - IMAGE_BASE),
 		    (bfd_byte *) scnhdr_ext->s_vaddr);
+  else
+    PUT_SCNHDR_VADDR (abfd, scnhdr_int->s_vaddr,
+		    (bfd_byte *) scnhdr_ext->s_vaddr);
+
+#ifdef COFF_IMAGE_WITH_PE
+  /* NT wants the physical address data to be the size (s_size data) of
+     the section */
+  PUT_SCNHDR_PADDR (abfd, scnhdr_int->s_size,
+		    (bfd_byte *) scnhdr_ext->s_paddr);
+  /* NT wants the size data to be rounded up to the next NT_FILE_ALIGNMENT
+     value except for the BSS section, its s_size should be 0 */
+  if (strcmp (scnhdr_int->s_name, _BSS) == 0)
+    PUT_SCNHDR_SIZE (abfd, 0, (bfd_byte *) scnhdr_ext->s_size);
+  else
+  {
+    bfd_vma rounded_size;
+    rounded_size = ((scnhdr_int->s_size + NT_FILE_ALIGNMENT - 1) / 
+                     NT_FILE_ALIGNMENT) *
+                      NT_FILE_ALIGNMENT;
+    PUT_SCNHDR_SIZE (abfd, rounded_size, (bfd_byte *) scnhdr_ext->s_size);
+  }
+#else
   PUT_SCNHDR_PADDR (abfd, scnhdr_int->s_paddr,
 		    (bfd_byte *) scnhdr_ext->s_paddr);
   PUT_SCNHDR_SIZE (abfd, scnhdr_int->s_size,
 		   (bfd_byte *) scnhdr_ext->s_size);
+#endif
   PUT_SCNHDR_SCNPTR (abfd, scnhdr_int->s_scnptr,
 		     (bfd_byte *) scnhdr_ext->s_scnptr);
   PUT_SCNHDR_RELPTR (abfd, scnhdr_int->s_relptr,
 		     (bfd_byte *) scnhdr_ext->s_relptr);
   PUT_SCNHDR_LNNOPTR (abfd, scnhdr_int->s_lnnoptr,
 		      (bfd_byte *) scnhdr_ext->s_lnnoptr);
+#ifdef COFF_IMAGE_WITH_PE
+  /* Extra flags must be set when dealing with NT.  All sections should also
+     have the IMAGE_SCN_MEM_READ (0x40000000) flag set.  In addition, the
+     .text section must have IMAGE_SCN_MEM_EXECUTE (0x20000000) and the data
+     sections (.idata, .data, .bss, .CRT) must have IMAGE_SCN_MEM_WRITE set
+     (this is especially important when dealing with the .idata section since
+     the addresses for routines from .dlls must be overwritten).  If .reloc
+     section data is ever generated, we must add IMAGE_SCN_MEM_DISCARDABLE
+     (0x02000000).  Also, the resource data should also be read and
+     writable.  */
+  if (strcmp (scnhdr_int->s_name, ".idata") == 0 ||
+      strcmp (scnhdr_int->s_name, ".data")  == 0 ||
+      strcmp (scnhdr_int->s_name, ".CRT")   == 0 ||
+      strcmp (scnhdr_int->s_name, ".rsrc")  == 0 ||
+      strcmp (scnhdr_int->s_name, ".bss")   == 0)
+    PUTWORD(abfd, 
+            scnhdr_int->s_flags + IMAGE_SCN_MEM_READ + IMAGE_SCN_MEM_WRITE,
+            (bfd_byte *) scnhdr_ext->s_flags);
+  else if (strcmp (scnhdr_int->s_name, ".text") == 0)
+    PUTWORD(abfd, 
+            scnhdr_int->s_flags + IMAGE_SCN_MEM_READ + IMAGE_SCN_MEM_EXECUTE,
+            (bfd_byte *) scnhdr_ext->s_flags);
+  else if (strcmp (scnhdr_int->s_name, ".reloc") == 0)
+    PUTWORD(abfd, 
+          scnhdr_int->s_flags + IMAGE_SCN_MEM_READ + IMAGE_SCN_MEM_DISCARDABLE,
+          (bfd_byte *) scnhdr_ext->s_flags);
+  else if (strcmp (scnhdr_int->s_name, ".rdata") == 0)
+    PUTWORD(abfd, 
+            scnhdr_int->s_flags + IMAGE_SCN_MEM_READ,
+            (bfd_byte *) scnhdr_ext->s_flags);
+  else 
+    PUTWORD(abfd, scnhdr_int->s_flags, (bfd_byte *) scnhdr_ext->s_flags);
+#else
   PUTWORD(abfd, scnhdr_int->s_flags, (bfd_byte *) scnhdr_ext->s_flags);
+#endif
 #if defined(M88)
   PUTWORD(abfd, scnhdr_int->s_nlnno, (bfd_byte *) scnhdr_ext->s_nlnno);
   PUTWORD(abfd, scnhdr_int->s_nreloc, (bfd_byte *) scnhdr_ext->s_nreloc);
 #else
-  PUTHALF(abfd, scnhdr_int->s_nlnno, (bfd_byte *) scnhdr_ext->s_nlnno);
-  PUTHALF(abfd, scnhdr_int->s_nreloc, (bfd_byte *) scnhdr_ext->s_nreloc);
+  if (scnhdr_int->s_nlnno <= 0xffff)
+    PUTHALF(abfd, scnhdr_int->s_nlnno, (bfd_byte *) scnhdr_ext->s_nlnno);
+  else
+    {
+      (*_bfd_error_handler) ("%s: line number overflow: 0x%lx > 0xffff",
+			     bfd_get_filename (abfd),
+			     scnhdr_int->s_nlnno);
+      bfd_set_error (bfd_error_file_truncated);
+      PUTHALF (abfd, 0xffff, (bfd_byte *) scnhdr_ext->s_nlnno);
+      ret = 0;
+    }
+  if (scnhdr_int->s_nreloc <= 0xffff)
+    PUTHALF(abfd, scnhdr_int->s_nreloc, (bfd_byte *) scnhdr_ext->s_nreloc);
+  else
+    {
+      (*_bfd_error_handler) ("%s: reloc overflow: 0x%lx > 0xffff",
+			     bfd_get_filename (abfd),
+			     scnhdr_int->s_nreloc);
+      bfd_set_error (bfd_error_file_truncated);
+      PUTHALF (abfd, 0xffff, (bfd_byte *) scnhdr_ext->s_nreloc);
+      ret = 0;
+    }
 #endif
 
 #if defined(I960)
   PUTWORD(abfd, scnhdr_int->s_align, (bfd_byte *) scnhdr_ext->s_align);
 #endif
-  return sizeof(SCNHDR);
+  return ret;
 }

@@ -18,7 +18,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef _SOM_H
 #define _SOM_H
@@ -218,5 +218,5 @@ boolean bfd_som_set_subsection_attributes PARAMS ((asection *, asection *,
 void bfd_som_set_symbol_type PARAMS ((asymbol *, unsigned int));
 boolean bfd_som_attach_aux_hdr PARAMS ((bfd *, int, char *));
 int ** hppa_som_gen_reloc_type
-  PARAMS ((bfd *, int, int, enum hppa_reloc_field_selector_type_alt));
+  PARAMS ((bfd *, int, int, enum hppa_reloc_field_selector_type_alt, int));
 #endif /* _SOM_H */

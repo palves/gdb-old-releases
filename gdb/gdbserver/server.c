@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "server.h"
 
@@ -23,6 +23,7 @@ int cont_thread;
 int general_thread;
 int thread_from_wait;
 int old_thread_from_wait;
+int extended_protocol;
 
 int
 main (argc, argv)
@@ -54,6 +55,7 @@ main (argc, argv)
     {
       remote_open (argv[1]);
 
+restart:
       setjmp(toplevel);
       while (getpkt (own_buf) > 0)
 	{
@@ -62,6 +64,10 @@ main (argc, argv)
 	  ch = own_buf[i++];
 	  switch (ch)
 	    {
+	    case '!':
+	      extended_protocol = 1;
+	      prepare_resume_reply (own_buf, status, signal);
+	      break;
 	    case '?':
 	      prepare_resume_reply (own_buf, status, signal);
 	      break;
@@ -129,9 +135,58 @@ main (argc, argv)
 	    case 'k':
 	      fprintf (stderr, "Killing inferior\n");
 	      kill_inferior ();
-	      fprintf (stderr, "GDBserver exiting\n");
-	      exit (0);
+	      /* When using the extended protocol, we start up a new
+		 debugging session.   The traditional protocol will
+	         exit instead.  */
+	      if (extended_protocol)
+		{
+		  write_ok (own_buf);
+		  fprintf (stderr, "GDBserver restarting\n");
+		  inferior_pid = create_inferior (argv[2], &argv[2]);
+		  fprintf (stderr, "Process %s created; pid = %d\n",
+			   argv[2], inferior_pid);
+
+		  /* Wait till we are at 1st instruction in prog.  */
+		  signal = mywait (&status);
+		  goto restart;
+		  break;
+		}
+	      else
+		{
+		  exit (0);
+		  break;
+		}
+	    case 'T':
+	      if (mythread_alive (strtol (&own_buf[1], NULL, 16)))
+		write_ok (own_buf);
+	      else
+		write_enn (own_buf);
 	      break;
+	    case 'R':
+	      /* Restarting the inferior is only supported in the
+		 extended protocol.  */
+	      if (extended_protocol)
+		{
+		  kill_inferior ();
+		  write_ok (own_buf);
+		  fprintf (stderr, "GDBserver restarting\n");
+		  inferior_pid = create_inferior (argv[2], &argv[2]);
+		  fprintf (stderr, "Process %s created; pid = %d\n",
+			   argv[2], inferior_pid);
+
+		  /* Wait till we are at 1st instruction in prog.  */
+		  signal = mywait (&status);
+		  goto restart;
+		  break;
+		}
+	      else
+		{
+		  /* It is a request we don't understand.  Respond with an
+		     empty packet so that gdb knows that we don't support this
+		     request.  */
+		  own_buf[0] = '\0';
+		  break;
+		}
 	    default:
 	      /* It is a request we don't understand.  Respond with an
 		 empty packet so that gdb knows that we don't support this
@@ -149,16 +204,46 @@ main (argc, argv)
 	    fprintf (stderr, "\nChild terminated with signal = 0x%x\n", sig);
 	  if (status == 'W' || status == 'X')
 	    {
-	      fprintf (stderr, "GDBserver exiting\n");
-	      exit (0);
+	      if (extended_protocol)
+		{
+		  fprintf (stderr, "Killing inferior\n");
+		  kill_inferior ();
+		  write_ok (own_buf);
+		  fprintf (stderr, "GDBserver restarting\n");
+		  inferior_pid = create_inferior (argv[2], &argv[2]);
+		  fprintf (stderr, "Process %s created; pid = %d\n",
+			   argv[2], inferior_pid);
+
+		  /* Wait till we are at 1st instruction in prog.  */
+		  signal = mywait (&status);
+		  goto restart;
+		  break;
+		}
+	      else
+		{
+		  fprintf (stderr, "GDBserver exiting\n");
+		  exit (0);
+		}
 	    }
 	}
 
-      /* We come here when getpkt fails.  Close the connection, and re-open it
-         at the top of the loop.  */
+      /* We come here when getpkt fails.
 
-      fprintf (stderr, "Remote side has terminated connection.  GDBserver will reopen the connection.\n");
+	 For the extended remote protocol we exit (and this is the only
+	 way we gracefully exit!).
 
-      remote_close ();
+	 For the traditional remote protocol close the connection,
+	 and re-open it at the top of the loop.  */
+      if (extended_protocol)
+	{
+	  remote_close ();
+	  exit (0);
+	}
+      else
+	{
+	  fprintf (stderr, "Remote side has terminated connection.  GDBserver will reopen the connection.\n");
+
+	  remote_close ();
+	}
     }
 }

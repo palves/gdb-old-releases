@@ -19,7 +19,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "frame.h"
@@ -46,7 +46,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /*#include <sys/user.h>		After a.out.h  */
 #include <sys/file.h>
-#include <sys/stat.h>
+#include "gdb_stat.h"
 #include "wait.h"
 
 #include "gdbcore.h"
@@ -54,24 +54,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "symfile.h"
 #include "objfiles.h"
-
-#define SWAP_TARGET_AND_HOST(buffer,len) 				\
-  do									\
-    {									\
-      if (TARGET_BYTE_ORDER != HOST_BYTE_ORDER)				\
-	{								\
-	  char tmp;							\
-	  char *p = (char *)(buffer);					\
-	  char *q = ((char *)(buffer)) + len - 1;		   	\
-	  for (; p < q; p++, q--)				 	\
-	    {								\
-	      tmp = *q;							\
-	      *q = *p;							\
-	      *p = tmp;							\
-	    }								\
-	}								\
-    }									\
-  while (0)
 
 static int restore_pc_queue PARAMS ((struct frame_saved_regs *));
 
@@ -269,6 +251,20 @@ extract_12 (word)
 		      (word & 0x1) << 11, 12) << 2;
 }
 
+/* Deposit a 17 bit constant in an instruction (like bl). */
+
+unsigned int
+deposit_17 (opnd, word)
+     unsigned opnd, word;
+{
+  word |= GET_FIELD (opnd, 15 + 0, 15 + 0); /* w */
+  word |= GET_FIELD (opnd, 15 + 1, 15 + 5) << 16; /* w1 */
+  word |= GET_FIELD (opnd, 15 + 6, 15 + 6) << 2; /* w2[10] */
+  word |= GET_FIELD (opnd, 15 + 7, 15 + 16) << 3; /* w2[0..9] */
+
+  return word;
+}
+
 /* extract a 17 bit constant from branch instructions, returning the
    19 bit signed value. */
 
@@ -381,8 +377,8 @@ read_unwind_info (objfile)
   struct obj_unwind_info *ui;
 
   text_offset = ANOFFSET (objfile->section_offsets, 0);
-  ui = obstack_alloc (&objfile->psymbol_obstack,
-		      sizeof (struct obj_unwind_info));
+  ui = (struct obj_unwind_info *)obstack_alloc (&objfile->psymbol_obstack,
+						sizeof (struct obj_unwind_info));
 
   ui->table = NULL;
   ui->cache = NULL;
@@ -785,6 +781,7 @@ frame_saved_pc (frame)
   if (pc_in_interrupt_handler (pc))
     return read_memory_integer (frame->frame + PC_REGNUM * 4, 4) & ~0x3;
 
+#ifdef FRAME_SAVED_PC_IN_SIGTRAMP
   /* Deal with signal handler caller frames too.  */
   if (frame->signal_handler_caller)
     {
@@ -792,6 +789,7 @@ frame_saved_pc (frame)
       FRAME_SAVED_PC_IN_SIGTRAMP (frame, &rp);
       return rp & ~0x3;
     }
+#endif
 
   if (frameless_function_invocation (frame))
     {
@@ -865,10 +863,29 @@ restart:
     }
 
   /* If PC is inside a linker stub, then dig out the address the stub
-     will return to.  */
+     will return to. 
+
+     Don't do this for long branch stubs.  Why?  For some unknown reason
+     _start is marked as a long branch stub in hpux10.  */
   u = find_unwind_entry (pc);
-  if (u && u->stub_type != 0)
-    goto restart;
+  if (u && u->stub_type != 0
+      && u->stub_type != LONG_BRANCH)
+    {
+      unsigned int insn;
+
+      /* If this is a dynamic executable, and we're in a signal handler,
+	 then the call chain will eventually point us into the stub for
+	 _sigreturn.  Unlike most cases, we'll be pointed to the branch
+	 to the real sigreturn rather than the code after the real branch!. 
+
+	 Else, try to dig the address the stub will return to in the normal
+	 fashion.  */
+      insn = read_memory_integer (pc, 4);
+      if ((insn & 0xfc00e000) == 0xe8000000)
+	return (pc + extract_17 (insn) + 8) & ~0x3;
+      else
+	goto restart;
+    }
 
   return pc;
 }
@@ -942,6 +959,7 @@ frame_chain (frame)
   int my_framesize, caller_framesize;
   struct unwind_table_entry *u;
   CORE_ADDR frame_base;
+  struct frame_info *tmp_frame;
 
   /* Handle HPUX, BSD, and OSF1 style interrupt frames first.  These
      are easy; at *sp we have a full save state strucutre which we can
@@ -949,10 +967,12 @@ frame_chain (frame)
      code to dig a saved PC out of the save state structure.  */
   if (pc_in_interrupt_handler (frame->pc))
     frame_base = read_memory_integer (frame->frame + SP_REGNUM * 4, 4);
+#ifdef FRAME_BASE_BEFORE_SIGTRAMP
   else if (frame->signal_handler_caller)
     {
       FRAME_BASE_BEFORE_SIGTRAMP (frame, &frame_base);
     }
+#endif
   else
     frame_base = frame->frame;
 
@@ -988,9 +1008,10 @@ frame_chain (frame)
      We use information from unwind descriptors to determine if %r3
      is saved into the stack (Entry_GR field has this information).  */
 
-  while (frame)
+  tmp_frame = frame;
+  while (tmp_frame)
     {
-      u = find_unwind_entry (frame->pc);
+      u = find_unwind_entry (tmp_frame->pc);
 
       if (!u)
 	{
@@ -998,34 +1019,73 @@ frame_chain (frame)
 	     think anyone has actually written any tools (not even "strip")
 	     which leave them out of an executable, so maybe this is a moot
 	     point.  */
-	  warning ("Unable to find unwind for PC 0x%x -- Help!", frame->pc);
+	  warning ("Unable to find unwind for PC 0x%x -- Help!", tmp_frame->pc);
 	  return 0;
 	}
 
       /* Entry_GR specifies the number of callee-saved general registers
 	 saved in the stack.  It starts at %r3, so %r3 would be 1.  */
       if (u->Entry_GR >= 1 || u->Save_SP
-	  || frame->signal_handler_caller
-	  || pc_in_interrupt_handler (frame->pc))
+	  || tmp_frame->signal_handler_caller
+	  || pc_in_interrupt_handler (tmp_frame->pc))
 	break;
       else
-	frame = frame->next;
+	tmp_frame = tmp_frame->next;
     }
 
-  if (frame)
+  if (tmp_frame)
     {
       /* We may have walked down the chain into a function with a frame
 	 pointer.  */
       if (u->Save_SP
-	  && !frame->signal_handler_caller
-	  && !pc_in_interrupt_handler (frame->pc))
-	return read_memory_integer (frame->frame, 4);
+	  && !tmp_frame->signal_handler_caller
+	  && !pc_in_interrupt_handler (tmp_frame->pc))
+	return read_memory_integer (tmp_frame->frame, 4);
       /* %r3 was saved somewhere in the stack.  Dig it out.  */
       else 
 	{
 	  struct frame_saved_regs saved_regs;
 
-	  get_frame_saved_regs (frame, &saved_regs);
+	  /* Sick.
+
+	     For optimization purposes many kernels don't have the
+	     callee saved registers into the save_state structure upon
+	     entry into the kernel for a syscall; the optimization
+	     is usually turned off if the process is being traced so
+	     that the debugger can get full register state for the
+	     process.
+	      
+	     This scheme works well except for two cases:
+
+	       * Attaching to a process when the process is in the
+	       kernel performing a system call (debugger can't get
+	       full register state for the inferior process since
+	       the process wasn't being traced when it entered the
+	       system call).
+
+	       * Register state is not complete if the system call
+	       causes the process to core dump.
+
+
+	     The following heinous code is an attempt to deal with
+	     the lack of register state in a core dump.  It will
+	     fail miserably if the function which performs the
+	     system call has a variable sized stack frame.  */
+
+	  get_frame_saved_regs (tmp_frame, &saved_regs);
+
+	  /* Abominable hack.  */
+	  if (current_target.to_has_execution == 0
+	      && saved_regs.regs[FLAGS_REGNUM]
+	      && (read_memory_integer (saved_regs.regs[FLAGS_REGNUM], 4) & 0x2))
+	    {
+	      u = find_unwind_entry (FRAME_SAVED_PC (frame));
+	      if (!u)
+		return read_memory_integer (saved_regs.regs[FP_REGNUM], 4);
+	      else
+		return frame_base - (u->Total_frame_size << 3);
+	    }
+	
 	  return read_memory_integer (saved_regs.regs[FP_REGNUM], 4);
 	}
     }
@@ -1067,6 +1127,14 @@ frame_chain_valid (chain, thisframe)
      named Ltext_end, so we can't just ignore it.  */
   msym_us = lookup_minimal_symbol_by_pc (FRAME_SAVED_PC (thisframe));
   msym_start = lookup_minimal_symbol ("_start", NULL, NULL);
+  if (msym_us
+      && msym_start
+      && SYMBOL_VALUE_ADDRESS (msym_us) == SYMBOL_VALUE_ADDRESS (msym_start))
+    return 0;
+
+  /* Grrrr.  Some new idiot decided that they don't want _start for the
+     PRO configurations; $START$ calls main directly....  Deal with it.  */
+  msym_start = lookup_minimal_symbol ("$START$", NULL, NULL);
   if (msym_us
       && msym_start
       && SYMBOL_VALUE_ADDRESS (msym_us) == SYMBOL_VALUE_ADDRESS (msym_start))
@@ -1367,9 +1435,6 @@ hppa_push_arguments (nargs, args, sp, struct_return, struct_addr)
   
   for (i = 0; i < nargs; i++)
     {
-      /* Coerce chars to int & float to double if necessary */
-      args[i] = value_arg_coerce (args[i]);
-
       cum += TYPE_LENGTH (VALUE_TYPE (args[i]));
 
     /* value must go at proper alignment. Assume alignment is a
@@ -1410,11 +1475,13 @@ hppa_fix_call_dummy (dummy, pc, fun, nargs, args, type, gcc_p)
      struct type *type;
      int gcc_p;
 {
-  CORE_ADDR dyncall_addr, sr4export_addr;
+  CORE_ADDR dyncall_addr;
   struct minimal_symbol *msymbol;
+  struct minimal_symbol *trampoline;
   int flags = read_register (FLAGS_REGNUM);
   struct unwind_table_entry *u;
 
+  trampoline = NULL;
   msymbol = lookup_minimal_symbol ("$$dyncall", NULL, NULL);
   if (msymbol == NULL)
     error ("Can't find an address for $$dyncall trampoline");
@@ -1492,19 +1559,20 @@ hppa_fix_call_dummy (dummy, pc, fun, nargs, args, type, gcc_p)
   if (u && u->stub_type == IMPORT)
     {
       CORE_ADDR new_fun;
-      msymbol = lookup_minimal_symbol ("__d_plt_call", NULL, NULL);
-      if (msymbol == NULL)
-	msymbol = lookup_minimal_symbol ("__gcc_plt_call", NULL, NULL);
 
-      if (msymbol == NULL)
+      /* Prefer __gcc_plt_call over the HP supplied routine because
+	 __gcc_plt_call works for any number of arguments.  */
+      trampoline = lookup_minimal_symbol ("__gcc_plt_call", NULL, NULL);
+      if (trampoline == NULL)
+	trampoline = lookup_minimal_symbol ("__d_plt_call", NULL, NULL);
+
+      if (trampoline == NULL)
 	error ("Can't find an address for __d_plt_call or __gcc_plt_call trampoline");
 
       /* This is where sr4export will jump to.  */
-      new_fun = SYMBOL_VALUE_ADDRESS (msymbol);
+      new_fun = SYMBOL_VALUE_ADDRESS (trampoline);
 
-      if (strcmp (SYMBOL_NAME (msymbol), "__d_plt_call"))
-	write_register (22, fun);
-      else
+      if (strcmp (SYMBOL_NAME (trampoline), "__d_plt_call") == 0)
 	{
 	  /* We have to store the address of the stub in __shlib_funcptr.  */
 	  msymbol = lookup_minimal_symbol ("__shlib_funcptr", NULL,
@@ -1513,41 +1581,67 @@ hppa_fix_call_dummy (dummy, pc, fun, nargs, args, type, gcc_p)
 	    error ("Can't find an address for __shlib_funcptr");
 
 	  target_write_memory (SYMBOL_VALUE_ADDRESS (msymbol), (char *)&fun, 4);
+
+	  /* We want sr4export to call __d_plt_call, so we claim it is
+	     the final target.  Clear trampoline.  */
+	  fun = new_fun;
+	  trampoline = NULL;
 	}
-      fun = new_fun;
     }
 
-  /* We still need sr4export's address too.  */
-  msymbol = lookup_minimal_symbol ("_sr4export", NULL, NULL);
-  if (msymbol == NULL)
-    error ("Can't find an address for _sr4export trampoline");
-
-  sr4export_addr = SYMBOL_VALUE_ADDRESS (msymbol);
-
+  /* Store upper 21 bits of function address into ldil.  fun will either be
+     the final target (most cases) or __d_plt_call when calling into a shared
+     library and __gcc_plt_call is not available.  */
   store_unsigned_integer
-    (&dummy[9*REGISTER_SIZE],
-     REGISTER_SIZE,
+    (&dummy[FUNC_LDIL_OFFSET],
+     INSTRUCTION_SIZE,
      deposit_21 (fun >> 11,
-		 extract_unsigned_integer (&dummy[9*REGISTER_SIZE],
-					   REGISTER_SIZE)));
+		 extract_unsigned_integer (&dummy[FUNC_LDIL_OFFSET],
+					   INSTRUCTION_SIZE)));
+
+  /* Store lower 11 bits of function address into ldo */
   store_unsigned_integer
-    (&dummy[10*REGISTER_SIZE],
-     REGISTER_SIZE,
+    (&dummy[FUNC_LDO_OFFSET],
+     INSTRUCTION_SIZE,
      deposit_14 (fun & MASK_11,
-		 extract_unsigned_integer (&dummy[10*REGISTER_SIZE],
-					   REGISTER_SIZE)));
-  store_unsigned_integer
-    (&dummy[12*REGISTER_SIZE],
-     REGISTER_SIZE,
-     deposit_21 (sr4export_addr >> 11,
-		 extract_unsigned_integer (&dummy[12*REGISTER_SIZE],
-					   REGISTER_SIZE)));
-  store_unsigned_integer
-    (&dummy[13*REGISTER_SIZE],
-     REGISTER_SIZE,
-     deposit_14 (sr4export_addr & MASK_11,
-		 extract_unsigned_integer (&dummy[13*REGISTER_SIZE],
-					   REGISTER_SIZE)));
+		 extract_unsigned_integer (&dummy[FUNC_LDO_OFFSET],
+					   INSTRUCTION_SIZE)));
+#ifdef SR4EXPORT_LDIL_OFFSET
+
+  {
+    CORE_ADDR trampoline_addr;
+
+    /* We may still need sr4export's address too.  */
+
+    if (trampoline == NULL)
+      {
+	msymbol = lookup_minimal_symbol ("_sr4export", NULL, NULL);
+	if (msymbol == NULL)
+	  error ("Can't find an address for _sr4export trampoline");
+
+	trampoline_addr = SYMBOL_VALUE_ADDRESS (msymbol);
+      }
+    else
+      trampoline_addr = SYMBOL_VALUE_ADDRESS (trampoline);
+
+
+    /* Store upper 21 bits of trampoline's address into ldil */
+    store_unsigned_integer
+      (&dummy[SR4EXPORT_LDIL_OFFSET],
+       INSTRUCTION_SIZE,
+       deposit_21 (trampoline_addr >> 11,
+		   extract_unsigned_integer (&dummy[SR4EXPORT_LDIL_OFFSET],
+					     INSTRUCTION_SIZE)));
+
+    /* Store lower 11 bits of trampoline's address into ldo */
+    store_unsigned_integer
+      (&dummy[SR4EXPORT_LDO_OFFSET],
+       INSTRUCTION_SIZE,
+       deposit_14 (trampoline_addr & MASK_11,
+		   extract_unsigned_integer (&dummy[SR4EXPORT_LDO_OFFSET],
+					     INSTRUCTION_SIZE)));
+  }
+#endif
 
   write_register (22, pc);
 
@@ -1673,8 +1767,8 @@ pa_print_registers (raw_regs, regnum, fpregs)
     {
       for (j = 0; j < 4; j++)
 	{
-	  val = *(int *)(raw_regs + REGISTER_BYTE (i+(j*18)));
-	  SWAP_TARGET_AND_HOST (&val, 4);
+	  val =
+	    extract_signed_integer (raw_regs + REGISTER_BYTE (i+(j*18)), 4);
 	  printf_unfiltered ("%8.8s: %8x  ", reg_names[i+(j*18)], val);
 	}
       printf_unfiltered ("\n");
@@ -2194,10 +2288,15 @@ skip_prologue (pc)
      CORE_ADDR pc;
 {
   char buf[4];
+  CORE_ADDR orig_pc = pc;
   unsigned long inst, stack_remaining, save_gr, save_fr, save_rp, save_sp;
-  unsigned long args_stored, status, i;
+  unsigned long args_stored, status, i, restart_gr, restart_fr;
   struct unwind_table_entry *u;
 
+  restart_gr = 0;
+  restart_fr = 0;
+
+restart:
   u = find_unwind_entry (pc);
   if (!u)
     return pc;
@@ -2216,7 +2315,7 @@ skip_prologue (pc)
   /* An indication that args may be stored into the stack.  Unfortunately
      the HPUX compilers tend to set this in cases where no args were
      stored too!.  */
-  args_stored = u->Args_stored;
+  args_stored = 1;
 
   /* Turn the Entry_GR field into a bitmask.  */
   save_gr = 0;
@@ -2228,11 +2327,13 @@ skip_prologue (pc)
 
       save_gr |= (1 << i);
     }
+  save_gr &= ~restart_gr;
 
   /* Turn the Entry_FR field into a bitmask too.  */
   save_fr = 0;
   for (i = 12; i < u->Entry_FR + 12; i++)
     save_fr |= (1 << i);
+  save_fr &= ~restart_fr;
 
   /* Loop until we find everything of interest or hit a branch.
 
@@ -2382,6 +2483,22 @@ skip_prologue (pc)
       pc += 4;
     }
 
+  /* We've got a tenative location for the end of the prologue.  However
+     because of limitations in the unwind descriptor mechanism we may
+     have went too far into user code looking for the save of a register
+     that does not exist.  So, if there registers we expected to be saved
+     but never were, mask them out and restart.
+
+     This should only happen in optimized code, and should be very rare.  */
+  if (save_gr || save_fr
+      && ! (restart_fr || restart_gr))
+    {
+      pc = orig_pc;
+      restart_gr = save_gr;
+      restart_fr = save_fr;
+      goto restart;
+    }
+
   return pc;
 }
 
@@ -2432,12 +2549,14 @@ hppa_frame_find_saved_regs (frame_info, frame_saved_regs)
       return;
     }
 
+#ifdef FRAME_FIND_SAVED_REGS_IN_SIGTRAMP
   /* Handle signal handler callers.  */
   if (frame_info->signal_handler_caller)
     {
       FRAME_FIND_SAVED_REGS_IN_SIGTRAMP (frame_info, frame_saved_regs);
       return;
     }
+#endif
 
   /* Get the starting address of the function referred to by the PC
      saved in frame.  */
@@ -2594,11 +2713,7 @@ unwind_command (exp, from_tty)
      int from_tty;
 {
   CORE_ADDR address;
-  union
-    {
-      int *foo;
-      struct unwind_table_entry *u;
-    } xxx;
+  struct unwind_table_entry *u;
 
   /* If we have an expression, evaluate it and use it as the address.  */
 
@@ -2607,16 +2722,61 @@ unwind_command (exp, from_tty)
   else
     return;
 
-  xxx.u = find_unwind_entry (address);
+  u = find_unwind_entry (address);
 
-  if (!xxx.u)
+  if (!u)
     {
-      printf_unfiltered ("Can't find unwind table entry for PC 0x%x\n", address);
+      printf_unfiltered ("Can't find unwind table entry for %s\n", exp);
       return;
     }
 
-  printf_unfiltered ("%08x\n%08X\n%08X\n%08X\n", xxx.foo[0], xxx.foo[1], xxx.foo[2],
-	  xxx.foo[3]);
+  printf_unfiltered ("unwind_table_entry (0x%x):\n", u);
+
+  printf_unfiltered ("\tregion_start = ");
+  print_address (u->region_start, gdb_stdout);
+
+  printf_unfiltered ("\n\tregion_end = ");
+  print_address (u->region_end, gdb_stdout);
+
+#ifdef __STDC__
+#define pif(FLD) if (u->FLD) printf_unfiltered (" "#FLD);
+#else
+#define pif(FLD) if (u->FLD) printf_unfiltered (" FLD");
+#endif
+
+  printf_unfiltered ("\n\tflags =");
+  pif (Cannot_unwind);
+  pif (Millicode);
+  pif (Millicode_save_sr0);
+  pif (Entry_SR);
+  pif (Args_stored);
+  pif (Variable_Frame);
+  pif (Separate_Package_Body);
+  pif (Frame_Extension_Millicode);
+  pif (Stack_Overflow_Check);
+  pif (Two_Instruction_SP_Increment);
+  pif (Ada_Region);
+  pif (Save_SP);
+  pif (Save_RP);
+  pif (Save_MRP_in_frame);
+  pif (extn_ptr_defined);
+  pif (Cleanup_defined);
+  pif (MPE_XL_interrupt_marker);
+  pif (HP_UX_interrupt_marker);
+  pif (Large_frame);
+
+  putchar_unfiltered ('\n');
+
+#ifdef __STDC__
+#define pin(FLD) printf_unfiltered ("\t"#FLD" = 0x%x\n", u->FLD);
+#else
+#define pin(FLD) printf_unfiltered ("\tFLD = 0x%x\n", u->FLD);
+#endif
+
+  pin (Region_description);
+  pin (Entry_FR);
+  pin (Entry_GR);
+  pin (Total_frame_size);
 }
 #endif /* MAINTENANCE_CMDS */
 

@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -58,30 +58,34 @@ proc return_tests { } {
     send "break func2\n" ; expect -re ".*$prompt $"
     send "break func3\n" ; expect -re ".*$prompt $"
 
-    gdb_test "continue" "return -5"
+    gdb_test "continue" "return -5;"
     send "return 5\n"
     expect {
 	-re "Make .* return now.*y or n. $" {
 	    send "y\n"
 	    exp_continue
 	}
-    -re ".*func2 =.*$prompt $" { }
+    -re ".*tmp2 = func2.*$prompt $" { }
     -re "$prompt $" { fail "did not return (integer test)" }
     timeout { fail "(timeout) did not return (integer test)" }
     }
-    gdb_test "next" "func2 = 5"
+    gdb_test "next" "tmp3 = func3.*" "next over call to func2"
 
-    gdb_test "continue" "return -5.0"
+    gdb_test "p tmp2" ".* = 5" "correct value returned (integer test)"
+
+    gdb_test "continue" "return -5.0;"
     send "return 5.0\n"
     expect {
 	-re "Make .* return now.*y or n. $" {
 	    send "y\n"
 	    exp_continue
 	}
-    -re ".*func3 =.*$prompt $" { }
+    -re ".*tmp3 = func3.*$prompt $" { }
     -re "$prompt $" { fail "did not return (double test)" }
     timeout { fail "(timeout) did not return (double test)" }
     }
+
+    gdb_test "next" "printf.*" "next over call to func3"
 
     # This test is going to fail on all i*86 systems using an i*87.
     # When returning a floating point value from a function, all known
@@ -96,17 +100,17 @@ proc return_tests { } {
     #    the floating point `stack pointer' has to be updated too.
     #    Do not expect this to get fixed anytime soon.
 
-    # This test also fails for sparc Solaris 2.3.
+    # This test also fails for sparc Solaris 2.3 & 2.4
     # At the time the `next' is issued, the floating point unit for the
     # process is not yet initialized, and the storing of the floating
     # point value to the floating point return register is ignored.
-    # The test is not xfailed, as future versions of Solaris might
-    # initialize the floating point unit at process start, making
-    # this test pass.
+    # Xfail it for current versions that are known to fail.  Presumably
+    # if some future version does initialize the floating point unit at
+    # process start, making this test pass, it will be for a version that
+    # is not xfailed.
 
-    setup_xfail "i*86-*-*"
-    gdb_test "next" "func3 = 5.0" \
-	     "return double value (known problem with sparc solaris)"
+    setup_xfail "i*86-*-*" "sparc-*-solaris2.*"
+    gdb_test "p tmp3" ".* = 5" "correct value returned double test (known problem with i*86 and sparc solaris"
 }
 
 
@@ -117,9 +121,4 @@ gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load $objdir/$subdir/$binfile
 
-set oldtimeout $timeout
-set timeout 120
-
 return_tests
-
-set timeout $oldtimeout

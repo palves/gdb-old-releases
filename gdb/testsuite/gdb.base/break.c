@@ -1,6 +1,6 @@
 #ifdef vxworks
-#  include <vxWorks.h>
-#  include <stdioLib.h>
+
+#  include <stdio.h>
 
 /* VxWorks does not supply atoi.  */
 static int
@@ -53,12 +53,16 @@ main (argc, argv, envp)
 int argc;
 char *argv[], **envp;
 {
-    if (argc != 2) {
+#ifdef usestubs
+    set_debug_traps();
+    breakpoint();
+#endif
+    if (argc == 123456) {
 	fprintf (stderr, "usage:  factorial <number>\n");
 	return 1;
-    } else {
-	printf ("%d\n", factorial (atoi (argv[1])));
     }
+    printf ("%d\n", factorial (atoi ("6")));
+
     marker1 ();
     marker2 (43);
     marker3 ("stack", "trace");

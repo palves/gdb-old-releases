@@ -17,10 +17,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "expression.h"
@@ -423,6 +423,7 @@ const struct language_defn f_language_defn = {
   type_check_on,
   f_parse,			/* parser */
   f_error,			/* parser error function */
+  evaluate_subexp_standard,
   f_printchar,			/* Print character constant */
   f_printstr,			/* function to print string constant */
   f_create_fundamental_type,	/* Create fundamental type in this language */
@@ -934,7 +935,9 @@ get_bf_for_fcn (the_function)
 }
 
 static SAVED_FUNCTION_PTR saved_function_list=NULL; 
+#if 0	/* Currently unused */
 static SAVED_FUNCTION_PTR saved_function_list_end=NULL; 
+#endif
 
 void clear_function_list()
 {

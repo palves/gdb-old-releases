@@ -16,10 +16,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "bfd.h"
 #include "symtab.h"
 #include "symfile.h"
@@ -226,17 +226,6 @@ make_function_type (type, typeptr)
   register struct type *ntype;		/* New type */
   struct objfile *objfile;
 
-  ntype = TYPE_FUNCTION_TYPE (type);
-
-  if (ntype) 
-    if (typeptr == 0)		
-      return ntype;	/* Don't care about alloc, and have new type.  */
-    else if (*typeptr == 0)
-      {
-	*typeptr = ntype;	/* Tracking alloc, and we have new type.  */
-	return ntype;
-      }
-
   if (typeptr == 0 || *typeptr == 0)	/* We'll need to allocate one.  */
     {
       ntype = alloc_type (TYPE_OBJFILE (type));
@@ -252,14 +241,10 @@ make_function_type (type, typeptr)
     }
 
   TYPE_TARGET_TYPE (ntype) = type;
-  TYPE_FUNCTION_TYPE (type) = ntype;
 
   TYPE_LENGTH (ntype) = 1;
   TYPE_CODE (ntype) = TYPE_CODE_FUNC;
   
-  if (!TYPE_FUNCTION_TYPE (type))	/* Remember it, if don't have one.  */
-    TYPE_FUNCTION_TYPE (type) = ntype;
-
   return ntype;
 }
 
@@ -335,7 +320,10 @@ create_range_type (result_type, index_type, low_bound, high_bound)
     }
   TYPE_CODE (result_type) = TYPE_CODE_RANGE;
   TYPE_TARGET_TYPE (result_type) = index_type;
-  TYPE_LENGTH (result_type) = TYPE_LENGTH (index_type);
+  if (TYPE_FLAGS (index_type) & TYPE_FLAG_STUB)
+    TYPE_FLAGS (result_type) |= TYPE_FLAG_TARGET_STUB;
+  else
+    TYPE_LENGTH (result_type) = TYPE_LENGTH (index_type);
   TYPE_NFIELDS (result_type) = 2;
   TYPE_FIELDS (result_type) = (struct field *)
     TYPE_ALLOC (result_type, 2 * sizeof (struct field));
@@ -905,11 +893,12 @@ check_stub_type (type)
       struct type *range_type;
 
       check_stub_type (TYPE_TARGET_TYPE (type));
-      if (!(TYPE_FLAGS (TYPE_TARGET_TYPE (type)) & TYPE_FLAG_STUB)
-	  && TYPE_CODE (type) == TYPE_CODE_ARRAY
-	  && TYPE_NFIELDS (type) == 1
-	  && (TYPE_CODE (range_type = TYPE_FIELD_TYPE (type, 0))
-	      == TYPE_CODE_RANGE))
+      if (TYPE_FLAGS (TYPE_TARGET_TYPE (type)) & TYPE_FLAG_STUB)
+	{ }
+      else if (TYPE_CODE (type) == TYPE_CODE_ARRAY
+	       && TYPE_NFIELDS (type) == 1
+	       && (TYPE_CODE (range_type = TYPE_FIELD_TYPE (type, 0))
+		   == TYPE_CODE_RANGE))
 	{
 	  /* Now recompute the length of the array type, based on its
 	     number of elements and the target type's length.  */
@@ -918,6 +907,11 @@ check_stub_type (type)
 	      - TYPE_FIELD_BITPOS (range_type, 0)
 	      + 1)
 	     * TYPE_LENGTH (TYPE_TARGET_TYPE (type)));
+	  TYPE_FLAGS (type) &= ~TYPE_FLAG_TARGET_STUB;
+	}
+      else if (TYPE_CODE (type) == TYPE_CODE_RANGE)
+	{
+	  TYPE_LENGTH (type) = TYPE_LENGTH (TYPE_TARGET_TYPE (type));
 	  TYPE_FLAGS (type) &= ~TYPE_FLAG_TARGET_STUB;
 	}
     }
@@ -1443,9 +1437,6 @@ recursive_dump_type (type, spaces)
   printf_filtered ("\n");
   printfi_filtered (spaces, "reference_type ");
   gdb_print_address (TYPE_REFERENCE_TYPE (type), gdb_stdout);
-  printf_filtered ("\n");
-  printfi_filtered (spaces, "function_type ");
-  gdb_print_address (TYPE_FUNCTION_TYPE (type), gdb_stdout);
   printf_filtered ("\n");
   printfi_filtered (spaces, "flags 0x%x", TYPE_FLAGS (type));
   if (TYPE_FLAGS (type) & TYPE_FLAG_UNSIGNED)

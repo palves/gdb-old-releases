@@ -16,10 +16,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "value.h"
@@ -328,6 +328,7 @@ print_longest (stream, format, use_local, val_long)
       fprintf_filtered (stream,
 			use_local ? local_octal_format_custom ("ll")
 				  : "%llo",
+			val_long);
       break;
     case 'b':
       fprintf_filtered (stream, local_hex_format_custom ("02ll"), val_long);
@@ -670,7 +671,7 @@ value_print_array_elements (val, stream, format, pretty)
 	  val_print (VALUE_TYPE (val), VALUE_CONTENTS (val) + typelen * i,
 		     VALUE_ADDRESS (val) + typelen * i, stream, format, 1,
 		     0, pretty);
-	  fprintf_unfiltered (stream, " <repeats %u times>", reps);
+	  fprintf_filtered (stream, " <repeats %u times>", reps);
 	  i = rep1 - 1;
 	  things_printed += repeat_count_threshold;
 	}

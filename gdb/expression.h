@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #if !defined (EXPRESSION_H)
 #define EXPRESSION_H 1
@@ -247,6 +247,9 @@ enum exp_opcode
   UNOP_ODD,
   UNOP_TRUNC,
 
+  /* Chill builtin functions. */
+  UNOP_LOWER, UNOP_UPPER, UNOP_LENGTH,
+
   OP_BOOL,		/* Modula-2 builtin BOOLEAN type */
   OP_M2_STRING,		/* Modula-2 string constants */
 
@@ -329,6 +332,28 @@ extern struct expression *parse_exp_1 PARAMS ((char **, struct block *, int));
    we've encountered so far.  To use this, set it to NULL, then call
    parse_<whatever>, then look at it.  */
 extern struct block *innermost_block;
+
+/* From eval.c */
+
+/* Values of NOSIDE argument to eval_subexp.  */
+
+enum noside
+{
+  EVAL_NORMAL,
+  EVAL_SKIP,			/* Only effect is to increment pos.  */
+  EVAL_AVOID_SIDE_EFFECTS	/* Don't modify any variables or
+				   call any functions.  The value
+				   returned will have the correct
+				   type, and will have an
+				   approximately correct lvalue
+				   type (inaccuracy: anything that is
+				   listed as being in a register in
+				   the function in which it was
+				   declared will be lval_register).  */
+};
+
+extern struct value* evaluate_subexp_standard
+PARAMS ((struct type *, struct expression *, int*, enum noside));
 
 /* From expprint.c */
 

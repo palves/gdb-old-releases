@@ -1,0 +1,6 @@
+Sat Jul 29 15:08:43 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* configure.in, Makefile.in, aload.c, eload.c, README: Move
+	here from gdb/sparclite, update configure and make bits,
+	update code to compile with both GCC and other compilers.
+	* aload: Remove, contents all obsolete.

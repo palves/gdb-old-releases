@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "serial.h"
@@ -38,6 +38,7 @@ static void tcp_raw PARAMS ((serial_t scb));
 static int wait_for PARAMS ((serial_t scb, int timeout));
 static int tcp_readchar PARAMS ((serial_t scb, int timeout));
 static int tcp_setbaudrate PARAMS ((serial_t scb, int rate));
+static int tcp_setstopbits PARAMS ((serial_t scb, int num));
 static int tcp_write PARAMS ((serial_t scb, const char *str, int len));
 /* FIXME: static void tcp_restore PARAMS ((serial_t scb)); */
 static void tcp_close PARAMS ((serial_t scb));
@@ -58,6 +59,7 @@ tcp_open(scb, name)
   int tmp;
   char hostname[100];
   struct protoent *protoent;
+  int i;
 
   port_str = strchr (name, ':');
 
@@ -78,28 +80,38 @@ tcp_open(scb, name)
       return -1;
     }
 
-  scb->fd = socket (PF_INET, SOCK_STREAM, 0);
-  if (scb->fd < 0)
-    return -1;
-
-  /* Allow rapid reuse of this port. */
-  tmp = 1;
-  setsockopt (scb->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&tmp, sizeof(tmp));
-
-  /* Enable TCP keep alive process. */
-  tmp = 1;
-  setsockopt (scb->fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&tmp, sizeof(tmp));
-
-  sockaddr.sin_family = PF_INET;
-  sockaddr.sin_port = htons(port);
-  memcpy (&sockaddr.sin_addr.s_addr, hostent->h_addr,
-	  sizeof (struct in_addr));
-
-  if (connect (scb->fd, (struct sockaddr *) &sockaddr, sizeof(sockaddr)))
+  for (i = 1; i <= 15; i++)
     {
-      close(scb->fd);
+      scb->fd = socket (PF_INET, SOCK_STREAM, 0);
+      if (scb->fd < 0)
+	return -1;
+
+      /* Allow rapid reuse of this port. */
+      tmp = 1;
+      setsockopt (scb->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&tmp, sizeof(tmp));
+
+      /* Enable TCP keep alive process. */
+      tmp = 1;
+      setsockopt (scb->fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&tmp, sizeof(tmp));
+
+      sockaddr.sin_family = PF_INET;
+      sockaddr.sin_port = htons(port);
+      memcpy (&sockaddr.sin_addr.s_addr, hostent->h_addr,
+	      sizeof (struct in_addr));
+
+      if (!connect (scb->fd, (struct sockaddr *) &sockaddr, sizeof(sockaddr)))
+	break;
+
+      close (scb->fd);
       scb->fd = -1;
-      return -1;
+
+/* We retry for ECONNREFUSED because that is often a temporary condition, which
+   happens when the server is being restarted.  */
+
+      if (errno != ECONNREFUSED)
+	return -1;
+
+      sleep (1);
     }
 
   protoent = getprotobyname ("tcp");
@@ -265,6 +277,14 @@ tcp_setbaudrate(scb, rate)
 }
 
 static int
+tcp_setstopbits(scb, num)
+     serial_t scb;
+     int num;
+{
+  return 0;			/* Never fails! */
+}
+
+static int
 tcp_write(scb, str, len)
      serial_t scb;
      const char *str;
@@ -312,6 +332,7 @@ static struct serial_ops tcp_ops =
   tcp_print_tty_state,
   tcp_noflush_set_tty_state,
   tcp_setbaudrate,
+  tcp_setstopbits,
 };
 
 void

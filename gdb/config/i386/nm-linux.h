@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "i386/nm-i386v.h"
 
@@ -29,6 +29,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define NO_SYS_REG_H
  
 /* Linux supports the 386 hardware debugging registers.  */
+
+#define TARGET_HAS_HARDWARE_WATCHPOINTS
+
 #define TARGET_CAN_USE_HARDWARE_WATCHPOINT(type, cnt, ot) 1
 
 /* After a watchpoint trap, the PC points to the instruction after

@@ -365,6 +365,44 @@ Foo::operator int() { return x; }
 Foo foo(10, 11);
 Bar bar(20, 21, 22);
 
+class Contains_static_instance
+{
+ public:
+  int x;
+  int y;
+  Contains_static_instance (int i, int j) { x = i; y = j; }
+  static Contains_static_instance null;
+};
+
+Contains_static_instance Contains_static_instance::null(0,0);
+Contains_static_instance csi(10,20);
+
+class Contains_nested_static_instance
+{
+ public:
+  class Nested
+  {
+   public:
+    Nested(int i) : z(i) {}
+    int z;
+    static Contains_nested_static_instance xx;
+  };
+
+  Contains_nested_static_instance(int i, int j) : x(i), y(j) {}
+
+  int x;
+  int y;
+
+  static Contains_nested_static_instance null;
+  static Nested yy;
+};
+
+Contains_nested_static_instance Contains_nested_static_instance::null(0, 0);
+Contains_nested_static_instance::Nested Contains_nested_static_instance::yy(5);
+Contains_nested_static_instance
+  Contains_nested_static_instance::Nested::xx(1,2);
+Contains_nested_static_instance cnsi(30,40);
+
 typedef struct {
   int one;
   int two;
@@ -407,6 +445,10 @@ register_class ()
 int
 main()
 {
+#ifdef usestubs
+  set_debug_traps();
+  breakpoint();
+#endif
   inheritance1 ();
   inheritance3 ();
   register_class ();

@@ -1,5 +1,5 @@
 /* Support for printing Fortran values for GDB, the GNU debugger.
-   Copyright 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
    Contributed by Motorola.  Adapted from the C definitions by Farooq Butt
    (fmbutt@engage.sps.mot.com), additionally worked over by Stan Shebs.
 
@@ -17,10 +17,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "expression.h"
@@ -32,8 +32,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "frame.h"
 #include "gdbcore.h"
 #include "command.h"
-
-extern struct obstack dont_print_obstack;
 
 extern unsigned int print_max; /* No of array elements to print */ 
 
@@ -374,11 +372,8 @@ f_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
      enum val_prettyprint pretty;
 {
   register unsigned int i = 0;		/* Number of characters printed */
-  unsigned len;
   struct type *elttype;
   LONGEST val;
-  char *localstr;
-  char *straddr;
   CORE_ADDR addr;
   
   switch (TYPE_CODE (type))

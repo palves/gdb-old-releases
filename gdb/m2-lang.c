@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "symtab.h"
@@ -378,6 +378,15 @@ static const struct op_print m2_op_print_tab[] = {
     {"<",   BINOP_LESS, PREC_ORDER, 0},
     {"^",   UNOP_IND, PREC_PREFIX, 0},
     {"@",   BINOP_REPEAT, PREC_REPEAT, 0},
+    {"CAP", UNOP_CAP, PREC_BUILTIN_FUNCTION, 0},
+    {"CHR", UNOP_CHR, PREC_BUILTIN_FUNCTION, 0},
+    {"ORD", UNOP_ORD, PREC_BUILTIN_FUNCTION, 0},
+    {"FLOAT",UNOP_FLOAT, PREC_BUILTIN_FUNCTION, 0},
+    {"HIGH", UNOP_HIGH, PREC_BUILTIN_FUNCTION, 0},
+    {"MAX", UNOP_MAX, PREC_BUILTIN_FUNCTION, 0},
+    {"MIN", UNOP_MIN, PREC_BUILTIN_FUNCTION, 0},
+    {"ODD", UNOP_ODD, PREC_BUILTIN_FUNCTION, 0},
+    {"TRUNC", UNOP_TRUNC, PREC_BUILTIN_FUNCTION, 0},
     {NULL,  0, 0, 0}
 };
 
@@ -407,6 +416,7 @@ const struct language_defn m2_language_defn = {
   type_check_on,
   m2_parse,			/* parser */
   m2_error,			/* parser error function */
+  evaluate_subexp_standard,
   m2_printchar,			/* Print character constant */
   m2_printstr,			/* function to print string constant */
   m2_create_fundamental_type,	/* Create fundamental type in this language */

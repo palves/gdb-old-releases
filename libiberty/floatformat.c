@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "floatformat.h"
 #include <math.h>		/* ldexp */
@@ -78,6 +78,12 @@ const struct floatformat floatformat_m88110_ext =
   floatformat_big, 80, 0, 1, 15, 0x3fff, 0x7fff, 16, 64,
   floatformat_intbit_yes
 #endif /* HARRIS_FLOAT_FORMAT */
+};
+const struct floatformat floatformat_arm_ext =
+{
+  /* Bits 1 to 16 are unused.  */
+  floatformat_big, 96, 0, 17, 15, 0x3fff, 0x7fff, 32, 64,
+  floatformat_intbit_yes
 };
 
 static unsigned long get_field PARAMS ((unsigned char *,

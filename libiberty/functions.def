@@ -62,3 +62,4 @@ DEFVAR(sys_siglist, char *sys_siglist[], sys_siglist[0] = 0)
 
 DEFFUNC(strerror, char*, (), NOTHING)
 DEFFUNC(psignal, void, (signo, message), unsigned signo AND char *message)
+DEFFUNC(basename, char *, (name), CONST char *name)

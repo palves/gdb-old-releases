@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This is like remote.c but is for an esoteric situation--
    having a 29k board attached to an Adapt inline monitor. 
@@ -30,7 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    7/91 o - Freeze mode tracing can be done on a 29050.  */
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "inferior.h"
 #include "wait.h"
 #include "value.h"

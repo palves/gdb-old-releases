@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /*
 
@@ -238,6 +238,14 @@ bfd_arch_get_compatible (abfd, bbfd)
      CONST bfd *abfd;
      CONST bfd *bbfd;
 {
+  /* If either architecture is unknown, then all we can do is assume
+     the user knows what he's doing.  */
+  if (abfd->arch_info->arch == bfd_arch_unknown)
+  	return bbfd->arch_info;
+  if (bbfd->arch_info->arch == bfd_arch_unknown)
+  	return abfd->arch_info;
+
+  /* Otherwise architecture-specific code has to decide.  */
   return  abfd->arch_info->compatible(abfd->arch_info,bbfd->arch_info);
 }
 

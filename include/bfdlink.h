@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef BFDLINK_H
 #define BFDLINK_H
@@ -46,8 +46,9 @@ enum bfd_link_hash_type
 {
   bfd_link_hash_new,		/* Symbol is new.  */
   bfd_link_hash_undefined,	/* Symbol seen before, but undefined.  */
-  bfd_link_hash_weak,		/* Symbol is weak and undefined.  */
+  bfd_link_hash_undefweak,	/* Symbol is weak and undefined.  */
   bfd_link_hash_defined,	/* Symbol is defined.  */
+  bfd_link_hash_defweak,	/* Symbol is weak and defined.  */
   bfd_link_hash_common,		/* Symbol is common.  */
   bfd_link_hash_indirect,	/* Symbol is an indirect link.  */
   bfd_link_hash_warning		/* Like indirect, but warn if referenced.  */
@@ -75,23 +76,23 @@ struct bfd_link_hash_entry
 
      Weak symbols are not kept on this list.
 
-     Defined symbols use this field as a reference marker.  If the
-     field is not NULL, or this structure is the tail of the undefined
-     symbol list, the symbol has been referenced.  If the symbol is
-     undefined and becomes defined, this field will automatically be
-     non-NULL since the symbol will have been on the undefined symbol
-     list.  */
+     Defined and defweak symbols use this field as a reference marker.
+     If the field is not NULL, or this structure is the tail of the
+     undefined symbol list, the symbol has been referenced.  If the
+     symbol is undefined and becomes defined, this field will
+     automatically be non-NULL since the symbol will have been on the
+     undefined symbol list.  */
   struct bfd_link_hash_entry *next;
   /* A union of information depending upon the type.  */
   union
     {
       /* Nothing is kept for bfd_hash_new.  */
-      /* bfd_link_hash_undefined, bfd_link_hash_weak.  */
+      /* bfd_link_hash_undefined, bfd_link_hash_undefweak.  */
       struct
 	{
 	  bfd *abfd;		/* BFD symbol was found in.  */
 	} undef;
-      /* bfd_link_hash_defined.  */
+      /* bfd_link_hash_defined, bfd_link_hash_defweak.  */
       struct
 	{
 	  bfd_vma value;	/* Symbol value.  */
@@ -108,14 +109,19 @@ struct bfd_link_hash_entry
 	{
 	  /* The linker needs to know three things about common
              symbols: the size, the alignment, and the section in
-             which the symbol should be placed.  On the assumption
-             that a single common symbol will not take up incredible
-             amounts of memory, we pack the size and the alignment
-             into the space of a single integer.  The alignment is
-             stored as a power of two.  */
-	  unsigned int alignment_power : 6;	/* Alignment.  */
-	  unsigned int size : 26;		/* Common symbol size.  */
-	  asection *section;			/* Symbol section.  */
+             which the symbol should be placed.  We store the size
+             here, and we allocate a small structure to hold the
+             section and the alignment.  The alignment is stored as a
+             power of two.  We don't store all the information
+             directly because we don't want to increase the size of
+             the union; this structure is a major space user in the
+             linker.  */
+	  bfd_size_type size;	/* Common symbol size.  */
+	  struct bfd_link_hash_common_entry
+	    {
+	      unsigned int alignment_power;	/* Alignment.  */
+	      asection *section;		/* Symbol section.  */
+	    } *p;
 	} c;
     } u;
 };
@@ -167,6 +173,8 @@ struct bfd_link_info
   boolean relocateable;
   /* true if BFD should generate a shared object.  */
   boolean shared;
+  /* true if BFD should pre-bind symbols in a shared object.  */
+  boolean symbolic;
   /* Which symbols to strip.  */
   enum bfd_link_strip strip;
   /* Which local symbols to discard.  */
@@ -194,6 +202,13 @@ struct bfd_link_info
   /* Hash table of symbols to report back via notice_callback.  If
      this is NULL no symbols are reported back.  */
   struct bfd_hash_table *notice_hash;
+
+
+  enum   bfd_link_subsystem  subsystem;
+  bfd_link_stack_heap stack_heap_parameters;
+
+  /* If a base output file is wanted, then this points to it */
+  PTR base_file;
 };
 
 /* This structures holds a set of callback functions.  These are
@@ -230,11 +245,11 @@ struct bfd_link_callbacks
      multiple times.  NAME is the symbol appearing multiple times.
      OBFD is the BFD of the existing symbol; it may be NULL if this is
      not known.  OTYPE is the type of the existing symbol, which may
-     be bfd_link_hash_defined, bfd_link_hash_common, or
-     bfd_link_hash_indirect.  If OTYPE is bfd_link_hash_common, OSIZE
-     is the size of the existing symbol.  NBFD is the BFD of the new
-     symbol.  NTYPE is the type of the new symbol, again one of
-     bfd_link_hash_defined, bfd_link_hash_common, or
+     be bfd_link_hash_defined, bfd_link_hash_defweak,
+     bfd_link_hash_common, or bfd_link_hash_indirect.  If OTYPE is
+     bfd_link_hash_common, OSIZE is the size of the existing symbol.
+     NBFD is the BFD of the new symbol.  NTYPE is the type of the new
+     symbol, one of bfd_link_hash_defined, bfd_link_hash_common, or
      bfd_link_hash_indirect.  If NTYPE is bfd_link_hash_common, NSIZE
      is the size of the new symbol.  */
   boolean (*multiple_common) PARAMS ((struct bfd_link_info *,
@@ -272,7 +287,7 @@ struct bfd_link_callbacks
   /* A function which is called when a relocation is attempted against
      an undefined symbol.  NAME is the symbol which is undefined.
      ABFD, SECTION and ADDRESS identify the location from which the
-     reference is made.  */
+     reference is made.  In some cases SECTION may be NULL.  */
   boolean (*undefined_symbol) PARAMS ((struct bfd_link_info *,
 				       const char *name, bfd *abfd,
 				       asection *section, bfd_vma address));

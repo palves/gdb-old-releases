@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define TARGET_SPARCLITE 1
 
@@ -59,6 +59,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define TARGET_HW_BREAK_LIMIT 2
 #define TARGET_HW_WATCH_LIMIT 2
+
+/* Enable watchpoint macro's */
+
+#define TARGET_HAS_HARDWARE_WATCHPOINTS
 
 #define TARGET_CAN_USE_HARDWARE_WATCHPOINT(type, cnt, ot) \
 	sparclite_check_watch_resources (type, cnt, ot)

@@ -4,7 +4,7 @@
 
 s! @BFD_H@!!g
 s!@INCDIR@!$(INCDIR)!g
-s!@srcdir@/!!g
+s!@SRCDIR@/!!g
 s!hosts/[^ ]*\.h ! !g
 s/ sysdep.h//g
 s/ libbfd.h//g

@@ -1,0 +1,44 @@
+'\"
+'\" Copyright (c) 1994 The Regents of the University of California.
+'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\"
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+'\" 
+'\" @(#) Tcl_Main.3 1.2 94/12/17 16:17:34
+'\" 
+.so man.macros
+.HS Tcl_Main tclc 4.0
+.BS
+.SH NAME
+Tcl_Main \- main program for Tcl-based applications
+.SH SYNOPSIS
+.nf
+\fB#include <tk.h>\fR
+.sp
+\fBTcl_Main\fR(\fIargc, argv\fR)
+.SH ARGUMENTS
+.AS Tcl_FreeProc clientData
+.AP int argc in
+Number of elements in \fIargv\fR.
+.AP char *argv[] in
+Array of strings containing command-line arguments.
+.BE
+
+.SH DESCRIPTION
+.PP
+\fBTcl_Main\fR acts as the main program for most Tcl-based applications.
+It is not called \fBmain\fR because it is part of the Tcl library and
+having a function \fBmain\fR
+in a library (particularly a shared library) causes problems on many
+systems.
+This would also make it hard to use Tcl in C++ programs,
+since C++ programs must have special C++ \fBmain\fR functions.
+.PP
+Normally each application contains a small \fBmain\fR function that does
+nothing but invoke \fBTcl_Main\fR.
+\fBTcl_Main\fR then does all the work of creating and running a
+\fBtclsh\fR-like application.
+
+.SH KEYWORDS
+command-line arguments, main program

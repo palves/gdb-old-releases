@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "aout/aout64.h"
 #include "aout/stab_gnu.h"
@@ -459,15 +459,37 @@ MY_bfd_final_link (abfd, info)
 #ifndef MY_bfd_make_debug_symbol
 #define MY_bfd_make_debug_symbol 0
 #endif
+#ifndef MY_read_minisymbols
+#define MY_read_minisymbols NAME(aout,read_minisymbols)
+#endif
+#ifndef MY_minisymbol_to_symbol
+#define MY_minisymbol_to_symbol NAME(aout,minisymbol_to_symbol)
+#endif
 #ifndef MY_bfd_link_hash_table_create
 #define MY_bfd_link_hash_table_create NAME(aout,link_hash_table_create)
 #endif
 #ifndef MY_bfd_link_add_symbols
 #define MY_bfd_link_add_symbols NAME(aout,link_add_symbols)
 #endif
+#ifndef MY_bfd_link_split_section
+#define MY_bfd_link_split_section  _bfd_generic_link_split_section
+#endif
+
 
 #ifndef MY_bfd_copy_private_bfd_data
 #define MY_bfd_copy_private_bfd_data _bfd_generic_bfd_copy_private_bfd_data
+#endif
+
+#ifndef MY_bfd_merge_private_bfd_data
+#define MY_bfd_merge_private_bfd_data _bfd_generic_bfd_merge_private_bfd_data
+#endif
+
+#ifndef MY_bfd_copy_private_symbol_data
+#define MY_bfd_copy_private_symbol_data _bfd_generic_bfd_copy_private_symbol_data
+#endif
+
+#ifndef MY_bfd_set_private_flags
+#define MY_bfd_set_private_flags _bfd_generic_bfd_set_private_flags
 #endif
 
 #ifndef MY_bfd_is_local_label

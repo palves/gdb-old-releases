@@ -18,7 +18,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef _HPPA_H
 #define _HPPA_H
@@ -33,6 +33,9 @@
 #define INLINE
 #endif /* GNU C? */
 #endif /* INLINE */
+
+/* The PA instruction set variants.  */
+enum pa_arch {pa10 = 10, pa11 = 11};
 
 /* HP PA-RISC relocation types */
 
@@ -226,10 +229,10 @@ dis_assemble_21 (as21, x)
 }
 
 static INLINE unsigned long
-sign_ext (x, len)
+sign_extend (x, len)
      unsigned int x, len;
 {
-  return (x << (32 - len)) >> (32 - len);
+  return (int)(x >> (len - 1) ? (-1 << len) | x : x);
 }
 
 static INLINE unsigned int
@@ -263,17 +266,10 @@ sign_unext (x, len, result)
 }
 
 static INLINE unsigned long
-low_sign_ext (x, len)
+low_sign_extend (x, len)
      unsigned int x, len;
 {
-  unsigned int temp1, temp2;
-  unsigned int len_ones;
-
-  len_ones = ones (len);
-
-  temp1 = (x & 1) << (len - 1);
-  temp2 = ((x & 0xfffffffe) & len_ones) >> 1;
-  return sign_ext ((temp1 | temp2), len);
+  return (int)((x & 0x1 ? (-1 << (len - 1)) : 0) | x >> 1);
 }
 
 static INLINE void

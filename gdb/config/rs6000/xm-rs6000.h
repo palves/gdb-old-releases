@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* The following text is taken from config/rs6000.mh:
  * # The IBM version of /usr/include/rpc/rpc.h has a bug -- it says
@@ -43,11 +43,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define	USG 1
 #define	HAVE_SIGSETMASK	1
-
-/* AIX declares the mem functions differently than defs.h does.  AIX is
-   right, but defs.h works on more old systems.  For now, override it.  */
-
-#define MEM_FNS_DECLARED 1
 
 /* This system requires that we open a terminal with O_NOCTTY for it to
    not become our controlling terminal.  */

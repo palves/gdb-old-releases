@@ -1,0 +1,42 @@
+This file contains a collection of notes that various people have
+provided about porting Tcl to various machines and operating systems.
+I don't have personal access to any of these machines, so I make
+no guarantees that the notes are correct, complete, or up-to-date.
+If you see the word "I" in any explanations, it refers to the person
+who contributed the information, not to me;  this means that I
+probably can't answer any questions about any of this stuff.  In
+some cases, a person has volunteered to act as a contact point for
+questions about porting Tcl to a particular machine;  in these
+cases the person's name and e-mail address are listed.  I'm very
+interested in getting new porting information to add to the file;
+please mail updates to "john.ousterhout@eng.sun.com".
+
+This file reflects information provided for Tcl 7.4 and later releases.
+If there is no information for your configuration in this file, check
+the file "porting.old" too;  it contains information that was
+submitted for Tcl 7.3 and earlier releases, and some of that information
+may still be valid.
+
+Porting information is likely to become available on the Web sometime
+soon.  You might try the following URLs:
+    http://www.smli.com/research/tcl
+    http://www.smli.com/tcl
+    http://www.smli.com/~ouster
+    http://playground.sun.com/~ouster
+
+sccsid = @(#) porting.notes 1.4 95/01/10 09:42:27
+
+--------------------------------------------
+Pyramid DC/OSx SVr4, DC/OSx version 94c079
+--------------------------------------------
+
+Tcl seems to dump core in cmdinfo.test when compiled with the
+optimiser turned on in TclEval which calls 'free'.  To get around
+this, turn the optimiser off.
+
+--------------------------------------------
+SGI machines, IRIX 5.2
+--------------------------------------------
+
+Add "-D_BSD_TIME" to CFLAGS in Makefile.  This avoids type conflicts
+in the prototype for the gettimeofday procedure.

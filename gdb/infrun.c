@@ -16,10 +16,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include <ctype.h>
 #include "symtab.h"
 #include "frame.h"
@@ -136,11 +136,13 @@ static struct symbol *step_start_function;
 
 static int trap_expected;
 
+#ifdef HP_OS_BUG
 /* Nonzero if the next time we try to continue the inferior, it will
    step one instruction and generate a spurious trace trap.
    This is used to compensate for a bug in HP-UX.  */
 
 static int trap_expected_after_continue;
+#endif
 
 /* Nonzero means expecting a trace trap
    and should stop the inferior and return silently when it happens.  */
@@ -317,6 +319,7 @@ proceed (addr, siggnal, step)
     oneproc = 1;
 #endif /* PREPARE_TO_PROCEED */
 
+#ifdef HP_OS_BUG
   if (trap_expected_after_continue)
     {
       /* If (step == 0), a trap will be automatically generated after
@@ -326,6 +329,7 @@ proceed (addr, siggnal, step)
       oneproc = 1;
       trap_expected_after_continue = 0;
     }
+#endif /* HP_OS_BUG */
 
   if (oneproc)
     /* We will get a trace trap after one instruction.
@@ -399,7 +403,9 @@ init_wait_for_inferior ()
   prev_func_start = 0;
   prev_func_name = NULL;
 
+#ifdef HP_OS_BUG
   trap_expected_after_continue = 0;
+#endif
   breakpoints_inserted = 0;
   breakpoint_init_inferior ();
 
@@ -473,6 +479,10 @@ wait_for_inferior ()
       else
 	pid = target_wait (-1, &w);
 
+#ifdef HAVE_NONSTEPPABLE_WATCHPOINT
+    have_waited:
+#endif
+
       flush_cached_frames ();
 
       /* If it's a new process, add it to the thread database */
@@ -519,6 +529,12 @@ wait_for_inferior ()
 			     (unsigned int)w.value.integer);
 	  else
 	    printf_filtered ("\nProgram exited normally.\n");
+
+	  /* Record the exit code in the convenience variable $_exitcode, so
+	     that the user can inspect this again later.  */
+	  set_internalvar (lookup_internalvar ("_exitcode"),
+			   value_from_longest (builtin_type_int, 
+					       (LONGEST) w.value.integer));
 	  gdb_flush (gdb_stdout);
 	  target_mourn_inferior ();
 #ifdef NO_SINGLE_STEP
@@ -579,7 +595,7 @@ wait_for_inferior ()
 	  if (!breakpoint_thread_match (stop_pc - DECR_PC_AFTER_BREAK, pid))
 	    {
 	      /* Saw a breakpoint, but it was hit by the wrong thread.  Just continue. */
-	      write_pc (stop_pc - DECR_PC_AFTER_BREAK);
+	      write_pc_pid (stop_pc - DECR_PC_AFTER_BREAK, pid);
 
 	      remove_breakpoints ();
 	      target_resume (pid, 1, TARGET_SIGNAL_0); /* Single step */
@@ -591,7 +607,9 @@ wait_for_inferior ()
 	      else
 		target_wait (pid, &w);
 	      insert_breakpoints ();
-	      target_resume (pid, 0, TARGET_SIGNAL_0);
+
+	      /* We need to restart all the threads now.  */
+	      target_resume (-1, 0, TARGET_SIGNAL_0);
 	      continue;
 	    }
 	}
@@ -640,32 +658,28 @@ wait_for_inferior ()
 	  /* It's a SIGTRAP or a signal we're interested in.  Switch threads,
 	     and fall into the rest of wait_for_inferior().  */
 
+	  /* Save infrun state for the old thread.  */
+	  save_infrun_state (inferior_pid, prev_pc,
+			     prev_func_start, prev_func_name,
+			     trap_expected, step_resume_breakpoint,
+			     through_sigtramp_breakpoint,
+			     step_range_start, step_range_end,
+			     step_frame_address, handling_longjmp,
+			     another_trap);
+
 	  inferior_pid = pid;
+
+	  /* Load infrun state for the new thread.  */
+	  load_infrun_state (inferior_pid, &prev_pc,
+			     &prev_func_start, &prev_func_name,
+			     &trap_expected, &step_resume_breakpoint,
+			     &through_sigtramp_breakpoint,
+			     &step_range_start, &step_range_end,
+			     &step_frame_address, &handling_longjmp,
+			     &another_trap);
 	  printf_filtered ("[Switching to %s]\n", target_pid_to_str (pid));
 
 	  flush_cached_frames ();
-	  trap_expected = 0;
-	  if (step_resume_breakpoint)
-	    {
-	      delete_breakpoint (step_resume_breakpoint);
-	      step_resume_breakpoint = NULL;
-	    }
-
-	  /* Not sure whether we need to blow this away too,
-	     but probably it is like the step-resume
-	     breakpoint.  */
-	  if (through_sigtramp_breakpoint)
-	    {
-	      delete_breakpoint (through_sigtramp_breakpoint);
-	      through_sigtramp_breakpoint = NULL;
-	    }
-	  prev_pc = 0;
-	  prev_func_name = NULL;
-	  step_range_start = 0;
-	  step_range_end = 0;
-	  step_frame_address = 0;
-	  handling_longjmp = 0;
-	  another_trap = 0;
 	}
 
 #ifdef NO_SINGLE_STEP
@@ -701,19 +715,34 @@ wait_for_inferior ()
 	 here?  */
       if (STOPPED_BY_WATCHPOINT (w))
 	{
+/* At this point, we are stopped at an instruction which has attempted to write
+   to a piece of memory under control of a watchpoint.  The instruction hasn't
+   actually executed yet.  If we were to evaluate the watchpoint expression
+   now, we would get the old value, and therefore no change would seem to have
+   occurred.
+
+   In order to make watchpoints work `right', we really need to complete the
+   memory write, and then evaluate the watchpoint expression.  The following
+   code does that by removing the watchpoint (actually, all watchpoints and
+   breakpoints), single-stepping the target, re-inserting watchpoints, and then
+   falling through to let normal single-step processing handle proceed.  Since
+   this includes evaluating watchpoints, things will come to a stop in the
+   correct manner.  */
+
+	  write_pc (stop_pc - DECR_PC_AFTER_BREAK);
+
 	  remove_breakpoints ();
-	  resume (1, 0);
+	  target_resume (pid, 1, TARGET_SIGNAL_0); /* Single step */
 
-	  /* FIXME: This is bogus.  You can't interact with the
-	     inferior except when it is stopped.  It apparently
-	     happens to work on Irix4, but it depends on /proc
-	     allowing us to muck with the memory of a running process,
-	     and the kernel deciding to run one instruction of the
-	     inferior before it executes our insert_breakpoints code,
-	     which seems like an awfully dubious assumption.  */
+	  if (target_wait_hook)
+	    target_wait_hook (pid, &w);
+	  else
+	    target_wait (pid, &w);
 	  insert_breakpoints ();
-
-	  continue;
+	  /* FIXME-maybe: is this cleaner than setting a flag?  Does it
+	     handle things like signals arriving and other things happening
+	     in combination correctly?  */
+	  goto have_waited;
 	}
 #endif
 
@@ -1804,6 +1833,11 @@ Are you sure you want to change it? ",
 			gdb_flush (gdb_stdout);
 		      }
 		  }
+		break;
+	      case TARGET_SIGNAL_0:
+	      case TARGET_SIGNAL_DEFAULT:
+	      case TARGET_SIGNAL_UNKNOWN:
+		/* Make sure that "all" doesn't print these.  */
 		break;
 	      default:
 		sigs[signum] = 1;

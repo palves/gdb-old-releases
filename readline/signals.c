@@ -53,7 +53,11 @@ extern int rl_pending_input;
 
 extern int _rl_meta_flag;
 
+#ifdef __STDC__
+extern void _rl_output_character_function (int);
+#else
 extern void _rl_output_character_function ();
+#endif
 
 extern void free_undo_list ();
 

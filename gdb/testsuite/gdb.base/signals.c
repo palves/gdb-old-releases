@@ -2,6 +2,11 @@
 
 #include <signal.h>
 
+#ifdef __sh__
+#define signal(a,b)	/* Signals not supported on this target - make them go away */
+#define alarm(a)	/* Ditto for alarm() */
+#endif
+
 static int count = 0;
 
 static void
@@ -27,6 +32,10 @@ func2 ()
 int
 main ()
 {
+#ifdef usestubs
+  set_debug_traps();
+  breakpoint();
+#endif
 #ifdef SIGALRM
   signal (SIGALRM, handler);
 #endif

@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "server.h"
 #include <stdio.h>
@@ -393,6 +393,10 @@ prepare_resume_reply (buf, status, signal)
 
   *buf++ = status;
 
+  /* FIXME!  Should be converting this signal number (numbered
+     according to the signal numbering of the system we are running on)
+     to the signal numbers used by the gdb protocol (see enum target_signal
+     in gdb/target.h).  */
   nib = ((signal & 0xf0) >> 4);
   *buf++ = tohex (nib);
   nib = signal & 0x0f;

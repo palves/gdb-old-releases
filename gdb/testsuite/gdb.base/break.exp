@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -22,6 +22,8 @@
 if $tracelevel then {
 	strace $tracelevel
 	}
+
+global usestubs
 
 #
 # test running programs
@@ -42,6 +44,14 @@ gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load $objdir/$subdir/$binfile
 
+if $usestubs {
+    send "step\n"
+    # if use stubs step out of the breakpoint() function.
+    expect {
+        -re "main.* at .*$prompt $" {}
+        timeout { fail "single step at breakpoint() (timeout)" ; return 0 }
+    }
+}
 #
 # test simple breakpoint setting commands
 #
@@ -74,48 +84,54 @@ expect {
 # test break at function
 #
 gdb_test "break main" \
-    "Breakpoint.*at.* file .*$srcfile, line" \
+    "Breakpoint.*at.* file .*$srcfile, line.*" \
     "breakpoint function"
 
 #
 # test break at function in file
 #
 gdb_test "break $srcfile:factorial" \
-    "Breakpoint.*at.* file .*$srcfile, line" \
+    "Breakpoint.*at.* file .*$srcfile, line.*" \
     "breakpoint function in file"
 
 #
 # test break at line number
 #
-gdb_test "break 60" \
-    "Breakpoint.*at.* file .*$srcfile, line 60" \
+gdb_test "break 64" \
+    "Breakpoint.*at.* file .*$srcfile, line 64\\." \
     "breakpoint line number"
 
 #
 # test duplicate breakpoint
 #
-gdb_test "break 60" \
-    "Note: breakpoint \[0-9\]+ also set at pc.*Breakpoint \[0-9\]+ at.* file .*$srcfile, line 60" \
+gdb_test "break 64" \
+    "Note: breakpoint \[0-9\]+ also set at pc.*Breakpoint \[0-9\]+ at.* file .*$srcfile, line 64\\." \
     "breakpoint duplicate"
 
 #
 # test break at line number in file
 #
-gdb_test "break $srcfile:66" \
-    "Breakpoint.*at.* file .*$srcfile, line 66" \
+gdb_test "break $srcfile:70" \
+    "Breakpoint.*at.* file .*$srcfile, line 70\\." \
     "breakpoint line number in file"
 
 
 #
 # check to see what breakpoints are set
 #
+if $usestubs then {
+    set main_line 57
+} else {
+    set main_line 60
+}
+
 gdb_test "info break" \
     "Num Type\[ \]+Disp Enb Address\[ \]+What.*
-\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:56.*
-\[0-9\]+\[\t \]+breakpoint     keep y.* in factorial at .*$srcfile:72.*
-\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:60.*
-\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:60.*
-\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:66" \
+\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:$main_line.*
+\[0-9\]+\[\t \]+breakpoint     keep y.* in factorial at .*$srcfile:76.*
+\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:64.*
+\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:64.*
+\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:70" \
     "breakpoint info"
 
 
@@ -126,62 +142,46 @@ if [istarget "mips-idt-*"] then {
 }
 
 #
-# run until the breakpoint at main is hit
+# run until the breakpoint at main is hit. For non-stubs-using targets.
 #
-if [istarget "*-*-vxworks"] then {
+if !$usestubs then {
+  if [istarget "*-*-vxworks*"] then {
     send "run vxmain \"2\"\n"
     set timeout 120
-} else {
-	send "run 2\n"
-}
-expect {
-    -re "Starting program.*Breakpoint \[0-9\]+,.*main .*argc.*argv.* at .*$srcfile:56.*56\[\t \]+if .argc.* \{.*$prompt $"\
+  } else {
+	send "run\n"
+  }
+  expect {
+    -re "The program .* has been started already.*y or n. $" {
+	send "y\n"
+	exp_continue
+    }
+    -re "Starting program.*Breakpoint \[0-9\]+,.*main .*argc.*argv.* at .*$srcfile:60.*60\[\t \]+if .argc.* \{.*$prompt $"\
 	                    { pass "run until function breakpoint" }
     -re ".*$prompt $"       { fail "run until function breakpoint" }
     timeout	            { fail "(timeout) run until function breakpoint" }
+  }
 }
-
 
 #
 # run until the breakpoint at a line number
 #
-send "continue\n"
-expect {
-    -re "continue.*Continuing..*Breakpoint \[0-9\]+, main .argc.*argv.* at .*$srcfile:60.*
-60\[\t ]+printf.*factorial.*$prompt $" { pass "run until breakpoint set at a line number" }
-    -re ".*$prompt $"       { fail "run until breakpoint set at a line number" }
-    timeout	            { fail "(timeout) run until breakpoint set at a line number" }
-}
-
+gdb_test continue "Continuing\\..*Breakpoint \[0-9\]+, main \\(argc=.*, argv=.*, envp=.*\\) at .*$srcfile:64.*64\[\t \]+printf.*factorial.*" \
+			"run until breakpoint set at a line number"
 
 #
 # Run until the breakpoint set in a function in a file
 #
-send "continue\n"
-expect {
-    -re "continue.*Continuing..*Breakpoint \[0-9\]+, factorial .value=2. at .*$srcfile:72.*72\[\t ]+if .value > 1. \{.*$prompt $"\
-	{ send "continue\n"
-	    expect {
-		-re "continue.*Continuing..*Breakpoint \[0-9\]+, factorial .value=1. at .*$srcfile:72.*72\[\t ]+if .value > 1.*$prompt $" { pass "run until file:function breakpoint" }
-		-re ".*$prompt $"       { fail "run until file:function breakpoint" }
-		timeout	            { fail "(timeout) run until file:function breakpoint" }
-	    }
-	}
-    -re ".*$prompt $"       { fail "run until file:function breakpoint" }
-    timeout	            { fail "(timeout) run until file:function breakpoint" }
+for {set i 6} {$i >= 1} {incr i -1} {
+	gdb_test continue "Continuing\\..*Breakpoint \[0-9\]+, factorial \\(value=$i\\) at .*$srcfile:76.*76\[\t \]+if .value > 1. \{" \
+			"run until file:function($i) breakpoint"
 }
-
 
 #
 # run until the file:function breakpoint at a line number in a file
 #
-send "continue\n"
-expect {
-    -re "continue.*Continuing..*Breakpoint \[0-9\]+, main .*argc.*argv.* at .*$srcfile:66.*66\[\t ]+return 0;.*$prompt $" { pass "run until file:linenum breakpoint" }
-    -re ".*$prompt $"       { fail "run until file:linenum breakpoint" }
-    timeout	            { fail "(timeout) run until file:linenum breakpoint" }
-}
-
+gdb_test continue "Continuing\\..*Breakpoint \[0-9\]+, main \\(argc=.*, argv=.*, envp=.*\\) at .*$srcfile:70.*70\[\t \]+return 0;" \
+		"run until file:linenum breakpoint"
 
 #
 # delete all breakpoints so we can start over, course this can be a test too
@@ -212,58 +212,39 @@ expect {
 #
 # test temporary breakpoint at function
 #
-send "tbreak main\n"
-expect {
-    -re "Breakpoint.*at.* file .*$srcfile, line.*$prompt $" {
-	pass "Temporary breakpoint function"
-    }
-    -re ".*$prompt $" {
-	pass "Temporary breakpoint function"
-    }
-    timeout {
-	fail "(timeout) breakpoint function"
-    }
-}
 
+gdb_test "tbreak main" "Breakpoint.*at.* file .*$srcfile, line.*" "Temporary breakpoint function"
 
 #
 # test break at function in file
 #
-send "tbreak $srcfile:factorial\n"
-expect {
-    -re "Breakpoint.*at.* file .*$srcfile, line.*$prompt $" {
-	pass "Temporary breakpoint function in file"
-    }
-    -re ".*$prompt $" {
-	pass "Temporary breakpoint function in file"
-    }
-    timeout {
-	fail "(timeout) breakpoint function in file"
-    }
-}
 
+gdb_test "tbreak $srcfile:factorial" "Breakpoint.*at.* file .*$srcfile, line.*" \
+	"Temporary breakpoint function in file"
 
 #
 # test break at line number
 #
-send "tbreak 60\n"
+send "tbreak 64\n"
 expect {
-    -re "Breakpoint.*at.* file .*$srcfile, line 60.*$prompt $" { pass "Temporary breakpoint line number" }
+    -re "Breakpoint.*at.* file .*$srcfile, line 64.*$prompt $" { pass "Temporary breakpoint line number" }
 	-re ".*$prompt $"   { pass "Temporary breakpoint line number" }
 	timeout	    { fail "(timeout) breakpoint line number" }
 }
 
+gdb_test "tbreak 60" "Breakpoint.*at.* file .*$srcfile, line 60.*" "Temporary breakpoint line number"
 
 #
 # test break at line number in file
 #
-send "tbreak $srcfile:66\n"
+send "tbreak $srcfile:70\n"
 expect {
-    -re "Breakpoint.*at.* file .*$srcfile, line 66.*$prompt $" { pass "Temporary breakpoint line number in file" }
+    -re "Breakpoint.*at.* file .*$srcfile, line 70.*$prompt $" { pass "Temporary breakpoint line number in file" }
 	-re ".*$prompt $"   { pass "Temporary breakpoint line number in file" }
 	timeout	    { fail "(timeout) breakpoint line number in file" }
 }
 
+gdb_test  "tbreak $srcfile:66" "Breakpoint.*at.* file .*$srcfile, line 66.*" "Temporary breakpoint line number in file"
 
 #
 # check to see what breakpoints are set (temporary this time)
@@ -271,24 +252,23 @@ expect {
 send "info break\n"
 expect {
     -re "Num Type.*Disp Enb Address.*What.*
-\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:56.*
-\[0-9\]+\[\t \]+breakpoint     del.*y.*in factorial at .*$srcfile:72.*
-\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:60.*
-\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:66.*$prompt $" {
+\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:$main_line.*
+\[0-9\]+\[\t \]+breakpoint     del.*y.*in factorial at .*$srcfile:76.*
+\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:64.*
+\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:70.*$prompt $" {
         pass "Temporary breakpoint info"
     }
     -re ".*$prompt $"   { fail "Temporary breakpoint info" }
     timeout	    { fail "(timeout) Temporary breakpoint info" }
 }
 
-
 proc test_clear_command {} {
-    gdb_test "break main" "Breakpoint.*at"
-    gdb_test "break main" "Breakpoint.*at"
+    gdb_test "break main" "Breakpoint.*at.*"
+    gdb_test "break main" "Breakpoint.*at.*"
 
     # We don't test that it deletes the correct breakpoints.  We do at
     # least test that it deletes more than one breakpoint.
-    gdb_test "clear main" {Deleted breakpoints [0-9]+ [0-9]+}
+    gdb_test "clear main" {Deleted breakpoints [0-9]+ [0-9]+.*}
 }
 
 #
@@ -312,21 +292,17 @@ proc test_next_with_recursion {} {
 
     delete_breakpoints
 
-    send "break factorial\n"
-    expect {
-	-re "Breakpoint $decimal at .*$prompt" {}
-	timeout { fail "break at factorial" ; return }
-    }
+    gdb_test "break factorial" "Breakpoint $decimal at .*" "break at factorial"
 
     # Run until we call factorial with 6
 
-    if [istarget "*-*-vxworks"] then {
+    if [istarget "*-*-vxworks*"] then {
 	send "run vxmain \"6\"\n"
     } else {
-	    send "run 6\n"
+	gdb_run_cmd
     }
     expect {
-	-re "Starting .*Break.* factorial .value=6. .*$prompt $" {}
+	-re "Break.* factorial .value=6. .*$prompt $" {}
 	timeout { fail "run to factorial(6)" ; return }
     }
 
@@ -341,7 +317,7 @@ proc test_next_with_recursion {} {
     # Do a backtrace just to confirm how many levels deep we are.
 
     set result [gdb_test "backtrace" \
-			"#0\[ \t\]+ factorial .value=5." \
+			"#0\[ \t\]+ factorial .value=5..*" \
 			"backtrace from factorial(5)"]
     if $result!=0 then { return }
 
@@ -362,29 +338,22 @@ proc test_next_with_recursion {} {
 
     delete_breakpoints
 
-    send "next\n"
-    expect {
-	-re "return .value.;.*$prompt $" {
-	    # Note that the correct behavior is for GDB to *not* print the
-	    # frame.
-	    pass "next over recursive call"
-	}
-	-re ".*$prompt $" {
-	    fail "next over recursive call" ; return
-	}
-	timeout { fail "next over recursive call (timeout)" ; return }
-    }
+    gdb_test next "\[0-9\]*\[\t \]+return \\(value\\);.*" \
+	"next over recursive call"
 
     # OK, we should be back in the same stack frame we started from.
     # Do a backtrace just to confirm.
 
     set result [gdb_test "backtrace" \
-			 "#0\[ \t\]+ factorial .value=120.*\r\n#1\[ \t\]+ \[0-9a-fx\]+ in factorial .value=6." \
+			 "#0\[ \t\]+ factorial .value=120.*\r\n#1\[ \t\]+ \[0-9a-fx\]+ in factorial .value=6..*" \
 			 "backtrace from factorial(5)"]
     if $result!=0 then { return }
 
     # Continue until we exit.  Should not stop again.
-    gdb_test "continue" "Continuing.\r\n720"\
+    # Don't bother to check the output of the program, that may be
+    # extremely tough for some remote systems.
+    gdb_test "continue"\
+	        "Continuing.\[\r\n0-9\]+Program exited normally\\."\
 		"continue until exit in recursive next test"
 }
 
@@ -392,7 +361,7 @@ test_clear_command
 test_next_with_recursion
 
 # Reset the default arguments for VxWorks
-if [istarget "*-*-vxworks"] then {
+if [istarget "*-*-vxworks*"] then {
     set timeout 10
     send "set args main\n"
     expect -re ".*$prompt $" {}

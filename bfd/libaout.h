@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef LIBAOUT_H
 #define LIBAOUT_H
@@ -378,6 +378,9 @@ struct aout_section_data_struct
 #define aout_section_data(s) \
   ((struct aout_section_data_struct *) (s)->used_by_bfd)
 
+#define set_aout_section_data(s,v) \
+  ((s)->used_by_bfd = (PTR)&(v)->relocs)
+
 /* Prototype declarations for functions defined in aoutx.h  */
 
 boolean
@@ -437,10 +440,14 @@ NAME(aout,get_symtab) PARAMS ((bfd *abfd, asymbol **location));
 
 void
 NAME(aout,swap_ext_reloc_in) PARAMS ((bfd *, struct reloc_ext_external *,
-				      arelent *, asymbol **));
+				      arelent *, asymbol **, bfd_size_type));
 void
 NAME(aout,swap_std_reloc_in) PARAMS ((bfd *, struct reloc_std_external *,
-				      arelent *, asymbol **));
+				      arelent *, asymbol **, bfd_size_type));
+
+reloc_howto_type *
+NAME(aout,reloc_type_lookup) PARAMS ((bfd *abfd,
+				      bfd_reloc_code_real_type code));
 
 boolean
 NAME(aout,slurp_reloc_table) PARAMS ((bfd *abfd, sec_ptr asect,
@@ -471,6 +478,13 @@ boolean
 NAME(aout,find_nearest_line) PARAMS ((bfd *abfd, asection *section,
       asymbol **symbols, bfd_vma offset, CONST char **filename_ptr,
       CONST char **functionname_ptr, unsigned int *line_ptr));
+
+long
+NAME(aout,read_minisymbols) PARAMS ((bfd *, boolean, PTR *, unsigned int *));
+
+asymbol *
+NAME(aout,minisymbol_to_symbol) PARAMS ((bfd *, boolean, const PTR,
+					 asymbol *));
 
 int
 NAME(aout,sizeof_headers) PARAMS ((bfd *abfd, boolean exec));

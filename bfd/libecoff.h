@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfdlink.h"
 
@@ -124,8 +124,10 @@ typedef struct ecoff_tdata
   /* True if this BFD was written by the backend linker.  */
   boolean linker;
 
-  /* This buffers is used by the find_nearest_line entry point.  */
-  char *find_buffer;
+  /* Used by find_nearest_line entry point.  The structure could be
+     included directly in this one, but there's no point to wasting
+     the memory just for the infrequently called find_nearest_line.  */
+  struct ecoff_find_line *find_line_info;
 
 } ecoff_data_type;
 
@@ -241,10 +243,19 @@ extern boolean _bfd_ecoff_new_section_hook
 extern boolean _bfd_ecoff_get_section_contents
   PARAMS ((bfd *, asection *, PTR location, file_ptr, bfd_size_type));
 
+#define _bfd_ecoff_bfd_link_split_section _bfd_generic_link_split_section
+
 extern boolean _bfd_ecoff_bfd_copy_private_bfd_data PARAMS ((bfd *, bfd *));
 #define _bfd_ecoff_bfd_copy_private_section_data \
   _bfd_generic_bfd_copy_private_section_data
 
+#define _bfd_ecoff_bfd_copy_private_symbol_data \
+  _bfd_generic_bfd_copy_private_symbol_data
+
+#define _bfd_ecoff_bfd_merge_private_bfd_data \
+  _bfd_generic_bfd_merge_private_bfd_data
+
+#define _bfd_ecoff_bfd_set_private_flags _bfd_generic_bfd_set_private_flags
 extern boolean _bfd_ecoff_slurp_armap PARAMS ((bfd *abfd));
 #define _bfd_ecoff_slurp_extended_name_table _bfd_slurp_extended_name_table
 #define _bfd_ecoff_construct_extended_name_table \
@@ -264,13 +275,16 @@ extern void _bfd_ecoff_print_symbol
   PARAMS ((bfd *, PTR filep, asymbol *, bfd_print_symbol_type));
 extern void _bfd_ecoff_get_symbol_info
   PARAMS ((bfd *, asymbol *, symbol_info *));
-#define _bfd_ecoff_bfd_is_local_label bfd_generic_is_local_label
+extern boolean _bfd_ecoff_bfd_is_local_label
+  PARAMS ((bfd *, asymbol *));
 #define _bfd_ecoff_get_lineno _bfd_nosymbols_get_lineno
 extern boolean _bfd_ecoff_find_nearest_line
   PARAMS ((bfd *, asection *, asymbol **, bfd_vma offset,
 	   const char **filename_ptr, const char **fnname_ptr,
 	   unsigned int *retline_ptr));
 #define _bfd_ecoff_bfd_make_debug_symbol _bfd_nosymbols_bfd_make_debug_symbol
+#define _bfd_ecoff_read_minisymbols _bfd_generic_read_minisymbols
+#define _bfd_ecoff_minisymbol_to_symbol _bfd_generic_minisymbol_to_symbol
 
 #define _bfd_ecoff_get_reloc_upper_bound coff_get_reloc_upper_bound
 extern long _bfd_ecoff_canonicalize_reloc
@@ -302,3 +316,15 @@ extern boolean _bfd_ecoff_set_arch_mach_hook PARAMS ((bfd *abfd, PTR filehdr));
 extern flagword _bfd_ecoff_styp_to_sec_flags
   PARAMS ((bfd *abfd, PTR hdr, const char *name));
 extern boolean _bfd_ecoff_slurp_symbol_table PARAMS ((bfd *abfd));
+
+/* ECOFF auxiliary information swapping routines.  These are the same
+   for all ECOFF targets, so they are defined in ecofflink.c.  */
+
+extern void _bfd_ecoff_swap_tir_in
+  PARAMS ((int, const struct tir_ext *, TIR *));
+extern void _bfd_ecoff_swap_tir_out
+  PARAMS ((int, const TIR *, struct tir_ext *));
+extern void _bfd_ecoff_swap_rndx_in
+  PARAMS ((int, const struct rndx_ext *, RNDXR *));
+extern void _bfd_ecoff_swap_rndx_out
+  PARAMS ((int, const RNDXR *, struct rndx_ext *));

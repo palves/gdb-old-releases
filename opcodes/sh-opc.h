@@ -1,3 +1,20 @@
+/* Definitions for SH opcodes.
+   Copyright (C) 1993, 1994, 1995 Free Software Foundation, Inc.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+
 typedef enum {
 	HEX_0,
 	HEX_1,
@@ -28,8 +45,9 @@ typedef enum {
 	PCRELIMM_8BY4,
 	IMM_8,
 	IMM_8BY2,
-	IMM_8BY4,
+	IMM_8BY4
 } sh_nibble_type;
+
 typedef enum {
 	A_END,
 	A_BDISP12,
@@ -56,15 +74,18 @@ typedef enum {
 	A_REG_M,
 	A_REG_N,
 	A_SR,
-	A_VBR,
+	A_VBR
 } sh_arg_type;
+
 typedef struct {
-char *name;
-sh_arg_type arg[3];
-sh_nibble_type nibbles[4];
+  char *name;
+  sh_arg_type arg[3];
+  sh_nibble_type nibbles[4];
 } sh_opcode_info;
+
 #ifdef DEFINE_TABLE
-sh_opcode_info sh_table[]={
+
+sh_opcode_info sh_table[] = {
 
 /* 0111nnnni8*1.... add #<imm>,<REG_N>  */{"add",{A_IMM,A_REG_N},{HEX_7,REG_N,IMM_8}},
 
@@ -264,6 +285,10 @@ sh_opcode_info sh_table[]={
 
 /* 0000000000011000 sett                */{"sett",{0},{HEX_0,HEX_0,HEX_1,HEX_8}},
 
+/* 0100nnnnmmmm1100 shad <REG_M>,<REG_N>*/{"shad",{ A_REG_M,A_REG_N},{HEX_4,REG_N,REG_M,HEX_C}},
+
+/* 0100nnnnmmmm1101 shld <REG_M>,<REG_N>*/{"shld",{ A_REG_M,A_REG_N},{HEX_4,REG_N,REG_M,HEX_D}},
+
 /* 0100nnnn00100000 shal <REG_N>        */{"shal",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_0}},
 
 /* 0100nnnn00100001 shar <REG_N>        */{"shar",{A_REG_N},{HEX_4,REG_N,HEX_2,HEX_1}},
@@ -347,5 +372,9 @@ sh_opcode_info sh_table[]={
 /* 0011nnnnmmmm0101 dmulu.l <REG_M>,<REG_N>*/{"dmulu.l",{ A_REG_M,A_REG_N},{HEX_3,REG_N,REG_M,HEX_5}},
 
 /* 0000nnnnmmmm1111 mac.l @<REG_M>+,@<REG_N>+*/{"mac.l",{A_INC_M,A_INC_N},{HEX_0,REG_N,REG_M,HEX_F}},
-0};
+/* 0000nnnn00100011 braf <REG_N>       */{"braf",{A_REG_N},{HEX_0,REG_N,HEX_2,HEX_3}},
+/* 0000nnnn00000011 bsrf <REG_N>       */{"bsrf",{A_REG_N},{HEX_0,REG_N,HEX_0,HEX_3}},
+{ 0 } 
+};
+
 #endif

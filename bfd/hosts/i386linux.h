@@ -15,3 +15,15 @@
    the end.  */
 
 #define TRAD_CORE_EXTRA_SIZE_ALLOWED 4096
+
+/* Used for core file stuff only.  */
+#if 0 /* Turning this on requires that you have support code which, as
+	 I write this, is alpha-test code no more than a few days old.
+	 This is stupid.  Because of the way BFD is set up, it means
+	 you can't build a Linux-hosted ELF-targeted toolchain.  Leave
+	 it disabled until BFD is fixed or the newest Linux ELF code
+	 is widely distributed (including a few CD-ROM releases).
+	 [raeburn:95/04/24] */
+#define HAVE_PROCFS
+#endif
+

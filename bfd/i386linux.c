@@ -1,5 +1,5 @@
 /* BFD back-end for linux flavored i386 a.out binaries.
-   Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define	PAGE_SIZE	4096
 #define ZMAGIC_DISK_BLOCK_SIZE 1024
@@ -93,6 +93,12 @@ i386linux_write_object_contents (abfd)
 
 #define IS_PLT_SYM(name) \
   (strncmp (name, PLT_REF_PREFIX, sizeof PLT_REF_PREFIX - 1) == 0)
+
+/* This string is used to generate specialized error messages.  */
+
+#ifndef NEEDS_SHRLIB
+#define NEEDS_SHRLIB "__NEEDS_SHRLIB_"
+#endif
 
 /* This special symbol is a set vector that contains a list of
    pointers to fixup tables.  It will be present in any dynamicly
@@ -211,7 +217,7 @@ linux_link_hash_table_create (abfd)
   struct linux_link_hash_table *ret;
 
   ret = ((struct linux_link_hash_table *)
-	 malloc (sizeof (struct linux_link_hash_table)));
+	 bfd_alloc (abfd, sizeof (struct linux_link_hash_table)));
   if (ret == (struct linux_link_hash_table *) NULL)
     {
       bfd_set_error (bfd_error_no_memory);
@@ -357,7 +363,8 @@ linux_add_one_symbol (info, abfd, name, flags, section, value, string,
       h = linux_link_hash_lookup (linux_hash_table (info), name, false,
 				  false, false);
       if (h != NULL
-	  && h->root.root.type == bfd_link_hash_defined)
+	  && (h->root.root.type == bfd_link_hash_defined
+	      || h->root.root.type == bfd_link_hash_defweak))
 	{
 	  struct fixup *f;
 
@@ -421,6 +428,36 @@ linux_tally_symbols (h, data)
   struct linux_link_hash_entry *h1, *h2;
   boolean exists;
 
+  if (h->root.root.type == bfd_link_hash_undefined
+      && strncmp (h->root.root.root.string, NEEDS_SHRLIB,
+		  sizeof NEEDS_SHRLIB - 1) == 0)
+    {
+      const char *name;
+      char *p;
+      char *alloc = NULL;
+
+      name = h->root.root.root.string + sizeof NEEDS_SHRLIB - 1;
+      p = strrchr (name, '_');
+      if (p != NULL)
+	alloc = (char *) malloc (strlen (name) + 1);
+
+      /* FIXME!  BFD should not call printf!  */
+      if (p == NULL || alloc == NULL)
+	fprintf (stderr, "Output file requires shared library `%s'\n", name);
+      else
+	{
+	  strcpy (alloc, name);
+	  p = strrchr (alloc, '_');
+	  *p++ = '\0';
+	  fprintf (stderr,
+		   "Output file requires shared library `%s.so.%s'\n",
+		   alloc, p);
+	  free (alloc);
+	}
+
+      abort ();
+    }
+
   /* If this symbol is not a PLT/GOT, we do not even need to look at it */
   is_plt = IS_PLT_SYM (h->root.root.root.string);
 
@@ -446,7 +483,8 @@ linux_tally_symbols (h, data)
 	 fixup anyway, since there are cases where these symbols come
 	 from different shared libraries */
       if (h1 != NULL
-	  && ((h1->root.root.type == bfd_link_hash_defined
+	  && (((h1->root.root.type == bfd_link_hash_defined
+		|| h1->root.root.type == bfd_link_hash_defweak)
 	       && ! bfd_is_abs_section (h1->root.root.u.def.section))
 	      || h2->root.root.type == bfd_link_hash_indirect))
 	{
@@ -548,7 +586,7 @@ bfd_linux_size_dynamic_sections (output_bfd, info)
 	  bfd_set_error (bfd_error_no_memory);
 	  return false;
 	}
-      memset (s->contents, 0, s->_raw_size);
+      memset (s->contents, 0, (size_t) s->_raw_size);
     }
 
   return true;
@@ -596,7 +634,8 @@ linux_finish_dynamic_link (output_bfd, info)
       if (f->builtin)
 	continue;
 
-      if (f->h->root.root.type != bfd_link_hash_defined)
+      if (f->h->root.root.type != bfd_link_hash_defined
+	  && f->h->root.root.type != bfd_link_hash_defweak)
 	{
 	  /* FIXME!  */
 	  fprintf (stderr,
@@ -646,7 +685,8 @@ linux_finish_dynamic_link (output_bfd, info)
 	  if (! f->builtin)
 	    continue;
 
-	  if (f->h->root.root.type != bfd_link_hash_defined)
+	  if (f->h->root.root.type != bfd_link_hash_defined
+	      && f->h->root.root.type != bfd_link_hash_defweak)
 	    {
 	      /* FIXME!  */
 	      fprintf (stderr,
@@ -690,7 +730,9 @@ linux_finish_dynamic_link (output_bfd, info)
 			      "__BUILTIN_FIXUPS__",
 			      false, false, false);
 
-  if (h != NULL && h->root.root.type == bfd_link_hash_defined)
+  if (h != NULL
+      && (h->root.root.type == bfd_link_hash_defined
+	  || h->root.root.type == bfd_link_hash_defweak))
     {
       is = h->root.root.u.def.section;
       section_offset = is->output_section->vma + is->output_offset;

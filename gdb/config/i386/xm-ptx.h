@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Symmetry version by Jay Vosburgh (fubar@sequent.com) */
 
@@ -29,13 +29,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define HAVE_WAIT_STRUCT
 
-#define HAVE_MMAP
-
 #undef HAVE_TERMIO
 #define HAVE_TERMIOS
 #define USG
-
-#define MEM_FNS_DECLARED
 
 #define NEED_POSIX_SETPGID
 

@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "frame.h"
@@ -55,7 +55,7 @@ branch_dest PARAMS ((int opcode, int instr, CORE_ADDR pc, CORE_ADDR safety));
 
 static void
 frame_get_cache_fsr PARAMS ((struct frame_info *fi,
-			     struct aix_framedata *fdatap));
+			     struct rs6000_framedata *fdatap));
 
 /*
  * Calculate the destination of a branch/jump.  Return -1 if not a branch.
@@ -78,10 +78,14 @@ branch_dest (opcode, instr, pc, safety)
   switch (opcode) {
      case 18	:
 	immediate = ((instr & ~3) << 6) >> 6;	/* br unconditional */
+	if (absolute)
+	  dest = immediate;	
+	else
+	  dest = pc + immediate;
+	break;
 
      case 16	:  
-	if (opcode != 18)		        /* br conditional */
-	  immediate = ((instr & ~3) << 16) >> 16;
+        immediate = ((instr & ~3) << 16) >> 16;	/* br conditional */
 	if (absolute)
 	  dest = immediate;	
 	else
@@ -122,7 +126,9 @@ single_step (signal)
 {
 #define	INSNLEN(OPCODE)	 4
 
-  static char breakp[] = BREAKPOINT;
+  static char le_breakp[] = LITTLE_BREAKPOINT;
+  static char be_breakp[] = BIG_BREAKPOINT;
+  char *breakp = TARGET_BYTE_ORDER == BIG_ENDIAN ? be_breakp : le_breakp;
   int ii, insn;
   CORE_ADDR loc;
   CORE_ADDR breaks[2];
@@ -131,7 +137,7 @@ single_step (signal)
   if (!one_stepped) {
     loc = read_pc ();
 
-    read_memory (loc, (char *) &insn, 4);
+    insn = read_memory_integer (loc, 4);
 
     breaks[0] = loc + INSNLEN(insn);
     opcode = insn >> 26;
@@ -171,91 +177,178 @@ single_step (signal)
 }
 
 
-/* return pc value after skipping a function prologue. */
+/* return pc value after skipping a function prologue and also return
+   information about a function frame.
 
-skip_prologue (pc)
-CORE_ADDR pc;
+   in struct rs6000_frameinfo fdata:
+    - frameless is TRUE, if function does not have a frame.
+    - nosavedpc is TRUE, if function does not save %pc value in its frame.
+    - offset is the number of bytes used in the frame to save registers.
+    - saved_gpr is the number of the first saved gpr.
+    - saved_fpr is the number of the first saved fpr.
+    - alloca_reg is the number of the register used for alloca() handling.
+      Otherwise -1.
+    - gpr_offset is the offset of the saved gprs
+    - fpr_offset is the offset of the saved fprs
+    - lr_offset is the offset of the saved lr
+    - cr_offset is the offset of the saved cr
+ */
+
+#define SIGNED_SHORT(x) 						\
+  ((sizeof (short) == 2)						\
+   ? ((int)(short)(x))							\
+   : ((int)((((x) & 0xffff) ^ 0x8000) - 0x8000)))
+
+#define GET_SRC_REG(x) (((x) >> 21) & 0x1f)
+
+CORE_ADDR
+skip_prologue (pc, fdata)
+     CORE_ADDR pc;
+     struct rs6000_framedata *fdata; 
 {
+  CORE_ADDR orig_pc = pc;
   char buf[4];
-  unsigned int tmp;
   unsigned long op;
+  long offset = 0;
+  int lr_reg = 0;
+  int cr_reg = 0;
+  int reg;
+  int framep = 0;
+  static struct rs6000_framedata zero_frame;
+
+  *fdata = zero_frame;
+  fdata->saved_gpr = -1;
+  fdata->saved_fpr = -1;
+  fdata->alloca_reg = -1;
+  fdata->frameless = 1;
+  fdata->nosavedpc = 1;
 
   if (target_read_memory (pc, buf, 4))
     return pc;			/* Can't access it -- assume no prologue. */
-  op = extract_unsigned_integer (buf, 4);
 
   /* Assume that subsequent fetches can fail with low probability.  */
-
-  if (op == 0x7c0802a6) {		/* mflr r0 */
-    pc += 4;
-    op = read_memory_integer (pc, 4);
-  }
-
-  if ((op & 0xfc00003e) == 0x7c000026) { /* mfcr Rx */
-    pc += 4;
-    op = read_memory_integer (pc, 4);
-  }
-
-  if ((op & 0xfc000000) == 0x48000000) { /* bl foo, to save fprs??? */
-    pc += 4;
-    op = read_memory_integer (pc, 4);
-
-    /* At this point, make sure this is not a trampoline function
-       (a function that simply calls another functions, and nothing else).
-       If the next is not a nop, this branch was part of the function
-       prologue. */
-
-    if (op == 0x4def7b82 ||		/* crorc 15, 15, 15 */
-	op == 0x0)
-      return pc - 4;			/* don't skip over this branch */
-  }
-
-  if ((op & 0xfc1f0000) == 0xd8010000) { /* stfd Rx,NUM(r1) */
-    pc += 4;				 /* store floating register double */
-    op = read_memory_integer (pc, 4);
-  }
-
-  if ((op & 0xfc1f0000) == 0xbc010000) { /* stm Rx, NUM(r1) */
-    pc += 4;
-    op = read_memory_integer (pc, 4);
-  }
-
-  while (((tmp = op >> 16) == 0x9001) || /* st   r0, NUM(r1) */
-	 (tmp == 0x9421) ||		/* stu  r1, NUM(r1) */
-	 (tmp == 0x93e1)) 		/* st   r31,NUM(r1) */
-  {
-    pc += 4;
-    op = read_memory_integer (pc, 4);
-  }
-
-  while ((tmp = (op >> 22)) == 0x20f) {	/* l	r31, ... or */
-    pc += 4;				/* l	r30, ...    */
-    op = read_memory_integer (pc, 4);
-  }
-
-  /* store parameters into stack */
-  while(
-	(op & 0xfc1f0000) == 0xd8010000 || 	/* stfd Rx,NUM(r1) */
-	(op & 0xfc1f0000) == 0x90010000 ||	/* st r?, NUM(r1)  */
-	(op & 0xfc000000) == 0xfc000000 ||	/* frsp, fp?, .. */
-	(op & 0xd0000000) == 0xd0000000)	/* stfs, fp?, .. */
+  pc -= 4;
+  for (;;)
     {
-      pc += 4;					/* store fpr double */
+      pc += 4;
       op = read_memory_integer (pc, 4);
+
+      if ((op & 0xfc1fffff) == 0x7c0802a6) {		/* mflr Rx */
+	lr_reg = (op & 0x03e00000) | 0x90010000;
+	continue;
+
+      } else if ((op & 0xfc1fffff) == 0x7c000026) {	/* mfcr Rx */
+	cr_reg = (op & 0x03e00000) | 0x90010000;
+	continue;
+
+      } else if ((op & 0xfc1f0000) == 0xd8010000) {	/* stfd Rx,NUM(r1) */
+	reg = GET_SRC_REG (op);
+	if (fdata->saved_fpr == -1 || fdata->saved_fpr > reg) {
+	  fdata->saved_fpr = reg;
+	  fdata->fpr_offset = SIGNED_SHORT (op) + offset;
+	}
+	continue;
+
+      } else if (((op & 0xfc1f0000) == 0xbc010000) || 	/* stm Rx, NUM(r1) */
+		 ((op & 0xfc1f0000) == 0x90010000 &&	/* st rx,NUM(r1), rx >= r13 */
+		  (op & 0x03e00000) >= 0x01a00000)) {
+
+	reg = GET_SRC_REG (op);
+	if (fdata->saved_gpr == -1 || fdata->saved_gpr > reg) {
+	  fdata->saved_gpr = reg;
+	  fdata->gpr_offset = SIGNED_SHORT (op) + offset;
+	}
+	continue;
+
+      } else if ((op & 0xffff0000) == 0x3c000000) {	/* addis 0,0,NUM, used for >= 32k frames */
+	fdata->offset = (op & 0x0000ffff) << 16;
+	continue;
+
+      } else if ((op & 0xffff0000) == 0x60000000) {	/* ori 0,0,NUM, 2nd half of >= 32k frames */
+	fdata->offset |= (op & 0x0000ffff);
+	continue;
+
+      } else if ((op & 0xffff0000) == lr_reg) {		/* st Rx,NUM(r1) where Rx == lr */
+	fdata->lr_offset = SIGNED_SHORT (op) + offset;
+	fdata->nosavedpc = 0;
+	lr_reg = 0;
+	continue;
+
+      } else if ((op & 0xffff0000) == cr_reg) {		/* st Rx,NUM(r1) where Rx == cr */
+	fdata->cr_offset = SIGNED_SHORT (op) + offset;
+	cr_reg = 0;
+	continue;
+
+      } else if (op == 0x48000005) {			/* bl .+4 used in -mrelocatable */
+	continue;
+
+      } else if (((op & 0xffff0000) == 0x801e0000 ||	/* lwz 0,NUM(r30), used in V.4 -mrelocatable */
+		  op == 0x7fc0f214) &&			/* add r30,r0,r30, used in V.4 -mrelocatable */
+		 lr_reg == 0x901e0000) {
+	continue;
+
+      } else if ((op & 0xffff0000) == 0x3fc00000 ||	/* addis 30,0,foo@ha, used in V.4 -mminimal-toc */
+		 (op & 0xffff0000) == 0x3bde0000) {	/* addi 30,30,foo@l */
+	continue;
+
+      } else if ((op & 0xfc000000) == 0x48000000) {	/* bl foo, to save fprs??? */
+
+	/* Don't skip over the subroutine call if it is not within the first
+	   three instructions of the prologue.  */
+	if ((pc - orig_pc) > 8)
+	  break;
+
+	op = read_memory_integer (pc+4, 4);
+
+	/* At this point, make sure this is not a trampoline function
+	   (a function that simply calls another functions, and nothing else).
+	   If the next is not a nop, this branch was part of the function
+	   prologue. */
+
+	if (op == 0x4def7b82 || op == 0)		/* crorc 15, 15, 15 */
+	  break;					/* don't skip over this branch */
+
+	continue;
+
+      /* update stack pointer */
+      } else if ((op & 0xffff0000) == 0x94210000) {	/* stu r1,NUM(r1) */
+	fdata->offset = SIGNED_SHORT (op);
+	offset = fdata->offset;
+	continue;
+
+      } else if (op == 0x7c21016e) {			/* stwux 1,1,0 */
+	offset = fdata->offset;
+	continue;
+
+      /* Load up minimal toc pointer */
+      } else if ((op >> 22) == 0x20f) {			/* l r31,... or l r30,... */
+	continue;
+
+      /* store parameters in stack */
+      } else if ((op & 0xfc1f0000) == 0x90010000 ||	/* st rx,NUM(r1) */
+		 (op & 0xfc1f0000) == 0xd8010000 ||	/* stfd Rx,NUM(r1) */
+		 (op & 0xfc1f0000) == 0xfc010000) {	/* frsp, fp?,NUM(r1) */
+	continue;
+
+      /* store parameters in stack via frame pointer */
+      } else if (framep &&
+		 (op & 0xfc1f0000) == 0x901f0000 ||	/* st rx,NUM(r1) */
+		 (op & 0xfc1f0000) == 0xd81f0000 ||	/* stfd Rx,NUM(r1) */
+		 (op & 0xfc1f0000) == 0xfc1f0000) {	/* frsp, fp?,NUM(r1) */
+	continue;
+
+      /* Set up frame pointer */
+      } else if (op == 0x603f0000			/* oril r31, r1, 0x0 */
+		 || op == 0x7c3f0b78) {			/* mr r31, r1 */
+	framep = 1;
+	fdata->alloca_reg = 31;
+	continue;
+
+      } else {
+	break;
+      }
     }
 
-  if (op == 0x603f0000				/* oril r31, r1, 0x0 */
-      || op == 0x7c3f0b78) {			/* mr r31, r1 */
-    pc += 4;					/* this happens if r31 is used as */
-    op = read_memory_integer (pc, 4);		/* frame ptr. (gcc does that)	  */
-
-    tmp = 0;
-    while ((op >> 16) == (0x907f + tmp)) {	/* st r3, NUM(r31) */
-      pc += 4;					/* st r4, NUM(r31), ... */
-      op = read_memory_integer (pc, 4);
-      tmp += 0x20;
-    }
-  }
 #if 0
 /* I have problems with skipping over __main() that I need to address
  * sometime. Previously, I used to use misc_function_vector which
@@ -283,6 +376,8 @@ CORE_ADDR pc;
   }
 #endif /* 0 */
  
+  fdata->frameless = (pc == orig_pc);
+  fdata->offset = - fdata->offset;
   return pc;
 }
 
@@ -322,6 +417,8 @@ push_dummy_frame ()
 {
   /* stack pointer.  */
   CORE_ADDR sp;
+  /* Same thing, target byte order.  */
+  char sp_targ[4];
 
   /* link register.  */
   CORE_ADDR pc;
@@ -344,7 +441,7 @@ push_dummy_frame ()
   
   sp = read_register(SP_REGNUM);
   pc = read_register(PC_REGNUM);
-  memcpy (pc_targ, (char *) &pc, 4);
+  store_address (pc_targ, 4, pc);
 
   dummy_frame_addr [dummy_frame_count++] = sp;
 
@@ -383,7 +480,8 @@ push_dummy_frame ()
   }
 
   /* Save sp or so called back chain right here. */
-  write_memory (sp-DUMMY_FRAME_SIZE, &sp, 4);
+  store_address (sp_targ, 4, sp);
+  write_memory (sp-DUMMY_FRAME_SIZE, sp_targ, 4);
   sp -= DUMMY_FRAME_SIZE;
 
   /* And finally, this is the back chain. */
@@ -454,7 +552,7 @@ void
 pop_frame ()
 {
   CORE_ADDR pc, lr, sp, prev_sp;		/* %pc, %lr, %sp */
-  struct aix_framedata fdata;
+  struct rs6000_framedata fdata;
   struct frame_info *frame = get_current_frame ();
   int addr, ii;
 
@@ -474,16 +572,16 @@ pop_frame ()
      saved %pc value in the previous frame. */
 
   addr = get_pc_function_start (frame->pc) + FUNCTION_START_OFFSET;
-  function_frame_info (addr, &fdata);
+  (void) skip_prologue (addr, &fdata);
 
   if (fdata.frameless)
     prev_sp = sp;
   else
     prev_sp = read_memory_integer (sp, 4);
-  if (fdata.nosavedpc)
+  if (fdata.lr_offset == 0)
     lr = read_register (LR_REGNUM);
   else
-    lr = read_memory_integer (prev_sp+8, 4);
+    lr = read_memory_integer (prev_sp + fdata.lr_offset, 4);
 
   /* reset %pc value. */
   write_register (PC_REGNUM, lr);
@@ -546,147 +644,6 @@ fix_call_dummy(dummyname, pc, fun, nargs, type)
   *(int*)((char*)dummyname + TARGET_ADDR_OFFSET+4) = ii;
 }
 
-
-/* return information about a function frame.
-   in struct aix_frameinfo fdata:
-    - frameless is TRUE, if function does not have a frame.
-    - nosavedpc is TRUE, if function does not save %pc value in its frame.
-    - offset is the number of bytes used in the frame to save registers.
-    - saved_gpr is the number of the first saved gpr.
-    - saved_fpr is the number of the first saved fpr.
-    - alloca_reg is the number of the register used for alloca() handling.
-      Otherwise -1.
- */
-void
-function_frame_info (pc, fdata)
-  CORE_ADDR pc;
-  struct aix_framedata *fdata;
-{
-  unsigned int tmp;
-  register unsigned int op;
-  char buf[4];
-
-  fdata->offset = 0;
-  fdata->saved_gpr = fdata->saved_fpr = fdata->alloca_reg = -1;
-  fdata->frameless = 1;
-
-  /* Do not error out if we can't access the instructions.  */
-  if (target_read_memory (pc, buf, 4))
-    return;
-  op = extract_unsigned_integer (buf, 4);
-  if (op == 0x7c0802a6) {		/* mflr r0 */
-    pc += 4;
-    op = read_memory_integer (pc, 4);
-    fdata->nosavedpc = 0;
-    fdata->frameless = 0;
-  }
-  else				/* else, pc is not saved */
-    fdata->nosavedpc = 1;
-
-  if ((op & 0xfc00003e) == 0x7c000026) { /* mfcr Rx */
-    pc += 4;
-    op = read_memory_integer (pc, 4);
-    fdata->frameless = 0;
-  }
-
-  if ((op & 0xfc000000) == 0x48000000) { /* bl foo, to save fprs??? */
-    pc += 4;
-    op = read_memory_integer (pc, 4);
-    /* At this point, make sure this is not a trampoline function
-       (a function that simply calls another functions, and nothing else).
-       If the next is not a nop, this branch was part of the function
-       prologue. */
-
-    if (op == 0x4def7b82 ||		/* crorc 15, 15, 15 */
-	op == 0x0)
-      return;				/* prologue is over */
-    fdata->frameless = 0;
-  }
-
-  if ((op & 0xfc1f0000) == 0xd8010000) { /* stfd Rx,NUM(r1) */
-    pc += 4;				 /* store floating register double */
-    op = read_memory_integer (pc, 4);
-    fdata->frameless = 0;
-  }
-
-  if ((op & 0xfc1f0000) == 0xbc010000) { /* stm Rx, NUM(r1) */
-    int tmp2;
-    fdata->saved_gpr = (op >> 21) & 0x1f;
-    tmp2 = op & 0xffff;
-    if (tmp2 > 0x7fff)
-      tmp2 = (~0 &~ 0xffff) | tmp2;
-
-    if (tmp2 < 0) {
-      tmp2 = tmp2 * -1;
-      fdata->saved_fpr = (tmp2 - ((32 - fdata->saved_gpr) * 4)) / 8;
-      if ( fdata->saved_fpr > 0)
-        fdata->saved_fpr = 32 - fdata->saved_fpr;
-      else
-        fdata->saved_fpr = -1;
-    }
-    fdata->offset = tmp2;
-    pc += 4;
-    op = read_memory_integer (pc, 4);
-    fdata->frameless = 0;
-  }
-
-  while (((tmp = op >> 16) == 0x9001) ||	/* st   r0, NUM(r1) */
-	 (tmp == 0x9421) ||			/* stu  r1, NUM(r1) */
-	 (tmp == 0x93e1))			/* st r31, NUM(r1) */
-  {
-    int tmp2;
-
-    /* gcc takes a short cut and uses this instruction to save r31 only. */
-
-    if (tmp == 0x93e1) {
-      if (fdata->offset)
-/*        fatal ("Unrecognized prolog."); */
-        printf_unfiltered ("Unrecognized prolog!\n");
-
-      fdata->saved_gpr = 31;
-      tmp2 = op & 0xffff;
-      if (tmp2 > 0x7fff) {
-	tmp2 = - ((~0 &~ 0xffff) | tmp2);
-	fdata->saved_fpr = (tmp2 - ((32 - 31) * 4)) / 8;
-	if ( fdata->saved_fpr > 0)
-	  fdata->saved_fpr = 32 - fdata->saved_fpr;
-	else
-	  fdata->saved_fpr = -1;
-      }
-      fdata->offset = tmp2;
-    }
-    pc += 4;
-    op = read_memory_integer (pc, 4);
-    fdata->frameless = 0;
-  }
-
-  while ((tmp = (op >> 22)) == 0x20f) {	/* l	r31, ... or */
-    pc += 4;				/* l	r30, ...    */
-    op = read_memory_integer (pc, 4);
-    fdata->frameless = 0;
-  }
-
-  /* store parameters into stack */
-  while(
-	(op & 0xfc1f0000) == 0xd8010000 || 	/* stfd Rx,NUM(r1) */
-	(op & 0xfc1f0000) == 0x90010000 ||	/* st r?, NUM(r1)  */
-	(op & 0xfc000000) == 0xfc000000 ||	/* frsp, fp?, .. */
-	(op & 0xd0000000) == 0xd0000000)	/* stfs, fp?, .. */
-    {
-      pc += 4;					/* store fpr double */
-      op = read_memory_integer (pc, 4);
-      fdata->frameless = 0;
-    }
-
-  if (op == 0x603f0000				/* oril r31, r1, 0x0 */
-      || op == 0x7c3f0b78)			/* mr r31, r1 */
-    {
-      fdata->alloca_reg = 31;
-      fdata->frameless = 0;
-    }
-}
-
-
 /* Pass the arguments in either registers, or in the stack. In RS6000, the first
    eight words of the argument list (that might be less than eight parameters if
    some parameters occupy more than one word) are passed in r3..r11 registers.
@@ -731,7 +688,7 @@ push_arguments (nargs, args, sp, struct_return, struct_addr)
 
   for (argno=0, argbytes=0; argno < nargs && ii<8; ++ii) {
 
-    arg = value_arg_coerce (args[argno]);
+    arg = args[argno];
     len = TYPE_LENGTH (VALUE_TYPE (arg));
 
     if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_FLT) {
@@ -796,7 +753,7 @@ ran_out_of_registers_for_arguments:
       jj = argno;
 
     for (; jj < nargs; ++jj) {
-      val = value_arg_coerce (args[jj]);
+      val = args[jj];
       space += ((TYPE_LENGTH (VALUE_TYPE (val))) + 3) & -4;
     }
 
@@ -824,7 +781,7 @@ ran_out_of_registers_for_arguments:
     /* push the rest of the arguments into stack. */
     for (; argno < nargs; ++argno) {
 
-      arg = value_arg_coerce (args[argno]);
+      arg = args[argno];
       len = TYPE_LENGTH (VALUE_TYPE (arg));
 
 
@@ -852,7 +809,9 @@ ran_out_of_registers_for_arguments:
   read_memory (saved_sp, tmp_buffer, 24);
   write_memory (sp, tmp_buffer, 24);
 
-    write_memory (sp, &saved_sp, 4);	/* set back chain properly */
+  /* set back chain properly */
+  store_address (tmp_buffer, 4, saved_sp);
+  write_memory (sp, tmp_buffer, 4);
 
   target_store_registers (-1);
   return sp;
@@ -940,18 +899,13 @@ CORE_ADDR pc;
 }
 
 
-/* Determines whether the function FI has a frame on the stack or not.
-   Called from the FRAMELESS_FUNCTION_INVOCATION macro in tm.h with a
-   second argument of 0, and from the FRAME_SAVED_PC macro with a
-   second argument of 1.  */
-
+/* Determines whether the function FI has a frame on the stack or not.  */
 int
-frameless_function_invocation (fi, pcsaved)
-struct frame_info *fi;
-int pcsaved;
+frameless_function_invocation (fi)
+     struct frame_info *fi;
 {
   CORE_ADDR func_start;
-  struct aix_framedata fdata;
+  struct rs6000_framedata fdata;
 
   if (fi->next != NULL)
     /* Don't even think about framelessness except on the innermost frame.  */
@@ -967,30 +921,59 @@ int pcsaved;
   if (!func_start)
     return 0;
 
-  function_frame_info (func_start, &fdata);
-  return pcsaved ? fdata.nosavedpc : fdata.frameless;
+  (void) skip_prologue (func_start, &fdata);
+  return fdata.frameless;
 }
 
+/* Return the PC saved in a frame */
+unsigned long
+frame_saved_pc (fi)
+     struct frame_info *fi;
+{
+  CORE_ADDR func_start;
+  struct rs6000_framedata fdata;
+  int frameless;
+
+  if (fi->signal_handler_caller)
+    return read_memory_integer (fi->frame + SIG_FRAME_PC_OFFSET, 4);
+
+  func_start = get_pc_function_start (fi->pc) + FUNCTION_START_OFFSET;
+
+  /* If we failed to find the start of the function, it is a mistake
+     to inspect the instructions. */
+  if (!func_start)
+    return 0;
+
+  (void) skip_prologue (func_start, &fdata);
+
+  if (fdata.lr_offset == 0 && fi->next != NULL)
+    return read_memory_integer (rs6000_frame_chain (fi) + DEFAULT_LR_SAVE, 4);
+
+  if (fdata.lr_offset == 0)
+    return read_register (LR_REGNUM);
+
+  return read_memory_integer (rs6000_frame_chain (fi) + fdata.lr_offset, 4);
+}
 
 /* If saved registers of frame FI are not known yet, read and cache them.
-   &FDATAP contains aix_framedata; TDATAP can be NULL,
+   &FDATAP contains rs6000_framedata; TDATAP can be NULL,
    in which case the framedata are read.  */
 
 static void
 frame_get_cache_fsr (fi, fdatap)
      struct frame_info *fi;
-     struct aix_framedata *fdatap;
+     struct rs6000_framedata *fdatap;
 {
   int ii;
   CORE_ADDR frame_addr; 
-  struct aix_framedata work_fdata;
+  struct rs6000_framedata work_fdata;
 
   if (fi->cache_fsr)
     return;
   
   if (fdatap == NULL) {
     fdatap = &work_fdata;
-    function_frame_info (get_pc_function_start (fi->pc), fdatap);
+    (void) skip_prologue (get_pc_function_start (fi->pc), fdatap);
   }
 
   fi->cache_fsr = (struct frame_saved_regs *)
@@ -1003,22 +986,36 @@ frame_get_cache_fsr (fi, fdatap)
     frame_addr = read_memory_integer (fi->frame, 4);
   
   /* if != -1, fdatap->saved_fpr is the smallest number of saved_fpr.
-     All fpr's from saved_fpr to fp31 are saved right underneath caller
-     stack pointer, starting from fp31 first. */
+     All fpr's from saved_fpr to fp31 are saved.  */
 
   if (fdatap->saved_fpr >= 0) {
-    for (ii=31; ii >= fdatap->saved_fpr; --ii)
-      fi->cache_fsr->regs [FP0_REGNUM + ii] = frame_addr - ((32 - ii) * 8);
-    frame_addr -= (32 - fdatap->saved_fpr) * 8;
+    int fpr_offset = frame_addr + fdatap->fpr_offset;
+    for (ii = fdatap->saved_fpr; ii < 32; ii++) {
+      fi->cache_fsr->regs [FP0_REGNUM + ii] = fpr_offset;
+      fpr_offset += 8;
+    }
   }
 
   /* if != -1, fdatap->saved_gpr is the smallest number of saved_gpr.
-     All gpr's from saved_gpr to gpr31 are saved right under saved fprs,
-     starting from r31 first. */
+     All gpr's from saved_gpr to gpr31 are saved.  */
   
-  if (fdatap->saved_gpr >= 0)
-    for (ii=31; ii >= fdatap->saved_gpr; --ii)
-      fi->cache_fsr->regs [ii] = frame_addr - ((32 - ii) * 4);
+  if (fdatap->saved_gpr >= 0) {
+    int gpr_offset = frame_addr + fdatap->gpr_offset;
+    for (ii = fdatap->saved_gpr; ii < 32; ii++) {
+      fi->cache_fsr->regs [ii] = gpr_offset;
+      gpr_offset += 4;
+    }
+  }
+
+  /* If != 0, fdatap->cr_offset is the offset from the frame that holds
+     the CR.  */
+  if (fdatap->cr_offset != 0)
+    fi->cache_fsr->regs [CR_REGNUM] = frame_addr + fdatap->cr_offset;
+
+  /* If != 0, fdatap->lr_offset is the offset from the frame that holds
+     the LR.  */
+  if (fdatap->lr_offset != 0)
+    fi->cache_fsr->regs [LR_REGNUM] = frame_addr + fdatap->lr_offset;
 }
 
 /* Return the address of a frame. This is the inital %sp value when the frame
@@ -1030,7 +1027,7 @@ frame_initial_stack_address (fi)
      struct frame_info *fi;
 {
   CORE_ADDR tmpaddr;
-  struct aix_framedata fdata;
+  struct rs6000_framedata fdata;
   struct frame_info *callee_fi;
 
   /* if the initial stack pointer (frame address) of this frame is known,
@@ -1041,7 +1038,7 @@ frame_initial_stack_address (fi)
 
   /* find out if this function is using an alloca register.. */
 
-  function_frame_info (get_pc_function_start (fi->pc), &fdata);
+  (void) skip_prologue (get_pc_function_start (fi->pc), &fdata);
 
   /* if saved registers of this frame are not known yet, read and cache them. */
 
@@ -1150,7 +1147,8 @@ free_loadinfo ()
 /* this is called from xcoffread.c */
 
 void
-xcoff_add_toc_to_loadinfo (unsigned long tocoff)
+xcoff_add_toc_to_loadinfo (tocoff)
+     unsigned long tocoff;
 {
   while (loadinfotocindex >= loadinfolen) {
     loadinfolen += LOADINFOLEN;
@@ -1176,10 +1174,12 @@ add_text_to_loadinfo (textaddr, dataaddr)
 }
 
 
-/* FIXME:  This assumes that the "textorg" and "dataorg" elements
+/* Note that this assumes that the "textorg" and "dataorg" elements
    of a member of this array are correlated with the "toc_offset"
-   element of the same member.  But they are sequentially assigned in wildly
-   different places, and probably there is no correlation.  FIXME!  */
+   element of the same member.  This is taken care of because the loops
+   which assign the former (in xcoff_relocate_symtab or xcoff_relocate_core)
+   and the latter (in scan_xcoff_symtab, via vmap_symtab, in vmap_ldinfo
+   or xcoff_relocate_core) traverse the same objfiles in the same order.  */
 
 static CORE_ADDR
 find_toc_address (pc)
@@ -1196,12 +1196,25 @@ find_toc_address (pc)
   return loadinfo[toc_entry].dataorg + loadinfo[toc_entry].toc_offset;
 }
 
+#ifdef GDB_TARGET_POWERPC
+int
+gdb_print_insn_powerpc (memaddr, info)
+     bfd_vma memaddr;
+     disassemble_info *info;
+{
+  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+    return print_insn_big_powerpc (memaddr, info);
+  else
+    return print_insn_little_powerpc (memaddr, info);
+}
+#endif
+
 void
 _initialize_rs6000_tdep ()
 {
   /* FIXME, this should not be decided via ifdef. */
 #ifdef GDB_TARGET_POWERPC
-  tm_print_insn = print_insn_big_powerpc;
+  tm_print_insn = gdb_print_insn_powerpc;
 #else
   tm_print_insn = print_insn_rs6000;
 #endif

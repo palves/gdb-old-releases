@@ -1,5 +1,5 @@
 /* Select disassembly routine for specified architecture.
-   Copyright 1994 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "ansidecl.h"
 #include "dis-asm.h"
@@ -63,7 +63,10 @@ disassembler (abfd)
 #endif
 #ifdef ARCH_arm
     case bfd_arch_arm:
-      disassemble = print_insn_arm;
+      if (abfd->xvec->byteorder_big_p)
+	disassemble = print_insn_big_arm;
+      else
+	disassemble = print_insn_little_arm;
       break;
 #endif
 #ifdef ARCH_h8300

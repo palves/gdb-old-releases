@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Remote communication protocol.
 
@@ -135,7 +135,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	"0* " means the same as "0000".  */
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include <fcntl.h>
 #include "frame.h"
 #include "inferior.h"
@@ -1196,7 +1196,7 @@ putpkt (buf)
 		case '$':
 		  if (started_error_output)
 		    {
-		      putc_unfiltered ('\n');
+		      putchar_unfiltered ('\n');
 		      started_error_output = 0;
 		    }
 		}
@@ -1227,7 +1227,7 @@ putpkt (buf)
 		      started_error_output = 1;
 		      printf_unfiltered ("putpkt: Junk: ");
 		    }
-		  putc_unfiltered (ch & 0177);
+		  putchar_unfiltered (ch & 0177);
 		}
 	      continue;
 	    }
@@ -1425,9 +1425,6 @@ remote_mourn ()
    than other targets.  */
 static unsigned char break_insn[] = REMOTE_BREAKPOINT;
 
-/* Check that it fits in BREAKPOINT_MAX bytes.  */
-static unsigned char check_break_insn_size[BREAKPOINT_MAX] = REMOTE_BREAKPOINT;
-
 #else /* No REMOTE_BREAKPOINT.  */
 
 /* Same old breakpoint instruction.  This code does nothing different
@@ -1502,6 +1499,7 @@ Specify the serial device it is connected to (e.g. /dev/ttya) or telnet port.", 
   remote_mourn,			/* to_mourn_inferior */
   0,				/* to_can_run */
   0,				/* to_notice_signals */
+  0,				/* to_thread_alive */
   0,				/* to_stop */
   process_stratum,		/* to_stratum */
   NULL,				/* to_next */

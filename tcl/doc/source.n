@@ -1,0 +1,34 @@
+'\"
+'\" Copyright (c) 1993 The Regents of the University of California.
+'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\"
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+'\" 
+'\" @(#) source.n 1.2 94/12/17 16:18:48
+'\" 
+.so man.macros
+.HS source tcl
+.BS
+'\" Note:  do not modify the .SH NAME line immediately below!
+.SH NAME
+source \- Evaluate a file as a Tcl script
+.SH SYNOPSIS
+\fBsource \fIfileName\fR
+.BE
+
+.SH DESCRIPTION
+.PP
+Read file \fIfileName\fR and pass the contents to the Tcl interpreter
+as a script to evaluate in the normal fashion.  The return
+value from \fBsource\fR is the return value of the last command executed
+from the file.  If an error occurs in evaluating the contents of the
+file then the \fBsource\fR command will return that error.
+If a \fBreturn\fR command is invoked from within the file then the remainder of
+the file will be skipped and the \fBsource\fR command will return
+normally with the result from the \fBreturn\fR command.
+If \fIfileName\fR starts with a tilde, then it is tilde-substituted
+as described in the \fBTcl_TildeSubst\fR manual entry.
+
+.SH KEYWORDS
+file, script

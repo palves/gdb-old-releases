@@ -15,14 +15,14 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
    Written by the Center for Software Science at the University of Utah
    and by Cygnus Support.  */
 
 #include "defs.h"
 #include "bfd.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "hp-symtab.h"
 #include "syms.h"
 #include "symtab.h"
@@ -99,29 +99,30 @@ struct hpread_symfile_info
     } \
   else \
     *NAMEP = (SYM)->dsfile.name + VT (OBJFILE)
+
+/* We put a pointer to this structure in the read_symtab_private field
+   of the psymtab.  */
 
-/* Each partial symbol table entry contains a pointer to private data for the
-   read_symtab() function to use when expanding a partial symbol table entry
-   to a full symbol table entry.
+struct symloc
+{
+  /* The offset within the file symbol table of first local symbol for
+     this file.  */
 
-   For hpuxread this structure contains the offset within the file symbol table
-   of first local symbol for this file, and length (in bytes) of the section
-   of the symbol table devoted to this file's symbols (actually, the section
-   bracketed may contain more than just this file's symbols).
+  int ldsymoff;
 
-   If ldsymlen is 0, the only reason for this thing's existence is the
-   dependency list.  Nothing else will happen when it is read in.  */
+  /* Length (in bytes) of the section of the symbol table devoted to
+     this file's symbols (actually, the section bracketed may contain
+     more than just this file's symbols).  If ldsymlen is 0, the only
+     reason for this thing's existence is the dependency list.
+     Nothing else will happen when it is read in.  */
+
+  int ldsymlen;
+};
 
 #define LDSYMOFF(p) (((struct symloc *)((p)->read_symtab_private))->ldsymoff)
 #define LDSYMLEN(p) (((struct symloc *)((p)->read_symtab_private))->ldsymlen)
 #define SYMLOC(p) ((struct symloc *)((p)->read_symtab_private))
-
-struct symloc
-{
-  int ldsymoff;
-  int ldsymlen;
-};
-
+
 /* FIXME: Shouldn't this stuff be in a .h file somewhere?  */
 /* Nonzero means give verbose info on gdb action.  */
 extern int info_verbose;
@@ -174,7 +175,8 @@ static void hpread_process_one_debug_symbol
 	   struct objfile *, CORE_ADDR, int, char *, int));
 
 static sltpointer hpread_record_lines
-  PARAMS ((struct subfile *, sltpointer, sltpointer, struct objfile *));
+  PARAMS ((struct subfile *, sltpointer, sltpointer,
+	   struct objfile *, CORE_ADDR));
 
 static struct type *hpread_read_function_type
   PARAMS ((dnttpointer, union dnttentry *, struct objfile *));
@@ -448,7 +450,6 @@ hpread_build_psymtabs (objfile, section_offsets, mainline)
 
 		if (pst && past_first_source_file)
 		  {
-		    texthigh += ANOFFSET (section_offsets, SECT_OFF_TEXT);
 		    hpread_end_psymtab (pst, psymtab_include_list,
 					includes_used,
 					(hp_symnum
@@ -498,10 +499,12 @@ hpread_build_psymtabs (objfile, section_offsets, mainline)
 	    case DNTT_TYPE_ENTRY:
 	      /* The beginning of a function.  DNTT_TYPE_ENTRY may also denote
 		 a secondary entry point.  */
+	      valu = dn_bufp->dfunc.hiaddr + ANOFFSET (section_offsets,
+						       SECT_OFF_TEXT);
+	      if (valu > texthigh)
+		texthigh = valu;
 	      valu = dn_bufp->dfunc.lowaddr +
 		ANOFFSET (section_offsets, SECT_OFF_TEXT);
-	      if (dn_bufp->dfunc.hiaddr > texthigh)
-		texthigh = dn_bufp->dfunc.hiaddr;
 	      SET_NAMESTRING (dn_bufp, &namestring, objfile);
 	      ADD_PSYMBOL_TO_LIST (namestring, strlen (namestring),
 				   VAR_NAMESPACE, LOC_BLOCK,
@@ -515,7 +518,6 @@ hpread_build_psymtabs (objfile, section_offsets, mainline)
 		 and file blocks right now.  */
 	      if (dn_bufp->dend.endkind == DNTT_TYPE_MODULE)
 		{
-		  texthigh += ANOFFSET (section_offsets, SECT_OFF_TEXT);
 		  hpread_end_psymtab (pst, psymtab_include_list, includes_used,
 				      (hp_symnum
 				       * sizeof (struct dntt_type_block)),
@@ -1602,8 +1604,9 @@ hpread_read_subrange_type (hp_type, dn_bufp, objfile)
   TYPE_CODE (type) = TYPE_CODE_RANGE;
   TYPE_LENGTH (type) = dn_bufp->dsubr.bitlength / 8;
   TYPE_NFIELDS (type) = 2;
-  TYPE_FIELDS (type) = (struct field *) obstack_alloc
-    (&objfile->type_obstack, 2 * sizeof (struct field));
+  TYPE_FIELDS (type)
+    = (struct field *) obstack_alloc (&objfile->type_obstack,
+				      2 * sizeof (struct field));
 
   if (dn_bufp->dsubr.dyn_low)
     TYPE_FIELD_BITPOS (type, 0) = 0;
@@ -1738,10 +1741,11 @@ hpread_type_lookup (hp_type, objfile)
 }
 
 static sltpointer
-hpread_record_lines (subfile, s_idx, e_idx, objfile)
+hpread_record_lines (subfile, s_idx, e_idx, objfile, offset)
      struct subfile *subfile;
      sltpointer s_idx, e_idx;
      struct objfile *objfile;
+     CORE_ADDR offset;
 {
   union sltentry *sl_bufp;
 
@@ -1751,7 +1755,8 @@ hpread_record_lines (subfile, s_idx, e_idx, objfile)
       /* Only record "normal" entries in the SLT.  */
       if (sl_bufp->snorm.sltdesc == SLT_NORMAL
 	  || sl_bufp->snorm.sltdesc == SLT_EXIT)
-	record_line (subfile, sl_bufp->snorm.line, sl_bufp->snorm.address);
+	record_line (subfile, sl_bufp->snorm.line,
+		     sl_bufp->snorm.address + offset);
       s_idx++;
     }
   return e_idx;
@@ -1808,14 +1813,19 @@ hpread_process_one_debug_symbol (dn_bufp, name, section_offsets, objfile,
          finish the symbol table of the previous source file
          (if any) and start accumulating a new symbol table.  */
 
-      valu = text_offset + offset;	/* Relocate for dynamic loading */
+      valu = text_offset;
       if (!last_source_file)
-	start_symtab (name, NULL, valu);
-
-      SL_INDEX (objfile) = hpread_record_lines (current_subfile,
-						SL_INDEX (objfile),
-						dn_bufp->dsfile.address,
-						objfile);
+	{
+	  start_symtab (name, NULL, valu);
+	  SL_INDEX (objfile) = dn_bufp->dsfile.address;
+	}
+      else
+	{
+	  SL_INDEX (objfile) = hpread_record_lines (current_subfile,
+						    SL_INDEX (objfile),
+						    dn_bufp->dsfile.address,
+						    objfile, offset);
+	}
       start_subfile (name, NULL);
       break;
       
@@ -1830,7 +1840,7 @@ hpread_process_one_debug_symbol (dn_bufp, name, section_offsets, objfile,
       SL_INDEX (objfile) = hpread_record_lines (current_subfile,
 						SL_INDEX (objfile),
 						dn_bufp->dfunc.address,
-						objfile);
+						objfile, offset);
       
       WITHIN_FUNCTION (objfile) = 1;
       CURRENT_FUNCTION_VALUE (objfile) = valu;
@@ -1858,7 +1868,7 @@ hpread_process_one_debug_symbol (dn_bufp, name, section_offsets, objfile,
       SL_INDEX (objfile) = hpread_record_lines (current_subfile,
 						SL_INDEX (objfile),
 						dn_bufp->dbegin.address,
-						objfile);
+						objfile, offset);
       SYMBOL_LINE (sym) = hpread_get_line (dn_bufp->dbegin.address, objfile);
       record_line (current_subfile, SYMBOL_LINE (sym), valu);
       break;
@@ -1868,7 +1878,7 @@ hpread_process_one_debug_symbol (dn_bufp, name, section_offsets, objfile,
       SL_INDEX (objfile) = hpread_record_lines (current_subfile,
 						SL_INDEX (objfile),
 						dn_bufp->dbegin.address,
-						objfile);
+						objfile, offset);
       valu = hpread_get_location (dn_bufp->dbegin.address, objfile);
       valu += offset;		/* Relocate for dynamic loading */
       desc = hpread_get_depth (dn_bufp->dbegin.address, objfile);
@@ -1880,7 +1890,7 @@ hpread_process_one_debug_symbol (dn_bufp, name, section_offsets, objfile,
       SL_INDEX (objfile) = hpread_record_lines (current_subfile,
 						SL_INDEX (objfile),
 						dn_bufp->dend.address + 1,
-						objfile);
+						objfile, offset);
       switch (dn_bufp->dend.endkind)
 	{
 	case DNTT_TYPE_MODULE:

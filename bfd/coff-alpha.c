@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -1253,7 +1253,8 @@ alpha_convert_external_reloc (output_bfd, info, input_bfd, ext_rel, h)
 
   BFD_ASSERT (info->relocateable);
 
-  if (h->root.type == bfd_link_hash_defined)
+  if (h->root.type == bfd_link_hash_defined
+      || h->root.type == bfd_link_hash_defweak)
     {
       asection *hsec;
       const char *name;
@@ -1636,7 +1637,8 @@ alpha_relocate_section (output_bfd, info, input_bfd, input_section,
 
 	      if (! info->relocateable)
 		{
-		  if (h->root.type == bfd_link_hash_defined)
+		  if (h->root.type == bfd_link_hash_defined
+		      || h->root.type == bfd_link_hash_defweak)
 		    addend = (h->root.u.def.value
 			      + h->root.u.def.section->output_section->vma
 			      + h->root.u.def.section->output_offset);
@@ -1656,6 +1658,7 @@ alpha_relocate_section (output_bfd, info, input_bfd, input_section,
 	      else
 		{
 		  if (h->root.type != bfd_link_hash_defined
+		      && h->root.type != bfd_link_hash_defweak
 		      && h->indx == -1)
 		    {
 		      /* This symbol is not being written out.  Pass
@@ -1785,6 +1788,7 @@ alpha_relocate_section (output_bfd, info, input_bfd, input_section,
 	      if (r_extern)
 		{
 		  if (h->root.type != bfd_link_hash_defined
+		      && h->root.type != bfd_link_hash_defweak
 		      && h->indx == -1)
 		    {
 		      /* This symbol is not being written out.  */
@@ -1833,7 +1837,8 @@ alpha_relocate_section (output_bfd, info, input_bfd, input_section,
 	      if (r_extern)
 		{
 		  /* This is a reloc against a symbol.  */
-		  if (h->root.type == bfd_link_hash_defined)
+		  if (h->root.type == bfd_link_hash_defined
+		      || h->root.type == bfd_link_hash_defweak)
 		    {
 		      asection *hsec;
 

@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Definitions, prototypes, etc for stabs debugging format support
    functions.
@@ -166,7 +166,19 @@ finish_global_stabs PARAMS ((struct objfile *objfile));
 
 EXTERN int os9k_stabs;
 
-/* Functions exported by dbxread.c.  These are not in stabsread.h because
+/* COFF files can have multiple .stab sections, if they are linked
+   using --split-by-reloc.  This linked list is used to pass the
+   information into the functions in dbxread.c.  */
+struct stab_section_list
+{
+  /* Next in list.  */
+  struct stab_section_list *next;
+
+  /* Stab section.  */
+  asection *section;
+};
+
+/* Functions exported by dbxread.c.  These are not in stabsread.c because
    they are only used by some stabs readers.  */
 
 extern struct partial_symtab *
@@ -194,7 +206,8 @@ extern void coffstab_build_psymtabs
   PARAMS ((struct objfile *objfile,
 	   struct section_offsets *section_offsets,
 	   int mainline,
-	   file_ptr staboff, unsigned int stabsize,
+	   CORE_ADDR textaddr, unsigned int textsize,
+	   struct stab_section_list *stabs,
 	   file_ptr stabstroffset,
 	   unsigned int stabstrsize));
 

@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "inferior.h"
@@ -26,6 +26,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "objfiles.h"
 #include "libbfd.h"  /* For bfd_cache_lookup (FIXME) */
 #include "bfd.h"
+#include "gdb-stabs.h"
 
 #include <sys/ptrace.h>
 #include <sys/reg.h>
@@ -39,7 +40,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <a.out.h>
 #include <sys/file.h>
-#include <sys/stat.h>
+#include "gdb_stat.h"
 #include <sys/core.h>
 #include <sys/ldr.h>
 
@@ -285,9 +286,6 @@ vmap_symtab (vp)
      register struct vmap *vp;
 {
   register struct objfile *objfile;
-  asection *textsec;
-  asection *datasec;
-  asection *bsssec;
   CORE_ADDR text_delta;
   CORE_ADDR data_delta;
   CORE_ADDR bss_delta;
@@ -312,48 +310,19 @@ vmap_symtab (vp)
   for (i = 0; i < objfile->num_sections; ++i)
     ANOFFSET (new_offsets, i) = ANOFFSET (objfile->section_offsets, i);
   
-  textsec = bfd_get_section_by_name (vp->bfd, ".text");
   text_delta =
-    vp->tstart - ANOFFSET (objfile->section_offsets, textsec->target_index);
-  ANOFFSET (new_offsets, textsec->target_index) = vp->tstart;
+    vp->tstart - ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT);
+  ANOFFSET (new_offsets, SECT_OFF_TEXT) = vp->tstart;
 
-  datasec = bfd_get_section_by_name (vp->bfd, ".data");
   data_delta =
-    vp->dstart - ANOFFSET (objfile->section_offsets, datasec->target_index);
-  ANOFFSET (new_offsets, datasec->target_index) = vp->dstart;
+    vp->dstart - ANOFFSET (objfile->section_offsets, SECT_OFF_DATA);
+  ANOFFSET (new_offsets, SECT_OFF_DATA) = vp->dstart;
   
-  bsssec = bfd_get_section_by_name (vp->bfd, ".bss");
   bss_delta =
-    vp->dstart - ANOFFSET (objfile->section_offsets, bsssec->target_index);
-  ANOFFSET (new_offsets, bsssec->target_index) = vp->dstart;
+    vp->dstart - ANOFFSET (objfile->section_offsets, SECT_OFF_BSS);
+  ANOFFSET (new_offsets, SECT_OFF_BSS) = vp->dstart;
 
   objfile_relocate (objfile, new_offsets);
-
-  {
-    struct obj_section *s;
-    for (s = objfile->sections; s < objfile->sections_end; ++s)
-      {
-	if (s->the_bfd_section->target_index == textsec->target_index)
-	  {
-	    s->addr += text_delta;
-	    s->endaddr += text_delta;
-	  }
-	else if (s->the_bfd_section->target_index == datasec->target_index)
-	  {
-	    s->addr += data_delta;
-	    s->endaddr += data_delta;
-	  }
-	else if (s->the_bfd_section->target_index == bsssec->target_index)
-	  {
-	    s->addr += bss_delta;
-	    s->endaddr += bss_delta;
-	  }
-      }
-  }
-  
-  if (text_delta != 0)
-    /* breakpoints need to be relocated as well. */
-    fixup_breakpoints (0, TEXT_SEGMENT_BASE, text_delta);
 }
 
 /* Add symbols for an objfile.  */
@@ -465,8 +434,8 @@ vmap_ldinfo (ldi)
 {
   struct stat ii, vi;
   register struct vmap *vp;
-  register got_one, retried;
-  CORE_ADDR ostart;
+  int got_one, retried;
+  int got_exec_file;
 
   /* For each *ldi, see if we have a corresponding *vp.
      If so, update the mapping, and symbol table.
@@ -483,8 +452,6 @@ vmap_ldinfo (ldi)
   retry:
     for (got_one = 0, vp = vmap; vp; vp = vp->nxt)
       {
-	FILE *io;
-
 	/* First try to find a `vp', which is the same as in ldinfo.
 	   If not the same, just continue and grep the next `vp'. If same,
 	   relocate its tstart, tend, dstart, dend values. If no such `vp'
@@ -497,14 +464,14 @@ vmap_ldinfo (ldi)
 	    || (memb[0] && !STREQ(memb, vp->member)))
 	  continue;
 
-	io = bfd_cache_lookup (vp->bfd);		/* totally opaque! */
-	if (!io)
-	  fatal ("cannot find BFD's iostream for %s", vp->name);
-
 	/* See if we are referring to the same file. */
-	/* An error here is innocuous, most likely meaning that
-	   the file descriptor has become worthless. */
-	if (fstat (fileno(io), &vi) < 0)
+	if (bfd_stat (vp->bfd, &vi) < 0)
+	  /* An error here is innocuous, most likely meaning that
+	     the file descriptor has become worthless.
+	     FIXME: What does it mean for a file descriptor to become
+	     "worthless"?  What makes it happen?  What error does it
+	     produce (ENOENT? others?)?  Should we at least provide
+	     a warning?  */
 	  continue;
 
 	if (ii.st_dev != vi.st_dev || ii.st_ino != vi.st_ino)
@@ -515,8 +482,7 @@ vmap_ldinfo (ldi)
 
 	++got_one;
 
-	/* found a corresponding VMAP. remap! */
-	ostart = vp->tstart;
+	/* Found a corresponding VMAP.  Remap!  */
 
 	/* We can assume pointer == CORE_ADDR, this code is native only.  */
 	vp->tstart = (CORE_ADDR) ldi->ldinfo_textorg;
@@ -530,10 +496,14 @@ vmap_ldinfo (ldi)
 	    vp->tend   += vp->tadj;
 	  }
 
+	/* The objfile is only NULL for the exec file.  */
+	if (vp->objfile == NULL)
+	  got_exec_file = 1;
+
 	/* relocate symbol table(s). */
 	vmap_symtab (vp);
 
-	/* there may be more, so we don't break out of the loop. */
+	/* There may be more, so we don't break out of the loop.  */
       }
 
     /* if there was no matching *vp, we must perforce create the sucker(s) */
@@ -546,6 +516,24 @@ vmap_ldinfo (ldi)
   } while (ldi->ldinfo_next
 	   && (ldi = (void *) (ldi->ldinfo_next + (char *) ldi)));
 
+  /* If we don't find the symfile_objfile anywhere in the ldinfo, it
+     is unlikely that the symbol file is relocated to the proper
+     address.  And we might have attached to a process which is
+     running a different copy of the same executable.  */
+  if (symfile_objfile != NULL && !got_exec_file)
+    {
+      warning_begin ();
+      fputs_unfiltered ("Symbol file ", gdb_stderr);
+      fputs_unfiltered (symfile_objfile->name, gdb_stderr);
+      fputs_unfiltered ("\nis not mapped; discarding it.\n\
+If in fact that file has symbols which the mapped files listed by\n\
+\"info files\" lack, you can load symbols with the \"symbol-file\" or\n\
+\"add-symbol-file\" commands (note that you must take care of relocating\n\
+symbols to the proper address).\n", gdb_stderr);
+      free_objfile (symfile_objfile);
+      symfile_objfile = NULL;
+    }
+  breakpoint_re_set ();
 }
 
 /* As well as symbol tables, exec_sections need relocation. After
@@ -764,5 +752,6 @@ xcoff_relocate_core (target)
 			    (CORE_ADDR)ldip->ldinfo_dataorg);
     } while (ldip->ldinfo_next != 0);
   vmap_exec ();
+  breakpoint_re_set ();
   do_cleanups (old);
 }

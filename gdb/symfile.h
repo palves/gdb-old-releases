@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #if !defined (SYMFILE_H)
 #define SYMFILE_H
@@ -139,7 +139,7 @@ extend_psymbol_list PARAMS ((struct psymbol_allocation_list *,
 
 #endif	/* INLINE_ADD_PSYMBOL */
 
-			/*   Functions   */
+extern void init_psymbol_list PARAMS ((struct objfile *, int));
 
 extern void
 sort_pst_symbols PARAMS ((struct partial_symtab *));

@@ -1,5 +1,5 @@
 /* Print i386 instructions for GDB, the GNU debugger.
-   Copyright (C) 1988, 1989, 1991, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1989, 1991, 1993, 1994, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /*
  * 80386 instruction printer by Pace Willisson (pace@prep.ai.mit.edu)
@@ -205,6 +205,7 @@ static int get16 (), get32 ();
 #define GRP6  NULL, NULL, 13
 #define GRP7 NULL, NULL, 14
 #define GRP8 NULL, NULL, 15
+#define GRP9 NULL, NULL, 16
 
 #define FLOATCODE 50
 #define FLOAT NULL, NULL, FLOATCODE
@@ -545,7 +546,7 @@ struct dis386 dis386_twobyte[] = {
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
   /* 30 */
-  { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
+  { "wrmsr" },  { "rdtsc" },  { "rdmsr" },  { "(bad)" },  
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
   /* 38 */
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
@@ -613,7 +614,7 @@ struct dis386 dis386_twobyte[] = {
   /* a0 */
   { "pushl", fs },
   { "popl", fs },
-  { "(bad)" },
+  { "cpuid" },
   { "btS", Ev, Gv },  
   { "shldS", Ev, Gv, Ib },
   { "shldS", Ev, Gv, CL },
@@ -622,7 +623,7 @@ struct dis386 dis386_twobyte[] = {
   /* a8 */
   { "pushl", gs },
   { "popl", gs },
-  { "(bad)" },
+  { "rsm" },
   { "btsS", Ev, Gv },  
   { "shrdS", Ev, Gv, Ib },
   { "shrdS", Ev, Gv, CL },
@@ -649,8 +650,12 @@ struct dis386 dis386_twobyte[] = {
   /* c0 */
   { "xaddb", Eb, Gb },
   { "xaddS", Ev, Gv },
-  { "(bad)" },  { "(bad)" },  
-  { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
+  { "(bad)" },
+  { "(bad)" },  
+  { "(bad)" },
+  { "(bad)" },
+  { "(bad)" },
+  { GRP9 },  
   /* c8 */
   { "bswap", eAX },
   { "bswap", eCX },
@@ -880,6 +885,17 @@ struct dis386 grps[][8] = {
     { "btsS",	Ev, Ib },
     { "btrS",	Ev, Ib },
     { "btcS",	Ev, Ib },
+  },
+  /* GRP9 */
+  {
+    { "(bad)" },
+    { "cmpxch8b" },
+    { "(bad)" },
+    { "(bad)" },
+    { "(bad)" },
+    { "(bad)" },
+    { "(bad)" },
+    { "(bad)" },
   }
 };
 

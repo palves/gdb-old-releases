@@ -1,42 +1,2563 @@
-Thu Mar  2 19:41:36 1995  Stan Shebs  <shebs@andros.cygnus.com>
+Fri Nov  3 12:30:43 1995  Fred Fish  <fnf@cygnus.com>
+	
+	* Makefile.in (VERSION): Version 4.15.1
+	(COMMON_OBS): Use corefile.o rather than core.o
+	* core.c:  Rename to corefile.c.
+	* config/pyr/tm-pyr.h, umax-xdep.c, sun386-nat.c, pyr-xdep.c,
+	mpw-make.in (SFILES, OBS), Makefile.in (SFILES), gould-xdep.c,
+	coredep.c, arm-tdep.c, arm-xdep.c, altos-xdep.c:
+ 	Change core.c references to corefile.c.
 
-	* Makefile.in (VERSION): Bump to 4.14.
-	* NEWS: Clarify and expand on some items.
-	* README: Update, add note about AIX 4.1.
-	* i386v-nat.c (i386_insert_aligned_watchpoint): Fix decl some more.
+	From Graham Stoney <greyham@research.canon.oz.au>.
+	* Makefile.in (remote-array.o):  Add rule to build, from
+	(ALLDEPFILES): Add remote-array.c
+	* remote-array.c (baud_rate):  Remove unnecessary declaration.
+	(baudrate):  Remove.
+	(array_open):  Initialize baud_rate if not initialized yet.
+	(array_files_info):  Print global baud_rate.
+	(_initialize_array):  Don't initialize baud_rate here.
+	
+	* annotate.c (annotate_source):  Issue `0x' prefix for the
+	pc value, to remain consistent with previous versions.
+	From Peter Schauer <Peter.Schauer@Regent.E-Technik.TU-Muenchen.DE>
 
-Fri Feb 24 16:47:16 1995  Stan Shebs  <shebs@andros.cygnus.com>
+Tue Oct 31 13:01:15 1995  Fred Fish  <fnf@cygnus.com>
 
-	* Makefile.in: (VERSION): Bump to 4.13.87.
-	* NEWS: Add various items.
-	* README: Add notes about Irix and Sparcworks.
-	* cp-valprint.c: Take out static member printing, needs a
-	real fix before it can be safely reenabled.
+	* elfread.c: Include elf-bfd.h rather than libelf.h.
 
-Tue Feb 21 11:47:26 1995  Stan Shebs  <shebs@andros.cygnus.com>
+Tue Oct 17 08:04:26 1995  Fred Fish  <fnf@rtl.cygnus.com>
 
+	* NEWS: Fix typo.
+
+Tue Oct 10 15:26:39 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (VERSION): Version 4.15 released.
+	* README: Updated for version 4.15.
+	
+Tue Oct 10 10:52:46 1995  Fred Fish  <fnf@cygnus.com>
+
+	* configure.in:  Add AC_PROG_YACC
+	* configure:  Regenerate
+	* Makefile.in (BISON):  Remove macro definition.
+	(YACC):  Set from autoconfig.
+	(FLAGS_TO_PASS):  Remove BISON.
+	(TARGET_FLAGS_TO_PASS):  Remove BISON.
+	
+Tue Oct  3 15:25:36 1995  Stan Shebs  <shebs@cygnus.com>
+
+	* NEWS:  Update for 4.15 release.
+
+Mon Oct  2 21:45:44 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* top.c (build_command_line): Demand arguments for if/while
+	commands.
+
+Mon Oct  2 13:50:45 1995  Fred Fish  <fnf@rtl.cygnus.com>
+
+	* Makefile.in (VERSION): Bump to 4.14.89
+
+Mon Oct  2 13:08:01 1995  Jason Molenda   (crash@phydeaux.cygnus.com)
+
+	* Makefile.in (X11_CFLAGS): Set only to @X_INCDIR@.
+
+Sat Sep 30 09:35:02 1995  Jason Molenda  (crash@phydeaux.cygnus.com)
+
+	* configure.in: X_INCDIR and X_LIBDIR added.
+	* Makefile.in: @X_INCDIR@ and @X_LIBDIR@ added.
+	* configure: Regnerated.
+
+Fri Sep 22 15:40:32 1995  Fred Fish  <fnf@rtl.cygnus.com>
+
+	* README.GDBTK: Updated for 4.15 release.
+
+Mon Sep 18 11:48:08 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* remote.c (remote_xfer_memory):  Chop up large transfers.
+
+Sat Sep 16 13:23:36 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* config/mips/tm-mips.h (UNUSED_REGNUM):  Define.
+	* mipsv4-nat.c (supply_gregset):  Fill UNUSED_REGNUM register
+	with zero.
+
+Tue Sep 12 09:07:03 1995  Fred Fish  <fnf@rtl.cygnus.com>
+
+	* Makefile.in (VERSION): Bump to 4.14.88
+	* NEWS:  Add comment about supporting hpux10.
+
+Mon Sep 11 17:22:35 1995  Fred Fish  <fnf@cygnus.com>
+
+	* NEWS:  Add information about remote target caching.
+
+Sun Sep 10 15:36:21 1995  Fred Fish  <fnf@cygnus.com>
+
+	* defs.h: Only include mmalloc.h if NO_MMALLOC is not
+	defined.
+
+Fri Sep  1 19:04:59 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (VERSION): Bump to 4.14.87
+
+Mon Aug 28 12:28:54 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (VERSION): Bump to 4.14.86
+
+Tue Aug 22 02:00:47 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* tm-hppa.h (EXTRACT_RETURN_VALUE): Fix for FP values.
+
+	* tm-hppa.h (STORE_RETURN_VALUE): Fix to work with -msoft-float
+	calling conventions too.  Use the TYPE of the return value, not
+	its length to determine if it should also be copied into the
+	floating point registers.
+
+	* tm-hppa.h (PROLOGUE_FIRSTLINE_OVERLAP): Delete.  Causes more
+	problems than it fixes.
+	* hppa-tdep.c (skip_prologue): If we exit the main loop without
+	finding all the register saves, retry again without looking for
+	the registers we could not find the first time.
+
+Mon Aug 21 23:39:56 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* hppa-tdep.c (frame_chain_valid): Handle systems where "$START$"
+	calls "main" directly.
+	(skip_prologue): Always assume arguments were saved into the stack
+	since GCC will do so without setting the magic Args_Saved bit in
+	the unwind descriptor.
+
+Mon Aug 21 01:18:40 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (install): Remove "brokensed" hack, unnecessary now
+	that we're using autoconf.
+	(uninstall): Likewise.
+
+Fri Aug 18 17:48:55 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	* dcache.c (dcache_write_line): Write dirty lines right.
+
+Fri Aug 18 06:26:56 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* sparc-tdep.c (isbranch):  Fix typo which caused wrong
+	target addresses for annulled branches.
+
+Wed Aug  9 18:59:05 1995  Fred Fish  <fnf@cygnus.com>
+
+	* defs.h (strchr, strrchr, strstr, strtok, strerror): Enclose in
+	#ifndefs to protect against previous definitions as macros.
+
+Tue Aug  8 15:13:05 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* Makefile.in (CXX_FOR_TARGET): Don't use ${rootme}/../gcc/xgcc
+	unless it is present.
+
+Sun Aug  6 22:14:25 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* hppa-tdep.c (frame_saved_pc): Don't try to dig a return pointer
+	out of a long branch stub.
+
+Sun Aug  6 08:28:38 1995  Fred Fish  <fnf@cygnus.com>
+
+	* xcoffread.c (process_linenos): Revert change from Aug 1 that
+	caused regressions.
+
+Fri Aug  4 13:37:31 1995  Jeffrey A. Law  <law@cygnus.com>
+
+	* xcoffread.c (process_linenos): Fix typo in last change.
+
+Thu Aug  3 22:01:26 1995  Fred Fish  <fnf@cygnus.com>
+
+	* ch-exp.y (write_lower_upper_value):  Add prototype so bison
+	generated parser will insert prototype before first func usage.
+	Bison and byacc order the output sections differently.  Also
+	make function static.
+
+Thu Aug  3 10:45:37 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Update all FSF addresses except those in COPYING* files.
+
+Wed Aug  2 00:19:14 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (VERSION): Bump to 4.14.85 in preparation for release
+	testing.
+
+Tue Aug  1 16:04:36 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* xcoffread.c (process_linenos): The value in include file symbol
+	should point to line number table. Currently this value is not
+	set correctly by AIX ld. A fix to get around this bug.
+
+Tue Aug  1 11:44:53 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* configure.in: Check for working mmap, ansi headers, string.h,
+	strings.h, and memory.h.
+	* configure: Regenerated.
+
+	* gdb_stat.h: New file, "portable" <sys/stat.h>.
+	* gdb_string.h: New file, "portable" <string.h>.
+
+	* altos-xdep.c, arm-tdep.c, arm-xdep.c, convex-tdep.c,
+	convex-xdep.c, coredep.c, cxux-nat.c, dbxread.c, exec.c,
+	gould-xdep.c, hppa-tdep.c, i386aix-nat.c, i386b-nat.c,
+	i386mach-nat.c, i386v-nat.c, infptrace.c, m88k-nat.c, main.c,
+	mdebugread.c, objfiles.c, os9kread.c, procfs.c, pyr-xdep.c,
+	rs6000-nat.c, source.c, standalone.c, stuff.c, sun386-nat.c,
+	symfile.c, symm-nat.c, symm-tdep.c, symtab.c, top.c, ultra3-nat.c,
+	ultra3-xdep.c, umax-xdep.c, xcoffread.c: Include "gdb_stat.h"
+	instead of <sys/stat.h>.
+
+	* alpha-tdep.c, breakpoint.c, buildsym.c, c-typeprint.c,
+	ch-typeprint.c, coffread.c, command.c, core-sol2.c, core-svr4.c,
+	core.c, corelow.c, cp-valprint.c, dbxread.c, dcache.c, demangle.c,
+	dpx2-nat.c, dstread.c, dwarfread.c, elfread.c, environ.c, eval.c,
+	exec.c, f-lang.c, f-typeprint.c, f-valprint.c, findvar.c,
+	fork-child.c, gdbtypes.c, hpread.c, i386-tdep.c, infcmd.c,
+	inflow.c, infptrace.c, infrun.c, irix5-nat.c, language.c,
+	m2-typeprint.c, main.c, mdebugread.c, minsyms.c, mipsread.c,
+	monitor.c, nlmread.c, objfiles.c, os9kread.c, osfsolib.c, parse.c,
+	printcmd.c, procfs.c, regex.c, remote-adapt.c, remote-arc.c,
+	remote-array.c, remote-bug.c, remote-e7000.c, remote-eb.c,
+	remote-es.c, remote-hms.c, remote-mm.c, remote-os9k.c,
+	remote-pa.c, remote-sim.c, remote-st.c, remote-udi.c,
+	remote-utils.c, remote-vx.c, remote-vx29k.c, remote-vx68.c,
+	remote-vx960.c, remote-vxmips.c, remote-vxsparc.c, remote.c,
+	solib.c, somread.c, source.c, stabsread.c, stack.c, symfile.c,
+	symmisc.c, symtab.c, target.c, top.c, typeprint.c, utils.c,
+	valarith.c, valops.c, valprint.c, values.c, xcoffread.c: Include
+	"gdb_string.h" instead of <string.h>.
+	* gdbtk.c: Likewise.
+
+	* config/xm-sysv4.h, i386/xm-ptx.h, m68k/xm-sun3os4.h,
+	sparc/xm-sun4os4.h (HAVE_MMAP): Removed.
+
+	* config/xm-lynx.h, config/i386/xm-ptx.h,
+	config/m68k/nm-apollo68b.h, config/m68k/xm-hp300hpux.h,
+	config/mips/xm-irix3.h, config/mips/xm-mips.h,
+	config/mips/xm-news-mips.h, config/mips/xm-riscos.h,
+	config/pa/hppah.h, config/rs6000/xm-rs6000.h,
+	config/sparc/xm-sun4os4.h, config/sparc/xm-sun4sol2.h,
+	config/vax/xm-vaxbsd.h, config/vax/xm-vaxult.h,
+	config/vax/xm-vaxult2.h (MEM_FNS_DECLARED): Removed.
+	* config/mips/xm-irix3.h, config/mips/xm-mips.h,
+	config/pa/xm-hppah.h (memcpy, memset): Removed declarations.
+
+Tue Aug  1 02:08:30 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mips-tdep.c (mips_extract_return_value):  Fix returning of
+	values whose length is less than the register size for big endian
+	targets.
+	* alpha-tdep.c (alpha_extract_return_value,
+	alpha_store_return_value):  Use alpha_convert_register_to_*
+	to handle functions returning "float" correctly.
+
+Mon Jul 31 19:12:48 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* h8500-tdep.c: General linting and cleanup.
+	(opcodes/h8500-opc.h): Don't include.
+	(code_size, data_size): Make static.
+	(frame_locals_address, frame_args_address): Remove.
+	(h8300_pop_frame): Rename to h8500_pop_frame.
+	(big_command, medium_command, compact_command, small_command):
+	Define as regular functions rather than with macro trickery.
+	(tm_print_insn): Set to correct disassembler function.
+	* config/h8500/tm-h8500.h: Minor cleanup, add prototypes.
+	(ABOUT_TO_RETURN): #if 0 out.
+	(FRAME_ARGS_ADDRESS, FRAME_LOCALS_ADDRESS): Use usual define.
+	(GDB_TARGET_IS_H8500): Remove duplicate	definition.
+	(regoff): Remove, never used.
+	* config/h8500/h8500.mt (TDEPFILES): Add monitor.o.
+
+Mon Jul 31 14:32:30 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* configure.in: Check for unistd.h.
+	* configure: Regenerated.
+
+	* command.c, cp-valprint.c, fork-child.c, i386-tdep.c,
+	i386b-nat.c, inflow.c, main.c, maint.c, objfiles.c, solib.c,
+	source.c, stack.c, symfile.c, top.c, utils.c: Include strings.h
+	and/or unistd.h to bring prototypes into scope.
+
+Sun Jul 30 01:40:11 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* rs6000-tdep.c (frame_saved_pc):  Check for signal handler caller
+	before trying to determine the start of the function.
+	(skip_prologue):  Skip subroutine call which might save the
+	floating point registers only if it is within the first three
+	instructions.
+	Reinstate setting of alloca_reg if setup of a gcc frame pointer
+	is found.
+	(frame_get_cache_fsr):  Use new fields in rs6000_framedata.
+
+Sat Jul 29 14:43:35 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* sparclite: Removed subdirectory.  aload and eload are now in
+	utils/sparclite, low-level library is in libgloss.
+	* configure.in (sparclite*): Don't configure sparclite subdir.
+	* configure: Update.
+	* Makefile.in (TARDIRS): Remove, no longer used.
+
+Sat Jul 29 01:45:56 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* procfs.c (unconditionally_kill_inferior):  Clear current signal
+	if PROCFS_NEED_CLEAR_CURSIG_FOR_KILL is defined.
+	* config/alpha/nm-osf3.h (PROCFS_NEED_CLEAR_CURSIG_FOR_KILL):  Define.
+
+	* alpha-tdep.c:  Move sigtramp handling of saved registers from
+	read_next_frame_reg to alpha_find_saved_regs, handle saved
+	floating point registers.
+	* mips-tdep.c:  Move sigtramp handling of saved registers from
+	read_next_frame_reg to mips_find_saved_regs, handle saved
+	floating point registers.
+	* config/mips/tm-irix3.h, config/mips/tm-irix5.h,
+	config/mips/tm-mipsv4.h (SIGFRAME_FPREGSAVE_OFF):  Define. 
+
+	* sparc-tdep.c (sparc_pc_adjust):  Fix check for `unimp'
+	instruction to handle functions returning structures with
+	large sizes properly.
+
+Fri Jul 28 11:50:17 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	* configure, configure.in (z8k-*-sim): deleted.
+
+Thu Jul 27 12:49:28 1995  Jeffrey A. Law  <law@rtl.cygnus.com>
+
+	* lynx-nat.c (child_wait): Handle threads exiting.
+
+Thu Jul 27 07:47:50 1995  Michael Meissner  <meissner@cygnus.com>
+
+	* rs6000-tdep.c (skip_prologue): Don't assume the update stack
+	instruction is the last in the prologue, since xlc stores the lr
+	after the stack update.  Make sure offset is correct sign for
+	large frames.
+	(frame_saved_pc): Move test for signal before frameless.
+
+	* config/rs6000/tm-rs6000.h (DEFAULT_LR_SAVE): Define.
+	* config/powerpc/tm-ppc-eabi.h (DEFAULT_LR_SAVE): Redefine.
+
+Thu Jul 27 01:22:08 1995  Jeffrey A. Law  <law@rtl.cygnus.com>
+
+	* hppa-tdep.c (hppa_fix_call_dummy): Rewrite code for calling
+	into shared libraries.
+
+Wed Jul 26 23:33:34 1995  Michael Meissner  <meissner@cygnus.com>
+
+	* config/rs6000/tm-rs6000.h (rs6000_framedata): Add offsets the
+	gprs, fprs, lr, and cr is stored at.
+	(FRAME_FIND_SAVED_REGS): Use new fields in rs6000_framedata.
+	(function_frame_info): Delete declaration.
+	(SKIP_PROLOGUE): Skip_prologue is now passed a rs6000_framedata
+	structure to fill in.
+	(FRAMELESS_FUNCTION_INVOCATION): Function now longer takes a
+	second argument.
+	(FRAME_SAVED_PC): Call frame_saved_pc.
+
+	* rs6000-tdep.c (skip_prologue): Recognize V.4 prologues as well
+	as AIX style.  Fill in rs6000_framedata structure.  Remember where
+	the gprs, fprs, cr, and lr are saved.
+	(pop_frame): Use skip_prologue, not function_frame_info, and use
+	new rs6000_framedata fields.
+	(function_frame_info): Function deleted.
+	(frameless_function_invocation): Separate frame_saved_pc support
+	to new function.  Recognize V.4 frames.
+	(frame_saved_pc): New function.
+	(frame_get_cache_fsr): Use skip_prologue, not function_frame_info.
+	(frame_initial_stack_address): Ditto.
+
+Wed Jul 26 01:00:37 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* remote.c:  Add documentation for extended protocol operations
+	and for thread_alive change from a couple weeks ago.
+	(extended_remote_ops): Declare and define a new target vector
+	for the extended remote protocol.
+	(extended_remote_restart): New function to restart the remote
+	server & process.
+	(remote_open): Just a stub routine.
+	(extended_remote_open): New function to start a remote session
+	using the extended gdb remote protocol.
+	(remote_open_1): New function containing code common to both
+	remote_open and extended_remote_open.
+	(remote_mourn, extended_remote_mourn, remote_mourn_1): Similarly.
+	(extended_remote_create_inferior): New function for the extended
+	remote target.
+	(initialize_remote): Add the extended_remote_ops target vector.
+	* gdbserver/server.c (main, case '!'): Set extended_protocol.
+	(main, case 'k'): If the extended protocol is in use, kill the
+	inferior then start a new one.
+	(main, case 'R'): New command to restart the remote server and
+	inferior process.  Only supported when using the extended
+	protocol.
+	(main, server loop): If the inferior terminates while using the
+	extended protocol then start a new one.  If getpkt fails when
+	using the extended protocol then exit.
+
+Tue Jul 25 11:43:44 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* mdebugread.c (psymtab_to_symtab_1): Relocate encoded stab
+	line numbers using the psymtab's section offsets.
+
+Tue Jul 25 10:43:27 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* config/rs6000/tm-rs6000.h (rs6000_framedata): Rename from
+	aix_framedata.  Change all uses.
+	* rs6000-tdep.c: Change all aix_framedata -> rs6000_framedata.	
+
+Sat Jul 22 23:44:18 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* defs.h (ATTR_FORMAT): Disable if ANSI_PROTOTYPES is not defined.
+
+Fri Jul 21 16:50:28 1995  Jeffrey A. Law  <law@rtl.cygnus.com>
+
+	* lynx-nat.c (child_thread_alive): New function.  Somehow I
+	forgot to check this in with all the other thread_alive changes.
+
+Thu Jul 20 22:22:34 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* somread.c (som_symtab_read): Add unsatisfied common symbols to
+	the minimal symbol table.  All common symbols are "unsatisfied"
+	when -E is passed to the linker.
+
+Thu Jul 20 15:04:57 1995  Fred Fish  <fnf@cygnus.com>
+
+	* top.c (show_endian): Cast first arg of printf_unfiltered to
+	correct type of "char *".
+
+Thu Jul 20 14:18:51 1995  Jeffrey A. Law  <law@rtl.cygnus.com>
+
+	* lynx-nat.c (child_wait): A thread_id of zero from wait apparently
+	means the process is single threaded, so there's no need to add
+	it to the thread list.  Handle case where multi-threaded process
+	reverts back to a single-threaded process.
+
+	* gdbserver/low-hppabsd.c: Remove error declaration.
+	* gdbserver/low-sparc.c: Likewise.
+	* gdbserver/low-sun3.c: Likewise.
+	* gdbserver/server.h: Remove error and fatal declaration.
+	* gdbserver/utils.c (error): Update to be compatable with recent
+	changes in defs.h.
+	(fatal): Likewise.
+
+Wed Jul 19 22:42:43 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* config/m68k/tm-m68kv4.h (DWARF_REG_TO_REGNUM):  Define to
+	correctly map floating point registers numbers.
+
+	* dwarfread.c (locval, new_symbol):  Handle variables that are
+	optimized out.
+
+	* mdebugread.c:  Replace all uses of builtin_type_* with
+	mdebug_type_*. Define and initialize mdebug_type_*.
+
+	* serial.h (serial_close):  Add additional argument `really_close'.
+	(SERIAL_CLOSE):  Update serial_close call accordingly.
+	(SERIAL_UN_FDOPEN):  Use serial_close to handle refcnt properly.
+	* serial.c (serial_close):  Handle `really_close'.
+	* serial.h (scb_base):  Moved to serial.c, made static.
+
+	* valops.c (value_addr):  Don't coerce arrays.
+	(typecmp):  Coerce arrays instead of calling value_addr if necessary.
+
+Wed Jul 19 18:19:28 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	From Richard Earnshaw (rearnsha@armltd.co.uk):
+	* infrun.c (wait_for_inferior): Set the convenience variable
+	$_exitcode to the termination code of the inferior.
+	* top.c (quit_command): Accept optional expression to use
+	as parameter to exit().
+
+Wed Jul 19 13:15:32 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* remote.c (remote_wait): When getting registers, check endianess and
+	do conversion if necessary.
+
+Tue Jul 18 00:41:31 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* gdbserver/low-hppabsd.c: New file.
+	* gdbserver/Makefile.in (SFILES): Add low-hppabsd.c.
+	* config/pa/hppabsd.mh (XDEPFILES): Add ser-tcp.o.
+	(GDBSERVER_DEPFILES): Add low-hppabsd.o.
+	* config/pa/hppaosf.mh: Likewise.
+
+Mon Jul 17 21:35:18 1995  Fred Fish  <fnf@cygnus.com>
+
+	* dache.c (struct dcache_block): Change data member from unsigned
+	char to char, since everything passed in and out of dcache is char
+	or casted to appropriate type anyway.
+	(dcache_alloc):  Move assignment of db out of test and combine
+	separate tests into if-else.
+	(dcache_peek_byte):  Change ptr from unsigned char* to char*.
+	(dcache_peek_byte):  Remove now unnecessary cast in read_memory call.
+	(dcache_peek):  Change cast of incoming data arg.
+	(dcache_poke):  Change cast of addr of incoming data arg.	
+	(dcache_info):  Mask data passed to printf_filtered to lsbyte only.
+	(dcache_info):  Change printf_filtered arg from "% 2x" to " %2x".
+	* target.c (debug_to_thread_alive): Change return type to int and
+	return zero, for type compatibility with other *_thread_alive
+	funcs.
+	(cleanup_target): Change cast of ignore function to match type of the
+	to_thread_alive member.
+	* defs.h (error_hook): Add ATTR_NORETURN.
+	* defs.h (NORETURN, ATTR_NORETURN): Switch from volatile to
+	__attribute__ method with gcc 2.7, to avoid gcc 2.6.3 bug.
+	* remote.c (remote_wait): Cast first arg to strtol, strchr, and
+	strncmp to "const char *" from "unsigned char *".
+	(remote_wait):  Cast arg to putpkt and strcpy from "unsigned char *"
+	to "char *".
+	(remote_wait):  Change printf format for long arg from "%d" to "%ld".
+	(getpkt):  Remove unused variable "bp".
+	(remote_fetch_word, remote_store_word):  Ifdef out apparently unused
+	functions.
+	* breakpoint.c (watchpoint_check):  Removed unused variables
+	"saved_level" and "saved_frame".
+	* valops.c (value_arg_coerce):  Add other enum TYPE_CODE_* and
+	default cases to switch for completeness.
+	* infrun.c (wait_for_inferior):  Enclose "have_waited" label
+	in #ifdef that matches the one in which it is referenced.
+	* ser-unix.c (hardwire_noflush_set_tty_state):  Enclose otherwise
+	unused variable "state" in #ifdef that matches one in which it is
+	referenced.
+	* eval.c (evaluate_subexp_standard):  Remove unused variable "var".
+	* eval.c (evaluate_subexp_standard):  Remove unused variable
+	"tmp_symbol".
+	* valarith.c (value_subscript):  Remove unused variable
+	"lowerbound", which is redeclared in a nested scope prior to use.
+	* printcmd.c (print_frame_nameless_args):  Use "%ld" to print long
+	arg, not "%d".
+	* {mem-break.c, remote-pa.c, remote.c, saber.suppress}:
+	Remove unused static var "check_break_insn_size".
+	* buildsym.c (finish_block):  Add other enum LOC_* and default
+	cases to switch for completeness.
+	ch-lang.c (type_lower_upper):  Removed unused label "retry".
+	Add other enum TYPE_* and default cases to switch for completeness.
+	* f-typeprint.c (f_type_print_args):  Ifdef out unused function
+	that may be used someday when Fortran support is complete.
+	* ch-valprint.c (chill_print_type_scalar):  Add other enum
+	TYPE_* and default cases to switch for completeness.
+	(chill_val_print):  Remove unused local var "high_bound" that
+	is redeclared in a nested scope prior to use.
+	(chill_var_print):  Use "%ld" to print long arg, not "%d".
+	* regex.c (re_compile_fastmap, re_match_2):  Add remaining enum
+	types and default to switches for completeness.
+	* minsyms.c (lookup_minimal_symbol_text): Delete unused variable
+	"trampoline_symbol".
+	(prim_record_minimal_symbol_and_info):  Return NULL rather than
+	trash.
+	* elfread.c (elf_symtab_read):  Don't dereference NULL returns from
+	record_minimal_symbol_and_info.
+	* f-lang.c (saved_function_list_end):  Ifdef out unused variable
+	that may be used someday.
+	* f-valprint.c (f_val_print):  Remove unused local "straddr".
+	
+Mon Jul 17 13:08:00 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* stabsread.h (struct stab_section_list): Define.
+	(coffstab_build_psymtabs): Remove staboff and stabsize parameters.
+	Add textaddr, textsize, and stabs parameters.
+	* gdb-stabs.h (struct dbx_symfile_info): Remove text_sect field.
+	Add text_addr and text_size fields.
+	(DBX_TEXT_SECT): Don't define.
+	(DBX_TEXT_ADDR, DBX_TEXT_SIZE): Define.
+	* coffread.c: Include <ctype.h>.
+	(struct coff_symfile_info): Remove stabsect and stabindexsect
+	fields.  Add textaddr, textsize, and stabsects fields.
+	(coff_locate_sections): Record the address of the .text section,
+	and total the sizes of all sections with names beginning with
+	".text".  Don't bother to record a .stab.index section (COFF
+	doesn't use them).  Make a linked list of all sections with names
+	beginning with ".stab".
+	(coff_symfile_read): Adjust call to coffstab_build_psymtabs for
+	new parameters.
+	* dbxread.c (dbx_symfile_read): Use DBX_TEXT_ADDR and
+	DBX_TEXT_SIZE, rather than getting both from DBX_TEXT_SECT.
+	(dbx_symfile_init): Set DBX_TEXT_ADDR and DBX_TEXT_SIZE, not
+	DBX_TEXT_SECT.
+	(elfstab_build_psymtabs): Likewise.
+	(stabsect_build_psymtabs): Likewise.
+	(symbuf_sections, symbuf_left, symbuf_read): New static variables.
+	(fill_symbuf): If symbuf_sections is not NULL, read symbols from
+	multiple sections.
+	(coffstab_build_psymtabs): Remove staboffset and stabsize
+	parameters.  Add textaddr, textsize, and stabsects parameters.
+	Set DBX_TEXT_ADDR and DBX_TEXT_SIZE, not DBX_TEXT_SECT.  Handle
+	multiple stabs sections.
+	* os9kread.c (os9k_symfile_read):  Use DBX_TEXT_ADDR and
+	DBX_TEXT_SIZE, rather than getting both from DBX_TEXT_SECT.
+	(os9k_symfile_init): Set DBX_TEXT_ADDR and DBX_TEXT_SIZE, not
+	DBX_TEXT_SECT.
+
+	* remote-vx.c (vx_ops, vx_run_ops): Initialize new to_thread_alive
+	field.
+
+Sat Jul 15 01:02:53 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* config/alpha/alpha-osf3.mh, config/alpha/nm-osf3.h:  New files
+	for OSF/1-3.x procfs support.
+	* configure.in (alpha-dec-osf):  Use them when configuring
+	for OSF/1-3.x.
+	* configure:  Updated.
+	* target.c:  Include <string.h>.
+
+Fri Jul 14 16:16:56 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* Makefile.in, configure.in: Use one variable, frags, to hold
+	pathnames of makefile fragments.
+	* configure: regenerated.
+
+Fri Jul 14 09:49:47 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* procfs.c (procfs_ops): Fix typo in last change.
+
+Thu Jul 13 13:42:38 1995  Jeffrey A. Law  <law@rtl.cygnus.com>
+
+	* inftarg.c (child_thread_alive): New function to see if a
+	particular thread is still running.
+	(child_ops): Add child_thread_alive entry.
+	* remote.c (remote_thread_alive): New function to see if a
+	particular thread is still alive.
+	(remote_ops): Add remote_thread_alive.
+	* target.c (dummy_target): Add dummy entry for thread_alive.
+	(cleanup_target): de_fault thread_alive too.
+	(update_current_target): INHERIT thread_alive too.
+	(debug_to_thread_alive): New function.
+	(setup_target_debug): Add debug_to_thread_alive.
+	* target.h (struct target_ops): Add to_thread_alive.
+	(target_thread_alive): Define.
+	* thread.c (info_threads_command): Don't call kill; use
+	target_thread_alive instead.
+	* config/nm-lynx.h (CHILD_THREAD_ALIVE): Define.
+	* gdbserver/low-lynx.c (mythread_alive): New function.
+	(mywait): Don't restart any threads after a new thread notification,
+	let the generic code handle it.
+	* gdbserver/low-sparc.c (mythread_alive): Dummy version.
+	* gdbserver/low-sun3.c (mythread_alive): Likewise.
+	* gdbserver/server.c (main): Handle thread_alive requests.
+	* gdbserver/server.h (mythread_alive): Declare.
+	* corelow.c (core_ops): Add dummy entry for thread_alive.
+	* exec.c (exec_ops): Likewise.
+	* m3-nat.c (m3_ops): Likewise.
+	* monitor.c (monitor_ops): Likewise.
+	* procfs.c (procfs_ops): Likewise.
+	* remote-arc.c (arc_ops): Likewise.
+	* remote-array.c (array_ops): Likewise.
+	* remote-e7000.c (e7000_ops): Likewise.
+	* remote-es.c (es1800_ops, es1800_child_ops): Likewise.
+	* remote-mips.c (mips_ops): Likewise.
+	* remote-pa.c (remote_hppro_ops): Likewise.
+	* remote-sim.c (gdbsim_ops): Likewise.
+	* sparcl-tdep.c (sparclite_ops): Likewise.
+
+Tue Jul 11 11:15:55 1995  Kung Hsu  <kung@rtl.cygnus.com>
+
+	* solib.c: Add _DYNAMIC__MGC base symbol for Mentor Graphics Inc.
+	* solib.c (match_main): New function for checking name of main.
+	* solib.c (solib_add): Not to add if solib match main.
+
+Fri Jul  7 14:41:56 1995  Kung Hsu  <kung@rtl.cygnus.com>
+
+	* elfread.c (elf_symtab_read): Fix a bug ignoring compiler
+	generated internal labels ($LM...).
+
+Wed Jul  5 11:38:36 1995  Kung Hsu  <kung@rtl.cygnus.com>
+
+	* defs.h: if __GO32__ or WIN32 the directory separating symbol should
+	be '\' not '/'.
+
+	* remote-nindy (nindy_wait): Use infinite timeout reading after
+	esacpe character.
+
+Tue Jul  4 10:30:22 1995  Jeffrey A. Law  <law@rtl.cygnus.com>
+
+	* infrun.c (wait_for_inferior): When switching from one thread to
+	another, save infrun's state for the old thread and load infrun's
+	previous state for the new thread.
+	* thread.c (struct thread_info): Add new fields for thread specific
+	state saved/restored in infrun.c.
+	(add_thread): Initialize new fields.
+	(load_infrun_state): New function.
+	(save_infrun_state): New function.
+	* thread.h (load_infrun_state): Provide external decl.
+	(save_infrun_state): Likewise.
+
+	* infrun.c (wait_for_inferior): When we hit a breakpoint for the
+	wrong thread, make sure to write the fixed PC value into the thread
+	that stopped.  Restart all threads after single stepping over a
+	breakpoint for a different thread.
+	* breakpoint.c (set_momentary_breakpoint): Make momentary
+	breakpoints thread specific in a multi-threaded program.
+	* lynx-nat.c (child_resume): Add some comments.  Correctly
+	choose between the single and multi-threaded step and continue
+	ptrace calls.
+
+Fri Jun 30 16:15:36 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* config/h8300/h8300.mt: Renamed from h8300hms.mt.
+	* config/h8500/h8500.mt: Renamed from h8500hms.mt.
+	* config/z8k/z8k.mt: Renamed from z8ksim.mt.
+	* configure, configure.in: Update to reflect renamings.
+
+	* remote-sim.c (sim): New command, passes commands to simulator.
+	(simulator_command): New function.
+	(gdbsim_ops): Clean up.
+	* remote-sim.h (sim_do_command): Declare.
+	* sh-tdep.c (memory_size): Remove command.
+
+	* Makefile.in (SIM, SIM_OBS): New variables.
+	(CLIBS, CDEPS): Add value of SIM.
+	(DEPFILES): Add value of SIM_OBS
+
+	* config/arm/arm.mt, config/h8300/h8300.mt, config/h8500/h8500.mt,
+	config/sh/sh.mt, config/sparc/sp64sim.mt, config/w65/w65.mt,
+	config/z8k/z8k.mt: Remove simulator files from TDEPFILES,
+	define in SIM_OBS and SIM.
+	config/sparc/sp64sim.mt (SIMFILES): Remove.
+
+	* remote-z8k.c: Remove, was superseded by remote-sim.c
+	* Makefile.in, mpw-make.in: Remove references to remote-z8k.c.
+
+Sun Jun 25 15:30:43 1995  Stan Shebs  <shebs@cygnus.com>
+
+	* remote.c (remote_read_bytes, remote_write_bytes): Second arg
+	should be char *, not unsigned char *.
+	* dcache.h (memxferfunc): Ditto.
+	* monitor.c (monitor_write_memory, monitor_read_memory_single):
+	Ditto.
+	(monitor_make_srec): Let compiler figure size of hextab.
+
+Sat Jun 24 19:27:37 1995  Jeffrey A. Law  <law@rtl.cygnus.com>
+
+	* lynx-nat.c (child_wait): Don't restart new threads and loop
+	to the top of child_wait; let the machine independent code in
+	wait_for_inferior deal with new thread notifications.
+
+Fri Jun 23 11:51:58 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* remote-nindy (nindy_load): Put in target specific load, it's 
+	20 times faster.
+
+Thu Jun 22 20:21:59 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* utils.c (error): Move local `args' outside conditional,
+	move local `string1' inside, declare function as void if
+	non-ANSI compiler, dereference error_hook when calling.
+
+	* mac-xdep.c (stdarg.h): Don't include.
+
+Thu Jun 22 13:12:33 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* remote-nindy.c (nindy_wait): Change timeout in SERIAL_READCHAR.
+
+Wed Jun 21 13:24:41 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* hppam3-nat.c: Change HP800_THREAD_STATE to TRACE_FLAVOR and
+	HP800_THREAD_STATE_COUNT to TRACE_FLAVOR_SIZE.
+
+Wed Jun 21 05:57:56 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* monitor.c: Turn on caching.
+	(monitor_printf): If a ^C was sent, don't expect to see its
+	echo.
+	(monitor_open): Enable caching.
+	(monitor_resume, monitor_load): Flush cache.
+	(monitor_xfer_memory): Call cache routine.
+	(monitor_dump_regs): New.
+	(monitor_fetch_registers):  If monitor_dump_regs available
+	then use it.
+	(monitor_load): Don't ref exec_bfd if it's NULL.
+	(monitor_load_srec): Use new monitor_make_srec calling convention.
+	(monitor_make_srec): Rewrite to cope with two, three and four byte
+	addresses.
+	* remote-hms.c (hms_cmds): Initialze end-of-command delim.
+	* dcache.h, dcache.h: Rewritten.
+	* remote.c: Reenable caching.
+	(getpkt): Reduce MAX_TRIES to 3.
+	(remote_xfer_memory): Use dcache_xfer_memory.
+	* defs.h (error_hook): New.
+	* top.c (error_hook): New definition.
+	* utils.c (error): Use error_hook if initialized.
+	* sparcl-tdep.c (HAVE_SOCKETS): Don't define if GO32 or WIN32. Use 
+	HAVE_SOCKETS in place of #ifndef GO32.
+
+Tue Jun 20 22:17:44 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* config/pa/tm-hppa.h (PSW_*): Define processor status word masks.
+	(INSTRUCTION_NULLIFIED): Allow specific targets to override.
+	* config/pa/tm-hppao.h (INSTRUCTION_NULLIFIED): Define to work
+	around losing mach kernel behavior.
+
+Tue Jun 20 12:03:36 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* monitor.c (monitor_wait): Don't use the watchdog timeout
+	if its value is 0.
+	* w89k-rom.c (w89k_open): Define to be static.
+
+Tue Jun 20 10:19:40 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* gdbtk.c:  Add functions Tcl_Malloc, Tcl_Realloc, and Tcl_Free.
+
+	* gdbtk.tcl (add_breakpoint_frame):  Add more fields.
+	* (create_file_win create_asm_win build_framework):  Create null
+	bindings for meta keys to keep window from dropping down to
+	insertion point when meta is pressed by itself.  New bindings:
+	   Up/Down - Scroll up/down one line at a time
+	   Next/Prior - Scroll up/down one page at a time
+	   Home/End - Warp to current pc/end of file
+	* (build_framework):  Turn on breakpoint menu.
+	* (create_command_window):  Implement tab completion.  Add binding
+	for ^C to stop target.
+
+Sat Jun 17 10:17:16 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* somsolib.c (som_solib_add): Validate regexp argument.
+	Don't assume the first entry on dld's library list is the main
+	program.  Don't load the same library more than once and don't
+	consider the main program a shared library.
+	(som_solib_sharedlibrary_command): New function
+	(_initialize_som_solib): Add "sharedlibrary" command.
+
+Thu Jun 15 14:54:58 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* array-rom.c: Remove, no longer used.
+
+	* remote-hms.c (hms_open): Make static.
+
+	* mpw-config.in (MacSerial.h): Copy from version in {CIncludes},
+	not {MPW}Interfaces:CIncludes.
+	* ser-mac.c (mac_baud_rate_table): Fix value for 38400 baud.
+
+Wed Jun 14 14:27:07 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* ch-exp.y:  Remove lots of unsupported productions and names.
+	Add support for IF-expressions, ORIF, ANDIF, NUM, and ADDR.
+
+Tue Jun 13 21:40:11 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* parser-defs.h (enum precedence):  Added PREC_BUILTIN_FUNCTION.
+	* expression.h (enum exp_opcode):  Added UNOP_LOWER, UNOP_UPPER,
+	UNUP_LENGTH.
+	* expprint.c (dump_expression):  Handle the new exp_opcodes.
+	(print_subexp):  Handle PREC_BUILTIN_FUNCTION.
+	(print_simple_m2_func):  Removed.
+	(print_subexp):  Remove support for Modula2 builtin functions.
+	* m2-lang.c (m2_op_print_tab):  Add support for builtin functions.
+	* ch-exp.y:  Parse LOWER, UPPER, and LENGTH builtins.
+	(write_lower_upper_value):  Convenience function for LOWER and UPPER.
+	(upper_lower_argument, length_argument):  Removed non-terminals.
+	* ch-lang.c (chill_op_print_tab):  Entries for UPPER, LOWER, LENGTH.
+	(type_lower_upper):  New function.  Calculate LOWER/UPPER of type.
+	(value_chill_length):  New function.  Calcalate LENGTH of ARRAY/STRING.
+	(evaluate_subexp_chill):  Handle UNOP_LOWER, UNOP_UPPER, UNOP_LENGTH.
+
+Mon Jun 12 12:48:13 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	Windows support bits from Steve Chamberlain <sac@slash.cygnus.com>.
+	* defs.h: Don't declare strchr and friends if WIN32.
+	(DIRNAME_SEPARATOR): Move here from source.c.
+	(SLASH_P, SLASH_CHAR, SLASH_STRING, ROOTED_P): New macros,
+	symbolic definitions for filename bits.
+	* top.c (cd_command): Use these.
+	* source.c (mod_path, openp): Ditto.
+	* terminal.h: Disable termio/sgtty definitions if WIN32.
+	* findvar.c (registers_changed): Call registers_changed_hook
+	if it is defined.
+
+Mon Jun 12 12:22:05 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* Makefile.in (distclean, realclean): Remove config.cache and
+	  config.log.
+
+Mon Jun 12 00:21:59 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* somsolib.c: Include gdb-stabs.h.
+	(som_solib_section_offsets): Use SECT_OFF_XXX rather than 0, 1,
+	etc.  Initialize offsets for RODATA & BSS too.
+
+Sat Jun 10 17:59:11 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* hppa-tdep.c (frame_chain): Try to compensate for incomplete
+	register information in core files when backtracing.
+
+Fri Jun  9 14:51:38 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* remote-nrom.c:  Remove everything but download code.  More
+	cleanups.
+
+Thu Jun  8 15:06:00 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* defs.h maint.c monitor.c remote-mips.c remote.c:  Add support
+	for `watchdog' variable.  This allows the user to put an upper
+	limit on the amount of time that GDB will wait for the target to
+	return from a step or continue operation.  This will primarily be
+	used for the testsuite, where it is difficult to come up with a
+	reasonable timeout for things like function calls, which can take
+	as long as three minutes under some circumstances.  If the
+	watchdog timer expires, GDB will generate an error that looks like
+	`Watchdog has expired.', and will detach from the target.
+
+	* remote-mips.c (mips_open):  Setup initial frame from target.
+	Print it out so that user is told where the program is stopped
+	when they attach.
+
+	* remote-nrom.c:  Loads of cleanups.  Use serial code to open
+	network connections.  Use expect() to wait for response to
+	download command.
+
+	* ser-tcp.c (tcp_open):  Retry connection if we get ECONNREFUSED.
+
+	* serial.c serial.h (serial_open serial_fdopen serial_close):
+	Allow users to open the same device multiple times.  They all get
+	to share the same serial_t.  This is about the only way to have
+	multiple active targets use the same device (for download and
+	debug).
+
+	* sparcl-tdep.c:  Keep #include <unistd.h> away from GO32.
+
+	* target.c:  Add `targetdebug' variable.  If this is non-zero,
+	then a special target is put at the top of the target stack which
+	will cause all calls through the target vector to have their args
+	and results printed out.
+
+Wed Jun  7 17:40:37 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* ch-exp.y: Handle <primitive_value> "->" <modename>.
+
+Wed Jun  7 17:46:33 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* mem-break.c (LITTLE_BREAKPOINT): If BREAKPOINT and
+	{LITTLE,BIG}_BREAKPOINT are all defined, don't redefine.
+	(BIG_BREAKPOINT): Ditto.
+
+	* config/rs6000/tm-rs6000.h (BREAKPOINT): Define as either
+	BIG_BREAKPOINT or LITTLE_BREAKPOINT depending on the target byte
+	order.
+
+Wed Jun  7 12:41:42 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* somsolib.c (som_solib_section_offsets): Handle relative pathnames.
+
+	* hppa-tdep.c (frame_saved_pc): Handle backtracing through signal
+	handler in dynamically linked executables.
+
+Tue Jun  6 10:44:25 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	From Andrew Cagney <cagney@highland.com.au>
+	* rs6000-tdep.c (single_step): Handle both little and big endian
+	breakpoints.
+	(gdb_print_insn_powerpc): Deal with disassembling both little and
+	big endian PowerPC systems.
+	(_initialize_rs6000_tdep): Use gdb_print_insn_powerpc to handle
+	disassembly, rather that assuming big endian order.
+
+	* config/rs6000/tm-rs6000.h (BREAKPOINT): Delete.
+	(BIG_BREAKPOINT): Define, big endian breakpoint instruction.
+	(LITTLE_BREAKPOINT): Define, little endian breakpoint instruction.
+
+Sat Jun  3 01:54:56 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* README:  Add note about Unixware 2.x.
+
+	* dbxread.c (process_one_symbol):  Check for exact symbol name
+	match when fixing up N_GSYM and N_STSYM symbols from Sun acc.
+
+	* valprint.c (value_print_array_elements):  Use
+	fprintf_filtered to put out `<repeats %u times>',
+	from schwab@issan.informatik.uni-dortmund.de (Andreas Schwab).
+
+	* value.h (struct value):  Change `repetitions' field from
+	`short' to `int' type.
+
+
+Wed May 31 12:04:01 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* nlm/{configure.in, Makefile.in}: Converted to use autoconf.
+	* nlm/configure: New file, generated with autoconf 2.3.
+
+	* nlm/configure.in: Use sed instead of awk to get the value of
+	  cpufile.  Awk is not a utility required by the GNU coding
+	  standards.  This change also fixes the rigid whitespace
+	  requirements that were required for awk.
+
+	* sparclite/aload.c: Use a file descriptor instead of a stdio
+	  stream for i/o with target board.
+	  Use #error if HAVE_TERMIOS is not defined.
+
+	* sparclite/{Makefile.in, configure.in}: Converted to use
+	  autoconf.
+	* sparclite/configure: New file, generated with autoconf 2.3.
+
+Sun May 28 23:10:07 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* defs.h: Include either varargs.h or stdarg.h (for va_list).
+	Fix stupid thinko in last change ("..." -> "va_list").
+
+	* defs.h (vprintf_filtered declaration): Add PARAMS prototype;
+	gcc-2.5 chokes on format attributes for unprototyped functions.
+	(vfprintf_filtered declaration): Likewise.
+	(vprintf_unfiltered declaration): Likewise.
+	(vfprintf_unfiltered). Likewise.
+
+Sat May 27 23:54:17 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* configure.in: Use sed instead of awk to get the values of
+	  hostfile, targetfile and nativefile.  Awk is not a utility
+	  required by the GNU coding standards.  This change also 
+	  fixes the rigid whitespace requirements that were required
+	  for awk.
+	* configure: regenerated.
+
+Sat May 27 16:24:04 1995  Angela Marie Thomas  <angela@cirdan.cygnus.com>
+
+        * sparclite/{Makefile,configure}.in: Add hooks for building with
+        -lsocket & -lnsl for solaris2.  Don't build aload/eload for DOS.
+
+Thu May 25 12:46:37 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdbserver/remote-utils.c (prepare_resume_reply): Add FIXME
+	comment regarding signal numbering.
+
+Wed May 24 15:49:47 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	* arm-tdep.c (_initialize_arm_tdep): Use print_insn_little_arm
+	now.
+
+	* arm-tdep.c (convert_from_extended, convert_to_extended):
+	New.
+	* coffread.c (enter_linenos): Return if linetab 0.
+	* config/arm/arm.mt (TDEPFILES): Add simulator support.
+	* config/arm/tm-arm.h (FRAME_FIND_SAVED_REGS): Fix prototypes.
+
+Mon May 22 19:37:21 1995  Rob Savoye  <rob@darkstar.cygnus.com>
+
+	* config/idt.mt: replace monitor and array-rom with the new
+	remote-array.
+
+Mon May 22 15:38:25 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* remote-nindy.c:  Install Kung patch for PR 6820.  I have no idea
+	what this does...
+
+	* breakpoint.c:  Move defaults of watchpoint related macros into
+	target.h.
+	* target.h:  Macros from breakpoint.c.  Conditionalize based on
+	TARGET_HAS_HARDWARE_WATCHPOINTS.
+	* i386v-nat.c procfs.c:  Use TARGET_HAS_HARDWARE_WATCHPOINTS
+	instead of TARGET_CAN_USE_HARDWARE_WATCHPOINT to enable watchpoint
+	code.
+	* config/i386/nm-linux.h, config/mips/nm-irix4.h,
+	config/pa/nm-hppab.h, config/sparc/tm-sparclite.h:  #define
+	TARGET_HAS_HARDWARE_WATCHPOINTS to enable watchpoint code.
+
+Mon May 22 06:47:30 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* breakpoint.c, target.h: Move defaults of watchpoint related
+	macros back to breakpoint.c.  Required to get GDB compiling
+	on Solaris again.
+
+Fri May 19 14:49:37 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* defs.h (ATTR_FORMAT): New macro, expands to gcc's format
+	  attribute when compiled by gcc.  
+	* defs.h, language.h, monitor.h: Changed many function
+	  declarations to use ATTR_FORMAT.
+
+	* breakpoint.c (delete_command); source.c (directory_command);
+	  top.c (define_command): Changed call to query() that had too
+	  many arguments.
+	* printcmd.c (address_info): Changed call to printf_filtered()
+	  that had too many arguments.
+
+Fri May 19 09:52:07 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* infrun.c (wait_for_inferior): Move assignments to stop_signal
+	and stop_pc, and STOPPED_BY_WATCHPOINT code, back where they
+	were--after the switch statement on w.kind.  You can't read the
+	registers of an inferior which has exited.  Use a goto in the
+	STOPPED_BY_WATCHPOINT code.
+	* infrun.c (wait_for_inferior): Reinstate
+	HAVE_STEPPABLE_WATCHPOINT and HAVE_CONTINUABLE_WATCHPOINT code.
+
+Fri May 19 06:15:40 1995  Jim Kingdon  <kingdon@deneb.cygnus.com>
+
+	* utils.c, complaints.c, language.c, monitor.c, remote-array.c,
+	remote-mips.c, remote-os9k.c, remote-st.c: Conditionalize use of
+	stdarg rather than varargs on ANSI_PROTOTYPES not __STDC__; it
+	must match the definition of PARAMS.
+        * gdbtk.c: Likewise.
+
+Thu May 18 15:58:46 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* utils.c (fprintf_filtered, fprintf_unfiltered, fprintfi_filtered,
+	  printf_filtered, printf_unfiltered, printfi_filtered, query, warning,
+	  error, fatal, fatal_dump_core): Use stdarg.h macros when compiling 
+	  with an ANSI compiler.
+	* complaints.c (complain): Likewise.
+	* language.c (type_error, range_error): Likewise.
+	* monitor.c (monitor_printf, monitor_printf_noecho): Likewise.
+	* remote-array.c (printf_monitor, debuglogs): Likewise.
+	* remote-mips.c (mips_error): Likewise.
+	* remote-os9k.c (printf_monitor): Likewise.
+	* remote-st.c (printf_stdebug): Likewise.
+        * gdbtk.c (gdbtk_query): Likewise.
+
+	* defs.h, complaints.h, language.h, monitor.h: Add prototypes to
+	  match above changes.
+
+	* printcmd.c: Remove uneeded #include <varargs.h>.
+	* remote-e7000.c: Likewise.
+
+	* f-typeprint.c (f_type_print_base): Fix typo found by above
+	  changes.
+
+Wed May 17 11:21:32 1995  Jim Kingdon  <kingdon@deneb.cygnus.com>
+
+	* Makefile.in (xcoffread.o): Depend on partial-stab.h.
+
+	* xcoffsolib.c (sharedlibrary_command): New command.
+	* xcoffsolib.c (solib_info): Call xcoff_relocate_symtab.
+	* xcoffsolib.c: Miscellaneous cleanups.
+
+	* partial-stab.h: Ignore symbol descriptor '-' (for local
+	variables with negative type numbers) without complaint.
+
+	* rs6000-nat.c (vmap_ldinfo): Use bfd_stat rather than our own
+	local emulation thereof.  Remove unused variable ostart.
+
+Wed May 17 15:55:53 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* Makefile.in (config.status): changed target so that
+	  config.status --recheck is executed if configure script changes.
+
+	* monitor.c (monitor_printf): Changed format specification in
+	  error message to work with pre-ansi compilers.
+	  (monitor_load_srec): reduced length of s-records from 128 to 32
+	  bytes so download is more reliable with the rom68k monitor.
+
+	* rom68k-rom.c: Added trailing space to prompt string.
+
+	* config/i386/xm-i386sco.h (HAVE_STRSTR): Removed.
+	* config/i386/xm-go32.h, mswin/xm.h (SYS_SIGLIST_MISSING):
+	  Removed.
+	* defs.h, config/{xm-lynx.h, xm-nbsd.h},
+	  config/i386/{xm-i386bsd.h, xm-linux.h},
+	  config/m68k/xm-hp300bsd.h, config/mips/xm-irix4.h,
+	  config/ns32k/xm-ns32km3.h, doc/gdbint.texinfo
+	  (PSIGNAL_IN_SIGNAL_H): Removed.
+
+Tue May 16 13:16:06 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* Makefile.in (Makefile): Added config.status to dependency list.
+
+	* configure.in: Added INIT-CMDS argument to AC_OUTPUT which sets
+	  gdb_host_cpu, gdb_target_cpu and nativefile.
+	* configure: regenerated.
+
+Mon May 15 23:50:51 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mdebugread.c (parse_symbol):  Do not relocate stBlock/scText
+	symbols, their value is the displacement from the procedure address.
+	* top.c (init_main):  Add missing newlines to help strings for
+	`if' and `while' commands, fix help string for `show commands'.
+
+Mon May 15 18:37:56 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* breakpoint.c:  Move defaults of watchpoint related macros into
+	target.h.  Use BP_TEMPFLAG and BP_HARDWAREFLAG instead of
+	constants.
+	* infrun.c (wait_for_inferior):  Enhance comment near
+	STOPPED_BY_WATCHPOINT.
+	* target.h:  Macros from breakpoint.c.
+
+Mon May 15 17:11:38 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* config/i386/{i386sol2.mh, i386v4.mh, ncr3000.mh},
+	  config/m68k/m68kv4.mh, config/mips/{irix4.mh, irix5.mh,
+	  mipsv4.mh}, config/sparc/sun4so2.mh (INSTALL): Removed, figured
+	  out by autoconf.
+	* config/apollo68v.mh (RANLIB): Removed, figured out by autoconf.
+
+	* Makefile.in, configure.in: Converted to use autoconf
+	* aclocal.m4: New file, local autoconf macro definitions.
+	* configure: New file, generated with autoconf 2.3.
+
+Mon May 15 14:46:41 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* remote.c (remote_kill): Add prototype.
+	* cpu32bug-rom.c (cpu32bug_open): Properly define as static.
+	* config/h8300/h8300hms.mt (TDEPFILES): Add monitor.o.
+
+Mon May 15 12:12:34 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* sparclite/salib.c (win_ovf win_unf):  Make window size constant
+	into a variable (__WINSIZE) so that it can be controlled via the
+	.h file.
+	* sparclite/sparclite.h:  Add SL933 #ifdef to set __WINSIZE to 6
+	for the 933 board.
+
+	* infrun.c:  Add #ifdef HP_OS_BUG to all references to
+	trap_expected_after_continue.
+	* (wait_for_inferior):  Fix for remote watchpoints.  Don't try to
+	insert breakpoints while target is running (this only works on
+	*some* native targets).  This may also speed up native watchpoints
+	considerably.
+
+Sat May 13 13:55:04 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* dwarfread.c (struct dwfinfo), dbxread.c (struct symloc),
+	mdebugread.c (struct symloc), hpread.c (struct symloc),
+	xcoffread.c (struct symloc): Fix inaccurate comment introduced
+	20 Apr 1995.
+
+Sat May 13 13:34:18 1995  Jim Kingdon  <kingdon@deneb.cygnus.com>
+
+	* rs6000-tdep.c (find_toc_address): Revise comment.
+	* symfile.c, symfile.h (init_psymbol_list): New function;
+	consolidate duplicated copies from os9kread.c, dbxread.c
+	and dwarfread.c.
+	* defs.h: Declare info_verbose.
+	* xcoffread.c: Extensive changes to support psymtabs.
+
+Fri May 12 13:48:41 1995  Stu Grossman  (grossman@andros.cygnus.com)
+
+	* cpu32bug-rom.c remote-est.c rom68k-rom.c:  Update line_term element.
+
+Fri May 12 06:39:30 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* partial-stab.h: Expand comments.
+
+Thu May 11 19:01:37 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* Support debugging using native MACH primitives on hppa*-*-osf*.
+	* configure.in: hppa*-*-osf* != hppa*-*-bsd* anymore.
+	* config/pa/hppaosf.mh: New file.
+	* config/pa/nm-hppao.h: Likewise.
+	* hppam3-nat.c: Likewise.
+	* config/pa/tm-hppao.h (PSW_SS): Define for single-stepping.
+	(MACHINE_CPROC_*_OFFSET): Define.
+	(TRACE_*): Define.
+	(START_INFERIOR_TRAPS_EXPECTED): Delete definition.
+
+Wed May 10 18:59:26 1995  Stu Grossman  (grossman@andros.cygnus.com)
+
+	* hppa-tdep.c (read_unwind_info):  Cosmetic cleanup.
+	* (unwind_command):  Clean it up and make it print things out
+	nicer.
+	* monitor.c:  Add ^C handling capability (mostly ripped off from
+	remote.c).
+	* (monitor_printf):  Make it check the command echo.
+	* (monitor_printf_noecho):  Similar to above, but doesn't check
+	for echo.
+	* (monitor_stop):  No longer waits for prompt.  That is the job of
+	the caller.  This makes things work much better for monitor_wait,
+	which waits for the prompt itself.
+	* (monitor_open):  Deal with new monitor_stop semantics.  Also,
+	flush input after sending init strings to get rid of junk that may
+	be output.  Also, don't always send \r to remote.  Use
+	monitor_ops->line_term cuz proper character isn't always \r.
+	* (monitor_fetch_register):  Switch to completely different
+	algorithm to deal with lame-ass monitors which put spaces in the
+	middle of numbers, and prompt with a space!!!!!
+	* (monitor_read_memory_single):  New routine to be used with
+	monitors that can only return one byte/short/long at a time.  This
+	is selected via MO_GETMEM_READ_SINGLE.
+	* (monitor_load_srec):  Use monitor_printf_noecho for sending S
+	records.  Most targets don't echo them.
+	* (monitor.h):  Get rid of cmd_delim.  Add line_delim.
+	* op50n-rom.c (op50n_cmds):  Fill it up.  Make it work.
+	* w89k-rom.c:  Change all eols from \r to \n.  Change load_resp to
+	^Q to prevent error message.
+	* config/pa/tm-hppa.h (CALL_DUMMY (for hppro)):   Add special
+	instruction sequence at end to make restore_pc_queue happy.
+
+Wed May 10 15:59:00 1995  Torbjorn Granlund  <tege@adder.cygnus.com>
+
+	* remote-est.c (est_open): Make static to match prototype.
+
+Tue May  9 16:58:50 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* configure.in: Add little endian PowerPC support.
+	* config/powerpc/ppcle-eabi.mt: New file for little endian PowerPC
+	support.
+	* config/powerpc/tm-ppcle-eabi.h: ditto.
+
+Mon May  8 12:11:38 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* nlm/configure.in (gdb_host, gdb_host_cpu, gdb_target): Removed.
+	  These variables not used.
+
+	* config/m68k/monitor.mt (TDEPFILES): Added cpu32bug-rom.o.
+
+Wed May  3 17:54:47 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* monitor.c (monitor_command): Don't use PROMPT until monitor
+	target is known to be open.
+	(monitor_make_srec): Don't define size of hextab.
+
+Tue May  2 18:32:24 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* configure.in (--enable-netrom): New configuration option.
+	* Makefile.in (REMOTE_OBS): Rename from REMOTE_O, append
+	value of NETROM_OBS.
+	(NETROM_OBS): New variable.
+	* remote-nrom.c: New file, NetROM target support.
+	* config/a29k/a29k-udi.mt, config/i960/vxworks960.mt: Use
+	REMOTE_OBS instead of REMOTE_O.
+
+Fri Apr 28 23:30:00 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* array-rom.c (_initialize_array array_open):  Move baud_rate
+	initialization from _initxxx to array_open to fix bug with
+	overriding -b command line option.
+
+Thu Apr 27 20:29:34 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (RUNTEST): Fix reference of `srcdir'.
+
+Wed Apr 26 19:01:08 1995  Steve Chamberlain  <sac@slash.cygnus.com>
+ 
+ 	* remote-hms.c: Rewrite to use new monitor conventions.
+
+Tue Apr 25 11:27:14 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* dbxread.c: Add comment explaining lowest_text_address.
+	Add comment regarding stringtab_global and psymtabs.
+
+Sat Apr 22 01:26:29 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* config/pa/tm-hppa.h (EXTRACT_STRUCT_VALUE_ADDRESS): Fix.
+
+	* config/pa/tm-hppa.h (EXTRACT_RETURN_VALUE): Rewrite to correctly
+	handle "short", "int" and small structures returned in registers. 
+
+Fri Apr 21 12:57:53 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* minsyms.c: add new function lookup_minimal_symbol_text, to look
+	for text symbol only.
+	* breakpoint.c (create_longjmp_breakpoint): call
+	lookup_minimal_symbol_text instead of lookup_minimal_symbol.
+	* symtab.h: add lookup_minimal_symbol_text prototype.
+
+Fri Apr 21 12:03:44 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* sh-tdep.c (sh-opc.h): Don't include.
+	(gdbcore.h): Include.
+	(frame_find_saved_regs): Remove unused local.
+
+Thu Apr 20 10:12:21 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* dwarfread.c (struct dwfinfo), dbxread.c (struct symloc),
+	mdebugread.c (struct symloc), hpread.c (struct symloc): Clean
+	up comments.
+
+Wed Apr 19 16:58:11 1995  Stu Grossman  (grossman@andros.cygnus.com)
+
+	* hppa-tdep.c (deposit_17):  New routine to deposit 17 bit
+	constants into PA instructions.
+	* Put #ifdefs around all signal handling code.  Not generally
+	needed for embedded boards.
+	* (hppa_fix_call_dummy):  Parameterize offsets into call dummy to
+	allow different dummys to be used by this code.  Use
+	INSTRUCTION_SIZE instead of REGISTER_SIZE for things.
+	Conditionalize setup of _sr4export fixup.  Improve comments.
+	* config/pa/tm-hppa.h:  Define INSTRUCTION_SIZE.  Use a different
+	call dummy if PA_LEVEL_0 is defined.  Better comments for call
+	dummys.  Define offsets for LDIL/LDO instructions which load
+	function addresses.
+	* config/pa/tm-pro.h:  Get rid of signal handling stuff.  Define
+	PA_LEVEL_0 to disable mucking with space regs and such.
+
+Mon Apr 17 15:37:08 1995  Stu Grossman  (grossman@andros.cygnus.com)
+
+	* cpu32bug-rom.c monitor.h op50-rom.c remote-est.c rom68k-rom.c
+	w89k-rom.c:  Remove loadtypes, loadprotos and baudrates.
+	* op50-rom.c:  Fix copyrights and add load routine to op50n_cmds.
+	* rom68k-rom.c (_initialize_rom68k):  Don't set baud rate.
+	* w89k-rom.c:  Fix copyrights.
+
+Sun Apr 16 14:00:55 1995  Stu Grossman  (grossman@andros.cygnus.com)
+
+	* monitor.c:  Move all xmodem stuff into xmodem.[ch].  Remove
+	unnecessary remoteloadprotocol and remoteloadtype support.
+	* (expect expect_prompt):  Change names to monitor_expect and
+	monitor_expect_prompt.  Make them global.
+	* (printf_monitor):  Change name to monitor_printf.  Make global.
+	* (monitor_read_memory):  Flush command echo to avoid parsing
+	ambiguity with CPU32Bug monitor.
+	* (monitor_load):  Remove remoteloadprotocol and remoteloadtype
+	support.  Call target_ops->load_routine, default to
+	monitor_load_srec.
+	* (monitor_load_srec):  Remove everything but S-record support.
+	* monitor.h (monitor_ops):  Add load_routine to provide monitor
+	specific download capability.
+	* remote-est.c:  Clean up copyrights and comments.
+	* w89k-rom.c:  Use new xmodem support.
+	* xmodem.c xmodem.h:  New files to support xmodem downloads.
+	* rom68k-rom.c remote-est.c:  Fix copyrights, add load_routine
+	entry to monitor_ops.
+	* cpu32bug-rom.c:  New file to support Moto BCC debuggers.
+	* config/m68k/est.mt (TDEPFILES):  Add cpu32bug.o.
+	* config/pa/hppapro.mt (TDEPFILES):  Add xmodem.o.
+
+Sat Apr 15 18:00:15 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* rem-multi.shar: Removed; superceded by gdbserver.
+
+Fri Apr 14 12:10:24 1995  Jim Kingdon  <kingdon@deneb.cygnus.com>
+
+	* xcoffread.c (xcoff_sym_fns): Revise comment about merging this
+	with coffread.c.
+
+	* breakpoint.c (fixup_breakpoints): Removed.
+	* rs6000-nat.c (vmap_symtab): Don't call fixup_breakpoints.
+	(vmap_ldinfo, xcoff_relocate_core): Call breakpoint_re_set.
+
+	* coffread.c (coff_symfile_offsets): Allocate SECT_OFF_MAX
+	sections, not just SECT_OFF_MAX-1.
+
+	* rs6000-nat.c (vmap_symtab), xcoffread.c: Re-do section offsets
+	to be indexed by SECT_OFF_* instead of xcoff section numbers.
+	* objfiles.c, remote.c: Remove comments regarding SECT_OFF_*.
+	* symtab.h: Revise comment about block_line_section.
+	* rs6000-nat.c (vmap_symtab): Don't relocate objfile->sections.
+
+Sat Apr 15 14:15:14 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* mpw-make.in (init.c): Don't try to do symbolic {o} in sed
+	command, not allowed by some version of MPW Make.
+	* ser-mac.c (mac-setbaudrate): Make it actually set baud rates.
+
+Sat Apr 15 14:05:09 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* alpha-tdep.c (alpha_push_arguments): Fix typo (TYPE_VALUE ->
+	VALUE_TYPE).  Do the cast for TYPE_CODE_BOOL, TYPE_CODE_CHAR,
+	TYPE_CODE_ENUM, and TYPE_CODE_RANGE as well as TYPE_CODE_INT.
+
+Sat Apr 15 14:04:32 1995  Per Bothner  <bothner@cygnus.com>
+
+	* alpha-tdep.c (alpha_push_arguments): Only cast to long for
+	TYPE_CODE_INT.
+
+Sat Apr 15 13:52:24 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdbtk.c (gdb_disassemble): Read from inferior if connected
+	to a VxWorks target.
+
+Fri Apr 14 10:18:20 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* README.GDBTK:  New file.  Contains the obvious.
+
+Thu Apr 13 16:17:04 1995  Rob Savoye  <rob@darkstar.cygnus.com>
+
+	* remote-array.c: New file for Array Tech LSI33k based controller
+	board.
+
+Thu Apr 13 12:23:31 1995  Kung Hsu  <kung@rtl.cygnus.com>
+
+	* a29k-tdep.c (get_longjmp_target): Replace SWAP_TARGET_AND_HOST with
+	extract_address.
+	* remote-vxsparc.c: New file, preliminary check in, this configuration
+	not supported yet. 
+	* remote-vxmips.c: ditto.
+
+Thu Apr 13 12:10:14 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* rs6000-tdep.c (xcoff_add_toc_to_loadinfo): Don't use a prototype
+	to declare the function.
+
+Wed Apr 12 16:40:20 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* monitor.h (init_monitor_ops): Declare.
+	* rom68k-rom.c: Clarify some comments.
+	(rom68k_open): Define as static, to match decl.
+
+Wed Apr 12 16:36:44 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.gdb: New file.
+	* .gdbinit: Move list-objfiles to gdb.gdb.
+
+	* values.c (set_internalvar): Set modifiable flag of newval.
+
+Wed Apr 12 14:34:31 1995  Jim Kingdon  <kingdon@deneb.cygnus.com>
+
+	* xcoffread.c: Call complain() rather than error() or printing a
+	warning.
+
+
+Tue Apr 11 16:42:37 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* top.c, utils.c, defs.h: Remove error_hook.  It is currently
+	unused and would need to hook into error_begin()/return_to_top_level(),
+	instead of error(), if it were to be used.
+
+Tue Apr 11 13:46:25 1995  Jim Kingdon  <kingdon@deneb.cygnus.com>
+
+	* utils.c, defs.h (warning_begin): Renamed from warning_setup, for
+	consistency with error_begin.  Also print warning_pre_print.
+	Document it better.
+	* utils.c (warning): Use it.
+	* utils.c (error_begin): Doc fix.
+	* rs6000-nat.c (vmap_ldinfo): If we don't find ldinfo for the
+	symfile_objfile, nuke it.
+
+Tue Apr 11 09:35:20 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* printcmd.c (print_address_numeric): Pass use_local to
+	print_longest, rather than always passing 1.
+
+	* nlm/Makefile.in: Remove comments discussing munch.
+
+Tue Apr 11 11:07:12 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* gdbtk.c (gdbtk_init): If SIOCSPGRP is not available, but
+	F_SETOWN is, use that.
+
+Mon Apr 10 18:31:57 1995  Stan Shebs  <shebs@andros.cygnus.com>
+	
+	Merge in support for Mac MPW as a host.
+	(Old change descriptions retained for informational value.)
+
+	* mpw-config.in (i386-unknown-go32): Change from aout.
+	(sh-hitachi-hms): New target.
+	* mpw-make.in (BISON): Use byacc instead of bison.
+	(VERSION): Bump to 4.14.1.
+	(*-pinsn.*): Remove mentions everywhere.
+	(all): Don't build MacGDB.
+	(gdb, SiowGDB): Depend on Version.r.
+	(Version.r): Generate from version info.
+	* main.c (main): Pass program name to START_PROGRESS, END_PROGRESS.
+	(main) [MPW]: Remove debugging hook.
+	* mac-xdep.c (debug_openp): New flag.
+	(mac_init): Set flag if env variable defined.
+	* ser-mac.c (mac_open): Clarify error message.
+	(mac_readchar): Call PROGRESS while looping.
+	(mac_write): Call sleep instead of sec_sleep.
+	(sec_sleep): Remove.
+	* source.c (openp) [MPW]: Only print debugging info if debugging.
+	* utils.c (query) [MPW]: Clarify that behavior is a bug.
+
+	* mpw-make.in (init.c): Use open-brace instead of mpw-open-brace.
+
+	* main.c, source.c: Remove hacks that replace long strings
+	with shorter ones, now solved portably.
+
+	* config/m68k/xm-mpw.h (spin.h): Include.
+	(ALMOST_STDC): Only define if MPW_C.
+	* config/m68k/tm-mac.h: New file, Mac target definitions.
+
+	* mpw-config.in (m68k-apple-macos, ppc-apple-macos,
+        i386-unknown-aout): New targets.
+	(mk.tmp): Add *DEPFILES definitions.
+	* mpw-make.in: Remove gC rules, clean up definitions for other
+        include files, bump version, fix bogus \ that should be \Option-d.
+	(init.c): Build correctly.
+
+	* mpw-make.in (HFILES_NO_SRCDIR): Add somsolib.h
+	(ALLDEPFILES): Add somsolib.c.
+	(somsolib.o): Add some dependencies.
+
+	* mpw-config.in: Use nm-empty.h if host is not target.
+	(xdepfiles): Add mac-xdep.c.o.
+	(xm_file): Remove.
+	* mpw-make.in: Add Fortran files.
+	(XDEPFILES): Remove.
+
+	* mpw-config.in (MacSerial.h): Duplicate from standard Serial.h.
+	* ser-mac.c (MacSerial.h): Include instead of Serial.h.
+
+	* mpw-make.in: Use {s} instead of {srcdir} everywhere.
+	(bindir, libdir): Remove extra colon.
+	(source.c): Compile with C instead of gC.
+	(c-exp.tab.c, ch-exp.tab.c, m2-exp.tab.c): Add {o}.
+	(install-only): Don't install MacGDB.
+	* source.c (openp) [MPW]: Add a debugging display.
+	(open_source_file) [MPW]: Use MPW basename finders.
+	[MPW_C]: Briefer versions of help for line and list commands.
+
+	* mpw-make.in: Change references from paread.c to somread.c
+
+	* mpw-make.in (VERSION): Update to 4.12.3.
+	(SiowGDB): New target, GDB using SIOW library.
+	(init-new.c): New target, attempt to generate init.c from sources.
+	(main.c.o, top.c.o): Put each in its own segment.
+	* main.c (main) [MPW]: Always call mac_init.
+	* utils.c (query) [MPW]: Always return "yes" if in MacGDB, output
+	an extra newline otherwise.
+	* mac-xdep.c: More comments in various places, remove junk.
+	(mac_init): Add tests for MPW and SIOW.
+	(use_wne, has_color_qd): Renamed.
+	(use_color_qd): New variable.
+	(grow_window): Only do console resizing to console window,
+	call resize_console_window.
+	(zoom_window): Call resize_console_window.
+	(resize_console_window, scroll_text): New functions.
+	(adjust_console_sizes): Always align viewrect to even multiples of
+	text lines.
+	(adjust_console_text): Always scroll by whole lines.
+	(hacked_vfprintf, hacked_puts, hacked_fputc, hacked_putc): Force a
+	recalculation of scroll positions if a newline was output.
+	(hacked_fflush): Similarly, for flushing.
+	(hacked_fgetc): New function, aborts if called in MacGDB.
+	* ser-mac.c (mac_readchar): Rename starttime to start_time,
+	remove debugging printf.
+	(mac_write): Sleep on first 4 writes.
+	(sec_sleep): New function, works like standard sleep.
+	* macgdb.r: Adjust positioning and contents of About box.
+	Set minimum size to 2000K, preferred size to 5000K.
+	* config/m68k/xm-mpw.h (fgetc): Define as a macro.
+
+	* mpw-make.in (.c.o, .gc.o): Prefix segment names with gdb_.
+	(top.c.o, annotate.c.o): Add build rules.
+	* macgdb.r (SysTypes.r): Include.
+	('vers'): New resource, version info.
+	(mFile, mEdit, mDebug): Enable all menu items.
+	(mDebug): Add key equivalents for continue, step, next.
+	(wConsole): Add zoom and close boxes to window.
+	* mac-xdep.c (new_console_window): New function, code taken from
+	mac_init.
+	(mac_command_loop): Use GetCaretTime for wait interval, call
+	do_idle on null events.
+	(do_idle): New function.
+	(zoom_window): Implement zooming.
+	(v_scroll_proc): New function, handles vertical scrolling.
+	(activate_window): Do activation of console window.
+	(do_menu_command): Implement items of file, edit, and debug menus.
+	(do_keyboard_command): Fix command extraction.
+	(adjust_console_sizes, adjust_console_text): New functions.
+	(hacked_fprintf, hacked_vfprintf, hacked_fputs, hacked_fputc,
+	hacked_putc): Don't call draw_console.
+	* ser-mac.c (mac_open): Add an error message for invalid ports.
+	(first_mac_write): New global.
+	(mac_write): Use first_mac_write to sleep on first several writes.
+
+	* mpw-make.in (INCLUDE_CFLAGS): Add readline source dir.
+	(READLINE_CFLAGS, READLINE_SRC, READLINE_DIR): Uncomment.
+	(TSOBS): Don't compile inflow.c.
+	(all, install): Add MacGDB.
+	* main.c (main): Do Mac-specific init and command loop if a
+	standalone app, skip full option help message if compiling
+	with MPW C.
+	(gdb_readline): If MPW, add a newline after the (gdb) prompt.
+	* utils.c (_initialize_utils): If MPW, don't try to use termcap to
+	compute the window size.
+	* config/m68k/xm-mpw.h (printf, fprintf, fputs, fputc, putc,
+	fflush): Define as macros that expand into hacked_... versions.
+	(StandAlone, mac_app): Declare.
+	* macgdb.r (SIZE): Set the default partition to 4000K.
+	* mac-xdep.c (readline.h, history.h): Include.
+	(terminal.h): Don't include.
+	(mac_app): Define.
+	(gdb_has_a_terminal): Define Mac-specific version.
+	(do_keyboard_command): Simplify search for command string.
+	(readline): Define as gdb_readline.
+	Add other history/readline stubs to make main gdb link.
+	(hacked_fprintf, hacked_printf, hacked_vfprintf, hacked_fputs,
+	hacked_fputc, hacked_fflush): New functions, intercept output to
+	stdout and stderr, send to console window.
+
+	* mpw-make.in (MacGDB): New target, standalone Mac-hosted gdb.
+	(XDEPFILES): Define.
+	(main.c.o): Compile with gC instead of C.
+	* mac-defs.h: New file, menu etc definitions shared between
+	C and Rez files.
+	* macgdb.r: New file, Rez (resource compiler) resource
+	definitions.
+	* mac-xdep.c: New file, Mac host interface code.
+	* config/m68k/xm-mpw.h (PATHNAME_SEPARATOR): Rename to
+	DIRNAME_SEPARATOR.
+	(PATHNAME_SEPARATOR_STRING): Remove.
+	(SIGQUIT, SIGHUP): Define.
+	(fileno, R_OK): Define.
+
+	* mpw-config.in: New file, MPW configuration fragment.
+	* mpw-make.in: New file, MPW makefile fragment.
+	* config/m68k/xm-mpw.h: New file, MPW host definitions.
+	* ser-mac.c: New file, Mac serial interface.
+
+Mon Apr 10 16:47:57 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* valprint.c (print_longest): Fix a syntax error in #ifdef 
+	PRINTF_HAS_LONG_LONG.
+
+	* config/mips/xm-irix5.h: turn on CC_HAS_LONG_LONG and 
+	PRINTF_HAS_LONG_LONG.
+	* config/mips/tm-irix5.h: turn on FORCE_LONG_LONG.
+
+Sat Apr  8 02:47:45 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mdebugread.c (parse_symbol):  Use new variable 
+	nodebug_var_symbol_type as type of variables which don't have any
+	ecoff debug info associated with them.
+	(parse_symbol, parse_procedure):  Use heuristics to determine if
+	functions were compiled without debugging info and change their
+	type to nodebug_function_symbol_type.
+	(_initialize_mdebugread):  Initialize nodebug_*_symbol_type.
+
+	* source.c (line_info):  Clear sal.pc for `info line' without
+	arguments.
+
+Fri Apr  7 17:43:01 1995  Stu Grossman  (grossman@andros.cygnus.com)
+
+	* monitor.c:  make_xmodem_packet and print_xmodem_packet go away.
+	send_xmodem_packet shows up to do the obvious.  Lots of fixes to
+	xmodem downloads including resetting of block number at start of
+	new transfers, fix for buffer overrun problem, addition of CRC
+	generation code.
+	* (monitor_open):  loadtype_str and loadproto_str now default to
+	first entry in monitor_ops->loadtypes.
+	* (monitor_wait):  Lengthen register dump buf, because of verbose
+	Winbond monitor.
+	* (monitor_fetch_register):  Report unimplemented registers as 0.
+	* (monitor_read_memory):  Only do 16 byte aligned transfers
+	because of formatting weirdness with the Winbond monitor.  Also,
+	ignore non-hex, non-whitespace formatting between bytes (same
+	monitor).
+	* (monitor_load):  Clean up logic.
+	* (monitor_load_srec):  Re-do xmodem support.  Move lots of it
+	into send_xmodem_packet.
+	* (getacknak):  Get rid of polls and timeouts.  Handle CRC
+	requests from receiver.
+	* (monitor_make_srec):  Efficiency improvements.  Don't call
+	sprintf to output two digit hex numbers.
+	* (crcinit, docrc):  New, CRC-16 support routines.
+	* (send_xmodem_packet):  New routine to generate either CRC-16 or
+	checksummed xmodem packets.
+
+	* remote-est.c (est_loadtypes), rom68k-rom.c (rom68k_loadtypes):
+	Reduce tables down to only the load types supported by each
+	monitor.
+
+	* w89k-rom.c  (w89k_supply_register):  Parses output of Winbond
+	register dumps.
+	* (w89k_loadtypes, w89k_loadprotos):  Reduce to just srec/xmodem.
+	* (w89k_cmds):  Add clear all breakpoints, memory fill, and dump
+	registers commands.
+
+	* config/pa/tm-hppa.h:  Define lots register offsets needed by
+	w89k-rom.c.
+
+
+Thu Apr  6 17:00:46 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* Makefile.in (X11_INCLUDES): Define as empty.
+	(X11_CFLAGS): Define as including $(X11_INCLUDES).
+	(X11_LIB_SWITCHES): Define as empty.
+	(X11_LIBS): Define as -lX11.
+
+	* configure.in (enable_gdbtk): If gdbtk, support the --x-includes
+	and --x-libraries switches, setting the X11_INCLUDES and
+	X11_LIB_SWITCHES respectively.  Instead of using a hardcoded -lX11
+	in ENABLE_CLIBS, use the X11_LIB_SWITCHES and X11_LIBS variables.
+
+	* gdbtk.c (gdbtk_init): If SIOCSPGRP is not available, don't use
+	it.  This means that the stop button doesn't work, but is better
+	than nothing.
+
+Wed Apr  5 19:57:38 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* mips-tdep.c (mips_print_register): Remove unused variable
+	our_type and call to init_type.  Fixes memory leak.  Reindent function.
+
+	* mips-tdep.c (mips_print_register), findvar.c
+	(write_register_bytes): Make buffer char[] instead of unsigned
+	char[].
+
+Mon Apr  3 19:28:14 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* top.c, utils.c, main.c, defs.h: Replace error_pre_print with two
+	variables: error_pre_print (for RETURN_ERROR) and quit_pre_print
+	(for RETURN_QUIT).  Fixes a bug whereby typing ^C (e.g. in "maint
+	print sym") could output extraneous stuff.
+	* objfiles.c: Don't declare error_pre_print; defs.h does it.
+
+Mon Apr  3 13:48:28 1995  Stu Grossman  (grossman@andros.cygnus.com)
+
+	* monitor.h:  Add MO_GETMEM_NEEDS_RANGE flag.
+	* monitor.c (monitor_read_memory):  Use previously mentioned flag
+	to send proper format memory examine commands to the w89k monitor.
+	Also, try to handle bizarre format of memory dump...
+
+	* op50-rom.c w89k-rom.c:  Update to new monitor.[ch] conventions.
+
+Sat Apr  1 03:22:20 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* dbxread.c (process_one_symbol) [SOFUN_ADDRESS_MAYBE_MISSING]:
+	Handle relocated symbol address.
+	* partial-stab.h, case N_SO, SOFUN_ADDRESS_MAYBE_MISSING:
+	Do not relocate a zero address.
+
+Thu Mar 30 19:46:36 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* config/a29k/tm-a29k.h: Nuke obsolete define CONTROL_END_ADDR; it
+	is nowhere used.
+
+	* stabsread.c (read_range_type): Remove FIXME comment about
+	type-id (I presume this meant a number followed by = followed by a
+	type) versus type number; Per fixed it.
+
+Wed Mar 29 09:56:04 1995  Jason Molenda  (crash@phydeaux.cygnus.com)
+
+	* configure.in: sparc-*-sunos5* is same as sparc-*-solaris2*.
+
+Wed Mar 29 18:30:03 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* remote-e7000.c (why_stop): Add new kinds of strings to expect
+	from the emulator.
+	(e7000_wait): Add interpretations for more stop reasons,
+	including warnings for write protect and cycle address errors.
+
+Wed Mar 29 17:09:29 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* Makefile.in (gdbtk.o):  Use X11_CFLAGS to provide alternate
+	locations (per-host) for X11 include files.
+	* config/pa/hppahpux.mh (XM_CLIBS):  Add -L/usr/lib/X11R5 to force
+	the use of R5 libs.  (X11_CFLAGS):  Add this to indicate the locs
+	of the R5 include files.
+	* monitor.c monitor.h remote-est.c rom68k-rom.c:  Add start of
+	support for interrupting target.
+	* monitor.c (monitor_open):  Send stop command before doing
+	anything else.
+	* (monitor_load_srec):  Fix record size calculation to prevent end
+	of segment from getting trashed.
+	* rom68k-rom.c:  Update to latest version of struct monitor_ops.
+	* config/sparc/tm-sparc.h (FIX_CALL_DUMMY):  Fix byte-order
+	problems.  Makes DOS hosted function calling work.
+	* sparclite/crt0.s:  Define _start to make COFF happy.
+
+Wed Mar 29 09:11:51 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* defs.h (atof): Don't provide an external declaration if atof is
+	a macro.
+
+Wed Mar 29 00:01:07 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* rs6000-tdep.c (skip_prologue):  Skip saving of LR and CR in
+	the stack frame, fix typos in `st rx,NUM(r1)' and `stu r1,NUM(r1)'
+	tests.
+
+Tue Mar 28 17:04:04 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* gdbtypes.c (create_range_type):  If indextype has TYPE_FLAG_STUB
+	set, set TYPE_FLAG_TARGET_STUB.
+	(check_stub_type):  Recalculate TYPE_LENGTH for range type.
+	* stabsread.c (read_range_type):  If index type number is followed
+	by '=', back up, call read_type. and assume we have a true range.
+	* gdbtypes.h (TYPE_FLAG_TARGET_STUB):  Update comment.
+
+Mon Mar 27 22:51:54 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* alpha-nat.c, irix4-nat.c, irix5-nat.c, mipsv4-nat.c,
+	sparc-tdep.c (supply_gregset, supply_fpregset):  Fill inaccessible
+	registers with zero to handle recent read_register_bytes change.
+	* irix4-nat.c, irix5-nat.c, mipsv4-nat.c (supply_gregset,
+	fill_gregset):  Fix handling of CAUSE_REGNUM.
+	* mips-nat.c (store_inferior_registers):  Handle unwritable
+	registers when storing a single register.
+	* config/mips/tm-irix3.h (CAUSE_REGNUM, BADVADDR_REGNUM):
+	Fix definitions.
+
+	* mdebugread.c (parse_symbol, psymtab_to_symtab_1):  Clear
+	allocated mips_extra_func_info, if the debug info is corrupt,
+	the PDR to fill it in might be missing.
+
+Mon Mar 27 14:43:00 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* vx-share/regPacket.h: a new file interfacing with vxworks.
+
+Sun Mar 26 13:22:47 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* breakpoint.c (bpstat_do_actions): Once we've executed the
+	commands, set bs->commands to NULL.
+
+Sat Mar 25 01:16:10 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* buildsym.c (patch_subfile_name):  Update last_source_file
+	with the real source file name.
+	* dbxread.c (end_psymtab):  Handle static functions in the
+	SOFUN_ADDRESS_MAYBE_MISSING case by passing pst->filename
+	to lookup_minimal_symbol.
+	(process_one_symbol):  Ignore extra outermost context from
+	SunPRO cc and acc.
+	* stabsread.c (define_symbol):  Do not complain for SunPRO
+	static variable encoding if STATIC_TRANSFORM_NAME is defined.
+	* sparc-tdep.c, config/sparc/tm-sun4sol2.h
+	(sunpro_static_transform_name):  Renamed from
+	solaris_static_transform_name.
+	* config/sparc/tm-sun4os4.h (STATIC_TRANSFORM_NAME):
+	Define to sunpro_static_transform_name for acc 3.0 compiled
+	executables.
+	* procfs.c, config/alpha/nm-osf2.h (PROCFS_DONT_TRACE_FAULTS):
+	Renamed from PROCFS_DONT_TRACE_IFAULT, don't trace any faults
+	if defined.
+	* procfs.c (info_proc_siginfo):  Cast sip->si_addr to
+	`unsigned long' and use `lx' format for printing it.
+
+Fri Mar 24 15:45:42 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* configure.in:  Move test for m68*-est-* before m68*-*-coff*.
+	* findvar.c:  Move default def of CANNOT_STORE_REGISTER closer to
+	the beginning of the code.
+	* (write_register_gen):  New routine.  Analogous to
+	read_register_gen.
+	* (write_register_bytes):  Another rewrite!  Make it smarter about
+	not updating regs with the same value.
+	* monitor.c (printf_monitor readchar):  Use stderr instead of
+	stdout to output debug info.  Also cleanup readchar a little.
+	* (expect):  Make sure that excessive responses are null
+	terminated.
+	* (monitor_open):  Check for magic number in monitor_ops struct.
+	Allow multiple commands as init strings.  Also, clear all
+	breakpoints.
+	* (monitor_resume monitor_wait):  Send a command to dump all the
+	regs for those targets which don't do so when waking up after a
+	continue command.
+	* (monitor_wait):  Handle excessive response output better.
+	* (monitor_write_memory):  Use block fill, word, and long word
+	commands (if they exist) to write memory more efficiently.
+	* General cleanups to use flag bits instead of individual flag
+	words in monitor_ops struct.
+	* (monitor_command):  Return output from command.
+	* (monitor_load_srec):  Allocate buffer only once.  Use alloca.
+	Wait for load response string instead of using a timeout to start
+	sending S-records.  Fix bug where value of srec_frame shrinks.  If
+	hashmark is set, print `-' for retransmissions.  General cleanups.
+	* (monitor_make_srec):  Get rid of S-record default type kludge.
+	* monitor.h:  Use seperate struct for memory and register
+	read/write commands.  Memory commands can come in byte, word,
+	long, and longlong forms.
+	* (monitor_ops):  Change lots of fields.  Generalize some stuff.
+	Put all flags into flags word.  Allow init to be a list of commands.
+	Add command for clearing all breakpoints, block fill, dumping all
+	registers.
+	* remote-est.c:  Rewrite to use new monitor conventions.
+	* config/m68k/est.mt (TDEPFILES):  Add monitor.o.
+	* config/m68k/tm-est.h:  Set NUM_REGS to 18.
+	* testsuite/gdb.base/break.exp:  Lots of cleanups.  Use gdb_test
+	more thoroughly.
+
+Thu Mar 23 23:20:00 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+        * somsolib.c (som_solib_add): Handle case where a shared library
+        referenced by a core file has sections without the SEC_ALLOC bit
+        set (eg stabs sections).
+
+Thu Mar 23 15:07:08 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* breakpoint.c (bpstat_do_actions): For each element in the bpstat
+	chain, do all the commands regardless of whether they run the
+	inferior.
+
+Wed Mar 22 19:17:06 1995  Doug Evans  <dje@cygnus.com>
+
+	* mem-break.c (LITTLE_BREAKPOINT, BIG_BREAKPOINT): Define as
+	BREAKPOINT if mono-endian.
+	(break_insn): Deleted.
+	(big_break_insn, little_break_insn): Define.
+	(memory_insert_breakpoint): Handle bi-endian cpus.
+	(BREAKPOINT_LEN): Define.
+	(memory_remove_breakpoint): Use it.
+	(memory_breakpoint_size): Likewise.
+
+Tue Mar 21 17:03:17 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* sparc-stub.c: add nop after 'bg good_wim'.
+	* sparcl-stub.c: ditto.
+
+Tue Mar 21 13:34:12 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* infrun.c (handle_command): Don't print TARGET_SIGNAL_0,
+	TARGET_SIGNAL_UNKNOWN, or TARGET_SIGNAL_DEFAULT.
+
+Mon Mar 20 10:09:59 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* hppab-nat.c (store_inferior_registers): Sync with HPUX version.
+
+Mon Mar 20 07:34:48 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* hppah-nat.c (store_inferior_registers):  Move check for
+	CANNOT_STORE_REGISTER to a better place.  Fixes ptrace I/O errors
+	found by test suite during function calls, which attempts to write
+	unwritable registers.
+
+Sat Mar 18 02:02:24 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mdebugread.c (parse_symbol):  If finishing a function without
+	known parameter type info, set that from parameter symbols.
+	Remove commented-out add_param_to_type support.
+
+Thu Mar 16 16:38:03 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* xcoffread.c (process_linenos): Make sure filename we pass to
+	start_subfile will cause deduce_language_from_filename to return
+	the correct thing.  Reindent function to GNU standards.
+
+Thu Mar 16 15:54:00 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* nlm/gdbserve.c (handle_exception): #if out call to StopBell,
+	  as it is not available on NetWare 3 or PIN.
+	* nlm/ppc.c (StopBell): Removed.
+
+Thu Mar 16 12:14:41 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* xcoffread.c (read_xcoff_symtab): When creating a dummy parameter
+	inferred from the traceback tags, give its type the name
+	"<non-float parameter>".
+
+	* stabsread.c (rs6000_builtin_type): Recognize types -31 to -34.
+
+Wed Mar 15 15:09:29 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* findvar.c (read_register_bytes write_register_bytes):  Make
+	these routines much smarter about updating registers from the
+	target, only doing so when absolutely necessary.  This really
+	speeds up register modification on some remote targets.
+
+	* monitor.c:  More cleanups.  Get rid of monitor_load_ascii_srec.
+	BFD makes this unnecessary.  Lots of debugging speedups.
+	* (expect):  NULL terminate return string.
+	* (monitor_open	monitor_supply_register parse_register_dump
+	monitor_wait monitor_fetch_register):  Switch to using GNU regexp
+	library to parse multi-register displays.
+	* (monitor_read_memory): Read multiple bytes (up to 16) at once.
+	* (monitor_create_inferior):  Call clear_proceed_status to make run
+	command notice first breakpoint.
+	* (monitor_load):  Clean up.  Reset inferior_pid, set pc to start
+	address and reset symbol table stuff to make loads put things into
+	a fresh state.
+	* (monitor_load_srec):  Lower sleep time to 1 second.
+
+	* monitor.h (struct monitor_ops):  Add register_pattern and
+	supply_register to monitor_ops.
+
+	* rom68k-rom.c:  Add new support for handling register dumps.
+	* config/m68k/tm-m68k.h:  Define D0_REGNUM and A0_REGNUM for register
+	dump handling.
+
+Wed Mar 15 15:18:27 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* utils.c, defs.h (putchar_unfiltered, fputc_unfiltered): Make
+	argument be an int, not a char.  Using a prototype followed by an
+	old-style function definition in a case where an argument is
+	widened is a GCC-ism not supported by the native AIX compiler.
+
+Wed Mar 15 12:22:35 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* nlmstub.def: Removed, this was moved to nlm/gdbserve.def 
+	  long ago.
+
+	* configure.in (alpha-*-netware*): Removed configuration.
+	* config/alpha/{alpha-nw.mt, gdbserve.mt, tm-alphanw.h}: Removed.
+	* nlm/{README-ALPHA-NETWARE, aio.h, alpha-io.S, alpha-regdef.h,
+	  alpha.c, alpha.h, altdebug.h}: Removed.
+
+	* nlm/gdbserve.c (main): Add support for processing BOARD=
+	  argument, deprecate NODE=.
+
+Wed Mar 15 10:58:26 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* c-exp.y (yylex): Make an empty character constant an error.
+
+Tue Mar 14 15:00:54 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* valops.c (value_arg_coerce):  Do possible value_coerce_array
+	before determining type argument to value_cast.
+
+Tue Mar 14 10:41:41 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* remote-es.c: Replace ignore with 0.
+
+Tue Mar 14 05:52:36 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* valops.c (value_repeat), eval.c (evaluate_subexp_standard):
+	If VALUE_REPEATED is already set, just error out.
+
+	* valops.c (value_cast, value_slice), parse.c (follow_types): Add
+	FIXME-type-allocation comments.
+
+	* gdbtypes.h (struct type): Fix comment about what units the
+	TYPE_LENGTH is in.
+
+Mon Mar 13 18:27:25 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* ch-valprint.c (annotate.h): Include.
+	* eval.c (evaluate_subexp_standard): Remove unused variable.
+	(calc_f77_array_dims): Add parens to expression.
+	* f-exp.y (yylex): Add parens to expression, remove unused label.
+	* f-lang.h (calc_f77_array_dims): Declare.
+	* f-valprint.c (f_val_print): Remove unused variables.
+
+Mon Mar 13 15:25:47 1995  Jim Kingdon  <kingdon@deneb.cygnus.com>
+
+	* alpha-tdep.c (find_proc_desc): If pdr.framereg field is -1, don't
+	use the PDR, just examine prologues instead.
+
+
+Fri Mar 10 02:49:40 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	Fix problems with infinite recursion when printing a class
+	that contains a static instance of the class.
+	* cp-valprint.c (dont_print_vb_obstack):  Renamed from
+	dont_print_obstack, made static.
+	(dont_print_statmem_obstack):  New obstack, controls printing
+	of static member classes.
+	(_initialize_cp_valprint):  Initialize it.
+	(cp_print_static_field):  New function, handles printing of
+	static members.
+	(cp_print_value_fields):  New parameter dont_print_statmem to
+	handle recursive printing of static member classes, use
+	cp_print_static_field to handle printing of static members.
+	* c-valprint.c (cp_print_value_fields):  Update prototype and
+	call to include additional dont_print_statmem parameter.
+	* c-valprint.c, f-valprint.c (dont_print_obstack):  Remove unused
+	extern declaration.
+
+	* alpha-tdep.c, findvar.c, infptrace.c:  Include <string.h>.
+
+	* config/alpha/tm-alpha.h (FRAME_FIND_SAVED_REGS):  Call
+	alpha_find_saved_regs if fi->saved_regs is still NULL.
+
+	* elfread.c (elf_symtab_read):  Ensure that the filename field
+	of a minsym is nonempty. Ignore solib trampoline symbols from
+	the main symbol table, they might have a bogus value.
+
+	* procfs.c (set_proc_siginfo), config/alpha/alpha-osf2.mh:
+	Fix typos in comments.
+
+Thu Mar  9 17:19:47 1995  Jim Kingdon  <kingdon@deneb.cygnus.com>
+
+	* mdebugread.c (parse_symbol, psymtab_to_symtab_1): Initialize
+	pdr.framereg field of MIPS_EFI_SYMBOL_NAME symbol to -1.  That way
+	we know whether the PDR ever got set.
+	* mips-tdep.c (find_proc_desc): If pdr.framereg field is -1, don't
+	use the PDR, just examine prologues instead.
+
+Wed Mar  8 23:35:10 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* somsolib.c (som_solib_section_offsets): Get offset of text
+	section right. 
+
+Wed Mar  8 16:12:21 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* gdbtk.c (gdb_get_breakpoint_info):  Return error if breakpoint
+	type is not bp_breakpoint.
+
+	* source.c (forward_search_command reverse_search_command):  Set
+	convenience variable $_ to be the line # of the match.
+	* symtab.c (decode_line_1):  Allow convenience variables to be
+	used in line specs (for breakpoints and such).
+
+Wed Mar  8 12:51:00 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* Makefile.in (VERSION): Bump to 4.14.1.
+	* NEWS, README: Update for 4.14.
 	* i386v-nat.c (i386_insert_aligned_watchpoint): Fix declaration.
 	(i386_insert_nonaligned_watchpoint): Call aligned instead of
 	generic watchpoint insertion.
 
+Tue Mar  7 19:26:10 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* valops.c (value_slice):  Do COERCE_VARYING_ARRAY.
+
+Tue Mar  7 00:23:47 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* monitor.c, array-rom.c, monitor.h, rom68k-rom.c:  Move target_ops
+	into monitor.c.
+	* monitor.c (monitor_create_inferior):  Allow run command to start
+	program.
+
+	* monitor.c (monitor_load):  Set PC to start address when done
+	loading.
+
+	* array-rom.c, monitor.h, rom68k-rom.c:  Clean up target_ops.
+	Remove ref to monitor_create_inferior.
+
+	* monitor.c:  More general cleanups.  Add prototypes, remove
+	unused routines.  Fix bug with wrong number of args to error().
+
+	* main.c (main):  Don't start up GUI when running under gdb mode
+	in emacs.
+
+	* Makefile.in:  Add rules for monitor.o and rom68k-rom.o to make
+	Sun make (with VPATH) work...
+
+	* monitor.c, monitor.h, rom68k-rom.c:  Serious cleanup to make IDP
+	(rom68k) target work right.
+	* array-rom.c, op50-rom.c, w89k-rom.c:  Partial updates to new
+	monitor.c interface.  More work needs to be done here.
+	* config/m68k/tm-monitor.h:  Change DECR_PC_AFTER_BREAK to 0 to
+	match the IDP monitor.  Also, set NUM_REGS to 18 cuz there's no
+	floating-point for this card.
+
+	* serial.h, ser-go32.c, ser-go32-para.c, ser-mac.c, ser-tcp.c,
+	ser-unix.c:  Add SERIAL_SETSTOPBITS to set the number of stopbits
+	(needed for IDP board?!?!?).
+
+	* defs.h, utils.c, remote-hms.c, remote-pa.c, remote.c:  Fix defs
+	and usage of fputc_unfiltered and putchar_unfiltered.  Eliminate
+	putc_unfiltered (it's superfluous).
+
+	* command.h, command.c, top.c:  Add var_enum command type.  It's
+	like var_string but allows only only one of the specified strings.
+
+Mon Mar  6 15:03:59 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* valops.c (value_cast): Don't use backslash newline--pre-ANSI
+	compilers (such as SunOS4 /bin/cc) don't generally support it
+	except in some contexts.
+
+Fri Mar  3 17:42:48 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* valops.c (value_cast):  Check for cast to array type *before*
+	we coerce array to pointer (in case arg2 is already array).
+
+	* valops.c (call_function_by_hand):  Set using_gcc to 2 if using
+	gcc2.  Needed for REG_STRUCT_HAS_ADDR to work on sparc.
+	Also check REG_STRUCT_HAS_ADDR for union, array and string types.
+
+	* valops.c (call_function_by_hand):  Re-arrange code for pushing
+	paramaters on the stack so we can do better STACK_ALIGN.
+
+	* valops.c (call_function_by_hand):  Call error if the number
+	of arguments is fewer than parameter types in function type.
+
+Fri Mar  3 17:13:05 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc-tdep.c (sparc_extract_struct_value_address): Move
+	sparc64 support to here.
+	(sparc64_extract_struct_value_address): Deleted.
+	(dump_ccreg): Add a prototype so long long arg -> int.
+	* sparc/tm-sp64.h (USE_STRUCT_CONVENTION): Define.
+	(EXTRACT_STRUCT_VALUE_ADDRESS): Delete.
+
+Fri Mar  3 15:12:12 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* hpread.c (hpread_record_lines): New argument "offset".  All
+	callers changed.  Use it to handle dynamic address relocation.
+	(hpread_build_psymtabs): Adjust texthigh as we read each function
+	debug symbol.  Fix computation of texthigh.
+	(hpread_read_subrange_type): Work around macro bugs in HP's
+	compilers.
+	(hpread_process_one_debug_symbol): Correctly map source lines.
+
+	* somread.c (check_strange_names): Filter names emitted by the HP
+	compiler when generating PIC code.
+
+	* valops.c (value_struct_elt_for_reference): Work around macro
+	bugs in HP's compilers.
+	* c-exp.y (block): Likewise.
+
+Fri Mar  3 12:27:28 1995  Jim Kingdon  <kingdon@deneb.cygnus.com>
+
+	* rs6000-tdep.c (push_dummy_frame): Fix order of arguments to
+	store_address.
+
+	* utils.c [_AIX]: Include stddef.h instead of #defining size_t.
+
+Fri Mar  3 12:33:24 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* rs6000-tdep.c (skip_prologue): Skip multiple stores of the saved
+	registers that GCC emits on the PowerPC by default in addition to
+	the store multiple instruction used on the Power series.
+
+Fri Mar  3 00:54:58 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc-tdep.c (decode_asi): New function.
+	(sparc_print_register_hook): Pretty print more v9 registers.
+	* sparc/tm-sp64.h (REGISTER_NAMES): Fix some typos.
+
+Thu Mar  2 22:20:22 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* dwarfread.c (struct dieinfo): Use CORE_ADDR for at_{low,high}_pc.
+	(target_to_host): Change result type to CORE_ADDR.
+
+Thu Mar  2 15:13:04 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* rs6000-tdep.c: Fix byte-swapping sins.
+
+Thu Mar  2 16:48:45 1995  Michael Meissner  <meissner@cygnus.com>
+
+	* rs6000-tdep.c (branch_dest): Minor code cleanup, don't share
+	code between branch unconditional and branch conditional cases.
+
+Wed Mar  1 09:41:26 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	Various changes for sparc64.
+	* sparc-tdep.c (NUM_SPARC_FPREGS): Define.
+	(SPARC_INTREG_SIZE): Define.
+	(*): Use SPARC_INTREG_SIZE instead of REGISTER_RAW_SIZE (intreg)
+	where appropriate.
+	(enum branch_type): New value `done_retry'.
+	(isbranch): Renamed from isannulled.  All callers changed.
+	Support new sparc64 branch insns.
+	(single_step): Handle done_retry.
+	(sparc_extract_struct_value_address): Don't assume 4 byte regs.
+	(get_saved_register): Likewise.
+	(sparc_push_dummy_frame): Likewise.
+	(sparc_frame_find_saved_regs): Likewise.
+	(sparc_pop_frame): Likewise.  Don't refer to FPS_REGNUM, CPS_REGNUM,
+	or PS_REGNUM if not sparc64.  sparc64 has 64 fp regs.
+	(sparc64_extract_struct_value_address): New function.
+	(dump_ccreg, sparc_print_register_hook): Likewise.
+	* sp64-tdep.c: Deleted.
+	* sparc/tm-sp64.h (GDB_TARGET_IS_SPARC64): Define.
+	(NUM_REGS): Reduce by 2, cle/tle are in the pstate reg.
+	(CC_HAS_LONG_LONG): Define.
+	(REGISTER_NAMES): Delete cle/tle and reorganize.
+	(PS_REGNUM, FPS_REGNUM, CPS_REGNUM): Delete, they're ifdef'd out of
+	sparc-tdep.c now.
+	(REGISTER_BYTES): Update.
+	(REGISTER_CONVERT_TO_VIRTUAL, REGISTER_CONVERT_TO_RAW): Delete.
+	(EXTRACT_RETURN_VALUE): Delete.  Use definition in tm-sparc.h.
+	(NO_SINGLE_STEP): Likewise.
+	* sparc/tm-sparc.h (EXTRACT_VALUE_RETURN): Don't assume 4 byte regs.
+	* sparc/sp64.mt: Move simulator support ...
+	* sparc/sp64sim.mt: ... to here.
+
+Wed Mar  1 13:14:42 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* remote-vx960.c: new file for target specific register packaging.
+	* remote-vx68.c: ditto.
+	* config/i960/vxworks960.mt: add remote-vx960.o.
+	* config/m68k/vxworks68.mt: add remote-vx68.o.
+
+Wed Mar  1 13:42:49 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* remote.c (remote_wait): Make calls to strtol be type correct by
+	passing the address of a char * pointer instead of an unsigned
+	char *.
+
+	* rs6000-tdep.c (push_dummy_frame): Cast sp to char * when calling
+	write_memory to make things type correct.
+
+Wed Mar  1 12:17:31 1995  Michael Meissner  <meissner@cygnus.com>
+
+	* ch-exp.y, c-exp.y, f-exp.y, m2-exp.y (yy defines): Support the
+	standard Linux yacc by adding more names to be redefined with a
+	prefix.
+
+Tue Feb 28 22:55:47 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* hppa-tdep.c (pa_print_registers), monitor.c: Use
+	extract_unsigned_integer and friends, not SWAP_TARGET_AND_HOST.
+	* defs.h, findvar.c: Move SWAP_TARGET_AND_HOST back to findvar.c.
+	Rename it to SWAP_FLOATING to make it clear it is no longer for
+	integers.
+
+Tue Feb 28 14:38:39 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* defs.h (SWAP_TARGET_AND_HOST): check endianess at runtime not
+	compile time.
+
+
+	* vx-share/ptrace.h: merge in WRS new ptrace requests.
+
+	* defs.h: fix a syntax error.
+
+	* a29k-tdep.c (get_longjmp_target): add this function, from WRS.
+	* remote-vx.c: move read_register and write_register out to 
+	target specific files.
+	* remote-vx29k.c (get_fp_contnets): add this function, from WRS.
+
+	* defs.h: define SWAP_TARGET_AND_HOST macro.
+	* findvar.c, monitor.c, hppa-tdep.c: remove definition of
+	SWAP_TARGET_AND_HOST.
+
+Tue Feb 28 08:31:40 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* alpha-tdep.c (find_proc_desc): Only attempt to set
+	PROC_LOCALOFF (found_heuristic) if found_heuristic is non-NULL.
+
+Mon Feb 27 11:56:32 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* monitor.c: General gcc -Wall lint cleanup and reformat.
+	(monitor_command): If no args, send an empty command.
+
+Thu Feb 23 21:07:25 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* monitor.c (monitor_load_ascii_srec):  Add a one second sleep
+	after send LOAD_CMD to prevent loss of first S-record.
+
+Tue Feb 21 20:48:42 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* valops.c (call_function_by_hand):  Set using_gcc to 2 if gcc-2.
+	Call error if too few arguments.
+	If REG_STRUCT_HAS_ADDR (structs passed by invisible reference),
+	copy and convert to reference *before* we calculate alignment.
+	Also, make sure structs allocated for return values and invisible
+	reference don't violate STACK_ALIGN.
+
+Tue Feb 21 23:29:59 1995  Per Bothner  <bothner@rtl.cygnus.com>
+
+	* ch-exp.y (expression_conversion):  Recognize 'ARRAY () TYPE (EXPR)'
+	(same as C's '(TYPE[])EXPR')
+
+Tue Feb 21 11:47:26 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
 	* top.c (print_gdb_version): Update the year.
 
-Sun Feb 19 11:05:28 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+Sun Feb 19 14:31:57 1995  Jim Kingdon  <kingdon@rtl.cygnus.com>
 
-	* elfread.c (elf_symtab_read): Ensure that the filename field
-	of a minsym is nonempty.
+	* Makefile.in (CC_FOR_TARGET, CXX_FOR_TARGET): Look for newlib in
+	`..' not in `../..'.
+
+Sun Feb 19 11:05:28 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
 
 	* procfs.c (unconditionally_kill_inferior):  Don't issue a PIOCKILL
 	in addition to a PIOCSSIG to kill the inferior.
 
-Wed Feb 15 18:02:16 1995  Stan Shebs  <shebs@andros.cygnus.com>
+Thu Feb 16 15:06:12 1995  Per Bothner  <bothner@kalessin.cygnus.com>
 
-	* Makefile.in (VERSION): Bump to 4.13.86.
-	* utils.c (size_t): Don't try to define under AIX.
+	* parse.c (follow_types):  Given (TYPE[]) (i.e. with no length),
+	create a 0-length array type, and set BOUND_CANNOT_BE_DETERMINED.
+	* valops.c (value_cast):  If a cast like (TYPE[])VALUE (i.e. array
+	of unknown length) use sizeof(VALUE)/sizeof(TYPE) as the length.
+	* c-typeprint.c (c_type_print_varspec_suffix):  If array length
+	is 0, print it, but not if upper_bound is BOUND_CANNOT_BE_DETERMINED.
+
+Thu Feb 16 16:06:50 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* dcache.c (insque, remque): Rewrite Linux support.
+
+Wed Feb 15 12:33:20 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* config/powerpc/tm-ppc-eabi.h (TEXT_SEGMENT_BASE): Define as 1.
+
+	* dcache.c (insque, remque): If compiling in standard C on Linux,
+	protect insque and remque with macros to cast the pointer
+	arguments to the proper type.
+
+Tue Feb 14 17:16:41 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* annotate.c, breakpoint.c, defs.h, top.c:  Replace
+	enable/disable_breakpoint_hook with modify_breakpoint_hook.
+	* gdbtk.c: Ditto.
+	* gdbtk.c: General cleanups, get rid of unused variables.  Redo
+	handling of stdout/stderr to just return output as the result of
+	the tcl command that caused the output.  Cleanup -Wall stuff.
+	* (breakpoint_notify):  Now returns just action and breakpoint
+	number.
+	* (gdb_get_breakpoint_list):  New routine.  Does the obvious.
+	* (gdb_get_breakpoint_info):  Mostly derived from the old
+	breakpoint_notify, but returns lots more info.
+	* (dsprintf_append_element):  Helper routine, works like printf,
+	but appends a tcl element onto the specified DString.  Good for
+	building up lists as return values.
+	* (gdbtk_enable/disable_breakpoint):  Go away.  Replaced with
+	gdbtk_modify_breakpoint.
+	* (*many routines*):  Use new result protocol.
+	* (call_wrapper):  Make sure that recursive calls don't trash results.
+	* gdbtk.tcl:  New windows, autocmd, and breakpoints.
+	* (gdbtk_tcl_fputs):  Don't use $current_output_win redirection
+	anymore.  It's not needed (in fact, this routine may not be needed
+	anymore).
+	* (gdbtk_tcl_breakpoint):  Change to reflect new breakpoint
+	notification protocol.
+	* (gdbtk_tcl_busy gdbtk_tcl_idle):  Straighten out buttons, remove
+	catches.
+	* (interactive_cmd):  Use this wrapper around button invocations
+	of many commands.  This will catch errors and put the results into
+	the command window.  It also updates all the other windows.
+	* Also, change reliefs of most things to sunken.  This actually
+	looks better.
+	* (create_file_win):  Fix margin binding to allow breakpoints to
+	work again.
+	* (create_asm_win):  Use return value of gdb_disassemble instead
+	of implicit I/O to the command window.	
+	* (create_command_window):  Use new result protocol to get output
+	from commands.
+
+Tue Feb 14 16:58:07 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* expression.h: Move declaration of evaluate_subexp_with_coercion
+	from here...
+	* value.h: ...to here.
+	* expression.h: Don't include value.h
+
+Tue Feb 14 11:46:07 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* expression.h: Move include of value.h until after declaration of
+	enum exp_opcode.
 
 Sun Feb 12 13:47:30 1995  Stan Shebs  <shebs@andros.cygnus.com>
 
+	* remote-e7000.c: Comprehensive cleanup; removal of dead code,
+	simplify code, declare things, format to standards.
+	(inferior.h, value.h, command.h, remote-utils.h): Include.
+	(e7000_login): Rename to e7000_login_command.
+	(e7000_ftp): Rename to e7000_ftp_command.
+	(e7000_drain): Rename to e7000_drain_command.
+
 	* irix5-nat.c (string.h): Include near beginning of file.
+
+Sun Feb 12 12:36:38 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* valops.c (value_arg_coerce): Use VALUE_TYPE not SYMBOL_TYPE on
+	arg, it is a value not a symbol.
+
+	gcc -Wall lint:
+	* eval.c: Move declaration of evaluate_subexp_with_coercion from here..
+	* expression.h: ..to here.
+	* expression.h: Include value.h.
+	* ch-lang.c (evaluate_subexp_chill): Add default case in switch.
+
+Sun Feb 12 11:03:47 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* language.h (struct language_defn):  New field evaluate_exp.
+	* c-lang.c (c_language_defn, cplus_language_defn, asm_langauge_defn),
+	f-lang.c (f_language_defn), language.c (unknown_language_defn,
+	auto_language_defn, local_language_defn), m2-lang.c (m2_language_defn):
+	Set evaluate_exp to evaluate_subexp_standard.
+	* ch-lang.c (evaluate_subexp_chill):  New function.  Chill-specific
+	support for MULTI_SUBSCRIPT.
+	(chill_language_defn):  Set evaluate_exp to evaluate_subexp_chill.
+	* eval.c (enum noside):  Move from here ....
+	* expression.h (enum noside):  ... to here.
+	(evaluate_subexp_standard):  New prototype.
+	* eval.c (evaluate_subexp):  Renamed to evaluate_subexp_standard.
+	Removed lo-longer-needed test for chill_varying_type.
+	(evaluate_subexp):  New.  Calls exp->language_defn->evaluate_exp.
+
+	* ch-exp.y (maybe_expression_list):  New non-terminal.
+	(primitive_value):  Allow empty parameter list.
+
+Sun Feb 12 10:02:16 1995  Per Bothner  <bothner@cygnus.com>
+
+	* buildsym.c (finish_block):  If finishing a function without known
+	parameter type info, set that from parameter symbols.
+	* c-typeprint.c (c_type_print_varspec_suffix):  For TYPE_CODE_FUNC,
+	print parameter types, if available.
+	* ch-typeprint.c (chill_type_print_base):  Likewise.
+
+	* gdbtypes.h (struct type):  Remove function type field.
+	(TYPE_FUNCTION_TYPE):  Remove macro.  We can't as simply re-use
+	function types now that we're also storing parameter types.
+	And the payoff is much less.
+	* gdbtypes.c (make_function_type):  Don't use/set TYPE_FUNCTION_TYPE.
+	(recursive_dump_type):  Don't print TYPE_FUNCTION_TYPE.
+	* dwarfread.c (read_subroutine_type):  Don't set TYPE_FUNCTION_TYPE.
+
+	* valops.c (value_arg_coerce):  Now takes param_type argument.
+	(call_function_by_hand):  Convert arguments with value_arg_coerce
+	early, and overwrite original args with converted args.
+	No longer need multiple calls to value_arg_coerce.
+	(value_arg_push):  Removed.
+	* hppa-tdep.c (hppa_push_arguments):  No longer call value_arg_coerce.
+	* mips-tdep.c (mips_push_arguments):  Likewise.
+	* alpha-tdep.c (alpha_push_arguments):  Likewise.
+	* rs6000-tdep.c (push_arguments, ran_out_of_registers_for_arguments):
+	Likewise.
+	* value.h (value_arg_coerce):  Remove declaration.  (It's now static.)
+
+	* valops.c (value_cast):  Do COERCE_VARYING_ARRAY after COERCE_REF.
+
+	* symtab.c (add_param_to_type):  Remove (commented-out) function,
+	since that functionality has been re-written.
+	* coffread.c:  Remove commented-out add_param_to_type support.
+	* mdebugread.c (parse_symbol):  Likewise.
+	* stabsread.c (define_symbol):  Likewise.
+
+Sun Feb 12 09:03:47 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* buildsym.c (start_subfile): Set language for f2c like for cfront.
+
+Thu Feb  9 20:20:11 1995  Rob Savoye  <rob@darkstar.cygnus.com>
+
+	* op50n-rom.c: Add the control registers.
 
 Thu Feb  9 15:46:39 1995  Stan Shebs  <shebs@andros.cygnus.com>
 
@@ -93,18 +2614,69 @@ Wed Feb  8 20:32:18 1995  Jim Kingdon  <kingdon@deneb.cygnus.com>
 	instead of getting pst->textlow from the stab.
 	* minsyms.c (find_stab_function_addr): New function.
 
+Wed Feb  8 19:19:56 1995  Rob Savoye  <rob@darkstar.cygnus.com>
+
+	* monitor.c: Fix so all the output shows up in the GUI command
+	window.
+
 Mon Feb  6 18:50:59 1995  Stan Shebs  <shebs@andros.cygnus.com>
 
 	* i386-tdep.c (_initialize_i386_tdep): Put void decl on separate
         line, so init.c generation works correctly.
 
+Mon Feb  6 14:44:36 1995  Rob Savoye  <rob@darkstar.cygnus.com>
+
+	* config/mips/idt.mt: Add support for the lsi33k target.
+	* config/sparc/sun4sol2.mh: Add support for ser-tcp.
+	* array-rom.c: Finish the rest of the support commands needed by
+	GDB.
+	* mips-tdep.c: Add LSI33k register names and processor type.
+
+Sun Feb  5 20:32:44 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdbtk.c (gdb_disassemble): Deference pointer to function before
+	calling it (pre-ANSI compilers generally require this).
+
 Sat Feb  4 13:29:52 1995  Stan Shebs  <shebs@andros.cygnus.com>
 
 	* config/m68k/est.mt (TDEPFILES): Remove m68k-pinsn.o.
 
+Fri Feb  3 16:47:31 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* ser-go32-para.c (dos_read): fix syntax errors.
+
+Fri Feb  3 11:19:20 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* core.c (dis_asm_read_memory), defs.h, top.c: Get rid of
+	dis_asm_read_memory_hook.  We can now call the disassemblers
+	directly and have no need for this hook anymore.
+	* gdbtk.c (gdb_disassemble): Ditto.
+	* defs.h, printcmd.c: Make print_insn be static.
+
+	* ser-go32.c (dos_comisr):  Make this 8 bit clean.
+	* (dos_open dos_close):  Allow multiple opens to the same device.
+	Use a ref count to prevent unwanted deallocations.
+	* sparcl-tdep.c:  Put #ifdefs around all socket stuff to make GO32
+	happy.
+	* (sparclite_ops):  Switch to download_stratum.
+	* target.h (enum strata):  Move download_stratum before
+	process_stratum so that executable targets get pushed on top of
+	download targets.
+
+Thu Feb  2 19:02:45 1995  Rob Savoye  <rob@darkstar.cygnus.com>
+
+	* array-rom.c: Remove the non GDB remote protocol config stuff.
+
+	* monitor.c: All reading/writing functions for memory and
+	registers work.
+
+Thu Feb  2 16:11:04 1995  Kung Hsu  <kung@mexican.cygnus.com>
+
+	* ser-go32-para.c: new file for go32 parallel port communication.
+
 Thu Feb  2 13:58:40 1995  Stan Shebs  <shebs@andros.cygnus.com>
 
-	* Makefile.in (VERSION): Bump to 4.13.85.
+	* Makefile.in (VERSION): Bump to 4.13.2.
 
 Thu Feb  2 07:27:56 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
@@ -267,6 +2839,8 @@ Tue Jan 31 09:40:11 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
 	actually present.
 
 Mon Jan 30 17:34:24 1995  Stu Grossman  (grossman@cygnus.com)
+	* gdbtk.tcl (create_file_win):  Disable old popup menu for source
+	window.
 	* sparcl-tdep.c:  Add `sparclite' target for doing serial and udp
 	downloads to SPARClite demo boards.
 
@@ -366,6 +2940,12 @@ Wed Jan 25 18:13:14 1995  Per Bothner  <bothner@kalessin.cygnus.com>
 	(value_subscript):  Use enhanced value_subscripted_rvalue if
 	c_style_arrays is false (and index is in range).
 
+Wed Jan 25 18:23:46 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* gdbtk.c (gdbtk_init):  Prevent segfault when gdbtk.tcl can't be
+	found.
+	* gdbtk.tcl:  Initialize expr_update_list() to prevent errors when
+	popping up expression window for the first time.
 
 Wed Jan 25 18:13:14 1995  Per Bothner  <bothner@kalessin.cygnus.com>
 
@@ -383,6 +2963,20 @@ Wed Jan 25 01:11:21 1995  Jeff Law  (law@snake.cs.utah.edu)
 	* hpread.c (hpread_process_one_debug_symbol): Fix lines garbled
 	by an ill-advised global search and replace.
 
+Tue Jan 24 12:10:28 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* gdbtk.tcl (create_registers_window):  Work around a radiobutton
+	widget bug to make Options|Natural button work.
+
+	* gdbtk.c (gdb_disassemble):  Fix problem with source+assembly and
+	g++ caused by out-of-order pc's.
+	* gdbtk.tcl (files_command):  Remove duplicate file names.  Also,
+	add scrollbar.
+
+Mon Jan 23 17:21:09 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* gdbtk.tcl:  Take .gdbtkinit if it exists.  Makes gdbtk match the
+	doc!
 
 Mon Jan 23 13:11:46 1995  Per Bothner  <bothner@kalessin.cygnus.com>
 
@@ -602,6 +3196,12 @@ Thu Jan 12 21:23:25 1995  Per Bothner  <bothner@kalessin.cygnus.com>
 	put into the enum type, they must be inserted in "backwards
 	order, in case we've overflowed a struct pending buffer.
 
+Thu Jan 12 15:02:40 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* gdbtk.c, gdbtk.tcl:  Update/add copyright.
+	* gdbtk.tcl (build_framework):  Several fixes for filespec widget,
+	including dismiss button, and better error handling.
+	* (create_command_win):  Bind button 2 to retrieve selection.
 
 Thu Jan 12 09:33:24 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
 
@@ -648,6 +3248,19 @@ Thu Jan 12 09:33:24 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
 	(_initialize_procfs):  Don't add procfs support if we have an
 	optional procfs and /proc is not accessible.
 
+Wed Jan 11 17:06:55 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* gdbtk.tcl:  Add button to control mixed source disassembly.
+	Use text widgets in expr window.  The give me more control over
+	layout.
+	Add auto-updating of exprs in expression window.
+	Handle expressions out of scope a bit better.
+	Make selected window pop up to the top when invoked via the
+	menubar.
+	Make copyright message have raised relief.
+
+	* gdbtk.c (gdbtk_init):  Improve handling for errors in gdbtk.tcl
+	during startup.
 
 Wed Jan 11 17:53:26 1995  Rob Savoye  <rob@darkstar.cygnus.com>
 
@@ -727,12 +3340,38 @@ Thu Jan  5 17:38:29 1995  Stu Grossman  (grossman@cygnus.com)
 	* top.c:  Make window startup be the default.
 	* Add dis_asm_read_memory_hook.
 
+	* gdbtk.c (finish_saving_output):  Don't do anything if not saving
+	output.
+	* (breakpoint_notify):  Don't send null filename to tcl.
+	* (gdb_eval):  New tcl command to eval an expression.
+	* (gdb_disassemble):  New tcl command to do disassembly.  This
+	allows tcl code to choose between exec file and target memeory,
+	and can also do mixed source and assembly.
+	* (gdbtk_init):  Move reading of gdbtk.tcl to the end to make sure
+	that more of the environment is set up.  Also, create link between
+	gdb and tcl vars disassemble{-_}from{-_}exec.
+
+	* gdbtk.tcl:  New expression window support.
+	* Make assembly window be 80 columns wide.
+	* Use new disassembly method.  Add menu items to select
+	disassembly from exec file or target.
+	* Change View menubar item to Options.
+
+	* Get rid of Stack, Breakpoints, Signals, and Variables Windows,
+	since they don't exist yet.
+
+	* Pop up a copyright window on startup.
 
 Thu Jan  5 01:16:40 1995  Jeff Law  (law@snake.cs.utah.edu)
 
 	* stabsread.c (define_symbol): Handle `a' symbol type used for
 	reference parameter passed in a register.
 
+Wed Jan  4 19:49:10 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdbtk.tcl (build_framework): Add standard commands menu, more
+	windows to standard windows menu.
+	(not_implemented_yet): Clarify message.
 
 Wed Jan  4 12:27:29 1995  Kung Hsu  <kung@mexican.cygnus.com>
 

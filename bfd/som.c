@@ -19,7 +19,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -167,9 +167,13 @@ static asymbol * som_make_empty_symbol PARAMS ((bfd *));
 static void som_print_symbol PARAMS ((bfd *, PTR,
 				      asymbol *, bfd_print_symbol_type));
 static boolean som_new_section_hook PARAMS ((bfd *, asection *));
+static boolean som_bfd_copy_private_symbol_data PARAMS ((bfd *, asymbol *,
+							  bfd *, asymbol *));
 static boolean som_bfd_copy_private_section_data PARAMS ((bfd *, asection *,
 							  bfd *, asection *));
 static boolean som_bfd_copy_private_bfd_data PARAMS ((bfd *, bfd *));
+#define som_bfd_merge_private_bfd_data _bfd_generic_bfd_merge_private_bfd_data
+#define som_bfd_set_private_flags _bfd_generic_bfd_set_private_flags
 static boolean som_bfd_is_local_label PARAMS ((bfd *, asymbol *));
 static boolean som_set_section_contents PARAMS ((bfd *, sec_ptr, PTR,
 						 file_ptr, bfd_size_type));
@@ -252,6 +256,7 @@ static boolean som_is_space PARAMS ((asection *));
 static boolean som_is_subspace PARAMS ((asection *));
 static boolean som_is_container PARAMS ((asection *, asection *));
 static boolean som_bfd_free_cached_info PARAMS ((bfd *));
+static boolean som_bfd_link_split_section PARAMS ((bfd *, asection *));
 	
 /* Map SOM section names to POSIX/BSD single-character symbol types.
 
@@ -1392,15 +1397,16 @@ hppa_som_reloc (abfd, reloc_entry, symbol_in, data,
    and a field selector, return one or more appropriate SOM relocations.  */
 
 int **
-hppa_som_gen_reloc_type (abfd, base_type, format, field)
+hppa_som_gen_reloc_type (abfd, base_type, format, field, sym_diff)
      bfd *abfd;
      int base_type;
      int format;
      enum hppa_reloc_field_selector_type_alt field;
+     int sym_diff;
 {
   int *final_type, **final_types;
 
-  final_types = (int **) bfd_alloc_by_size_t (abfd, sizeof (int *) * 3);
+  final_types = (int **) bfd_alloc_by_size_t (abfd, sizeof (int *) * 6);
   final_type = (int *) bfd_alloc_by_size_t (abfd, sizeof (int));
   if (!final_types || !final_type)
     {
@@ -1505,8 +1511,34 @@ hppa_som_gen_reloc_type (abfd, base_type, format, field)
   switch (base_type)
     {
     case R_HPPA:
+      /* The difference of two symbols needs *very* special handling.  */
+      if (sym_diff)
+	{
+	  final_types[0] = (int *)bfd_alloc_by_size_t (abfd, sizeof (int));
+	  final_types[1] = (int *)bfd_alloc_by_size_t (abfd, sizeof (int));
+	  final_types[2] = (int *)bfd_alloc_by_size_t (abfd, sizeof (int));
+	  final_types[3] = (int *)bfd_alloc_by_size_t (abfd, sizeof (int));
+	  if (!final_types[0] || !final_types[1] || !final_types[2])
+          {
+            bfd_set_error (bfd_error_no_memory);
+            return NULL;
+          }
+	  if (field == e_fsel)
+	    *final_types[0] = R_FSEL;
+	  else if (field == e_rsel)
+	    *final_types[0] = R_RSEL;
+	  else if (field == e_lsel)
+	    *final_types[0] = R_LSEL;
+	  *final_types[1] = R_COMP2;
+	  *final_types[2] = R_COMP2;
+	  *final_types[3] = R_COMP1;
+	  final_types[4] = final_type;
+	  *final_types[4] = R_CODE_EXPR;
+	  final_types[5] = NULL;
+	  break;
+	}
       /* PLABELs get their own relocation type.  */
-      if (field == e_psel
+      else if (field == e_psel
 	  || field == e_lpsel
 	  || field == e_rpsel)
 	{
@@ -1535,6 +1567,36 @@ hppa_som_gen_reloc_type (abfd, base_type, format, field)
 	  || field == e_rpsel)
 	*final_type = R_DATA_PLABEL;
       break;
+
+    case R_HPPA_COMPLEX:
+      /* The difference of two symbols needs *very* special handling.  */
+      if (sym_diff)
+	{
+	  final_types[0] = (int *)bfd_alloc_by_size_t (abfd, sizeof (int));
+	  final_types[1] = (int *)bfd_alloc_by_size_t (abfd, sizeof (int));
+	  final_types[2] = (int *)bfd_alloc_by_size_t (abfd, sizeof (int));
+	  final_types[3] = (int *)bfd_alloc_by_size_t (abfd, sizeof (int));
+	  if (!final_types[0] || !final_types[1] || !final_types[2])
+          {
+            bfd_set_error (bfd_error_no_memory);
+            return NULL;
+          }
+	  if (field == e_fsel)
+	    *final_types[0] = R_FSEL;
+	  else if (field == e_rsel)
+	    *final_types[0] = R_RSEL;
+	  else if (field == e_lsel)
+	    *final_types[0] = R_LSEL;
+	  *final_types[1] = R_COMP2;
+	  *final_types[2] = R_COMP2;
+	  *final_types[3] = R_COMP1;
+	  final_types[4] = final_type;
+	  *final_types[4] = R_CODE_EXPR;
+	  final_types[5] = NULL;
+	  break;
+	}
+      else
+	break;
 
     case R_HPPA_NONE:
     case R_HPPA_ABS_CALL:
@@ -1653,7 +1715,7 @@ som_object_setup (abfd, file_hdrp, aux_hdrp)
       obj_som_exec_data (abfd)->exec_flags = aux_hdrp->exec_flags;
     }
 
-  bfd_default_set_arch_mach (abfd, bfd_arch_hppa, 0);
+  bfd_default_set_arch_mach (abfd, bfd_arch_hppa, pa10);
   bfd_get_symcount (abfd) = file_hdrp->symbol_total;
 
   /* Initialize the saved symbol table and string table to NULL.  
@@ -2554,6 +2616,8 @@ som_write_fixups (abfd, current_offset, total_reloc_sizep)
 		case R_FSEL:
 		case R_LSEL:
 		case R_RSEL:
+		case R_COMP1:
+		case R_COMP2:
 		  reloc_offset = bfd_reloc->address;
 		  break;
 
@@ -2683,6 +2747,37 @@ som_write_fixups (abfd, current_offset, total_reloc_sizep)
 		case R_FSEL:
 		case R_LSEL:
 		case R_RSEL:
+		  bfd_put_8 (abfd, bfd_reloc->howto->type, p);
+		  subspace_reloc_size += 1;
+		  p += 1;
+		  break;
+
+		case R_COMP1:
+		  /* The only time we generate R_COMP1, R_COMP2 and 
+		     R_CODE_EXPR relocs is for the difference of two
+		     symbols.  Hence we can cheat here.  */
+		  bfd_put_8 (abfd, bfd_reloc->howto->type, p);
+		  bfd_put_8 (abfd, 0x44, p + 1);
+		  p = try_prev_fixup (abfd, &subspace_reloc_size,
+				      p, 2, reloc_queue);
+		  break;
+
+		case R_COMP2:
+		  /* The only time we generate R_COMP1, R_COMP2 and 
+		     R_CODE_EXPR relocs is for the difference of two
+		     symbols.  Hence we can cheat here.  */
+		  bfd_put_8 (abfd, bfd_reloc->howto->type, p);
+		  bfd_put_8 (abfd, 0x80, p + 1);
+		  bfd_put_8 (abfd, sym_num >> 16, p + 2);
+		  bfd_put_16 (abfd, sym_num, p + 3);
+		  p = try_prev_fixup (abfd, &subspace_reloc_size,
+				      p, 5, reloc_queue);
+		  break;
+
+		case R_CODE_EXPR:
+		  /* The only time we generate R_COMP1, R_COMP2 and 
+		     R_CODE_EXPR relocs is for the difference of two
+		     symbols.  Hence we can cheat here.  */
 		  bfd_put_8 (abfd, bfd_reloc->howto->type, p);
 		  subspace_reloc_size += 1;
 		  p += 1;
@@ -3443,13 +3538,12 @@ som_finish_writing (abfd)
       section = section->next;
     }
 
-  /* FIXME.  This should really be conditional based on whether or not
-     PA1.1 instructions/registers have been used. 
-
-     Setting of the system_id has to happen very late now that copying of
+  /* Setting of the system_id has to happen very late now that copying of
      BFD private data happens *after* section contents are set.  */
   if (abfd->flags & (EXEC_P | DYNAMIC))
     obj_som_file_hdr(abfd)->system_id = obj_som_exec_data (abfd)->system_id;
+  else if (bfd_get_mach (abfd) == pa11)
+    obj_som_file_hdr(abfd)->system_id = CPU_PA_RISC1_1;
   else
     obj_som_file_hdr(abfd)->system_id = CPU_PA_RISC1_0;
 
@@ -3961,7 +4055,7 @@ som_slurp_symbol_table (abfd)
 	 Note $START$ is a magic code symbol, NOT a section symbol.  */
       if (sym->symbol.name[0] == '$'
 	  && sym->symbol.name[strlen (sym->symbol.name) - 1] == '$'
-	  && strcmp (sym->symbol.name, "$START$"))
+	  && !strcmp (sym->symbol.name, sym->symbol.section->name))
 	sym->symbol.flags |= BSF_SECTION_SYM;
       else if (!strncmp (sym->symbol.name, "L$0\002", 4))
 	{
@@ -4184,8 +4278,11 @@ som_set_reloc_info (fixup, end, internal_relocs, section, symbols, just_count)
 		 the stack.  */
 	      else if (islower (c))
 		{
+		  int bits = (c - 'a') * 8;
 		  for (v = 0; c > 'a'; --c)
 		    v = (v << 8) | *fixup++;
+		  if (varname == 'V')
+		    v = sign_extend (v, bits);
 		  push (v);
 		}
 
@@ -4573,6 +4670,31 @@ som_new_section_hook (abfd, newsect)
   return true;
 }
 
+/* Copy any private info we understand from the input symbol
+   to the output symbol.  */
+
+static boolean
+som_bfd_copy_private_symbol_data (ibfd, isymbol, obfd, osymbol)
+     bfd *ibfd;
+     asymbol *isymbol;
+     bfd *obfd;
+     asymbol *osymbol;
+{
+  struct som_symbol *input_symbol = isymbol;
+  struct som_symbol *output_symbol = osymbol;
+
+  /* One day we may try to grok other private data.  */
+  if (ibfd->xvec->flavour != bfd_target_som_flavour
+      || obfd->xvec->flavour != bfd_target_som_flavour)
+    return false;
+
+  /* The only private information we need to copy is the argument relocation
+     bits.  */
+  output_symbol->tc_data.hppa_arg_reloc = input_symbol->tc_data.hppa_arg_reloc;
+
+  return true;
+}
+
 /* Copy any private info we understand from the input section
    to the output section.  */
 static boolean
@@ -4586,7 +4708,7 @@ som_bfd_copy_private_section_data (ibfd, isection, obfd, osection)
   if (ibfd->xvec->flavour != bfd_target_som_flavour
       || obfd->xvec->flavour != bfd_target_som_flavour
       || (!som_is_space (isection) && !som_is_subspace (isection)))
-    return false;
+    return true;
 
   som_section_data (osection)->copy_data
     = (struct som_copyable_section_data_struct *)
@@ -4619,7 +4741,7 @@ som_bfd_copy_private_bfd_data (ibfd, obfd)
   /* One day we may try to grok other private data.  */
   if (ibfd->xvec->flavour != bfd_target_som_flavour
       || obfd->xvec->flavour != bfd_target_som_flavour)
-    return false;
+    return true;
 
   /* Allocate some memory to hold the data we need.  */
   obj_som_exec_data (obfd) = (struct som_exec_data *)
@@ -4842,9 +4964,6 @@ som_find_nearest_line (abfd, section, symbols, offset, filename_ptr,
      CONST char **functionname_ptr;
      unsigned int *line_ptr;
 {
-  fprintf (stderr, "som_find_nearest_line unimplemented\n");
-  fflush (stderr);
-  abort ();
   return (false);
 }
 
@@ -5586,6 +5705,11 @@ som_bfd_ar_write_symbol_stuff (abfd, nsyms, string_size, lst)
       /* Keep track of where each SOM will finally reside; then look
 	 at the next BFD.  */
       curr_som_offset += arelt_size (curr_bfd) + sizeof (struct ar_hdr);
+ 
+      /* A particular object in the archive may have an odd length; the
+	 linker requires objects begin on an even boundary.  So round
+	 up the current offset as necessary.  */
+      curr_som_offset = (curr_som_offset + 0x1) & ~0x1;
       curr_bfd = curr_bfd->next;
       som_index++;
     }
@@ -5684,6 +5808,8 @@ som_write_armap (abfd, elength, map, orl_count, stridx)
   lst_size = sizeof (struct lst_header);
 
   /* Start building the LST header.  */
+  /* FIXME:  Do we need to examine each element to determine the
+     largest id number?  */
   lst.system_id = CPU_PA_RISC1_0;
   lst.a_magic = LIBMAGIC;
   lst.version_id = VERSION_ID;
@@ -5808,6 +5934,15 @@ som_bfd_free_cached_info (abfd)
 
 /* End of miscellaneous support functions. */
 
+/* Linker support functions.  */
+static boolean
+som_bfd_link_split_section (abfd, sec)
+     bfd *abfd;
+     asection *sec;
+{
+  return (som_is_subspace (sec) && sec->_raw_size > 240000);
+}
+
 #define	som_close_and_cleanup		som_bfd_free_cached_info
 
 #define som_openr_next_archived_file	bfd_generic_openr_next_archived_file
@@ -5818,6 +5953,8 @@ som_bfd_free_cached_info (abfd)
 
 #define som_get_lineno                  _bfd_nosymbols_get_lineno
 #define som_bfd_make_debug_symbol	_bfd_nosymbols_bfd_make_debug_symbol
+#define som_read_minisymbols		_bfd_generic_read_minisymbols
+#define som_minisymbol_to_symbol	_bfd_generic_minisymbol_to_symbol
 
 #define som_bfd_get_relocated_section_contents \
  bfd_generic_get_relocated_section_contents

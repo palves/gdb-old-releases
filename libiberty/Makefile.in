@@ -1,6 +1,6 @@
 #
 # Makefile
-#   Copyright (C) 1990, 1991, 1992 Free Software Foundation
+#   Copyright (C) 1990, 1991, 1992, 1995 Free Software Foundation
 #
 # This file is part of the libiberty library.
 # Libiberty is free software; you can redistribute it and/or
@@ -15,8 +15,8 @@
 #
 # You should have received a copy of the GNU Library General Public
 # License along with libiberty; see the file COPYING.LIB.  If
-# not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-# Cambridge, MA 02139, USA.
+# not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
 #
 
 # This file was written, and is maintained by K. Richard Pixley
@@ -53,6 +53,13 @@ docdir = $(datadir)/doc
 
 SHELL = /bin/sh
 
+# Multilib support variables.
+MULTITOP = .
+MULTIDIRS =
+MULTISUBDIR =
+MULTIDO = true
+MULTICLEAN = true
+
 INSTALL = install -c
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL)
@@ -63,9 +70,10 @@ AR_FLAGS = rc
 ERRORS_CC = $(CC)
 CFLAGS = -g
 LIBCFLAGS = $(CFLAGS)
-BISON = bison
 MAKEINFO = makeinfo
 RANLIB = ranlib
+
+PICFLAG =
 
 MAKEOVERRIDES =
 
@@ -104,7 +112,12 @@ FLAGS_TO_PASS = \
 	"RANLIB=$(RANLIB)" \
 	"SHELL=$(SHELL)"
 
-all:	$(TARGETLIB)
+all: stamp-picdir $(TARGETLIB)
+	@if [ "$(RULE1)" != "not-used" ]; then \
+	  $(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=all; \
+	else true; \
+	fi
+
 .PHONY: check installcheck
 check installcheck:
 
@@ -114,8 +127,12 @@ check installcheck:
 
 INCDIR=$(srcdir)/../include
 
+COMPILE.c = $(CC) -c $(LIBCFLAGS) -I. -I$(INCDIR) $(HDEFINES)
 .c.o:
-	$(CC) -c $(LIBCFLAGS) -I. -I$(INCDIR) $(HDEFINES) $<
+	if [ -n "$(PICFLAG)" ]; then \
+	  $(COMPILE.c) $(PICFLAG) $< -o pic/$@; \
+	else true; fi
+	$(COMPILE.c) $<
 
 # The default target just invokes make recursively.
 # However, the automatic configuration (in config/mh_default).
@@ -157,14 +174,15 @@ install_to_libdir: all
 install_to_tooldir: all
 	$(INSTALL_DATA) $(TARGETLIB) $(tooldir)/lib/$(TARGETLIB).n
 	( cd $(tooldir) ; $(RANLIB) $(tooldir)/lib/$(TARGETLIB).n )
-	mv -f $(tooldir)/lib/$(TARGETLIB).n $(tooldir)/lib/$(TARGETLIB)
+	mv -f $(tooldir)/lib/$(TARGETLIB).n $(tooldir)/lib$(MULTISUBDIR)/$(TARGETLIB)
+	@$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=install
 
 # The default configuration adds to libiberty all those functions that are
 # missing in libc.  More precisely, it includes whatever $(CC) fails to find.
 # Then a sed+awk combination translates the ld error messages into
 # a list of .o files.
 
-needed-list: $(NEEDED_LIST)
+needed-list: stamp-picdir $(NEEDED_LIST)
 	cp $(NEEDED_LIST) needed-list
 
 lneeded-list: $(EXTRA_OFILES) needed.awk errors
@@ -176,9 +194,6 @@ lneeded-list: $(EXTRA_OFILES) needed.awk errors
 	    *) f="$$f $$i" ;; \
 	  esac ; \
 	done ; \
-	case $$f in \
-	    *alloca.o*) f="$$f xmalloc.o" ;; \
-	esac ; \
 	echo $$f >>lneeded-list
 
 # Generate an awk script that looks for functions in functions.def
@@ -231,10 +246,16 @@ $(RULE2): $(REQUIRED_OFILES) $(HOST_OFILES)
 	  $(REQUIRED_OFILES) $(HOST_OFILES)
 	$(RANLIB) $(TARGETLIB)
 
+stamp-picdir:
+	if [ -n "$(PICFLAG)" ] && [ ! -d pic ]; then \
+	  mkdir pic; \
+	else true; fi
+	touch stamp-picdir
+
 .always.:
 # Do nothing.
 
-.PHONEY: all etags tags ls clean stage1 stage2 .always.
+.PHONY: all etags tags ls clean stage1 stage2 .always.
 
 etags tags: TAGS
 
@@ -253,13 +274,16 @@ ls:
 # Need to deal with profiled libraries, too.
 
 mostlyclean:
-	rm -f *.o core errs \#* *.E a.out
+	rm -rf *.o pic core errs \#* *.E a.out
 	rm -f needed.awk needed2.awk errors dummy needed-list config.h
-	rm -f $(CONFIG_H) $(NEEDED_LIST)
+	rm -f $(CONFIG_H) $(NEEDED_LIST) stamp-picdir
+	@$(MULTICLEAN) multi-clean DO=mostlyclean
 clean: mostlyclean
 	rm -f *.a
+	@$(MULTICLEAN) multi-clean DO=clean
 distclean: clean
 	rm -f *~ Makefile config.status alloca-conf.h xhost-mkfrag TAGS
+	@$(MULTICLEAN) multi-clean DO=distclean
 realclean: distclean
 
 force:

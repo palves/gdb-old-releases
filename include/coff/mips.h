@@ -129,7 +129,7 @@ struct external_reloc {
 /* This reloc type is a Cygnus extension used when generating position
    independent code for embedded systems.  It is used for an entry in
    a switch table, which looks like this:
-     .switch $L3-$LS12
+     .word $L3-$LS12
    The object file will contain the correct difference, and does not
    require adjustment.  However, when the linker is relaxing PC
    relative calls, it is possible for $L3 to move farther away.  This

@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* 
 Most of this hacked by  Steve Chamberlain,
@@ -67,7 +67,8 @@ bfd_coff_reloc16_get_value (reloc, link_info, input_section)
       h = bfd_link_hash_lookup (link_info->hash, bfd_asymbol_name (symbol),
 				false, false, true);
       if (h != (struct bfd_link_hash_entry *) NULL
-	  && h->type == bfd_link_hash_defined)
+	  && (h->type == bfd_link_hash_defined
+	      || h->type == bfd_link_hash_defweak))
 	value = (h->u.def.value
 		 + h->u.def.section->output_section->vma
 		 + h->u.def.section->output_offset);
@@ -124,7 +125,8 @@ bfd_perform_slip(abfd, slip, input_section, value)
 		  struct generic_link_hash_entry *h;
 
 		  h = (struct generic_link_hash_entry *) p->udata.p;
-		  BFD_ASSERT (h->root.type == bfd_link_hash_defined);
+		  BFD_ASSERT (h->root.type == bfd_link_hash_defined
+			      || h->root.type == bfd_link_hash_defweak);
 		  h->root.u.def.value -= slip;
 		  BFD_ASSERT (h->root.u.def.value == p->value);
 		}

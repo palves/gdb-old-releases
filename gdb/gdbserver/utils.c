@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "server.h"
 #include <stdio.h>
@@ -53,15 +53,33 @@ perror_with_name (string)
    STRING is the error message, used as a fprintf string,
    and ARG is passed as an argument to it.  */
 
+#ifdef ANSI_PROTOTYPES
 NORETURN void
-error (string, arg1, arg2, arg3)
-     char *string;
-     int arg1, arg2, arg3;
+error (char *string, ...)
+#else
+void
+error (va_alist)
+     va_dcl
+#endif
 {
   extern jmp_buf toplevel;
-
+  va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, string);
+#else
+  va_start (args);
+#endif
   fflush (stdout);
-  fprintf (stderr, string, arg1, arg2, arg3);
+#ifdef ANSI_PROTOTYPES
+  vfprintf (stderr, string, args);
+#else
+  {
+    char *string1;
+
+    string1 = va_arg (args, char *);
+    vfprintf (stderr, string1, args);
+  }
+#endif
   fprintf (stderr, "\n");
   longjmp(toplevel, 1);
 }
@@ -70,13 +88,26 @@ error (string, arg1, arg2, arg3)
    This is for a error that we cannot continue from.
    STRING and ARG are passed to fprintf.  */
 
-void
-fatal (string, arg)
-     char *string;
-     int arg;
+/* VARARGS */
+NORETURN void
+#ifdef ANSI_PROTOTYPES
+fatal (char *string, ...)
+#else
+fatal (va_alist)
+     va_dcl
+#endif
 {
+  va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, string);
+#else
+  char *string;
+  va_start (args);
+  string = va_arg (args, char *);
+#endif
   fprintf (stderr, "gdb: ");
-  fprintf (stderr, string, arg);
+  vfprintf (stderr, string, args);
   fprintf (stderr, "\n");
+  va_end (args);
   exit (1);
 }

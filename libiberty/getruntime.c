@@ -14,8 +14,8 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with libiberty; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.  */
+not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 #include "ansidecl.h"
 #include "libiberty.h"
@@ -42,7 +42,9 @@ Cambridge, MA 02139, USA.  */
 #endif
 
 #ifdef HAVE_TIMES
+#ifndef NO_SYS_PARAM_H
 #include <sys/param.h>
+#endif
 #include <sys/times.h>
 #endif
 
@@ -70,11 +72,11 @@ get_run_time ()
   return (tms.tms_utime + tms.tms_stime) * (1000000 / HZ);
 #else /* ! HAVE_TIMES */
   /* Fall back on clock and hope it's correctly implemented. */
-#if CLOCKS_PER_SEC <= 1000000
-  return clock () * (1000000 / CLOCKS_PER_SEC);
-#else
-  return clock () / CLOCKS_PER_SEC;
-#endif
+  const long clocks_per_sec = CLOCKS_PER_SEC;
+  if (clocks_per_sec <= 1000000)
+    return clock () * (1000000 / clocks_per_sec);
+  else
+    return clock () / clocks_per_sec;
 #endif  /* HAVE_TIMES */
 #endif  /* HAVE_GETRUSAGE */
 }

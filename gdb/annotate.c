@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "annotate.h"
@@ -369,7 +369,7 @@ annotate_source (filename, line, character, mid, pc)
   else
     printf_filtered ("\032\032");
 
-  printf_filtered ("%s:%d:%d:%s:", filename,
+  printf_filtered ("%s:%d:%d:%s:0x", filename,
 		   line, character,
 		   mid ? "middle" : "beg");
   print_address_numeric (pc, 0, gdb_stdout);
@@ -535,7 +535,6 @@ _initialize_annotate ()
   if (annotation_level > 1)
     {
       delete_breakpoint_hook = breakpoint_changed;
-      enable_breakpoint_hook = breakpoint_changed;
-      disable_breakpoint_hook = breakpoint_changed;
+      modify_breakpoint_hook = breakpoint_changed;
     }
 }

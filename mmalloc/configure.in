@@ -1,21 +1,12 @@
-# This file is a shell script that supplies the information necessary
-# to tailor a template configure script into the configure script
-# appropriate for this directory.  For more information, check any
-# existing configure script.
+dnl Process this file with autoconf to produce a configure script.
+AC_PREREQ(2.3)dnl
+AC_INIT(mmalloc.c)
 
-srctrigger=mmalloc.c
-srcname="mmalloc library"
-configdirs=""
+CC=${CC-cc}
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_PROG_RANLIB
 
-# per-host:
+AC_FUNC_MMAP
 
-case "${host}" in
-  i[345]86-ncr-sysv4*)	host_makefile_frag=config/mh-ncr3000 ;;
-  *-*-irix4*)		host_makefile_frag=config/mh-irix4 ;;
-  *-*-solaris2*)	host_makefile_frag=config/mh-sysv4 ;;
-  *-*-sunos4*)		host_makefile_frag=config/mh-sunos4 ;;
-  *-*-sysv4*)		host_makefile_frag=config/mh-sysv4 ;;
-  *-*-go32*)		host_makefile_frag=config/mh-go32 ;;
-esac
-
-# per-target:
+AC_OUTPUT(Makefile)

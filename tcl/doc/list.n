@@ -1,0 +1,49 @@
+'\"
+'\" Copyright (c) 1993 The Regents of the University of California.
+'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\"
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+'\" 
+'\" @(#) list.n 1.3 94/12/17 16:18:24
+'\" 
+.so man.macros
+.HS list tcl
+.BS
+'\" Note:  do not modify the .SH NAME line immediately below!
+.SH NAME
+list \- Create a list
+.SH SYNOPSIS
+.VS
+\fBlist \fR?\fIarg arg ...\fR?
+.VE
+.BE
+
+.SH DESCRIPTION
+.PP
+This command returns a list comprised of all the \fIarg\fRs,
+.VS
+or an empty string if no \fIarg\fRs are specified.
+.VE
+Braces and backslashes get added as necessary, so that the \fBindex\fR command
+may be used on the result to re-extract the original arguments, and also
+so that \fBeval\fR may be used to execute the resulting list, with
+\fIarg1\fR comprising the command's name and the other \fIarg\fRs comprising
+its arguments.  \fBList\fR produces slightly different results than
+\fBconcat\fR:  \fBconcat\fR removes one level of grouping before forming
+the list, while \fBlist\fR works directly from the original arguments.
+For example, the command
+.DS
+\fBlist a b {c d e} {f {g h}}
+.DE
+will return
+.DS
+\fBa b {c d e} {f {g h}}
+.DE
+while \fBconcat\fR with the same arguments will return
+.DS
+\fBa b c d e f {g h}\fR
+.DE
+
+.SH KEYWORDS
+element, list

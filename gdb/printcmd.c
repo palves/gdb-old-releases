@@ -16,11 +16,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include <string.h>
-#include <varargs.h>
+#include "gdb_string.h"
 #include "frame.h"
 #include "symtab.h"
 #include "gdbtypes.h"
@@ -163,6 +162,8 @@ static void do_examine PARAMS ((struct format_data, CORE_ADDR));
 static void print_formatted PARAMS ((value_ptr, int, int));
 
 static struct format_data decode_format PARAMS ((char **, int, int));
+
+static int print_insn PARAMS ((CORE_ADDR, GDB_FILE *));
 
 
 /* Decode a format specification.  *STRING_PTR should point to it.
@@ -584,9 +585,8 @@ print_address_numeric (addr, use_local, stream)
      GDB_FILE *stream;
 {
   /* This assumes a CORE_ADDR can fit in a LONGEST.  Probably a safe
-     assumption.  We pass use_local but I'm not completely sure whether
-     that is correct.  When (if ever) should we *not* use_local?  */
-  print_longest (stream, 'x', 1, (unsigned LONGEST) addr);
+     assumption.  */
+  print_longest (stream, 'x', use_local, (unsigned LONGEST) addr);
 }
 
 /* Print address ADDR symbolically on STREAM.
@@ -945,7 +945,7 @@ address_info (exp, from_tty)
   printf_filtered ("Symbol \"");
   fprintf_symbol_filtered (gdb_stdout, SYMBOL_NAME (sym),
 			   current_language->la_language, DMGL_ANSI);
-  printf_filtered ("\" is ", SYMBOL_NAME (sym));
+  printf_filtered ("\" is ");
   val = SYMBOL_VALUE (sym);
   basereg = SYMBOL_BASEREG (sym);
 
@@ -1702,7 +1702,7 @@ print_frame_nameless_args (fi, start, num, first, stream)
 #ifdef PRINT_TYPELESS_INTEGER
       PRINT_TYPELESS_INTEGER (stream, builtin_type_int, (LONGEST) arg_value);
 #else
-      fprintf_filtered (stream, "%d", arg_value);
+      fprintf_filtered (stream, "%ld", arg_value);
 #endif /* PRINT_TYPELESS_INTEGER */
 #endif /* PRINT_NAMELESS_INTEGER */
       first = 0;
@@ -2053,7 +2053,7 @@ disassemble_command (arg, from_tty)
 /* Print the instruction at address MEMADDR in debugged memory,
    on STREAM.  Returns length of the instruction, in bytes.  */
 
-int
+static int
 print_insn (memaddr, stream)
      CORE_ADDR memaddr;
      GDB_FILE *stream;

@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define TARGET_BYTE_ORDER BIG_ENDIAN
 
@@ -36,7 +36,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    When dumping core, the control stack is written to a core files as
    a third segment. The core-handling functions need to know to deal
    with it. */ 
-/* Tell core.c there is an extra segment.  */
+
+/* Tell corefile.c there is an extra segment.  */
 #define REG_STACK_SEGMENT
 
 /* Floating point is IEEE compatible on most Pyramid hardware

@@ -7,58 +7,64 @@ srctrigger="Makefile.in"
 srcname="GDB Test Suite"
 
 # Directories to use in all configurations.
-configdirs="gdb.base gdb.c++ gdb.chill gdb.disasm"
-
-# Directories to use for a configuration which uses stabs.  C++ tests
-# are also here because I don't believe they work well for any other
-# debugging format.
+configdirs="gdb.base gdb.c++ gdb.disasm"
+  
+# Directories to use for a configuration which uses stabs.
 stabsdirs="gdb.stabs"
 
 # per-host:
 
 # per-target:
 
-	# everything defaults to unix for a target
+# everything defaults to unix for a target
 target_abbrev=unix
 target_makefile_frag=config/mt-unix
 
-	# this section is for all targets
+# this section is for all targets
 case "${target}" in
-       i[345]86-*-aout) target_makefile_frag=config/mt-i386-aout ;;
-       *-*-lynx)       target_makefile_frag=config/mt-lynx ;;
-       *-*-netware)    target_makefile_frag=config/mt-netware ;;
-       *-*-vxworks)    target_makefile_frag=config/mt-vxworks ;;
-       m68k-*-*)       target_makefile_frag=config/mt-m68k ;;
-       i960-*-nindy)   target_makefile_frag=config/mt-i960-nindy ;;
-       a29k-*-udi)     target_makefile_frag=config/mt-a29k-udi ;;
-       sparclite-*-*)  target_makefile_frag=config/mt-slite ;;
-       sparc-*-aout)   target_makefile_frag=config/mt-sparc-aout ;;
-       mips-*-ecoff)   target_makefile_frag=config/mt-mips-ecoff ;;
+	i[345]86-*-aout)	target_makefile_frag=config/mt-i386-aout ;;
+	*-*-lynx)		target_makefile_frag=config/mt-lynx ;;
+	*-*-netware)		target_makefile_frag=config/mt-netware ;;
+	*-*-vxworks*)		target_makefile_frag=config/mt-vxworks ;;
+	m68k-*-*)		target_makefile_frag=config/mt-m68k ;;
+	i960-*-nindy)		target_makefile_frag=config/mt-i960-nindy ;;
+	a29k-*-udi)		target_makefile_frag=config/mt-a29k-udi ;;
+	sparclite-*-*)		target_makefile_frag=config/mt-slite ;;
+	sparc-*-aout)		target_makefile_frag=config/mt-sparc-aout ;;
+	mips-*-ecoff)		target_makefile_frag=config/mt-mips-ecoff ;;
 esac
 
+# add stabs tests for appropriate targets
 case "${target}" in
+	rs6000-*-aix*)		configdirs="${configdirs} ${stabsdirs}" ;;
+	*-*-bsd*)		configdirs="${configdirs} ${stabsdirs}" ;;
+	*-*-go32*)		configdirs="${configdirs} ${stabsdirs}" ;;
+	*-*-linux*)		configdirs="${configdirs} ${stabsdirs}" ;;
+	*-*-lynxos*)		configdirs="${configdirs} ${stabsdirs}" ;;
+	*-sun-*)		configdirs="${configdirs} ${stabsdirs}" ;;
+	hppa*-*-*)		configdirs="${configdirs} ${stabsdirs}" ;;
 
-rs6000-*-aix*)		configdirs="${configdirs} ${stabsdirs}" ;;
-*-*-bsd*)		configdirs="${configdirs} ${stabsdirs}" ;;
-*-*-go32*)		configdirs="${configdirs} ${stabsdirs}" ;;
-*-*-linux*)		configdirs="${configdirs} ${stabsdirs}" ;;
-*-*-lynxos*)		configdirs="${configdirs} ${stabsdirs}" ;;
-*-sun-*)		configdirs="${configdirs} ${stabsdirs}" ;;
-hppa*-*-*)		configdirs="${configdirs} ${stabsdirs}" ;;
-
-*)			if [ x${with_stabs} = xyes ]; then
-			  configdirs="${configdirs} ${stabsdirs}"
-			fi
-			;;
+	*)			if [ x${with_stabs} = xyes ]; then
+				  configdirs="${configdirs} ${stabsdirs}"
+				fi
+				;;
 esac
 
-	# link in the lib directory if needed
+# GNU chill is not part of the standard FSF releases and thus is not very
+# common.  If you are one of the rare people using it, then uncomment
+# these lines.
+# Chill currently doesn't link cross targets, so only config and test natives
+#if [ "${host}" = "${target}" ] ; then
+#	configdirs="${configdirs} gdb.chill"
+#fi
+
+# link in the lib directory if needed
 #if [ ! -d lib ] ; then
 #    files="lib"
 #    links="lib"
 #fi
 
-	# make list of files and links based on tool name
+# make list of files and links based on tool name
 tool_list="${tool_list} gdb"
 #for i in ${tool_list};
 #do

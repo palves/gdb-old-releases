@@ -1,0 +1,9 @@
+d3 1
+a3 1
+'\" Copyright (c) 1994 Sun Microsystems, Inc.
+d8 1
+a8 1
+'\" @(#) lindex.n 1.3 94/12/17 16:18:20
+d11 1
+a11 1
+.HS lindex tcl

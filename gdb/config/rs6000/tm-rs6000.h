@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Minimum possible text address in AIX */
 
@@ -56,19 +56,20 @@ struct fp_status {
 };
 
 
-/* To be used by function_frame_info. */
+/* To be used by skip_prologue. */
 
-struct aix_framedata {
+struct rs6000_framedata {
   int	offset;				/* # of bytes in gpr's and fpr's are saved */
   int	saved_gpr;			/* smallest # of saved gpr */
   int	saved_fpr;			/* smallest # of saved fpr */
   int	alloca_reg;			/* alloca register number (frame ptr) */
   char	frameless;			/* true if frameless functions. */
   char	nosavedpc;			/* true if pc not saved. */
+  int	gpr_offset;			/* offset of saved gprs */
+  int	fpr_offset;			/* offset of saved fprs */
+  int	lr_offset;			/* offset of saved lr */
+  int	cr_offset;			/* offset of saved cr */
 };
-
-void 
-function_frame_info PARAMS ((CORE_ADDR, struct aix_framedata *));
 
 /* Define the byte order of the machine.  */
 
@@ -87,7 +88,14 @@ function_frame_info PARAMS ((CORE_ADDR, struct aix_framedata *));
 /* Advance PC across any function entry prologue instructions
    to reach some "real" code.  */
 
-#define SKIP_PROLOGUE(pc)	pc = skip_prologue (pc)
+#define SKIP_PROLOGUE(pc)						\
+do {									\
+  struct rs6000_framedata _frame;					\
+  pc = skip_prologue (pc, &_frame);					\
+} while (0)
+
+extern CORE_ADDR skip_prologue PARAMS((CORE_ADDR, struct rs6000_framedata *));
+
 
 /* If PC is in some function-call trampoline code, return the PC
    where the function itself actually starts.  If not, return NULL.  */
@@ -149,7 +157,17 @@ function_frame_info PARAMS ((CORE_ADDR, struct aix_framedata *));
 
 /* Sequence of bytes for breakpoint instruction.  */
 
-#define BREAKPOINT {0x7d, 0x82, 0x10, 0x08}
+#define BIG_BREAKPOINT { 0x7d, 0x82, 0x10, 0x08 }
+#define LITTLE_BREAKPOINT { 0x08, 0x10, 0x82, 0x7d }
+
+#if TARGET_BYTE_ORDER == BIG_ENDIAN
+#define BREAKPOINT BIG_BREAKPOINT
+
+#else
+#if TARGET_BYTE_ORDER == LITTLE_ENDIAN
+#define BREAKPOINT LITTLE_BREAKPOINT
+#endif
+#endif
 
 /* Amount PC must be decremented by after a breakpoint.
    This is often the number of bytes in BREAKPOINT
@@ -376,7 +394,9 @@ CORE_ADDR rs6000_frame_chain PARAMS ((struct frame_info *));
    does not, FRAMELESS is set to 1, else 0.  */
 
 #define FRAMELESS_FUNCTION_INVOCATION(FI, FRAMELESS) \
-	FRAMELESS = frameless_function_invocation (FI, 0)
+  FRAMELESS = frameless_function_invocation (FI)
+
+extern int frameless_function_invocation PARAMS((struct frame_info *));
 
 /* Functions calling alloca() change the value of the stack pointer. We
    need to use initial stack pointer (which is saved in r31 by gcc) in 
@@ -414,17 +434,13 @@ CORE_ADDR rs6000_frame_chain PARAMS ((struct frame_info *));
 #define SIG_FRAME_PC_OFFSET 96
 #define SIG_FRAME_FP_OFFSET 284
 
-/* Frameless function invocation in IBM RS/6000 is sometimes
-   half-done. It perfectly sets up a new frame, e.g. a new frame (in
-   fact stack) pointer, etc, but it doesn't save the %pc.  We call
-   frameless_function_invocation to tell us how to get the %pc.  */
+/* Default offset from SP where the LR is stored */
+#define	DEFAULT_LR_SAVE 8
 
-#define FRAME_SAVED_PC(FRAME)					\
-	(frameless_function_invocation (FRAME, 1)		\
-	 ? SAVED_PC_AFTER_CALL (FRAME)				\
-	 : (FRAME)->signal_handler_caller			\
-	   ? read_memory_integer ((FRAME)->frame + SIG_FRAME_PC_OFFSET, 4) \
-	   : read_memory_integer (rs6000_frame_chain (FRAME) + 8, 4))
+/* Return saved PC from a frame */
+#define FRAME_SAVED_PC(FRAME)  frame_saved_pc (FRAME)
+
+extern unsigned long frame_saved_pc PARAMS ((struct frame_info *));
 
 #define FRAME_ARGS_ADDRESS(FI)	\
   (((struct frame_info*)(FI))->initial_sp ?		\
@@ -459,42 +475,59 @@ CORE_ADDR rs6000_frame_chain PARAMS ((struct frame_info *));
 {									\
   int ii;								\
   CORE_ADDR frame_addr, func_start;					\
-  struct aix_framedata fdata;						\
+  struct rs6000_framedata fdata;					\
 									\
-  /* find the start of the function and collect info about its frame. */\
+  /* find the start of the function and collect info about its frame. */ \
 									\
   func_start = get_pc_function_start ((FRAME_INFO)->pc) + FUNCTION_START_OFFSET; \
-  function_frame_info (func_start, &fdata);				\
-  memset (&(FRAME_SAVED_REGS), '\0', sizeof (FRAME_SAVED_REGS));		\
+  (void) skip_prologue (func_start, &fdata);				\
+  memset (&(FRAME_SAVED_REGS), '\0', sizeof (FRAME_SAVED_REGS));	\
 									\
   /* if there were any saved registers, figure out parent's stack pointer. */ \
-  frame_addr = 0;							\
   /* the following is true only if the frame doesn't have a call to alloca(), \
       FIXME. */								\
-  if (fdata.saved_fpr >= 0 || fdata.saved_gpr >= 0) {			\
-    if ((FRAME_INFO)->prev && (FRAME_INFO)->prev->frame)		\
-      frame_addr = (FRAME_INFO)->prev->frame;				\
-    else								\
-      frame_addr = read_memory_integer ((FRAME_INFO)->frame, 4);	\
+  if (fdata.saved_fpr == 0 && fdata.saved_gpr == 0 &&			\
+      fdata.lr_offset == 0 && fdata.cr_offset == 0) {			\
+    frame_addr = 0;							\
+									\
+  } else if ((FRAME_INFO)->prev && (FRAME_INFO)->prev->frame) {		\
+    frame_addr = (FRAME_INFO)->prev->frame;				\
+									\
+  } else {								\
+    frame_addr = read_memory_integer ((FRAME_INFO)->frame, 4);		\
   }									\
 									\
-  /* if != -1, fdata.saved_fpr is the smallest number of saved_fpr. All fpr's \
-     from saved_fpr to fp31 are saved right underneath caller stack pointer, \
-     starting from fp31 first. */					\
-									\
+  /* if != -1, fdata.saved_fpr is the smallest number of saved_fpr. All	\
+     fpr's from saved_fpr to f31 are saved. */				\
   if (fdata.saved_fpr >= 0) {						\
-    for (ii=31; ii >= fdata.saved_fpr; --ii) 				\
-      (FRAME_SAVED_REGS).regs [FP0_REGNUM + ii] = frame_addr - ((32 - ii) * 8); \
-    frame_addr -= (32 - fdata.saved_fpr) * 8;				\
+    int fpr_offset = frame_addr + fdata.fpr_offset;			\
+    for (ii = fdata.saved_fpr; ii < 32; ii++) {				\
+      (FRAME_SAVED_REGS).regs [FP0_REGNUM + ii] = fpr_offset;		\
+      fpr_offset += 8;							\
+    }									\
   }									\
 									\
-  /* if != -1, fdata.saved_gpr is the smallest number of saved_gpr. All gpr's \
-     from saved_gpr to gpr31 are saved right under saved fprs, starting	\
-     from r31 first. */							\
+  /* if != -1, fdata.saved_gpr is the smallest number of saved_gpr. All	\
+     gpr's from saved_gpr to r31 are saved. */				\
+  if (fdata.saved_gpr >= 0) {						\
+    int gpr_offset = frame_addr + fdata.gpr_offset;			\
+    for (ii = fdata.saved_gpr; ii < 32; ii++) {				\
+      (FRAME_SAVED_REGS).regs [ii] = gpr_offset;			\
+      gpr_offset += 4;							\
+    }									\
+  }									\
 									\
-  if (fdata.saved_gpr >= 0)						\
-    for (ii=31; ii >= fdata.saved_gpr; --ii)				\
-      (FRAME_SAVED_REGS).regs [ii] = frame_addr - ((32 - ii) * 4);	\
+  /* If != 0, fdata.cr_offset is the offset from the frame that holds	\
+     the CR */								\
+  if (fdata.cr_offset != 0) {						\
+    (FRAME_SAVED_REGS).regs [CR_REGNUM] = frame_addr + fdata.cr_offset;	\
+  }									\
+									\
+  /* If != 0, fdata.cr_offset is the offset from the frame that holds	\
+     the LR */								\
+  if (fdata.lr_offset != 0) {						\
+    (FRAME_SAVED_REGS).regs [LR_REGNUM] = frame_addr + fdata.lr_offset;	\
+  }									\
 }
 
 

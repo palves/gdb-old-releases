@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include <ctype.h>
@@ -34,7 +34,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "thread.h"
 #include "target.h"
 #include "language.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "demangle.h"
 #include "annotate.h"
 
@@ -151,22 +151,6 @@ static int executing_breakpoint_commands;
 	for (b = breakpoint_chain;	\
 	     b? (tmp=b->next, 1): 0;	\
 	     b = tmp)
-
-/* By default no support for hardware watchpoints is assumed.  */
-#ifndef TARGET_CAN_USE_HARDWARE_WATCHPOINT
-#define TARGET_CAN_USE_HARDWARE_WATCHPOINT(TYPE,CNT,OTHERTYPE) 0
-#define target_remove_watchpoint(ADDR,LEN,TYPE) -1
-#define target_insert_watchpoint(ADDR,LEN,TYPE) -1
-#endif
-
-#ifndef target_insert_hw_breakpoint
-#define target_remove_hw_breakpoint(ADDR,SHADOW) -1
-#define target_insert_hw_breakpoint(ADDR,SHADOW) -1
-#endif
-
-#ifndef target_stopped_data_address
-#define target_stopped_data_address() 0
-#endif
 
 /* True if breakpoint hit counts should be displayed in breakpoint info.  */
 
@@ -929,6 +913,7 @@ bpstat_do_actions (bsp)
 {
   bpstat bs;
   struct cleanup *old_chain;
+  struct command_line *cmd;
 
   executing_breakpoint_commands = 1;
   old_chain = make_cleanup (cleanup_executing_breakpoints, 0);
@@ -939,18 +924,20 @@ top:
   breakpoint_proceeded = 0;
   for (; bs != NULL; bs = bs->next)
     {
-      while (bs->commands)
+      cmd = bs->commands;
+      while (cmd != NULL)
 	{
-	  struct command_line *cmd = bs->commands;
-	  bs->commands = bs->commands->next;
 	  execute_control_command (cmd);
-	  /* If the inferior is proceeded by the command, bomb out now.
-	     The bpstat chain has been blown away by wait_for_inferior.
-	     But since execution has stopped again, there is a new bpstat
-	     to look at, so start over.  */
-	  if (breakpoint_proceeded)
-	    goto top;
+	  cmd = cmd->next;
 	}
+      if (breakpoint_proceeded)
+	/* The inferior is proceeded by the command; bomb out now.
+	   The bpstat chain has been blown away by wait_for_inferior.
+	   But since execution has stopped again, there is a new bpstat
+	   to look at, so start over.  */
+	goto top;
+      else
+	bs->commands = NULL;
     }
 
   executing_breakpoint_commands = 0;
@@ -1088,6 +1075,9 @@ bpstat_alloc (b, cbs)
 /* The value has not changed.  */
 #define WP_VALUE_NOT_CHANGED 3
 
+#define BP_TEMPFLAG 1
+#define BP_HARDWAREFLAG 2
+
 /* Check watchpoint condition.  */
 
 static int
@@ -1096,8 +1086,8 @@ watchpoint_check (p)
 {
   bpstat bs = (bpstat) p;
   struct breakpoint *b;
-  struct frame_info *saved_frame, *fr;
-  int within_current_scope, saved_level;
+  struct frame_info *fr;
+  int within_current_scope;
 
   b = bs->breakpoint_at;
 
@@ -1240,9 +1230,6 @@ bpstat_stop_status (pc, not_a_breakpoint)
 	  && b->address != bp_addr)
 	continue;
 
-#ifndef DECR_PC_AFTER_HW_BREAK
-#define DECR_PC_AFTER_HW_BREAK 0
-#endif
       if (b->type == bp_hardware_breakpoint
 	  && b->address != (bp_addr - DECR_PC_AFTER_HW_BREAK))
 	continue;
@@ -1977,7 +1964,7 @@ create_longjmp_breakpoint(func_name)
     {
       struct minimal_symbol *m;
 
-      m = lookup_minimal_symbol (func_name, NULL, (struct objfile *)NULL);
+      m = lookup_minimal_symbol_text (func_name, NULL, (struct objfile *)NULL);
       if (m)
 	sal.pc = SYMBOL_VALUE_ADDRESS (m);
       else
@@ -2115,6 +2102,13 @@ set_momentary_breakpoint (sal, frame, type)
   b->enable = enabled;
   b->disposition = donttouch;
   b->frame = (frame ? frame->frame : 0);
+
+  /* If we're debugging a multi-threaded program, then we
+     want momentary breakpoints to be active in only a 
+     single thread of control.  */
+  if (in_thread_list (inferior_pid))
+    b->thread = pid_to_thread_id (inferior_pid);
+
   return b;
 }
 
@@ -2264,8 +2258,8 @@ break_command_1 (arg, flag, from_tty)
   int i;
   int thread;
 
-  hardwareflag = flag & 2;
-  tempflag = flag & 1;
+  hardwareflag = flag & BP_HARDWAREFLAG;
+  tempflag = flag & BP_TEMPFLAG;
 
   sals.sals = NULL;
   sals.nelts = 0;
@@ -2447,8 +2441,6 @@ resolve_sal_pc (sal)
     }
 }
 
-#define BP_TEMPFLAG 1
-#define BP_HARDWAREFLAG 2
 void
 break_command (arg, from_tty)
      char *arg;
@@ -3263,7 +3255,7 @@ delete_command (arg, from_tty)
     {
       /* Ask user only if there are some breakpoints to delete.  */
       if (!from_tty
-	  || (breakpoint_chain && query ("Delete all breakpoints? ", 0, 0)))
+	  || (breakpoint_chain && query ("Delete all breakpoints? ")))
 	{
 	  /* No arg; clear all breakpoints.  */
 	  while (breakpoint_chain)
@@ -3557,9 +3549,6 @@ enable_breakpoint (bpt)
   int target_resources_ok, other_type_used;
   struct value *mark;
   
-  if (enable_breakpoint_hook)
-    enable_breakpoint_hook (bpt);
-
   if (bpt->type == bp_hardware_breakpoint)
     {
       int i;
@@ -3628,6 +3617,9 @@ have been allocated for other watchpoints.\n", bpt->number);
 	select_frame (save_selected_frame, save_selected_frame_level);
       value_free_to_mark (mark);
     }
+
+  if (modify_breakpoint_hook)
+    modify_breakpoint_hook (bpt);
 }
 
 /* ARGSUSED */
@@ -3665,12 +3657,12 @@ disable_breakpoint (bpt)
   if (bpt->type == bp_watchpoint_scope)
     return;
 
-  if (disable_breakpoint_hook)
-    disable_breakpoint_hook (bpt);
-
   bpt->enable = disabled;
 
   check_duplicates (bpt->address);
+
+  if (modify_breakpoint_hook)
+    modify_breakpoint_hook (bpt);
 }
 
 /* ARGSUSED */
@@ -4036,39 +4028,3 @@ an expression is either read or written.");
 	    "Synonym for ``info breakpoints''.");
 
 }
-
-/* OK, when we call objfile_relocate, we need to relocate breakpoints
-   too.  breakpoint_re_set is not a good choice--for example, if
-   addr_string contains just a line number without a file name the
-   breakpoint might get set in a different file.  In general, there is
-   no need to go all the way back to the user's string (though this might
-   work if some effort were made to canonicalize it), since symtabs and
-   everything except addresses are still valid.
-
-   Probably the best way to solve this is to have each breakpoint save
-   the objfile and the section number that was used to set it (if set
-   by "*addr", probably it is best to use find_pc_line to get a symtab
-   and use the objfile and block_line_section for that symtab).  Then
-   objfile_relocate can call fixup_breakpoints with the objfile and
-   the new_offsets, and it can relocate only the appropriate breakpoints.  */
-
-#ifdef IBM6000_TARGET
-/* But for now, just kludge it based on the concept that before an
-   objfile is relocated the breakpoint is below 0x10000000, and afterwards
-   it is higher, so that way we only relocate each breakpoint once.  */
-
-void
-fixup_breakpoints (low, high, delta)
-  CORE_ADDR low;
-  CORE_ADDR high;
-  CORE_ADDR delta;
-{
-  struct breakpoint *b;
-
-  ALL_BREAKPOINTS (b)
-    {
-     if (b->address >= low && b->address <= high)
-       b->address += delta;
-    }
-}
-#endif

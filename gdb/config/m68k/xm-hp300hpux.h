@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define HOST_BYTE_ORDER BIG_ENDIAN
 
@@ -45,10 +45,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* define USG if you are using sys5 /usr/include's */
 #undef USG	/* In case it was defined in the Makefile for cplus-dem.c */
 #define USG
-
-/* The mem functions are in <string.h>.  */
-#undef MEM_FNS_DECLARED
-#define MEM_FNS_DECLARED 1
 
 #define HAVE_TERMIOS
 

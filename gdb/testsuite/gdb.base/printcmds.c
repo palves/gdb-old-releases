@@ -88,6 +88,10 @@ struct some_arrays *parrays = &arrays;
 
 main ()
 {
+#ifdef usestubs
+  set_debug_traps();
+  breakpoint();
+#endif
   malloc(1);
 
   /* Prevent AIX linker from removing variables.  */

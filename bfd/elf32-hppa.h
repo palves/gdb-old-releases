@@ -26,12 +26,12 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef _ELF32_HPPA_H
 #define _ELF32_HPPA_H
 
-#include "libelf.h"
+#include "elf-bfd.h"
 #include "libhppa.h"
 #include "elf/hppa.h"
 
@@ -141,7 +141,7 @@ elf32_hppa_reloc_type;
 #define R_HPPA_COMPLEX			R_PARISC_UNIMPLEMENTED
 
 elf32_hppa_reloc_type **hppa_elf_gen_reloc_type
-  PARAMS ((bfd *, elf32_hppa_reloc_type, int, int));
+  PARAMS ((bfd *, elf32_hppa_reloc_type, int, int, int));
 
 boolean elf32_hppa_size_stubs
   PARAMS ((bfd *, bfd *, struct bfd_link_info *));

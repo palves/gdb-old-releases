@@ -15,31 +15,49 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
 
-static bfd_arch_info_type arch_info_struct = 
+static bfd_arch_info_type arch_info_struct[] = 
+{
   {
     32,	/* 32 bits in a word */
     32,	/* 32 bits in an address */
     8,	/* 8 bits in a byte */
     bfd_arch_hppa,
-    0,	/* only 1 machine */
+    10,	/* By convention PA1.0 = 10 */
     "hppa",
-    "hppa",
+    "hppa1.0",
     3,
-    true, /* the one and only */
+    true, /* Unless we use 1.1 specific features */
     bfd_default_compatible, 
     bfd_default_scan ,
     0,
     0,
-  };
+  },
+  {
+    32,	/* 32 bits in a word */
+    32,	/* 32 bits in an address */
+    8,	/* 8 bits in a byte */
+    bfd_arch_hppa,
+    11,	/* By convention PA1.1 = 11 */
+    "hppa",
+    "hppa1.1",
+    3,
+    false, /* 1.1 specific features used */
+    bfd_default_compatible, 
+    bfd_default_scan ,
+    0,
+    0,
+  }
+};
 
 void
 bfd_hppa_arch ()
 {
-  bfd_arch_linkin(&arch_info_struct);
+  bfd_arch_linkin(&arch_info_struct[0]);
+  bfd_arch_linkin(&arch_info_struct[1]);
 }

@@ -1,0 +1,34 @@
+'\"
+'\" Copyright (c) 1993 The Regents of the University of California.
+'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\"
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+'\" 
+'\" @(#) foreach.n 1.2 94/12/17 16:17:57
+'\" 
+.so man.macros
+.HS foreach tcl
+.BS
+'\" Note:  do not modify the .SH NAME line immediately below!
+.SH NAME
+foreach \- Iterate over all elements in a list
+.SH SYNOPSIS
+\fBforeach \fIvarname list body\fR
+.BE
+
+.SH DESCRIPTION
+.PP
+In this command \fIvarname\fR is the name of a variable, \fIlist\fR
+is a list of values to assign to \fIvarname\fR, and \fIbody\fR is a
+Tcl script.
+For each element of \fIlist\fR (in order
+from left to right), \fBforeach\fR assigns the contents of the
+field to \fIvarname\fR as if the \fBlindex\fR command had been used
+to extract the field, then calls the Tcl interpreter to execute
+\fIbody\fR.  The \fBbreak\fR and \fBcontinue\fR statements may be
+invoked inside \fIbody\fR, with the same effect as in the \fBfor\fR
+command.  \fBForeach\fR returns an empty string.
+
+.SH KEYWORDS
+foreach, iteration, list, looping

@@ -16,12 +16,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "bfd.h"
-#include <string.h>
-#include "libelf.h"
+#include "gdb_string.h"
+#include "elf-bfd.h"
 #include "elf/mips.h"
 #include "symtab.h"
 #include "symfile.h"
@@ -219,7 +219,7 @@ LOCAL FUNCTION
 SYNOPSIS
 
 	void elf_symtab_read (bfd *abfd, CORE_ADDR addr,
-			      struct objfile *objfile)
+			      struct objfile *objfile, int dynamic)
 
 DESCRIPTION
 
@@ -304,7 +304,8 @@ elf_symtab_read (abfd, addr, objfile, dynamic)
 	      continue;
 	    }
 
-	  if (sym -> section == &bfd_und_section
+	  if (dynamic
+	      && sym -> section == &bfd_und_section
 	      && (sym -> flags & BSF_FUNCTION))
 	    {
 	      struct minimal_symbol *msym;
@@ -316,10 +317,7 @@ elf_symtab_read (abfd, addr, objfile, dynamic)
 		 relative to the base address.
 		 If its value is zero then the dynamic linker has to resolve
 		 the symbol. We are unable to find any meaningful address
-		 for this symbol in the executable file, so we skip it.
-		 Irix 5 has a zero value for all shared library functions
-		 in the main symbol table, but the dynamic symbol table
-		 provides the right values.  */
+		 for this symbol in the executable file, so we skip it.  */
 	      symaddr = sym -> value;
 	      if (symaddr == 0)
 		continue;
@@ -328,7 +326,8 @@ elf_symtab_read (abfd, addr, objfile, dynamic)
 		((char *) sym -> name, symaddr,
 		mst_solib_trampoline, NULL, objfile);
 #ifdef SOFUN_ADDRESS_MAYBE_MISSING
-	      msym->filename = filesymname;
+	      if (msym != NULL)
+		msym->filename = filesymname;
 #endif
 	      continue;
 	    }
@@ -403,7 +402,7 @@ elf_symtab_read (abfd, addr, objfile, dynamic)
 		    }
 		  else if ((sym->name[0] == '.' && sym->name[1] == 'L')
 			   || ((sym -> flags & BSF_LOCAL)
-			       && sym->name[0] == 'L'
+			       && sym->name[0] == '$'
 			       && sym->name[1] == 'L'))
 		    /* Looks like a compiler-generated label.  Skip it.
 		       The assembler should be skipping these (to keep
@@ -518,7 +517,8 @@ elf_symtab_read (abfd, addr, objfile, dynamic)
 		((char *) sym -> name, symaddr,
 		 ms_type, (PTR) size, objfile);
 #ifdef SOFUN_ADDRESS_MAYBE_MISSING
-	      msym->filename = filesymname;
+	      if (msym != NULL)
+		msym->filename = filesymname;
 #endif
 	    }
 	}

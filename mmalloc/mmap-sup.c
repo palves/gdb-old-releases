@@ -17,8 +17,8 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with the GNU C Library; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.  */
+not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 #if defined(HAVE_MMAP)
 
@@ -31,8 +31,6 @@ Cambridge, MA 02139, USA.  */
 #endif
 
 #include "mmprivate.h"
-
-extern int munmap PARAMS ((caddr_t, size_t));	/* Not in any header file */
 
 /* Cache the pagesize for the current host machine.  Note that if the host
    does not readily provide a getpagesize() function, we need to emulate it

@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -60,7 +60,7 @@ proc test_integer_literal_types_accepted {} {
 
     # Test various decimal values.
 
-    test_print_accept "pt 123" "int" # Should be integer*4 probably
+    gdb_test "pt 123" "type = int" # Should be integer*4 probably
 }
 
 proc test_character_literal_types_accepted {} {
@@ -68,7 +68,7 @@ proc test_character_literal_types_accepted {} {
 
     # Test various character values.
 
-    test_print_accept "pt 'a'" "character\\*1"
+    gdb_test "pt 'a'" "type = character\\*1"
 }
 
 proc test_integer_literal_types_rejected {} {
@@ -82,8 +82,8 @@ proc test_logical_literal_types_accepted {} {
 
     # Test the only possible values for a logical, TRUE and FALSE.
 
-    test_print_accept "pt .TRUE." "logical\\*2"
-    test_print_accept "pt .FALSE." "logical\\*2"
+    gdb_test "pt .TRUE." "type = logical\\*2"
+    gdb_test "pt .FALSE." "type = logical\\*2"
 }
 
 proc test_float_literal_types_accepted {} {
@@ -91,16 +91,16 @@ proc test_float_literal_types_accepted {} {
 
     # Test various floating point formats
 
-    test_print_accept "pt .44" "real\\*8"
-    test_print_accept "pt 44.0" "real\\*8"
-    test_print_accept "pt 10D20" "real\\*8"
-    test_print_accept "pt 10D20" "real\\*8"
-    test_print_accept "pt 10d20" "real\\*8"
-    test_print_accept "pt 10d20" "real\\*8"
-    test_print_accept "pt 10E20" "real\\*8"
-    test_print_accept "pt 10E20" "real\\*8"
-    test_print_accept "pt 10e20" "real\\*8"
-    test_print_accept "pt 10e20" "real\\*8"
+    gdb_test "pt .44" "type = real\\*8"
+    gdb_test "pt 44.0" "type = real\\*8"
+    gdb_test "pt 10D20" "type = real\\*8"
+    gdb_test "pt 10D20" "type = real\\*8"
+    gdb_test "pt 10d20" "type = real\\*8"
+    gdb_test "pt 10d20" "type = real\\*8"
+    gdb_test "pt 10E20" "type = real\\*8"
+    gdb_test "pt 10E20" "type = real\\*8"
+    gdb_test "pt 10e20" "type = real\\*8"
+    gdb_test "pt 10e20" "type = real\\*8"
 }
 
 # Start with a fresh gdb.

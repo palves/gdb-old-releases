@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include <setjmp.h>
@@ -28,12 +28,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "getopt.h"
 
 #include <sys/types.h>
-#include <sys/stat.h>
+#include "gdb_stat.h"
 #include <ctype.h>
 
-#include <string.h>
-/* R_OK lives in either unistd.h or sys/file.h.  */
-#ifdef USG
+#include "gdb_string.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #ifndef	NO_SYS_FILE
@@ -104,7 +103,12 @@ main (argc, argv)
 
   long time_at_startup = get_run_time ();
 
-  START_PROGRESS (NULL, 0);
+  START_PROGRESS (argv[0], 0);
+
+#ifdef MPW
+  /* Do all Mac-specific setup. */
+  mac_init ();
+#endif /* MPW */
 
   /* This needs to happen before the first use of malloc.  */
   init_malloc ((PTR) NULL);
@@ -227,6 +231,8 @@ main (argc, argv)
 	    break;
 	  case 'f':
 	    annotation_level = 1;
+/* We have probably been invoked from emacs.  Disable window interface.  */
+	    use_windows = 0;
 	    break;
 	  case 's':
 	    symarg = optarg;
@@ -390,6 +396,8 @@ GDB manual (available as on-line info or a printed manual).\n", gdb_stdout);
     }
 
   error_pre_print = "\n\n";
+  quit_pre_print = error_pre_print;
+
   /* We may get more than one warning, don't double space all of them... */
   warning_pre_print = "\nwarning: ";
 
@@ -470,6 +478,7 @@ GDB manual (available as on-line info or a printed manual).\n", gdb_stdout);
   if (!quiet)
     printf_filtered ("\n");
   error_pre_print = "\n";
+  quit_pre_print = error_pre_print;
   warning_pre_print = "\nwarning: ";
 
   if (corearg != NULL)
@@ -489,7 +498,8 @@ GDB manual (available as on-line info or a printed manual).\n", gdb_stdout);
 #endif
 
   /* Error messages should no longer be distinguished with extra output. */
-  error_pre_print = 0;
+  error_pre_print = NULL;
+  quit_pre_print = NULL;
   warning_pre_print = "warning: ";
 
   /* Read the .gdbinit file in the current directory, *if* it isn't
@@ -533,7 +543,7 @@ GDB manual (available as on-line info or a printed manual).\n", gdb_stdout);
   BEFORE_MAIN_LOOP_HOOK;
 #endif
 
-  END_PROGRESS (NULL);
+  END_PROGRESS (argv[0]);
 
   /* Show time and/or space usage.  */
 

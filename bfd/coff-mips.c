@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -1373,16 +1373,17 @@ mips_relocate_section (output_bfd, info, input_bfd, input_section,
 	      addend = ecoff_data (input_bfd)->gp - gp;
 	    }
 	  else if (! info->relocateable
-		   || h->root.type == bfd_link_hash_defined)
+		   || h->root.type == bfd_link_hash_defined
+		   || h->root.type == bfd_link_hash_defweak)
 	    {
-	      /* This is a relocation against an undefined or common
-		 symbol.  The current addend in the instruction is
-		 simply the desired offset into the symbol (normally
-		 zero).  We are going to change this into a relocation
-		 against a defined symbol, so we want the instruction
-		 to hold the difference between the final definition
-		 of the symbol (which will end up in RELOCATION) and
-		 the GP value of OUTPUT_BFD (which is in GP).  */
+	      /* This is a relocation against a defined symbol.  The
+		 current addend in the instruction is simply the
+		 desired offset into the symbol (normally zero).  We
+		 are going to change this into a relocation against a
+		 defined symbol, so we want the instruction to hold
+		 the difference between the final definition of the
+		 symbol (which will end up in RELOCATION) and the GP
+		 value of OUTPUT_BFD (which is in GP).  */
 	      addend = - gp;
 	    }
 	  else
@@ -1423,8 +1424,8 @@ mips_relocate_section (output_bfd, info, input_bfd, input_section,
 		      + int_rel.r_vaddr
 		      - input_section->vma);
 	      memmove (here + PCREL16_EXPANSION_ADJUSTMENT, here,
-		       (input_section->_raw_size
-			- (int_rel.r_vaddr - input_section->vma)));
+		       (size_t) (input_section->_raw_size
+				 - (int_rel.r_vaddr - input_section->vma)));
 		       
 	      /* Generate the new instructions.  */
 	      if (! mips_relax_pcrel16 (info, input_bfd, input_section,
@@ -1488,7 +1489,8 @@ mips_relocate_section (output_bfd, info, input_bfd, input_section,
 	     the existing reloc.  */
 	  if (int_rel.r_extern)
 	    {
-	      if (h->root.type == bfd_link_hash_defined)
+	      if (h->root.type == bfd_link_hash_defined
+		  || h->root.type == bfd_link_hash_defweak)
 		{
 		  const char *name;
 
@@ -1677,7 +1679,8 @@ mips_relocate_section (output_bfd, info, input_bfd, input_section,
 	  if (int_rel.r_extern)
 	    {
 	      /* This is a reloc against a symbol.  */
-	      if (h->root.type == bfd_link_hash_defined)
+	      if (h->root.type == bfd_link_hash_defined
+		  || h->root.type == bfd_link_hash_defweak)
 		{
 		  asection *hsec;
 
@@ -1955,7 +1958,8 @@ mips_relax_section (abfd, sec, info, again)
       if (h == (struct ecoff_link_hash_entry *) NULL)
 	abort ();
 
-      if (h->root.type != bfd_link_hash_defined)
+      if (h->root.type != bfd_link_hash_defined
+	  && h->root.type != bfd_link_hash_defweak)
 	{
 	  /* Just ignore undefined symbols.  These will presumably
 	     generate an error later in the link.  */
@@ -2000,7 +2004,7 @@ mips_relax_section (abfd, sec, info, again)
 	  if (info->keep_memory)
 	    contents = (bfd_byte *) bfd_alloc (abfd, sec->_raw_size);
 	  else
-	    contents = (bfd_byte *) malloc (sec->_raw_size);
+	    contents = (bfd_byte *) malloc ((size_t) sec->_raw_size);
 	  if (contents == (bfd_byte *) NULL)
 	    {
 	      bfd_set_error (bfd_error_no_memory);
@@ -2208,7 +2212,8 @@ mips_relax_section (abfd, sec, info, again)
 
 	  adj_h = *adj_h_ptr;
 	  if (adj_h != (struct ecoff_link_hash_entry *) NULL
-	      && adj_h->root.type == bfd_link_hash_defined
+	      && (adj_h->root.type == bfd_link_hash_defined
+		  || adj_h->root.type == bfd_link_hash_defweak)
 	      && adj_h->root.u.def.section == sec
 	      && adj_h->esym.asym.value > int_rel.r_vaddr)
 	    adj_h->root.u.def.value += PCREL16_EXPANSION_ADJUSTMENT;
@@ -2370,7 +2375,8 @@ bfd_mips_ecoff_create_embedded_relocs (abfd, info, datasec, relsec, errmsg)
 	     symbol.  This should not happen.  */
 	  if (h == (struct ecoff_link_hash_entry *) NULL)
 	    abort ();
-	  if (h->root.type == bfd_link_hash_defined
+	  if ((h->root.type == bfd_link_hash_defined
+	       || h->root.type == bfd_link_hash_defweak)
 	      && (h->root.u.def.section->flags & SEC_CODE) != 0)
 	    text_relative = true;
 	  else

@@ -2,10 +2,10 @@
    in the inferior, pass appropriate arguments to those functions,
    and get the returned result. */
 
-#ifdef __STDC__
-#define PARAMS(paramlist) paramlist
-#else
+#ifdef NO_PROTOTYPES
 #define PARAMS(paramlist) ()
+#else
+#define PARAMS(paramlist) paramlist
 #endif
 
 char char_val1 = 'a';
@@ -35,9 +35,14 @@ char char_array_val1[] = "carray 1";
 char char_array_val2[] = "carray 2";
 
 struct struct1 {
-  int x;
-  long y;
-} struct_val1 = { 76, 51 };
+  char c;
+  short s;
+  int i;
+  long l;
+  float f;
+  double d;
+  char a[4];
+} struct_val1 = { 'x', 87, 76, 51, 2.1234, 9.876, "foo" };
 
 /* Some functions that can be passed as arguments to other test
    functions, or called directly. */
@@ -99,6 +104,17 @@ int argv[];
   return (sumval);
 }
 
+/* Test that we can call functions that take structs and return
+   members from that struct */
+
+char   t_structs_c (tstruct) struct struct1 tstruct; { return (tstruct.c); }
+short  t_structs_s (tstruct) struct struct1 tstruct; { return (tstruct.s); }
+int    t_structs_i (tstruct) struct struct1 tstruct; { return (tstruct.i); }
+long   t_structs_l (tstruct) struct struct1 tstruct; { return (tstruct.l); }
+float  t_structs_f (tstruct) struct struct1 tstruct; { return (tstruct.f); }
+double t_structs_d (tstruct) struct struct1 tstruct; { return (tstruct.d); }
+char  *t_structs_a (tstruct) struct struct1 tstruct; { return (tstruct.a); }
+
 /* Test that calling functions works if there are a lot of arguments.  */
 int
 sum10 (i0, i1, i2, i3, i4, i5, i6, i7, i8, i9)
@@ -112,6 +128,10 @@ sum10 (i0, i1, i2, i3, i4, i5, i6, i7, i8, i9)
 
 main ()
 {
+#ifdef usestubs
+  set_debug_traps();
+  breakpoint();
+#endif
   malloc(1);
 }
 
@@ -123,6 +143,27 @@ int t_char_values (char_arg1, char_arg2)
 char char_arg1, char_arg2;
 {
   return ((char_arg1 == char_val1) && (char_arg2 == char_val2));
+}
+
+int
+#ifdef NO_PROTOTYPES
+t_small_values (arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
+     char arg1;
+     short arg2;
+     int arg3;
+     char arg4;
+     short arg5;
+     char arg6;
+     short arg7;
+     int arg8;
+     short arg9;
+     short arg10;
+#else
+t_small_values (char arg1, short arg2, int arg3, char arg4, short arg5,
+		char arg6, short arg7, int arg8, short arg9, short arg10)
+#endif
+{
+  return arg1 + arg2 + arg3 + arg4 + arg5 + arg6 + arg7 + arg8 + arg9 + arg10;
 }
 
 int t_short_values (short_arg1, short_arg2)
@@ -146,15 +187,35 @@ long long_arg1, long_arg2;
 int t_float_values (float_arg1, float_arg2)
 float float_arg1, float_arg2;
 {
-  return (((float_arg1 - float_val1) < DELTA) &&
-	  ((float_arg2 - float_val2) < DELTA));
+  return ((float_arg1 - float_val1) < DELTA
+	  && (float_arg1 - float_val1) > -DELTA
+	  && (float_arg2 - float_val2) < DELTA
+	  && (float_arg2 - float_val2) > -DELTA);
+}
+
+int
+#ifdef NO_PROTOTYPES
+/* In this case we are just duplicating t_float_values, but that is the
+   easiest way to deal with either ANSI or non-ANSI.  */
+t_float_values2 (float_arg1, float_arg2)
+     float float_arg1, float_arg2;
+#else
+t_float_values2 (float float_arg1, float float_arg2)
+#endif
+{
+  return ((float_arg1 - float_val1) < DELTA
+	  && (float_arg1 - float_val1) > -DELTA
+	  && (float_arg2 - float_val2) < DELTA
+	  && (float_arg2 - float_val2) > -DELTA);
 }
 
 int t_double_values (double_arg1, double_arg2)
 double double_arg1, double_arg2;
 {
-  return (((double_arg1 - double_val1) < DELTA) &&
-	  ((double_arg2 - double_val2) < DELTA));
+  return ((double_arg1 - double_val1) < DELTA
+	  && (double_arg1 - double_val1) > -DELTA
+	  && (double_arg2 - double_val2) < DELTA
+	  && (double_arg2 - double_val2) > -DELTA);
 }
 
 int t_string_values (string_arg1, string_arg2)

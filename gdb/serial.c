@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "serial.h"
@@ -27,6 +27,10 @@ static struct serial_ops *serial_ops_list = NULL;
 /* This is the last serial stream opened.  Used by connect command. */
 
 static serial_t last_serial_opened = NULL;
+
+/* Pointer to list of scb's. */
+
+static serial_t scb_base;
 
 static struct serial_ops *
 serial_interface_lookup (name)
@@ -58,6 +62,13 @@ serial_open (name)
   serial_t scb;
   struct serial_ops *ops;
 
+  for (scb = scb_base; scb; scb = scb->next)
+    if (scb->name && strcmp (scb->name, name) == 0)
+      {
+	scb->refcnt++;
+	return scb;
+      }
+
   if (strcmp (name, "pc") == 0)
     ops = serial_interface_lookup ("pc");
   else if (strchr (name, ':'))
@@ -81,17 +92,29 @@ serial_open (name)
       return NULL;
     }
 
+  scb->name = strsave (name);
+  scb->next = scb_base;
+  scb->refcnt = 1;
+  scb_base = scb;
+
   last_serial_opened = scb;
 
   return scb;
 }
 
 serial_t
-serial_fdopen(fd)
+serial_fdopen (fd)
      const int fd;
 {
   serial_t scb;
   struct serial_ops *ops;
+
+  for (scb = scb_base; scb; scb = scb->next)
+    if (scb->fd == fd)
+      {
+	scb->refcnt++;
+	return scb;
+      }
 
   ops = serial_interface_lookup ("hardwire");
 
@@ -107,15 +130,23 @@ serial_fdopen(fd)
 
   scb->fd = fd;
 
+  scb->name = NULL;
+  scb->next = scb_base;
+  scb->refcnt = 1;
+  scb_base = scb;
+
   last_serial_opened = scb;
 
   return scb;
 }
 
 void
-serial_close(scb)
+serial_close(scb, really_close)
      serial_t scb;
+     int really_close;
 {
+  serial_t tmp_scb;
+
   last_serial_opened = NULL;
 
 /* This is bogus.  It's not our fault if you pass us a bad scb...!  Rob, you
@@ -124,7 +155,28 @@ serial_close(scb)
   if (!scb)
     return;
 
-  scb->ops->close(scb);
+  scb->refcnt--;
+  if (scb->refcnt > 0)
+    return;
+
+  if (really_close)
+    scb->ops->close (scb);
+
+  if (scb->name)
+    free (scb->name);
+
+  if (scb_base == scb)
+    scb_base = scb_base->next;
+  else
+    for (tmp_scb = scb_base; tmp_scb; tmp_scb = tmp_scb->next)
+      {
+	if (tmp_scb->next != scb)
+	  continue;
+
+	tmp_scb->next = tmp_scb->next->next;
+	break;
+      }
+
   free(scb);
 }
 

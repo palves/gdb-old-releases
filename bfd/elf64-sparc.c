@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* We need a published ABI spec for this.  Until one comes out, don't
    assume this'll remain unchanged forever.  */
@@ -23,7 +23,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
-#include "libelf.h"
+#include "elf-bfd.h"
+
+static bfd_reloc_status_type elf64_wdisp16_reloc
+  PARAMS ((bfd *, arelent *, asymbol *, PTR, asection *, bfd *, char **));
+static boolean elf64_sparc_relocate_section
+  PARAMS ((bfd *, struct bfd_link_info *, bfd *, asection *, bfd_byte *,
+	   Elf_Internal_Rela *, Elf_Internal_Sym *, asection **));
 
 enum reloc_type
   {
@@ -115,11 +121,67 @@ static reloc_howto_type elf_sparc_howto_table[] =
   HOWTO (R_SPARC_PC_HH22, 42, 2, 22, true, 0, complain_overflow_dont, bfd_elf_generic_reloc, "R_SPARC_HH22", false, 0, 0x003fffff, true),
   HOWTO (R_SPARC_PC_HM10, 32, 2, 10, true, 0, complain_overflow_dont, bfd_elf_generic_reloc, "R_SPARC_HM10", false, 0, 0x000003ff, true),
   HOWTO (R_SPARC_PC_LM22, 10, 2, 22, true, 0, complain_overflow_dont, bfd_elf_generic_reloc, "R_SPARC_LM22", false, 0, 0x003fffff, true),
-  HOWTO (R_SPARC_WDISP16, 2, 2, 16, true, 0, complain_overflow_signed, bfd_elf_generic_reloc, "R_SPARC_WDISP16", false, 0, 0, true),
+  HOWTO (R_SPARC_WDISP16, 2, 2, 16, true, 0, complain_overflow_signed, elf64_wdisp16_reloc, "R_SPARC_WDISP16", false, 0, 0, true),
   HOWTO (R_SPARC_WDISP19, 2, 2, 22, true, 0, complain_overflow_signed, bfd_elf_generic_reloc, "R_SPARC_WDISP19", false, 0, 0x0007ffff, true),
   HOWTO (R_SPARC_GLOB_JMP, 0, 0, 00, false, 0, complain_overflow_dont, bfd_elf_generic_reloc, "R_SPARC_GLOB_DAT", false, 0, 0x00000000, true),
   HOWTO (R_SPARC_LO7, 0, 2, 7, false, 0, complain_overflow_dont, bfd_elf_generic_reloc, "R_SPARC_LO7", false, 0, 0x0000007f, true),
 };
+
+/* Handle the WDISP16 reloc.  */
+
+static bfd_reloc_status_type
+elf64_wdisp16_reloc (abfd,
+		     reloc_entry,
+		     symbol,
+		     data,
+		     input_section,
+		     output_bfd,
+		     error_message)
+     bfd *abfd;
+     arelent *reloc_entry;
+     asymbol *symbol;
+     PTR data;
+     asection *input_section;
+     bfd *output_bfd;
+     char **error_message;
+{
+  bfd_vma relocation;
+  bfd_vma x;
+
+  if (output_bfd != (bfd *) NULL
+      && (symbol->flags & BSF_SECTION_SYM) == 0
+      && (! reloc_entry->howto->partial_inplace
+	  || reloc_entry->addend == 0))
+    {
+      reloc_entry->address += input_section->output_offset;
+      return bfd_reloc_ok;
+    }
+
+  if (output_bfd != NULL)
+    return bfd_reloc_continue;
+
+  if (reloc_entry->address > input_section->_cooked_size)
+    return bfd_reloc_outofrange;
+
+  relocation = (symbol->value
+		+ symbol->section->output_section->vma
+		+ symbol->section->output_offset);
+  relocation += reloc_entry->addend;
+  relocation -=	(input_section->output_section->vma
+		 + input_section->output_offset);
+  relocation -= reloc_entry->address;
+
+  x = bfd_get_32 (abfd, (char *) data + reloc_entry->address);
+  x |= ((((relocation >> 2) & 0xc000) << 6)
+	| ((relocation >> 2) & 0x3fff));
+  bfd_put_32 (abfd, x, (char *) data + reloc_entry->address);
+
+  if ((bfd_signed_vma) relocation < - 0x40000
+      || (bfd_signed_vma) relocation > 0x3ffff)
+    return bfd_reloc_overflow;
+  else
+    return bfd_reloc_ok;
+}
 
 struct elf_reloc_map
   {
@@ -193,10 +255,173 @@ elf_info_to_howto (abfd, cache_ptr, dst)
   cache_ptr->howto = &elf_sparc_howto_table[ELF64_R_TYPE (dst->r_info)];
 }
 
+/* Relocate a SPARC64 ELF section.  */
+
+static boolean
+elf64_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
+			      contents, relocs, local_syms, local_sections)
+     bfd *output_bfd;
+     struct bfd_link_info *info;
+     bfd *input_bfd;
+     asection *input_section;
+     bfd_byte *contents;
+     Elf_Internal_Rela *relocs;
+     Elf_Internal_Sym *local_syms;
+     asection **local_sections;
+{
+  Elf_Internal_Shdr *symtab_hdr;
+  struct elf_link_hash_entry **sym_hashes;
+  Elf_Internal_Rela *rel;
+  Elf_Internal_Rela *relend;
+
+  symtab_hdr = &elf_tdata (input_bfd)->symtab_hdr;
+  sym_hashes = elf_sym_hashes (input_bfd);
+
+  rel = relocs;
+  relend = relocs + input_section->reloc_count;
+  for (; rel < relend; rel++)
+    {
+      int r_type;
+      reloc_howto_type *howto;
+      long r_symndx;
+      struct elf_link_hash_entry *h;
+      Elf_Internal_Sym *sym;
+      asection *sec;
+      bfd_vma relocation;
+      bfd_reloc_status_type r;
+
+      r_type = ELF64_R_TYPE (rel->r_info);
+      if (r_type < 0 || r_type >= (int) R_SPARC_max)
+	{
+	  bfd_set_error (bfd_error_bad_value);
+	  return false;
+	}
+      howto = elf_sparc_howto_table + r_type;
+
+      r_symndx = ELF64_R_SYM (rel->r_info);
+
+      if (info->relocateable)
+	{
+	  /* This is a relocateable link.  We don't have to change
+	     anything, unless the reloc is against a section symbol,
+	     in which case we have to adjust according to where the
+	     section symbol winds up in the output section.  */
+	  if (r_symndx < symtab_hdr->sh_info)
+	    {
+	      sym = local_syms + r_symndx;
+	      if (ELF_ST_TYPE (sym->st_info) == STT_SECTION)
+		{
+		  sec = local_sections[r_symndx];
+		  rel->r_addend += sec->output_offset + sym->st_value;
+		}
+	    }
+
+	  continue;
+	}
+
+      /* This is a final link.  */
+      h = NULL;
+      sym = NULL;
+      sec = NULL;
+      if (r_symndx < symtab_hdr->sh_info)
+	{
+	  sym = local_syms + r_symndx;
+	  sec = local_sections[r_symndx];
+	  relocation = (sec->output_section->vma
+			+ sec->output_offset
+			+ sym->st_value);
+	}
+      else
+	{
+	  h = sym_hashes[r_symndx - symtab_hdr->sh_info];
+	  if (h->root.type == bfd_link_hash_defined
+	      || h->root.type == bfd_link_hash_defweak)
+	    {
+	      sec = h->root.u.def.section;
+	      relocation = (h->root.u.def.value
+			    + sec->output_section->vma
+			    + sec->output_offset);
+	    }
+	  else if (h->root.type == bfd_link_hash_undefweak)
+	    relocation = 0;
+	  else
+	    {
+	      if (! ((*info->callbacks->undefined_symbol)
+		     (info, h->root.root.string, input_bfd,
+		      input_section, rel->r_offset)))
+		return false;
+	      relocation = 0;
+	    }
+	}
+
+      if (r_type != R_SPARC_WDISP16)
+	r = _bfd_final_link_relocate (howto, input_bfd, input_section,
+				      contents, rel->r_offset,
+				      relocation, rel->r_addend);
+      else
+	{
+	  bfd_vma x;
+
+	  relocation += rel->r_addend;
+	  relocation -= (input_section->output_section->vma
+			 + input_section->output_offset);
+	  relocation -= rel->r_offset;
+
+	  x = bfd_get_32 (input_bfd, contents + rel->r_offset);
+	  x |= ((((relocation >> 2) & 0xc000) << 6)
+		| ((relocation >> 2) & 0x3fff));
+	  bfd_put_32 (input_bfd, x, contents + rel->r_offset);
+
+	  if ((bfd_signed_vma) relocation < - 0x40000
+	      || (bfd_signed_vma) relocation > 0x3ffff)
+	    r = bfd_reloc_overflow;
+	  else
+	    r = bfd_reloc_ok;
+	}
+
+      if (r != bfd_reloc_ok)
+	{
+	  switch (r)
+	    {
+	    default:
+	    case bfd_reloc_outofrange:
+	      abort ();
+	    case bfd_reloc_overflow:
+	      {
+		const char *name;
+
+		if (h != NULL)
+		  name = h->root.root.string;
+		else
+		  {
+		    name = (bfd_elf_string_from_elf_section
+			    (input_bfd,
+			     symtab_hdr->sh_link,
+			     sym->st_name));
+		    if (name == NULL)
+		      return false;
+		    if (*name == '\0')
+		      name = bfd_section_name (input_bfd, sec);
+		  }
+		if (! ((*info->callbacks->reloc_overflow)
+		       (info, name, howto->name, (bfd_vma) 0,
+			input_bfd, input_section, rel->r_offset)))
+		  return false;
+	      }
+	      break;
+	    }
+	}
+    }
+
+  return true;
+}
+
 #define TARGET_BIG_SYM	bfd_elf64_sparc_vec
 #define TARGET_BIG_NAME	"elf64-sparc"
 #define ELF_ARCH	bfd_arch_sparc
 #define ELF_MACHINE_CODE EM_SPARC64
 #define ELF_MAXPAGESIZE 0x100000
+
+#define elf_backend_relocate_section	elf64_sparc_relocate_section
 
 #include "elf64-target.h"

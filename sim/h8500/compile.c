@@ -2419,3 +2419,10 @@ sim_create_inferior (start_address, argv, env)
   pc = start_address;
   sim_store_register (PC_REGNUM, (unsigned char *) &pc);
 }
+
+void
+sim_do_command (cmd)
+     char *cmd;
+{
+  printf_filtered ("This simulator does not accept any commands.\n");
+}

@@ -1,5 +1,8 @@
 /* SPARC-specific values for a.out files */
 
+/* Some systems, e.g., AIX, may have defined this in header files already
+   included.  */
+#undef PAGE_SIZE
 #define PAGE_SIZE	0x2000		/* 8K.  aka NBPG in <sys/param.h> */
 /* Note that some SPARCs have 4K pages, some 8K, some others.  */
 
@@ -92,8 +95,8 @@ struct internal_sun4_dynamic_link
      virtual address, not a file offset.  The first entry in the
      global offset table seems to be the virtual address of the
      sun4_dynamic structure (the same value as the __DYNAMIC symbol).
-     The global offset table is used for PIC code, but I'm not sure of
-     the exact details.  A dynamically linked file which does not
+     The global offset table is used for PIC code to hold the
+     addresses of variables.  A dynamically linked file which does not
      itself contain PIC code has a four byte global offset table.  */
   long ld_got;
 

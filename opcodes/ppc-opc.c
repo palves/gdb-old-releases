@@ -16,7 +16,7 @@ the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this file; see the file COPYING.  If not, write to the Free
-Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include <stdio.h>
 #include "ansidecl.h"
@@ -49,8 +49,6 @@ static unsigned long insert_bo PARAMS ((unsigned long, long, const char **));
 static long extract_bo PARAMS ((unsigned long, int *));
 static unsigned long insert_boe PARAMS ((unsigned long, long, const char **));
 static long extract_boe PARAMS ((unsigned long, int *));
-static unsigned long insert_cr PARAMS ((unsigned long, long, const char **));
-static long extract_cr PARAMS ((unsigned long, int *));
 static unsigned long insert_ds PARAMS ((unsigned long, long, const char **));
 static long extract_ds PARAMS ((unsigned long, int *));
 static unsigned long insert_li PARAMS ((unsigned long, long, const char **));
@@ -178,7 +176,7 @@ const struct powerpc_operand powerpc_operands[] =
      conditional branch mnemonics, which set the lower two bits of the
      BI field.  This field is optional.  */
 #define CR (BT + 1)
-  { 5, 16, insert_cr, extract_cr, PPC_OPERAND_CR | PPC_OPERAND_OPTIONAL },
+  { 3, 18, 0, 0, PPC_OPERAND_CR | PPC_OPERAND_OPTIONAL },
 
   /* The D field in a D form instruction.  This is a displacement off
      a register, and implies that the next operand is a register in
@@ -621,30 +619,6 @@ extract_boe (insn, invalid)
       && ! valid_bo (value))
     *invalid = 1;
   return value & 0x1e;
-}
-
-/* The condition register number portion of the BI field in a B form
-   or XL form instruction.  This is used for the extended conditional
-   branch mnemonics, which set the lower two bits of the BI field.  It
-   is the BI field with the lower two bits ignored.  */
-
-/*ARGSUSED*/
-static unsigned long
-insert_cr (insn, value, errmsg)
-     unsigned long insn;
-     long value;
-     const char **errmsg;
-{
-  return insn | ((value & 0x1c) << 16);
-}
-
-/*ARGSUSED*/
-static long
-extract_cr (insn, invalid)
-     unsigned long insn;
-     int *invalid;
-{
-  return (insn >> 16) & 0x1c;
 }
 
 /* The DS field in a DS form instruction.  This is like D, but the
@@ -1795,6 +1769,7 @@ const struct powerpc_opcode powerpc_opcodes[] = {
 { "crnor",   XL(19,33),	XL_MASK,	PPC|POWER,	{ BT, BA, BB } },
 
 { "rfi",     XL(19,50),	0xffffffff,	PPC|POWER,	{ 0 } },
+{ "rfci",    XL(19,51),	0xffffffff,	PPC,		{ 0 } },
 
 { "rfsvc",   XL(19,82),	0xffffffff,	POWER,		{ 0 } },
 
@@ -2287,6 +2262,8 @@ const struct powerpc_opcode powerpc_opcodes[] = {
 
 { "lhzx",    X(31,279),	X_MASK,		PPC|POWER,	{ RT, RA, RB } },
 
+{ "icbt",    X(31,262),	XRT_MASK,	PPC,		{ RA, RB } },
+
 { "eqv",     XRC(31,284,0), X_MASK,	PPC|POWER,	{ RA, RS, RB } },
 { "eqv.",    XRC(31,284,1), X_MASK,	PPC|POWER,	{ RA, RS, RB } },
 
@@ -2299,6 +2276,8 @@ const struct powerpc_opcode powerpc_opcodes[] = {
 
 { "xor",     XRC(31,316,0), X_MASK,	PPC|POWER,	{ RA, RS, RB } },
 { "xor.",    XRC(31,316,1), X_MASK,	PPC|POWER,	{ RA, RS, RB } },
+
+{ "mfdcr",   X(31,323),	X_MASK,		PPC,		{ RT, SPR } },
 
 { "div",     XO(31,331,0,0), XO_MASK,	POWER|M601,	{ RT, RA, RB } },
 { "div.",    XO(31,331,0,1), XO_MASK,	POWER|M601,	{ RT, RA, RB } },
@@ -2333,6 +2312,8 @@ const struct powerpc_opcode powerpc_opcodes[] = {
 { "lwax",    X(31,341),	X_MASK,		PPC|B64,	{ RT, RA, RB } },
 
 { "lhax",    X(31,343),	X_MASK,		PPC|POWER,	{ RT, RA, RB } },
+
+{ "dccci",   X(31,454),	XRT_MASK,	PPC,		{ RA, RB } },
 
 { "abs",     XO(31,360,0,0), XORB_MASK, POWER|M601,	{ RT, RA } },
 { "abs.",    XO(31,360,0,1), XORB_MASK, POWER|M601,	{ RT, RA } },
@@ -2379,6 +2360,8 @@ const struct powerpc_opcode powerpc_opcodes[] = {
 { "or",      XRC(31,444,0), X_MASK,	PPC|POWER,	{ RA, RS, RB } },
 { "mr.",     XRC(31,444,1), X_MASK,	PPC|POWER,	{ RA, RS, RBS } },
 { "or.",     XRC(31,444,1), X_MASK,	PPC|POWER,	{ RA, RS, RB } },
+
+{ "mtdcr",   X(31,451),	X_MASK,		PPC,		{ SPR, RS } },
 
 { "divdu",   XO(31,457,0,0), XO_MASK,	PPC|B64,	{ RT, RA, RB } },
 { "divdu.",  XO(31,457,0,1), XO_MASK,	PPC|B64,	{ RT, RA, RB } },
@@ -2559,6 +2542,8 @@ const struct powerpc_opcode powerpc_opcodes[] = {
 
 { "extsb",   XRC(31,954,0), XRB_MASK,	PPC,		{ RA, RS} },
 { "extsb.",  XRC(31,954,1), XRB_MASK,	PPC,		{ RA, RS} },
+
+{ "iccci",   X(31,966),	XRT_MASK,	PPC,		{ RA, RB } },
 
 { "icbi",    X(31,982),	XRT_MASK,	PPC,		{ RA, RB } },
 

@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 
 #include "bfd.h"
@@ -489,6 +489,11 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
     goto doit;
   }
 
+  if (asect == obj_bsssec (abfd)) {
+    reloc_size = 0;
+    goto doit;
+  }
+
   bfd_set_error (bfd_error_invalid_operation);
   return false;
 
@@ -504,14 +509,16 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
   }
   reloc_cache = (arelent *) malloc ((count+1) * sizeof (arelent));
   if (!reloc_cache) {
-    free ((char*)relocs);
+    if (relocs != NULL)
+      free ((char*)relocs);
     bfd_set_error (bfd_error_no_memory);
     return false;
   }
 
   if (bfd_read ((PTR) relocs, 1, reloc_size, abfd) != reloc_size) {
     free (reloc_cache);
-    free (relocs);
+    if (relocs != NULL)
+      free (relocs);
     return false;
   }
 
@@ -667,7 +674,8 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
   }
 
 
-  free (relocs);
+  if (relocs != NULL)
+    free (relocs);
   asect->relocation = reloc_cache;
   asect->reloc_count = count;
 
@@ -824,17 +832,30 @@ b_out_canonicalize_reloc (abfd, section, relptr, symbols)
      arelent **relptr;
      asymbol **symbols;
 {
-  arelent *tblptr = section->relocation;
-  unsigned int count = 0;
+  arelent *tblptr;
+  unsigned int count;
 
-  if (!(tblptr || b_out_slurp_reloc_table (abfd, section, symbols)))
-    return -1;
-  tblptr = section->relocation;
+  if ((section->flags & SEC_CONSTRUCTOR) != 0)
+    {
+      arelent_chain *chain = section->constructor_chain;
+      for (count = 0; count < section->reloc_count; count++)
+	{
+	  *relptr++ = &chain->relent;
+	  chain = chain->next;
+	}
+    }
+  else
+    {
+      if (section->relocation == NULL
+	  && ! b_out_slurp_reloc_table (abfd, section, symbols))
+	return -1;
 
-  for (; count++ < section->reloc_count;)
-    *relptr++ = tblptr++;
+      tblptr = section->relocation;
+      for (count = 0; count++ < section->reloc_count;)
+	*relptr++ = tblptr++;
+    }
 
-  *relptr = 0;
+  *relptr = NULL;
 
   return section->reloc_count;
 }
@@ -848,6 +869,9 @@ b_out_get_reloc_upper_bound (abfd, asect)
     bfd_set_error (bfd_error_invalid_operation);
     return -1;
   }
+
+  if (asect->flags & SEC_CONSTRUCTOR)
+    return sizeof (arelent *) * (asect->reloc_count + 1);
 
   if (asect == obj_datasec (abfd))
     return (sizeof (arelent *) *
@@ -957,7 +981,8 @@ get_value (reloc, link_info, input_section)
       h = bfd_link_hash_lookup (link_info->hash, bfd_asymbol_name (symbol),
 				false, false, true);
       if (h != (struct bfd_link_hash_entry *) NULL
-	  && h->type == bfd_link_hash_defined)
+	  && (h->type == bfd_link_hash_defined
+	      || h->type == bfd_link_hash_defweak))
 	value = h->u.def.value + output_addr (h->u.def.section);
       else if (h != (struct bfd_link_hash_entry *) NULL
 	       && h->type == bfd_link_hash_common)
@@ -1369,6 +1394,8 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
 #define b_out_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
 #define b_out_bfd_link_add_symbols _bfd_generic_link_add_symbols
 #define b_out_bfd_final_link _bfd_generic_final_link
+#define b_out_bfd_link_split_section  _bfd_generic_link_split_section
+
 
 const bfd_target b_out_vec_big_host =
 {

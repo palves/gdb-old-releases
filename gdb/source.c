@@ -1,5 +1,5 @@
 /* List lines of source files for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1988, 1989, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "symtab.h"
@@ -27,19 +27,19 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "frame.h"
 
 #include <sys/types.h>
-#include <string.h>
+#include "gdb_string.h"
 #include <sys/param.h>
-#include <sys/stat.h>
+#include "gdb_stat.h"
 #include <fcntl.h>
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 #include "gdbcore.h"
 #include "regex.h"
 #include "symfile.h"
 #include "objfiles.h"
 #include "annotate.h"
-
-#ifndef DIRNAME_SEPARATOR
-#define DIRNAME_SEPARATOR ':'
-#endif
+#include "gdbtypes.h"
 
 /* Prototypes for local functions. */
 
@@ -247,7 +247,7 @@ directory_command (dirname, from_tty)
   /* FIXME, this goes to "delete dir"... */
   if (dirname == 0)
     {
-      if (query ("Reinitialize source path to empty? ", ""))
+      if (query ("Reinitialize source path to empty? "))
 	{
 	  free (source_path);
 	  init_source_path ();
@@ -306,7 +306,7 @@ mod_path (dirname, which_path)
 	  }
       }
 
-      if (p[-1] == '/')
+      if (SLASH_P (p[-1]))
 	/* Sigh. "foo/" => "foo" */
 	--p;
       *p = '\0';
@@ -319,7 +319,7 @@ mod_path (dirname, which_path)
 	      name = current_directory;
 	      goto append;
 	    }
-	  else if (p[-2] == '/')
+	  else if (SLASH_P (p[-2]))
 	    {
 	      if (p - name == 2)
 		{
@@ -341,8 +341,8 @@ mod_path (dirname, which_path)
 
       if (name[0] == '~')
 	name = tilde_expand (name);
-      else if (name[0] != '/' && name[0] != '$')
-	name = concat (current_directory, "/", name, NULL);
+      else if (!SLASH_P (name[0]) && name[0] != '$') 
+	  name = concat (current_directory, SLASH_STRING, name, NULL);
       else
 	name = savestring (name, p - name);
       make_cleanup (free, name);
@@ -489,16 +489,20 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
   if (!path)
     path = ".";
 
-  if (try_cwd_first || string[0] == '/')
+  if (try_cwd_first || SLASH_P (string[0]))
     {
+      int i;
       filename = string;
       fd = open (filename, mode, prot);
-      if (fd >= 0 || string[0] == '/' || strchr (string, '/'))
+      if (fd >= 0)
+	goto done;
+      for (i = 0; string[i]; i++)
+	if (SLASH_P(string[0]))
 	goto done;
     }
 
   /* ./foo => foo */
-  while (string[0] == '.' && string[1] == '/')
+  while (string[0] == '.' && SLASH_P (string[1]))
     string += 2;
 
   alloclen = strlen (path) + strlen (string) + 2;
@@ -532,10 +536,10 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
       }
 
       /* Remove trailing slashes */
-      while (len > 0 && filename[len-1] == '/')
+      while (len > 0 && SLASH_P (filename[len-1]))
        filename[--len] = 0;
 
-      strcat (filename+len, "/");
+      strcat (filename+len, SLASH_STRING);
       strcat (filename, string);
 
       fd = open (filename, mode);
@@ -547,17 +551,35 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
     {
       if (fd < 0)
 	*filename_opened = (char *) 0;
-      else if (filename[0] == '/')
+      else if (ROOTED_P (filename))
 	*filename_opened = savestring (filename, strlen (filename));
       else
 	{
 	  /* Beware the // my son, the Emacs barfs, the botch that catch... */
 	  
 	  *filename_opened = concat (current_directory, 
-				     '/' == current_directory[strlen(current_directory)-1]? "": "/",
+				     SLASH_CHAR
+				     == current_directory[strlen(current_directory)-1] 
+  				     ? "": SLASH_STRING,
 				     filename, NULL);
         }
     }
+#ifdef MPW
+  /* This is a debugging hack that can go away when all combinations
+     of Mac and Unix names are handled reasonably.  */
+  {
+    extern int debug_openp;
+
+    if (debug_openp)
+      {
+	printf("openp on %s, path %s mode %d prot %d\n  returned %d",
+	       string, path, mode, prot, fd);
+	if (*filename_opened)
+	  printf(" (filename is %s)", *filename_opened);
+	printf("\n");
+      }
+  }
+#endif /* MPW */
 
   return fd;
 }
@@ -614,6 +636,23 @@ open_source_file (s)
       if (p != s->filename)
 	result = openp (path, 0, p, O_RDONLY, 0, &s->fullname);
     }
+#ifdef MPW
+  if (result < 0)
+    {
+      /* Didn't work.  Try using just the MPW basename. */
+      p = (char *) mpw_basename (s->filename);
+      if (p != s->filename)
+	result = openp (path, 0, p, O_RDONLY, 0, &s->fullname);
+    }
+  if (result < 0)
+    {
+      /* Didn't work.  Try using the mixed Unix/MPW basename. */
+      p = (char *) mpw_mixed_basename (s->filename);
+      if (p != s->filename)
+	result = openp (path, 0, p, O_RDONLY, 0, &s->fullname);
+    }
+#endif /* MPW */
+
   if (result >= 0)
     {
       fullname = s->fullname;
@@ -1129,6 +1168,7 @@ line_info (arg, from_tty)
     {
       sal.symtab = current_source_symtab;
       sal.line = last_line_listed;
+      sal.pc = 0;
       sals.nelts = 1;
       sals.sals = (struct symtab_and_line *)
 	xmalloc (sizeof (struct symtab_and_line));
@@ -1284,6 +1324,9 @@ forward_search_command (regex, from_tty)
 	/* Match! */
 	fclose (stream);
 	print_source_lines (current_source_symtab, line, line+1, 0);
+	set_internalvar (lookup_internalvar ("_"),
+			 value_from_longest (builtin_type_int,
+					     (LONGEST) line));
 	current_source_line = max (line - lines_to_list / 2, 1);
 	return;
       }
@@ -1357,6 +1400,9 @@ reverse_search_command (regex, from_tty)
 	  fclose (stream);
 	  print_source_lines (current_source_symtab,
 			      line, line+1, 0);
+	  set_internalvar (lookup_internalvar ("_"),
+			   value_from_longest (builtin_type_int,
+					       (LONGEST) line));
 	  current_source_line = max (line - lines_to_list / 2, 1);
 	  return;
 	}
@@ -1418,11 +1464,13 @@ so that \"x/i\" suffices to start examining the machine code.\n\
 The address is also stored as the value of \"$_\".", NULL));
 
   add_com ("forward-search", class_files, forward_search_command,
-	   "Search for regular expression (see regex(3)) from last line listed.");
+	   "Search for regular expression (see regex(3)) from last line listed.\n\
+The matching line number is also stored as the value of \"$_\".");
   add_com_alias ("search", "forward-search", class_files, 0);
 
   add_com ("reverse-search", class_files, reverse_search_command,
-	   "Search backward for regular expression (see regex(3)) from last line listed.");
+	   "Search backward for regular expression (see regex(3)) from last line listed.\n\
+The matching line number is also stored as the value of \"$_\".");
 
   add_com ("list", class_files, list_command,
 	   concat ("List specified function or line.\n\

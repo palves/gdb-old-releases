@@ -1,0 +1,41 @@
+'\"
+'\" Copyright (c) 1994 The Regents of the University of California.
+'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\"
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+'\" 
+'\" @(#) subst.n 1.3 94/12/17 16:18:53
+'\" 
+.so man.macros
+.HS subst tcl 7.4
+.BS
+'\" Note:  do not modify the .SH NAME line immediately below!
+.SH NAME
+subst \- Perform backslash, command, and variable substitutions
+.SH SYNOPSIS
+\fBsubst \fIstring\fR
+.BE
+
+.SH DESCRIPTION
+.PP
+This command performs variable substitutions, command substitutions,
+and backslash subsitutions on its \fIstring\fR argument and
+returns the fully-substituted result.
+The substitutions are performed in exactly the same way as for
+Tcl commands.
+As a result, the \fIstring\fR argument is actually substituted twice,
+once by the Tcl parser in the usual fashion for Tcl commands, and
+again by the \fIsubst\fR command.
+.PP
+Note: when it performs its substitutions, \fIsubst\fR does not
+give any special treatment to double quotes or curly braces.  For
+example, the script
+.DS
+\fBset a 44
+subst {xyz {$a}}\fR
+.DE
+returns ``\fBxyz {44}\fR'', not ``\fBxyz {$a}\fR''.
+
+.SH KEYWORDS
+backslash substitution, command substitution, variable substitution

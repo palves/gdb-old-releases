@@ -1,5 +1,5 @@
 /* Evaluate expressions for GDB.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -16,10 +16,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "value.h"
@@ -28,39 +28,28 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "frame.h"
 #include "demangle.h"
 #include "language.h"	/* For CAST_IS_CONVERSION */
-#include "f-lang.h" /* for array bound stuff */
-
-/* Values of NOSIDE argument to eval_subexp.  */
-
-enum noside
-{
-  EVAL_NORMAL,
-  EVAL_SKIP,			/* Only effect is to increment pos.  */
-  EVAL_AVOID_SIDE_EFFECTS	/* Don't modify any variables or
-				   call any functions.  The value
-				   returned will have the correct
-				   type, and will have an
-				   approximately correct lvalue
-				   type (inaccuracy: anything that is
-				   listed as being in a register in
-				   the function in which it was
-				   declared will be lval_register).  */
-};
+#include "f-lang.h"	/* for array bound stuff */
 
 /* Prototypes for local functions. */
 
 static value_ptr evaluate_subexp_for_sizeof PARAMS ((struct expression *,
 						     int *));
 
-static value_ptr evaluate_subexp_with_coercion PARAMS ((struct expression *,
-							int *, enum noside));
-
 static value_ptr evaluate_subexp_for_address PARAMS ((struct expression *,
 						      int *, enum noside));
 
-static value_ptr evaluate_subexp PARAMS ((struct type *, struct expression *,
-					  int *, enum noside));
-
+#ifdef __GNUC__
+inline
+#endif
+static value_ptr
+evaluate_subexp (expect_type, exp, pos, noside)
+     struct type *expect_type;
+     register struct expression *exp;
+     register int *pos;
+     enum noside noside;
+{
+  return (*exp->language_defn->evaluate_exp) (expect_type, exp, pos, noside);
+}
 
 /* Parse the string EXP as a C expression, evaluate it,
    and return the result as a number.  */
@@ -223,8 +212,8 @@ evaluate_labeled_field_init (struct_val, fieldnop, exp, pos, noside)
   return val;
 }
 
-static value_ptr
-evaluate_subexp (expect_type, exp, pos, noside)
+value_ptr
+evaluate_subexp_standard (expect_type, exp, pos, noside)
      struct type *expect_type;
      register struct expression *exp;
      register int *pos;
@@ -237,10 +226,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
   struct type *type;
   int nargs;
   value_ptr *argvec;
-  struct symbol *tmp_symbol; 
   int upper, lower, retcode; 
   int code;
-  struct internalvar *var; 
 
   /* This expect_type crap should not be used for C.  C expressions do
      not have any notion of expected types, never has and (goddess
@@ -940,8 +927,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 		}
 	    }
 	  
-	  if (binop_user_defined_p (op, arg1, arg2)
-	      && ! chill_varying_type (VALUE_TYPE (arg1)))
+	  if (binop_user_defined_p (op, arg1, arg2))
 	    {
 	      arg1 = value_x_binop (arg1, arg2, op, OP_NULL);
 	    }
@@ -960,7 +946,6 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	int ndimensions=1,i;
 	struct type *tmp_type; 
 	int offset_item;   /* The array offset where the item lives */ 
-	int fixed_subscript; 
 
 	if (nargs > MAX_FORTRAN_DIMS)
 	  error ("Too many subscripts for F77 (%d Max)", MAX_FORTRAN_DIMS);
@@ -1186,8 +1171,12 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (TYPE_CODE (VALUE_TYPE (arg2)) != TYPE_CODE_INT)
 	error ("Non-integral right operand for \"@\" operator.");
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
-	return allocate_repeat_value (VALUE_TYPE (arg1),
-				      longest_to_int (value_as_long (arg2)));
+	{
+	  if (VALUE_REPEATED (arg1))
+	    error ("Cannot create artificial arrays of artificial arrays.");
+	  return allocate_repeat_value (VALUE_TYPE (arg1),
+					longest_to_int (value_as_long (arg2)));
+	}
       else
 	return value_repeat (arg1, longest_to_int (value_as_long (arg2)));
 
@@ -1474,7 +1463,7 @@ evaluate_subexp_for_address (exp, pos, noside)
 
    */
 
-static value_ptr
+value_ptr
 evaluate_subexp_with_coercion (exp, pos, noside)
      register struct expression *exp;
      register int *pos;
@@ -1588,7 +1577,7 @@ calc_f77_array_dims (array_type)
    
   tmp_type = array_type; 
 
-  while (tmp_type = TYPE_TARGET_TYPE (tmp_type))
+  while ((tmp_type = TYPE_TARGET_TYPE (tmp_type)))
     {
       if (TYPE_CODE (tmp_type) == TYPE_CODE_ARRAY)
 	++ndimen;

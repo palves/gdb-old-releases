@@ -1,2 +1,1 @@
-LIBCFLAGS=$(CFLAGS) -fPIC
-LIBCXXFLAGS=$(CXXFLAGS) -fPIC -fno-implicit-templates
+PICFLAG=-fPIC

@@ -1,0 +1,27 @@
+Wed Dec 14 13:12:14 1994  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* spin.h: New file, cursor spinning for progress.
+
+Thu Jun 30 15:32:07 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* fcntl.h (open): Allow optional third arg.
+
+Thu Apr 14 12:54:51 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* dir.h, dirent.h, fcntl.h, grp.h, pwd.h, stat.h: New files.
+	* sys/ioctl.h: New file.
+
+Mon Feb 21 09:44:45 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* sys/stat.h (struct stat): New field st_rsize.
+	(S_IFMT, etc): Use different bit positions.
+	(fstat): Add parameter names to prototype.
+
+Mon Jan 31 19:30:16 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* README: New file.
+	* utime.h, varargs.h: New files, simulated Posix.
+	* sys/{file,param,resource,stat,time,types}.h: New files, more
+	simulated Posix.
+
+

@@ -20,7 +20,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 
 #include "defs.h"
@@ -60,6 +60,8 @@ store_inferior_registers (regno)
 
   if (regno >= 0)
     {
+      if (CANNOT_STORE_REGISTER (regno))
+	return;
       regaddr = register_addr (regno, offset);
       errno = 0;
       if (regno == PCOQ_HEAD_REGNUM || regno == PCOQ_TAIL_REGNUM)
@@ -90,22 +92,14 @@ store_inferior_registers (regno)
 		sprintf (msg, "writing register %s: %s",
 			 reg_names[regno], err);
 		warning (msg);
-		goto error_exit;
+		return;
 	      }
 	    regaddr += sizeof(int);
 	  }
     }
   else
-    {
-      for (regno = 0; regno < NUM_REGS; regno++)
-	{
-	  if (CANNOT_STORE_REGISTER (regno))
-	    continue;
-	  store_inferior_registers (regno);
-	}
-    }
- error_exit:
-  return;
+    for (regno = 0; regno < NUM_REGS; regno++)
+      store_inferior_registers (regno);
 }
 
 /* Fetch one register.  */

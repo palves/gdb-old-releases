@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "gdbcmd.h"
@@ -43,17 +43,16 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #undef savestring
 
 #include <sys/types.h>
-#ifdef USG
-/* What is this for?  X_OK?  */
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
-#include <string.h>
+#include "gdb_string.h"
 #ifndef	NO_SYS_FILE
 #include <sys/file.h>
 #endif
 #include <sys/param.h>
-#include <sys/stat.h>
+#include "gdb_stat.h"
 #include <ctype.h>
 
 extern void initialize_targets PARAMS ((void));
@@ -395,8 +394,7 @@ void (*flush_hook) PARAMS ((FILE *stream));
 
 void (*create_breakpoint_hook) PARAMS ((struct breakpoint *bpt));
 void (*delete_breakpoint_hook) PARAMS ((struct breakpoint *bpt));
-void (*enable_breakpoint_hook) PARAMS ((struct breakpoint *bpt));
-void (*disable_breakpoint_hook) PARAMS ((struct breakpoint *bpt));
+void (*modify_breakpoint_hook) PARAMS ((struct breakpoint *bpt));
 
 /* Called during long calculations to allow GUI to repair window damage, and to
    check for stop buttons, etc... */
@@ -419,16 +417,11 @@ int (*target_wait_hook) PARAMS ((int pid, struct target_waitstatus *status));
 void (*call_command_hook) PARAMS ((struct cmd_list_element *c, char *cmd,
 				   int from_tty));
 
-/* An alternate way to read memory for disassembly.  This is used to provide a
-   switch that allows disassembly to come from an exec file rather than a
-   remote target.  This is a speed hack.  */
 
-int (*dis_asm_read_memory_hook) PARAMS ((bfd_vma memaddr, bfd_byte *myaddr,
-					 int len, disassemble_info *info));
 /* Takes control from error ().  Typically used to prevent longjmps out of the
    middle of the GUI.  Usually used in conjunction with a catch routine.  */
 
-NORETURN void (*error_hook) PARAMS (());
+NORETURN void (*error_hook) PARAMS (()) ATTR_NORETURN;
 
 
 /* Where to go for return_to_top_level (RETURN_ERROR).  */
@@ -500,15 +493,22 @@ catch_errors (func, args, errstring, mask)
   int val;
   struct cleanup *saved_cleanup_chain;
   char *saved_error_pre_print;
+  char *saved_quit_pre_print;
 
   saved_cleanup_chain = save_cleanups ();
   saved_error_pre_print = error_pre_print;
+  saved_quit_pre_print = quit_pre_print;
 
   if (mask & RETURN_MASK_ERROR)
-    memcpy ((char *)saved_error, (char *)error_return, sizeof (jmp_buf));
+    {
+      memcpy ((char *)saved_error, (char *)error_return, sizeof (jmp_buf));
+      error_pre_print = errstring;
+    }
   if (mask & RETURN_MASK_QUIT)
-    memcpy (saved_quit, quit_return, sizeof (jmp_buf));
-  error_pre_print = errstring;
+    {
+      memcpy (saved_quit, quit_return, sizeof (jmp_buf));
+      quit_pre_print = errstring;
+    }
 
   if (setjmp (tmp_jmp) == 0)
     {
@@ -523,11 +523,16 @@ catch_errors (func, args, errstring, mask)
 
   restore_cleanups (saved_cleanup_chain);
 
-  error_pre_print = saved_error_pre_print;
   if (mask & RETURN_MASK_ERROR)
-    memcpy (error_return, saved_error, sizeof (jmp_buf));
+    {
+      memcpy (error_return, saved_error, sizeof (jmp_buf));
+      error_pre_print = saved_error_pre_print;
+    }
   if (mask & RETURN_MASK_QUIT)
-    memcpy (quit_return, saved_quit, sizeof (jmp_buf));
+    {
+      memcpy (quit_return, saved_quit, sizeof (jmp_buf));
+      quit_pre_print = saved_quit_pre_print;
+    }
   return val;
 }
 
@@ -637,6 +642,9 @@ build_command_line (type, args)
      char *args;
 {
   struct command_line *cmd;
+
+  if (args == NULL)
+    error ("if/while commands require arguments.\n");
 
   cmd = (struct command_line *)xmalloc (sizeof (struct command_line));
   cmd->next = NULL;
@@ -1295,6 +1303,11 @@ gdb_readline (prrompt)
 	 character position to be off, since the newline we read from
 	 the user is not accounted for.  */
       fputs_unfiltered (prrompt, gdb_stdout);
+#ifdef MPW
+      /* Move to a new line so the entered line doesn't have a prompt
+	 on the front of it. */
+      fputs_unfiltered ("\n", gdb_stdout);
+#endif /* MPW */
       gdb_flush (gdb_stdout);
     }
 
@@ -1638,6 +1651,12 @@ line_completion_function (text, matches, line_buffer, point)
 		      rl_completer_word_break_characters =
 			gdb_completer_command_word_break_characters;
 		    }
+		  else if (c->enums)
+		    {
+		      list = complete_on_enum (c->enums, p, word);
+		      rl_completer_word_break_characters =
+			gdb_completer_command_word_break_characters;
+		    }
 		  else
 		    {
 		      /* It is a normal command; what comes after it is
@@ -1680,6 +1699,10 @@ line_completion_function (text, matches, line_buffer, point)
 		  /* It is an unrecognized subcommand of a prefix command,
 		     e.g. "info adsfkdj".  */
 		  list = NULL;
+		}
+	      else if (c->enums)
+		{
+		  list = complete_on_enum (c->enums, p, word);
 		}
 	      else
 		{
@@ -2605,7 +2628,7 @@ define_command (comname, from_tty)
 	{
 	  warning ("Your new `%s' command does not hook any existing command.",
 		   comname);
-	  if (!query ("Proceed? ", (char *)0))
+	  if (!query ("Proceed? "))
 	    error ("Not confirmed.");
 	}
     }
@@ -2742,6 +2765,17 @@ quit_command (args, from_tty)
      char *args;
      int from_tty;
 {
+  int exit_code = 0;
+
+  /* An optional expression may be used to cause gdb to terminate with the 
+     value of that expression. */
+  if (args)
+    {
+      value_ptr val = parse_and_eval (args);
+
+      exit_code = (int) value_as_long (val);
+    }
+
   if (inferior_pid != 0 && target_has_execution)
     {
       if (attach_flag)
@@ -2766,7 +2800,7 @@ quit_command (args, from_tty)
   if (write_history_p && history_filename)
     write_history (history_filename);
 
-  exit (0);
+  exit (exit_code);
 }
 
 /* Returns whether GDB is running on a terminal and whether the user
@@ -2818,15 +2852,15 @@ cd_command (dir, from_tty)
     perror_with_name (dir);
 
   len = strlen (dir);
-  dir = savestring (dir, len - (len > 1 && dir[len-1] == '/'));
-  if (dir[0] == '/')
+  dir = savestring (dir, len - (len > 1 && SLASH_P(dir[len-1])));
+  if (ROOTED_P(dir))
     current_directory = dir;
   else
     {
-      if (current_directory[0] == '/' && current_directory[1] == '\0')
+      if (SLASH_P (current_directory[0]) && current_directory[1] == '\0')
 	current_directory = concat (current_directory, dir, NULL);
       else
-	current_directory = concat (current_directory, "/", dir, NULL);
+	current_directory = concat (current_directory, SLASH_STRING, dir, NULL);
       free (dir);
     }
 
@@ -2835,17 +2869,17 @@ cd_command (dir, from_tty)
   found_real_path = 0;
   for (p = current_directory; *p;)
     {
-      if (p[0] == '/' && p[1] == '.' && (p[2] == 0 || p[2] == '/'))
+      if (SLASH_P (p[0]) && p[1] == '.' && (p[2] == 0 || SLASH_P (p[2])))
 	strcpy (p, p + 2);
-      else if (p[0] == '/' && p[1] == '.' && p[2] == '.'
-	       && (p[3] == 0 || p[3] == '/'))
+      else if (SLASH_P (p[0]) && p[1] == '.' && p[2] == '.'
+	       && (p[3] == 0 || SLASH_P (p[3])))
 	{
 	  if (found_real_path)
 	    {
 	      /* Search backwards for the directory just before the "/.."
 		 and obliterate it and the "/..".  */
 	      char *q = p;
-	      while (q != current_directory && q[-1] != '/')
+	      while (q != current_directory && ! SLASH_P (q[-1]))
 		--q;
 
 	      if (q == current_directory)
@@ -3046,7 +3080,7 @@ show_endian (args, from_tty)
     (target_byte_order_auto
      ? "The target endianness is set automatically (currently %s endian)\n"
      : "The target is assumed to be %s endian\n");
-  printf_unfiltered (msg, TARGET_BYTE_ORDER == BIG_ENDIAN ? "big" : "little");
+  printf_unfiltered ((char *) msg, TARGET_BYTE_ORDER == BIG_ENDIAN ? "big" : "little");
 }
 
 #endif /* defined (TARGET_BYTE_ORDER_SELECTABLE) */
@@ -3488,7 +3522,7 @@ ie. the number of previous commands to keep a record of.", &sethistlist);
   add_info ("set", show_command, "Show all GDB settings.");
 
   add_cmd ("commands", no_class, show_commands,
-	   "Show the the history of commands you typed.\n\
+	   "Show the history of commands you typed.\n\
 You can supply a command number to start with, or a `+' to start after\n\
 the previous command number shown.",
 	   &showlist);
@@ -3498,15 +3532,15 @@ the previous command number shown.",
 
   add_com ("while", class_support, while_command,
 "Execute nested commands WHILE the conditional expression is non zero.\n\
-The conditional expression must follow the word `while' and must in turn be\
-followed by a new line.  The nested commands must be entered one per line,\
+The conditional expression must follow the word `while' and must in turn be\n\
+followed by a new line.  The nested commands must be entered one per line,\n\
 and should be terminated by the word `end'.");
 
   add_com ("if", class_support, if_command,
 "Execute nested commands once IF the conditional expression is non zero.\n\
-The conditional expression must follow the word `if' and must in turn be\
-followed by a new line.  The nested commands must be entered one per line,\
-and should be terminated by the word 'else' or `end'.  If an else clause\
+The conditional expression must follow the word `if' and must in turn be\n\
+followed by a new line.  The nested commands must be entered one per line,\n\
+and should be terminated by the word 'else' or `end'.  If an else clause\n\
 is used, the same rules apply to its nested commands as to the first ones.");
 
   /* If target is open when baud changes, it doesn't take effect until the

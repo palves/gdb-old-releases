@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define KEEPMINUSPCININST 0
 
@@ -1936,7 +1936,7 @@ do_with_relocs (abfd, s)
 	      bfd_set_error (bfd_error_no_memory);
 	      return false;
 	    }
-	  memset ((PTR) stream, 0, s->_raw_size);
+	  memset ((PTR) stream, 0, (size_t) s->_raw_size);
 	}
       while (current_byte_index < s->_raw_size)
 	{
@@ -3364,6 +3364,8 @@ ieee_bfd_debug_info_accumulate (abfd, section)
 #define ieee_bfd_is_local_label bfd_generic_is_local_label
 #define ieee_get_lineno _bfd_nosymbols_get_lineno
 #define ieee_bfd_make_debug_symbol _bfd_nosymbols_bfd_make_debug_symbol
+#define ieee_read_minisymbols _bfd_generic_read_minisymbols
+#define ieee_minisymbol_to_symbol _bfd_generic_minisymbol_to_symbol
 
 #define ieee_bfd_reloc_type_lookup _bfd_norelocs_bfd_reloc_type_lookup
 
@@ -3375,6 +3377,7 @@ ieee_bfd_debug_info_accumulate (abfd, section)
 #define ieee_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
 #define ieee_bfd_link_add_symbols _bfd_generic_link_add_symbols
 #define ieee_bfd_final_link _bfd_generic_final_link
+#define ieee_bfd_link_split_section  _bfd_generic_link_split_section
 
 /*SUPPRESS 460 */
 const bfd_target ieee_vec =

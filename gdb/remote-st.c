@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This file was derived from remote-eb.c, which did a similar job, but for
    an AMD-29K running EBMON.  That file was in turn derived from remote.c
@@ -38,9 +38,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcore.h"
 #include "target.h"
 #include "wait.h"
+#ifdef ANSI_PROTOTYPES
+#include <stdarg.h>
+#else
 #include <varargs.h>
+#endif
 #include <signal.h>
-#include <string.h>
+#include "gdb_string.h"
 #include <sys/types.h>
 #include "serial.h"
 
@@ -66,18 +70,27 @@ static serial_t st2000_desc;
 /* Send data to stdebug.  Works just like printf. */
 
 static void
+#ifdef ANSI_PROTOTYPES
+printf_stdebug(char *pattern, ...)
+#else
 printf_stdebug(va_alist)
      va_dcl
+#endif
 {
   va_list args;
-  char *pattern;
   char buf[200];
 
+#ifdef ANSI_PROTOTYPES
+  va_start(args, pattern);
+#else
+  char *pattern;
   va_start(args);
-
   pattern = va_arg(args, char *);
+#endif
 
   vsprintf(buf, pattern, args);
+  va_end(args);
+
   if (SERIAL_WRITE(st2000_desc, buf, strlen(buf)))
     fprintf(stderr, "SERIAL_WRITE failed: %s\n", safe_strerror(errno));
 }

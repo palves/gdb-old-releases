@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Generic 68000 stuff, to be included by other tm-*.h files.  */
 
@@ -197,6 +197,8 @@ extern CORE_ADDR m68k_saved_pc_after_call PARAMS ((struct frame_info *));
    to be actual register numbers as far as the user is concerned
    but do serve to get the desired values when passed to read_register.  */
 
+#define D0_REGNUM 0
+#define A0_REGNUM 8
 #define A1_REGNUM 9
 #define FP_REGNUM 14		/* Contains address of executing stack frame */
 #define SP_REGNUM 15		/* Contains address of top of stack */

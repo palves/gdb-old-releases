@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include <setjmp.h>
@@ -23,6 +23,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 void read_inferior_memory ();
 unsigned char mywait ();
 void myresume();
+int mythread_alive ();
 int create_inferior ();
 
 extern char registers[];
@@ -45,8 +46,5 @@ void decode_m_packet ();
 void decode_M_packet ();
 
 jmp_buf toplevel;
-
-void error ();
-void fatal ();
 
 void perror_with_name ();

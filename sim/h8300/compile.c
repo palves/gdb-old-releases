@@ -18,7 +18,9 @@
  */
 
 #include <signal.h>
+#ifndef WIN32
 #include <sys/times.h>
+#endif
 #include <sys/param.h>
 #include "ansidecl.h"
 #include "sysdep.h"
@@ -81,13 +83,12 @@ int h8300hmode = 0;
 static int
 get_now ()
 {
+#ifndef WIN32
   struct tms b;
 
   return time (0);
-#if 0
-  times (&b);
-  return b.tms_utime + b.tms_stime;
 #endif
+  return 0;
 }
 
 static int
@@ -1167,7 +1168,7 @@ sim_resume (step, siggnal)
 		   c = rd & 1;
 		   rd >>= 1;
 		   rd |= t;
-	    );
+		   );
 	  OSHIFTS (O_ROTL, c = rd & hm;
 		   rd <<= 1;
 		   rd |= C);
@@ -1178,7 +1179,7 @@ sim_resume (step, siggnal)
 		   rd <<= 1;
 		   rd |= C;
 		   c = t;
-	    );
+		   );
 	  OSHIFTS (O_ROTXR, t = rd & 1;
 		   rd = (unsigned int) rd >> 1;
 		   if (C) rd |= hm; c = t;);
@@ -1342,7 +1343,7 @@ sim_resume (step, siggnal)
 	    goto next;
 	  }
 	case O (O_EXTS, SW):
-	  rd = GET_B_REG (code->src.reg + 8) & 0xff;	/* Yes, src, not dst.  */
+	  rd = GET_B_REG (code->src.reg + 8) & 0xff; /* Yes, src, not dst.  */
 	  ea = rd & 0x80 ? -256 : 0;
 	  res = rd + ea;
 	  goto log16;
@@ -1509,7 +1510,18 @@ sim_resume (step, siggnal)
       ;
       /*      if (cpu.regs[8] ) abort(); */
 
-#ifdef __GO32__
+#if defined (WIN32)
+      /* Poll after every 100th insn, */
+      if (poll_count++ > 100)
+	{
+	  poll_count = 0;
+	  if (win32pollquit())
+	    {
+	      control_c();
+	    }
+	}
+#endif
+#if defined(__GO32__)
       /* Poll after every 100th insn, */
       if (poll_count++ > 100)
 	{
@@ -1803,4 +1815,11 @@ sim_create_inferior (start_address, argv, env)
      char **env;
 {
   cpu.pc = start_address;
+}
+
+void
+sim_do_command (cmd)
+     char *cmd;
+{
+  printf_filtered ("This simulator does not accept any commands.\n");
 }

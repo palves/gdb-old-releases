@@ -122,7 +122,6 @@ proc do_tests {} {
 	gdb_test "p const69" " = 69" "'e' constant on non-enum type"
 	gdb_test "whatis const69" "type = (unsigned int|inttype)" "whatis const69"
 
-	# Haven't investigated
 	gdb_test "p sizeof (const70)" " = 2" "'e' constant with embedded type"
 
 	gdb_test "p bad_neg0" " = \{field0 = 42, field2 =.*field3 = 45\}" "p bad_neg0"
@@ -141,8 +140,8 @@ proc do_tests {} {
 	gdb_test "p/x bad_neg0const" " = \{field0 = 0x11222211, field2 =.*\
 field3 = 0x77888877\}" "print struct constant"
 
-	gdb_test "ptype bad_type0" "type = " "print bad_type0"
-	gdb_test "ptype bad_type1" "type = " "print bad_type1"
+	gdb_test "ptype bad_type0" "type = .*" "print bad_type0"
+	gdb_test "ptype bad_type1" "type = .*" "print bad_type1"
 
 	# GDB does not yet support arrays indexed by anything at all unusual
 	setup_xfail "*-*-*"
@@ -229,8 +228,6 @@ if ![file exists $binfile] then {
 		warning "$binfile does not exist; tests suppressed"
 	}
 } else {
-	# xcoffread.c wrongly bitches about the lack of a text section.
-	setup_xfail "rs*-*-aix*"
 	send "file $binfile\n"
 	# If $binfile is very long, a \r (but not a \n) will echo in the
 	# middle of the echo of the command.  So to match the echo, we

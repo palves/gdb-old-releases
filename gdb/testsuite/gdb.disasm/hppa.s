@@ -134,6 +134,7 @@
 	.EXPORT copr_short_memory,CODE
 	.EXPORT fmemLRbug_tests_1,CODE
 	.EXPORT fmemLRbug_tests_2,CODE
+	.EXPORT fmemLRbug_tests_3,CODE
 	.EXPORT main,CODE
 	.EXPORT main,ENTRY,PRIV_LEV=3,RTNVAL=GR
 main
@@ -1696,6 +1697,34 @@ fmemLRbug_tests_2
 	fldds	0(%sr0,%r26),%fr6R
 	fldds	4(%sr0,%r26),%fr6L
 	fldds	8(%sr0,%r26),%fr6
+
+fmemLRbug_tests_3
+	fstwx	%fr6R,%r25(%r26)
+	fstwx	%fr6L,%r25(%r26)
+	fstwx	%fr6,%r25(%r26)
+	fstdx	%fr6R,%r25(%r26)
+	fstdx	%fr6L,%r25(%r26)
+	fstdx	%fr6,%r25(%r26)
+	fldwx	%r25(%r26),%fr6R
+	fldwx	%r25(%r26),%fr6L
+	fldwx	%r25(%r26),%fr6
+	flddx	%r25(%r26),%fr6R
+	flddx	%r25(%r26),%fr6L
+	flddx	%r25(%r26),%fr6
+
+fmemLRbug_tests_4
+	fstwx	%fr6R,%r25(%sr0,%r26)
+	fstwx	%fr6L,%r25(%sr0,%r26)
+	fstwx	%fr6,%r25(%sr0,%r26)
+	fstdx	%fr6R,%r25(%sr0,%r26)
+	fstdx	%fr6L,%r25(%sr0,%r26)
+	fstdx	%fr6,%r25(%sr0,%r26)
+	fldwx	%r25(%sr0,%r26),%fr6R
+	fldwx	%r25(%sr0,%r26),%fr6L
+	fldwx	%r25(%sr0,%r26),%fr6
+	flddx	%r25(%sr0,%r26),%fr6R
+	flddx	%r25(%sr0,%r26),%fr6L
+	flddx	%r25(%sr0,%r26),%fr6
 
 	ldw 0(0,%r4),%r26
 	ldw 0(0,%r4),%r26

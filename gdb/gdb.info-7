@@ -7,7 +7,7 @@ END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.14.
+Source-Level Debugger' for GDB Version 4.15.1.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995 Free
 Software Foundation, Inc.
@@ -26,13 +26,454 @@ manual into another language, under the above conditions for modified
 versions.
 
 
+File: gdb.info,  Node: MIPS Remote,  Next: Simulator,  Prev: Hitachi Remote,  Up: Remote
+
+GDB and remote MIPS boards
+--------------------------
+
+   GDB can use the MIPS remote debugging protocol to talk to a MIPS
+board attached to a serial line.  This is available when you configure
+GDB with `--target=mips-idt-ecoff'.
+
+   Use these GDB commands to specify the connection to your target
+board:
+
+`target mips PORT'
+     To run a program on the board, start up `gdb' with the name of
+     your program as the argument.  To connect to the board, use the
+     command `target mips PORT', where PORT is the name of the serial
+     port connected to the board.  If the program has not already been
+     downloaded to the board, you may use the `load' command to
+     download it.  You can then use all the usual GDB commands.
+
+     For example, this sequence connects to the target board through a
+     serial port, and loads and runs a program called PROG through the
+     debugger:
+
+          host$ gdb PROG
+          GDB is free software and ...
+          (gdb) target mips /dev/ttyb
+          (gdb) load PROG
+          (gdb) run
+
+`target mips HOSTNAME:PORTNUMBER'
+     On some GDB host configurations, you can specify a TCP connection
+     (for instance, to a serial line managed by a terminal
+     concentrator) instead of a serial port, using the syntax
+     `HOSTNAME:PORTNUMBER'.
+
+GDB also supports these special commands for MIPS targets:
+
+`set processor ARGS'
+`show processor'
+     Use the `set processor' command to set the type of MIPS processor
+     when you want to access processor-type-specific registers.  For
+     example, `set processor R3041' tells GDB to use the CPO registers
+     appropriate for the 3041 chip.  Use the `show processor' command
+     to see what MIPS processor GDB is using.  Use the `info reg'
+     command to see what registers GDB is using.
+
+`set mipsfpu double'
+`set mipsfpu single'
+`set mipsfpu none'
+`show mipsfpu'
+     If your target board does not support the MIPS floating point
+     coprocessor, you should use the command `set mipsfpu none' (if you
+     need this, you may wish to put the command in your .gdbinit file).
+     This tells GDB how to find the return value of functions which
+     return floating point values.  It also allows GDB to avoid saving
+     the floating point registers when calling functions on the board.
+     If you are using a floating point coprocessor with only single
+     precision floating point support, as on the R4650 processor, use
+     the command `set mipsfpu single'.  The default double precision
+     floating point coprocessor may be selected using `set mipsfpu
+     double'.
+
+     In previous versions the only choices were double precision or no
+     floating point, so `set mipsfpu on' will select double precision
+     and `set mipsfpu off' will select no floating point.
+
+     As usual, you can inquire about the `mipsfpu' variable with `show
+     mipsfpu'.
+
+`set remotedebug N'
+`show remotedebug'
+     You can see some debugging information about communications with
+     the board by setting the `remotedebug' variable.  If you set it to
+     `1' using `set remotedebug 1', every packet is displayed.  If you
+     set it to `2', every character is displayed.  You can check the
+     current value at any time with the command `show remotedebug'.
+
+`set timeout SECONDS'
+`set retransmit-timeout SECONDS'
+`show timeout'
+`show retransmit-timeout'
+     You can control the timeout used while waiting for a packet, in
+     the MIPS remote protocol, with the `set timeout SECONDS' command.
+     The default is 5 seconds.  Similarly, you can control the timeout
+     used while waiting for an acknowledgement of a packet with the `set
+     retransmit-timeout SECONDS' command.  The default is 3 seconds.
+     You can inspect both values with `show timeout' and `show
+     retransmit-timeout'.  (These commands are *only* available when
+     GDB is configured for `--target=mips-idt-ecoff'.)
+
+     The timeout set by `set timeout' does not apply when GDB is
+     waiting for your program to stop.  In that case, GDB waits forever
+     because it has no way of knowing how long the program is going to
+     run before stopping.
+
+
+File: gdb.info,  Node: Simulator,  Prev: MIPS Remote,  Up: Remote
+
+Simulated CPU target
+--------------------
+
+   For some configurations, GDB includes a CPU simulator that you can
+use instead of a hardware CPU to debug your programs.  Currently, a
+simulator is available when GDB is configured to debug Zilog Z8000 or
+Hitachi microprocessor targets.
+
+   For the Z8000 family, `target sim' simulates either the Z8002 (the
+unsegmented variant of the Z8000 architecture) or the Z8001 (the
+segmented variant).  The simulator recognizes which architecture is
+appropriate by inspecting the object code.
+
+`target sim'
+     Debug programs on a simulated CPU (which CPU depends on the GDB
+     configuration)
+
+After specifying this target, you can debug programs for the simulated
+CPU in the same style as programs for your host computer; use the
+`file' command to load a new program image, the `run' command to run
+your program, and so on.
+
+   As well as making available all the usual machine registers (see
+`info reg'), this debugging target provides three additional items of
+information as specially named registers:
+
+`cycles'
+     Counts clock-ticks in the simulator.
+
+`insts'
+     Counts instructions run in the simulator.
+
+`time'
+     Execution time in 60ths of a second.
+
+   You can refer to these values in GDB expressions with the usual
+conventions; for example, `b fputc if $cycles>5000' sets a conditional
+breakpoint that suspends only after at least 5000 simulated clock ticks.
+
+
+File: gdb.info,  Node: Controlling GDB,  Next: Sequences,  Prev: Targets,  Up: Top
+
+Controlling GDB
+***************
+
+   You can alter the way GDB interacts with you by using the `set'
+command.  For commands controlling how GDB displays data, *note Print
+settings: Print Settings.; other settings are described here.
+
+* Menu:
+
+* Prompt::                      Prompt
+* Editing::                     Command editing
+* History::                     Command history
+* Screen Size::                 Screen size
+* Numbers::                     Numbers
+* Messages/Warnings::           Optional warnings and messages
+
+
+File: gdb.info,  Node: Prompt,  Next: Editing,  Up: Controlling GDB
+
+Prompt
+======
+
+   GDB indicates its readiness to read a command by printing a string
+called the "prompt".  This string is normally `(gdb)'.  You can change
+the prompt string with the `set prompt' command.  For instance, when
+debugging GDB with GDB, it is useful to change the prompt in one of the
+GDB sessions so that you can always tell which one you are talking to.
+
+   *Note:*  `set prompt' no longer adds a space for you after the
+prompt you set.  This allows you to set a prompt which ends in a space
+or a prompt that does not.
+
+`set prompt NEWPROMPT'
+     Directs GDB to use NEWPROMPT as its prompt string henceforth.
+
+`show prompt'
+     Prints a line of the form: `Gdb's prompt is: YOUR-PROMPT'
+
+
+File: gdb.info,  Node: Editing,  Next: History,  Prev: Prompt,  Up: Controlling GDB
+
+Command editing
+===============
+
+   GDB reads its input commands via the "readline" interface.  This GNU
+library provides consistent behavior for programs which provide a
+command line interface to the user.  Advantages are GNU Emacs-style or
+"vi"-style inline editing of commands, `csh'-like history substitution,
+and a storage and recall of command history across debugging sessions.
+
+   You may control the behavior of command line editing in GDB with the
+command `set'.
+
+`set editing'
+`set editing on'
+     Enable command line editing (enabled by default).
+
+`set editing off'
+     Disable command line editing.
+
+`show editing'
+     Show whether command line editing is enabled.
+
+
+File: gdb.info,  Node: History,  Next: Screen Size,  Prev: Editing,  Up: Controlling GDB
+
+Command history
+===============
+
+   GDB can keep track of the commands you type during your debugging
+sessions, so that you can be certain of precisely what happened.  Use
+these commands to manage the GDB command history facility.
+
+`set history filename FNAME'
+     Set the name of the GDB command history file to FNAME.  This is
+     the file where GDB reads an initial command history list, and
+     where it writes the command history from this session when it
+     exits.  You can access this list through history expansion or
+     through the history command editing characters listed below.  This
+     file defaults to the value of the environment variable
+     `GDBHISTFILE', or to `./.gdb_history' if this variable is not set.
+
+`set history save'
+`set history save on'
+     Record command history in a file, whose name may be specified with
+     the `set history filename' command.  By default, this option is
+     disabled.
+
+`set history save off'
+     Stop recording command history in a file.
+
+`set history size SIZE'
+     Set the number of commands which GDB keeps in its history list.
+     This defaults to the value of the environment variable `HISTSIZE',
+     or to 256 if this variable is not set.
+
+   History expansion assigns special meaning to the character `!'.
+
+   Since `!' is also the logical not operator in C, history expansion
+is off by default. If you decide to enable history expansion with the
+`set history expansion on' command, you may sometimes need to follow
+`!' (when it is used as logical not, in an expression) with a space or
+a tab to prevent it from being expanded.  The readline history
+facilities do not attempt substitution on the strings `!=' and `!(',
+even when history expansion is enabled.
+
+   The commands to control history expansion are:
+
+`set history expansion on'
+`set history expansion'
+     Enable history expansion.  History expansion is off by default.
+
+`set history expansion off'
+     Disable history expansion.
+
+     The readline code comes with more complete documentation of
+     editing and history expansion features.  Users unfamiliar with GNU
+     Emacs or `vi' may wish to read it.
+
+`show history'
+`show history filename'
+`show history save'
+`show history size'
+`show history expansion'
+     These commands display the state of the GDB history parameters.
+     `show history' by itself displays all four states.
+
+`show commands'
+     Display the last ten commands in the command history.
+
+`show commands N'
+     Print ten commands centered on command number N.
+
+`show commands +'
+     Print ten commands just after the commands last printed.
+
+
+File: gdb.info,  Node: Screen Size,  Next: Numbers,  Prev: History,  Up: Controlling GDB
+
+Screen size
+===========
+
+   Certain commands to GDB may produce large amounts of information
+output to the screen.  To help you read all of it, GDB pauses and asks
+you for input at the end of each page of output.  Type RET when you
+want to continue the output, or `q' to discard the remaining output.
+Also, the screen width setting determines when to wrap lines of output.
+Depending on what is being printed, GDB tries to break the line at a
+readable place, rather than simply letting it overflow onto the
+following line.
+
+   Normally GDB knows the size of the screen from the termcap data base
+together with the value of the `TERM' environment variable and the
+`stty rows' and `stty cols' settings. If this is not correct, you can
+override it with the `set height' and `set width' commands:
+
+`set height LPP'
+`show height'
+`set width CPL'
+`show width'
+     These `set' commands specify a screen height of LPP lines and a
+     screen width of CPL characters.  The associated `show' commands
+     display the current settings.
+
+     If you specify a height of zero lines, GDB does not pause during
+     output no matter how long the output is.  This is useful if output
+     is to a file or to an editor buffer.
+
+     Likewise, you can specify `set width 0' to prevent GDB from
+     wrapping its output.
+
+
+File: gdb.info,  Node: Numbers,  Next: Messages/Warnings,  Prev: Screen Size,  Up: Controlling GDB
+
+Numbers
+=======
+
+   You can always enter numbers in octal, decimal, or hexadecimal in
+GDB by the usual conventions: octal numbers begin with `0', decimal
+numbers end with `.', and hexadecimal numbers begin with `0x'.  Numbers
+that begin with none of these are, by default, entered in base 10;
+likewise, the default display for numbers--when no particular format is
+specified--is base 10.  You can change the default base for both input
+and output with the `set radix' command.
+
+`set input-radix BASE'
+     Set the default base for numeric input.  Supported choices for
+     BASE are decimal 8, 10, or 16.  BASE must itself be specified
+     either unambiguously or using the current default radix; for
+     example, any of
+
+          set radix 012
+          set radix 10.
+          set radix 0xa
+
+     sets the base to decimal.  On the other hand, `set radix 10'
+     leaves the radix unchanged no matter what it was.
+
+`set output-radix BASE'
+     Set the default base for numeric display.  Supported choices for
+     BASE are decimal 8, 10, or 16.  BASE must itself be specified
+     either unambiguously or using the current default radix.
+
+`show input-radix'
+     Display the current default base for numeric input.
+
+`show output-radix'
+     Display the current default base for numeric display.
+
+
+File: gdb.info,  Node: Messages/Warnings,  Prev: Numbers,  Up: Controlling GDB
+
+Optional warnings and messages
+==============================
+
+   By default, GDB is silent about its inner workings.  If you are
+running on a slow machine, you may want to use the `set verbose'
+command.  This makes GDB tell you when it does a lengthy internal
+operation, so you will not think it has crashed.
+
+   Currently, the messages controlled by `set verbose' are those which
+announce that the symbol table for a source file is being read; see
+`symbol-file' in *Note Commands to specify files: Files.
+
+`set verbose on'
+     Enables GDB output of certain informational messages.
+
+`set verbose off'
+     Disables GDB output of certain informational messages.
+
+`show verbose'
+     Displays whether `set verbose' is on or off.
+
+   By default, if GDB encounters bugs in the symbol table of an object
+file, it is silent; but if you are debugging a compiler, you may find
+this information useful (*note Errors reading symbol files: Symbol
+Errors.).
+
+`set complaints LIMIT'
+     Permits GDB to output LIMIT complaints about each type of unusual
+     symbols before becoming silent about the problem.  Set LIMIT to
+     zero to suppress all complaints; set it to a large number to
+     prevent complaints from being suppressed.
+
+`show complaints'
+     Displays how many symbol complaints GDB is permitted to produce.
+
+   By default, GDB is cautious, and asks what sometimes seems to be a
+lot of stupid questions to confirm certain commands.  For example, if
+you try to run a program which is already running:
+
+     (gdb) run
+     The program being debugged has been started already.
+     Start it from the beginning? (y or n)
+
+   If you are willing to unflinchingly face the consequences of your own
+commands, you can disable this "feature":
+
+`set confirm off'
+     Disables confirmation requests.
+
+`set confirm on'
+     Enables confirmation requests (the default).
+
+`show confirm'
+     Displays state of confirmation requests.
+
+
+File: gdb.info,  Node: Sequences,  Next: Emacs,  Prev: Controlling GDB,  Up: Top
+
+Canned Sequences of Commands
+****************************
+
+   Aside from breakpoint commands (*note Breakpoint command lists:
+Break Commands.), GDB provides two ways to store sequences of commands
+for execution as a unit: user-defined commands and command files.
+
+* Menu:
+
+* Define::                      User-defined commands
+* Hooks::			User-defined command hooks
+* Command Files::               Command files
+* Output::                      Commands for controlled output
+
+
 File: gdb.info,  Node: Define,  Next: Hooks,  Up: Sequences
 
 User-defined commands
 =====================
 
    A "user-defined command" is a sequence of GDB commands to which you
-assign a new name as a command.  This is done with the `define' command.
+assign a new name as a command.  This is done with the `define'
+command.  User commands may accept up to 10 arguments separated by
+whitespace.  Arguments are accessed within the user command via
+$ARG0...$ARG9.  A trivial example:
+
+     define adder
+       print $arg0 + $arg1 + $arg2
+
+To execute the command use:
+
+     adder 1 2 3
+
+This defines the command `adder', which prints the sum of its three
+arguments.  Note the arguments are text substitutions, so they may
+reference variables, use complex expressions, or even perform inferior
+functions calls.
 
 `define COMMANDNAME'
      Define a command named COMMANDNAME.  If there is already a command
@@ -43,13 +484,28 @@ assign a new name as a command.  This is done with the `define' command.
      lines, which are given following the `define' command.  The end of
      these commands is marked by a line containing `end'.
 
+`if'
+     Takes a single argument, which is an expression to evaluate.  It
+     is followed by a series of commands that are executed only if the
+     expression is true (nonzero).  There can then optionally be a line
+     `else', followed by a series of commands that are only executed if
+     the expression was false.  The end of the list is marked by a line
+     containing `end'.
+
+`while'
+     The syntax is similar to `if': the command takes a single argument,
+     which is an expression to evaluate, and must be followed by the
+     commands to execute, one per line, terminated by an `end'.  The
+     commands are executed repeatedly as long as the expression
+     evaluates to true.
+
 `document COMMANDNAME'
-     Give documentation to the user-defined command COMMANDNAME.  The
-     command COMMANDNAME must already be defined.  This command reads
-     lines of documentation just as `define' reads the lines of the
-     command definition, ending with `end'.  After the `document'
-     command is finished, `help' on command COMMANDNAME displays the
-     documentation you have specified.
+     Document the user-defined command COMMANDNAME, so that it can be
+     accessed by `help'.  The command COMMANDNAME must already be
+     defined.  This command reads lines of documentation just as
+     `define' reads the lines of the command definition, ending with
+     `end'.  After the `document' command is finished, `help' on command
+     COMMANDNAME displays the documentation you have written.
 
      You may use the `document' command again to change the
      documentation of a command.  Redefining the command with `define'
@@ -65,11 +521,11 @@ assign a new name as a command.  This is done with the `define' command.
      documentation).  If no COMMANDNAME is given, display the
      definitions for all user-defined commands.
 
-   User-defined commands do not take arguments.  When they are
-executed, the commands of the definition are not printed.  An error in
-any command stops execution of the user-defined command.
+   When user-defined commands are executed, the commands of the
+definition are not printed.  An error in any command stops execution of
+the user-defined command.
 
-   Commands that would ask for confirmation if used interactively
+   If used interactively, commands that would ask for confirmation
 proceed without asking when used inside a user-defined command.  Many
 GDB commands that normally print messages to say what they are doing
 omit the messages when used in a user-defined command.
@@ -325,7 +781,7 @@ addition to the standard Shell mode commands:
 
 `M-u'
      Go up the number of frames indicated by the numeric argument
-     (*note Numeric Arguments: (emacs)Arguments.), like the GDB `up'
+     (*note Numeric Arguments: (Emacs)Arguments.), like the GDB `up'
      command.
 
      *Warning:* In Emacs v19, this command is `C-c C-u'.
@@ -432,7 +888,7 @@ one of these addresses:
 
    *Do not send bug reports to `info-gdb', or to `help-gdb', or to any
 newsgroups.* Most users of GDB do not want to receive bug reports.
-Those that do, have arranged to receive `bug-gdb'.
+Those that do have arranged to receive `bug-gdb'.
 
    The mailing list `bug-gdb' has a newsgroup `gnu.gdb.bug' which
 serves as a repeater.  The mailing list and the newsgroup carry exactly
@@ -446,9 +902,10 @@ bug reports to the mailing list.
    As a last resort, send bug reports on paper to:
 
      GNU Debugger Bugs
-     Free Software Foundation
-     545 Tech Square
-     Cambridge, MA 02139
+     Free Software Foundation Inc.
+     59 Temple Place - Suite 330
+     Boston, MA 02111-1307
+     USA
 
    The fundamental principle of reporting bugs usefully is this:
 *report all the facts*.  If you are not sure whether to state a fact or
@@ -466,8 +923,7 @@ specific, complete example.  That is the easiest thing for you to do,
 and the most helpful.
 
    Keep in mind that the purpose of a bug report is to enable us to fix
-the bug if it is new to us.  It is not as important as what happens if
-the bug is already known.  Therefore, always write your bug reports on
+the bug if it is new to us.  Therefore, always write your bug reports on
 the assumption that the bug has not been reported previously.
 
    Sometimes people give a few sketchy facts and ask, "Does this ring a
@@ -507,8 +963,8 @@ to respond to them* except to chide the sender to report bugs properly.
 
      Of course, if the bug is that GDB gets a fatal signal, then we will
      certainly notice it.  But if the bug is incorrect output, we might
-     not notice unless it is glaringly wrong.  We are human, after all.
-     You might as well not give us a chance to make a mistake.
+     not notice unless it is glaringly wrong.  You might as well not
+     give us a chance to make a mistake.
 
      Even if the problem you experience is a fatal signal, you should
      still say so explicitly.  Suppose something strange is going on,
@@ -625,8 +1081,8 @@ as you type it in, allowing you to just fix your typo, and not forcing
 you to retype the majority of the line.  Using these editing commands,
 you move the cursor to the place that needs correction, and delete or
 insert the text of the corrections.  Then, when you are satisfied with
-the line, you simply press RETURN.  You do not have to be at the end of
-the line to press RETURN; the entire line is accepted regardless of the
+the line, you simply press RET.  You do not have to be at the end of
+the line to press RET; the entire line is accepted regardless of the
 location of the cursor within the line.
 
 * Menu:
@@ -741,7 +1197,7 @@ C-w
      Kill from the cursor to the previous whitespace.  This is
      different than M-DEL because the word boundaries differ.
 
-   And, here is how to "yank" the text back into the line.  Yanking is
+   And, here is how to "yank" the text back into the line.
 
 C-y
      Yank the most recently killed text back into the buffer at the
@@ -784,7 +1240,7 @@ File: gdb.info,  Node: Readline Init File,  Prev: Readline Interaction,  Up: Com
 Readline Init File
 ==================
 
-   Although the Readline library comes with a set of Emacs-like
+   Although the Readline library comes with a set of GNU Emacs-like
 keybindings, it is possible that you would like to use a different set
 of keybindings.  You can customize programs that use Readline by putting
 commands in an "init" file in your home directory.  The name of this
@@ -799,482 +1255,5 @@ incorporating any changes that you might have made to it.
 * Menu:
 
 * Readline Init Syntax::	Syntax for the commands in `~/.inputrc'.
-* Readline Vi Mode::		Switching to `vi' mode in Readline.
-
-
-File: gdb.info,  Node: Readline Init Syntax,  Next: Readline Vi Mode,  Up: Readline Init File
-
-Readline Init Syntax
---------------------
-
-   There are only four constructs allowed in the `~/.inputrc' file:
-
-Variable Settings
-     You can change the state of a few variables in Readline.  You do
-     this by using the `set' command within the init file.  Here is how
-     you would specify that you wish to use Vi line editing commands:
-
-          set editing-mode vi
-
-     Right now, there are only a few variables which can be set; so few
-     in fact, that we just iterate them here:
-
-    `editing-mode'
-          The `editing-mode' variable controls which editing mode you
-          are using.  By default, GNU Readline starts up in Emacs
-          editing mode, where the keystrokes are most similar to Emacs.
-          This variable can either be set to `emacs' or `vi'.
-
-    `horizontal-scroll-mode'
-          This variable can either be set to `On' or `Off'.  Setting it
-          to `On' means that the text of the lines that you edit will
-          scroll horizontally on a single screen line when they are
-          larger than the width of the screen, instead of wrapping onto
-          a new screen line.  By default, this variable is set to `Off'.
-
-    `mark-modified-lines'
-          This variable when set to `On', says to display an asterisk
-          (`*') at the starts of history lines which have been modified.
-          This variable is off by default.
-
-    `prefer-visible-bell'
-          If this variable is set to `On' it means to use a visible
-          bell if one is available, rather than simply ringing the
-          terminal bell.  By default, the value is `Off'.
-
-Key Bindings
-     The syntax for controlling keybindings in the `~/.inputrc' file is
-     simple.  First you have to know the name of the command that you
-     want to change.  The following pages contain tables of the command
-     name, the default keybinding, and a short description of what the
-     command does.
-
-     Once you know the name of the command, simply place the name of
-     the key you wish to bind the command to, a colon, and then the
-     name of the command on a line in the `~/.inputrc' file.  The name
-     of the key can be expressed in different ways, depending on which
-     is most comfortable for you.
-
-    KEYNAME: FUNCTION-NAME or MACRO
-          KEYNAME is the name of a key spelled out in English.  For
-          example:
-               Control-u: universal-argument
-               Meta-Rubout: backward-kill-word
-               Control-o: ">&output"
-
-          In the above example, C-u is bound to the function
-          `universal-argument', and C-o is bound to run the macro
-          expressed on the right hand side (that is, to insert the text
-          `>&output' into the line).
-
-    "KEYSEQ": FUNCTION-NAME or MACRO
-          KEYSEQ differs from KEYNAME above in that strings denoting an
-          entire key sequence can be specified.  Simply place the key
-          sequence in double quotes.  GNU Emacs style key escapes can
-          be used, as in the following example:
-
-               "\C-u": universal-argument
-               "\C-x\C-r": re-read-init-file
-               "\e[11~": "Function Key 1"
-
-          In the above example, C-u is bound to the function
-          `universal-argument' (just as it was in the first example),
-          C-x C-r is bound to the function `re-read-init-file', and ESC
-          [ 1 1 ~ is bound to insert the text `Function Key 1'.
-
-* Menu:
-
-* Commands For Moving::		Moving about the line.
-* Commands For History::	Getting at previous lines.
-* Commands For Text::		Commands for changing text.
-* Commands For Killing::	Commands for killing and yanking.
-* Numeric Arguments::		Specifying numeric arguments, repeat counts.
-* Commands For Completion::	Getting Readline to do the typing for you.
-* Miscellaneous Commands::	Other miscillaneous commands.
-
-
-File: gdb.info,  Node: Commands For Moving,  Next: Commands For History,  Up: Readline Init Syntax
-
-Commands For Moving
-...................
-
-`beginning-of-line (C-a)'
-     Move to the start of the current line.
-
-`end-of-line (C-e)'
-     Move to the end of the line.
-
-`forward-char (C-f)'
-     Move forward a character.
-
-`backward-char (C-b)'
-     Move back a character.
-
-`forward-word (M-f)'
-     Move forward to the end of the next word.
-
-`backward-word (M-b)'
-     Move back to the start of this, or the previous, word.
-
-`clear-screen (C-l)'
-     Clear the screen leaving the current line at the top of the screen.
-
-
-File: gdb.info,  Node: Commands For History,  Next: Commands For Text,  Prev: Commands For Moving,  Up: Readline Init Syntax
-
-Commands For Manipulating The History
-.....................................
-
-`accept-line (Newline, Return)'
-     Accept the line regardless of where the cursor is.  If this line is
-     non-empty, add it to the history list.  If this line was a history
-     line, then restore the history line to its original state.
-
-`previous-history (C-p)'
-     Move `up' through the history list.
-
-`next-history (C-n)'
-     Move `down' through the history list.
-
-`beginning-of-history (M-<)'
-     Move to the first line in the history.
-
-`end-of-history (M->)'
-     Move to the end of the input history, i.e., the line you are
-     entering!
-
-`reverse-search-history (C-r)'
-     Search backward starting at the current line and moving `up'
-     through the history as necessary.  This is an incremental search.
-
-`forward-search-history (C-s)'
-     Search forward starting at the current line and moving `down'
-     through the the history as necessary.
-
-
-File: gdb.info,  Node: Commands For Text,  Next: Commands For Killing,  Prev: Commands For History,  Up: Readline Init Syntax
-
-Commands For Changing Text
-..........................
-
-`delete-char (C-d)'
-     Delete the character under the cursor.  If the cursor is at the
-     beginning of the line, and there are no characters in the line, and
-     the last character typed was not C-d, then return EOF.
-
-`backward-delete-char (Rubout)'
-     Delete the character behind the cursor.  A numeric arg says to kill
-     the characters instead of deleting them.
-
-`quoted-insert (C-q, C-v)'
-     Add the next character that you type to the line verbatim.  This is
-     how to insert things like C-q for example.
-
-`tab-insert (M-TAB)'
-     Insert a tab character.
-
-`self-insert (a, b, A, 1, !, ...)'
-     Insert yourself.
-
-`transpose-chars (C-t)'
-     Drag the character before point forward over the character at
-     point.  Point moves forward as well.  If point is at the end of
-     the line, then transpose the two characters before point.
-     Negative args don't work.
-
-`transpose-words (M-t)'
-     Drag the word behind the cursor past the word in front of the
-     cursor moving the cursor over that word as well.
-
-`upcase-word (M-u)'
-     Uppercase all letters in the current (or following) word.  With a
-     negative argument, do the previous word, but do not move point.
-
-`downcase-word (M-l)'
-     Lowercase all letters in the current (or following) word.  With a
-     negative argument, do the previous word, but do not move point.
-
-`capitalize-word (M-c)'
-     Uppercase the first letter in the current (or following) word.
-     With a negative argument, do the previous word, but do not move
-     point.
-
-
-File: gdb.info,  Node: Commands For Killing,  Next: Numeric Arguments,  Prev: Commands For Text,  Up: Readline Init Syntax
-
-Killing And Yanking
-...................
-
-`kill-line (C-k)'
-     Kill the text from the current cursor position to the end of the
-     line.
-
-`backward-kill-line ()'
-     Kill backward to the beginning of the line.  This is normally
-     unbound.
-
-`kill-word (M-d)'
-     Kill from the cursor to the end of the current word, or if between
-     words, to the end of the next word.
-
-`backward-kill-word (M-DEL)'
-     Kill the word behind the cursor.
-
-`unix-line-discard (C-u)'
-     Do what C-u used to do in Unix line input.  We save the killed
-     text on the kill-ring, though.
-
-`unix-word-rubout (C-w)'
-     Do what C-w used to do in Unix line input.  The killed text is
-     saved on the kill-ring.  This is different than backward-kill-word
-     because the word boundaries differ.
-
-`yank (C-y)'
-     Yank the top of the kill ring into the buffer at point.
-
-`yank-pop (M-y)'
-     Rotate the kill-ring, and yank the new top.  You can only do this
-     if the prior command is yank or yank-pop.
-
-
-File: gdb.info,  Node: Numeric Arguments,  Next: Commands For Completion,  Prev: Commands For Killing,  Up: Readline Init Syntax
-
-Specifying Numeric Arguments
-............................
-
-`digit-argument (M-0, M-1, ... M--)'
-     Add this digit to the argument already accumulating, or start a new
-     argument.  M- starts a negative argument.
-
-`universal-argument ()'
-     Do what C-u does in emacs.  By default, this is not bound.
-
-
-File: gdb.info,  Node: Commands For Completion,  Next: Miscellaneous Commands,  Prev: Numeric Arguments,  Up: Readline Init Syntax
-
-Letting Readline Type For You
-.............................
-
-`complete (TAB)'
-     Attempt to do completion on the text before point.  This is
-     implementation defined.  Generally, if you are typing a filename
-     argument, you can do filename completion; if you are typing a
-     command, you can do command completion, if you are typing in a
-     symbol to GDB, you can do symbol name completion, if you are
-     typing in a variable to Bash, you can do variable name
-     completion...
-
-`possible-completions (M-?)'
-     List the possible completions of the text before point.
-
-
-File: gdb.info,  Node: Miscellaneous Commands,  Prev: Commands For Completion,  Up: Readline Init Syntax
-
-Some Miscellaneous Commands
-...........................
-
-`re-read-init-file (C-x C-r)'
-     Read in the contents of your `~/.inputrc' file, and incorporate
-     any bindings found there.
-
-`abort (C-g)'
-     Stop running the current editing command.
-
-`prefix-meta (ESC)'
-     Make the next character that you type be metafied.  This is for
-     people without a meta key.  Typing ESC f is equivalent to typing
-     M-f.
-
-`undo (C-_)'
-     Incremental undo, separately remembered for each line.
-
-`revert-line (M-r)'
-     Undo all changes made to this line.  This is like typing the `undo'
-     command enough times to get back to the beginning.
-
-
-File: gdb.info,  Node: Readline Vi Mode,  Prev: Readline Init Syntax,  Up: Readline Init File
-
-Readline Vi Mode
-----------------
-
-   While the Readline library does not have a full set of Vi editing
-functions, it does contain enough to allow simple editing of the line.
-
-   In order to switch interactively between Emacs and Vi editing modes,
-use the command M-C-j (toggle-editing-mode).
-
-   When you enter a line in Vi mode, you are already placed in
-`insertion' mode, as if you had typed an `i'.  Pressing ESC switches
-you into `edit' mode, where you can edit the text of the line with the
-standard Vi movement keys, move to previous history lines with `k', and
-following lines with `j', and so forth.
-
-
-File: gdb.info,  Node: Using History Interactively,  Next: Renamed Commands,  Prev: Command Line Editing,  Up: Top
-
-Using History Interactively
-***************************
-
-   This chapter describes how to use the GNU History Library
-interactively, from a user's standpoint.
-
-* Menu:
-
-* History Interaction::		What it feels like using History as a user.
-
-
-File: gdb.info,  Node: History Interaction,  Up: Using History Interactively
-
-History Interaction
-===================
-
-   The History library provides a history expansion feature that is
-similar to the history expansion in Csh.  The following text describes
-the sytax that you use to manipulate the history information.
-
-   History expansion takes place in two parts.  The first is to
-determine which line from the previous history should be used during
-substitution.  The second is to select portions of that line for
-inclusion into the current one.  The line selected from the previous
-history is called the "event", and the portions of that line that are
-acted upon are called "words".  The line is broken into words in the
-same fashion that the Bash shell does, so that several English (or
-Unix) words surrounded by quotes are considered as one word.
-
-* Menu:
-
-* Event Designators::	How to specify which history line to use.
-* Word Designators::	Specifying which words are of interest.
-* Modifiers::		Modifying the results of susbstitution.
-
-
-File: gdb.info,  Node: Event Designators,  Next: Word Designators,  Up: History Interaction
-
-Event Designators
------------------
-
-   An event designator is a reference to a command line entry in the
-history list.
-
-`!'
-     Start a history subsititution, except when followed by a space,
-     tab, or the end of the line... = or (.
-
-`!!'
-     Refer to the previous command.  This is a synonym for `!-1'.
-
-`!n'
-     Refer to command line N.
-
-`!-n'
-     Refer to the command line N lines back.
-
-`!string'
-     Refer to the most recent command starting with STRING.
-
-`!?string'[`?']
-     Refer to the most recent command containing STRING.
-
-
-File: gdb.info,  Node: Word Designators,  Next: Modifiers,  Prev: Event Designators,  Up: History Interaction
-
-Word Designators
-----------------
-
-   A : separates the event specification from the word designator.  It
-can be omitted if the word designator begins with a ^, $, * or %.
-Words are numbered from the beginning of the line, with the first word
-being denoted by a 0 (zero).
-
-`0 (zero)'
-     The zero'th word.  For many applications, this is the command word.
-
-`n'
-     The N'th word.
-
-`^'
-     The first argument.  that is, word 1.
-
-`$'
-     The last argument.
-
-`%'
-     The word matched by the most recent `?string?' search.
-
-`x-y'
-     A range of words; `-Y' Abbreviates `0-Y'.
-
-`*'
-     All of the words, excepting the zero'th.  This is a synonym for
-     `1-$'.  It is not an error to use * if there is just one word in
-     the event.  The empty string is returned in that case.
-
-
-File: gdb.info,  Node: Modifiers,  Prev: Word Designators,  Up: History Interaction
-
-Modifiers
----------
-
-   After the optional word designator, you can add a sequence of one or
-more of the following modifiers, each preceded by a :.
-
-`#'
-     The entire command line typed so far.  This means the current
-     command, not the previous command, so it really isn't a word
-     designator, and doesn't belong in this section.
-
-`h'
-     Remove a trailing pathname component, leaving only the head.
-
-`r'
-     Remove a trailing suffix of the form `.'SUFFIX, leaving the
-     basename.
-
-`e'
-     Remove all but the suffix.
-
-`t'
-     Remove all leading  pathname  components, leaving the tail.
-
-`p'
-     Print the new command but do not execute it.
-
-
-File: gdb.info,  Node: Renamed Commands,  Next: Formatting Documentation,  Prev: Using History Interactively,  Up: Top
-
-Renamed Commands
-****************
-
-   The following commands were renamed in GDB 4, in order to make the
-command set as a whole more consistent and easier to use and remember:
-
-     OLD COMMAND               NEW COMMAND
-     ---------------           -------------------------------
-     add-syms                  add-symbol-file
-     delete environment        unset environment
-     info convenience          show convenience
-     info copying              show copying
-     info directories          show directories
-     info editing              show commands
-     info history              show values
-     info targets              help target
-     info values               show values
-     info version              show version
-     info warranty             show warranty
-     set/show addressprint     set/show print address
-     set/show array-max        set/show print elements
-     set/show arrayprint       set/show print array
-     set/show asm-demangle     set/show print asm-demangle
-     set/show caution          set/show confirm
-     set/show demangle         set/show print demangle
-     set/show history write    set/show history save
-     set/show prettyprint      set/show print pretty
-     set/show screen-height    set/show height
-     set/show screen-width     set/show width
-     set/show sevenbit-strings set/show print sevenbit-strings
-     set/show unionprint       set/show print union
-     set/show vtblprint        set/show print vtbl
-     
-     unset                     [No longer an alias for delete]
+* Readline vi Mode::		Switching to `vi' mode in Readline.
 

@@ -1,5 +1,5 @@
 /* Select target systems and architectures at runtime for GDB.
-   Copyright 1990, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1990, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB.
@@ -16,11 +16,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include <errno.h>
 #include <ctype.h>
+#include "gdb_string.h"
 #include "target.h"
 #include "gdbcmd.h"
 #include "symtab.h"
@@ -113,6 +114,7 @@ struct target_ops dummy_target = {
   0,				/* to_mourn_inferior */
   0,				/* to_can_run */
   0,				/* to_notice_signals */
+  0,				/* to_thread_alive */
   0,				/* to_stop */
   dummy_stratum,		/* to_stratum */
   0,				/* to_next */
@@ -143,6 +145,15 @@ static struct cmd_list_element *targetlist = NULL;
    rather than an inferior.  */
 
 int attach_flag;
+
+#ifdef MAINTENANCE_CMDS
+/* Non-zero if we want to see trace of target level stuff.  */
+
+static int targetdebug = 0;
+
+static void setup_target_debug PARAMS ((void));
+
+#endif
 
 /* The user just typed 'target' without the name of a target.  */
 
@@ -322,6 +333,7 @@ cleanup_target (t)
   de_fault (to_mourn_inferior,		(void (*)())noprocess);
   de_fault (to_can_run,			return_zero);
   de_fault (to_notice_signals,		(void (*)())ignore);
+  de_fault (to_thread_alive,		(int (*)())ignore);
   de_fault (to_stop,			(void (*)())ignore);
 
 #undef de_fault
@@ -376,6 +388,7 @@ update_current_target ()
       INHERIT (to_mourn_inferior, t);
       INHERIT (to_can_run, t);
       INHERIT (to_notice_signals, t);
+      INHERIT (to_thread_alive, t);
       INHERIT (to_stop, t);
       INHERIT (to_stratum, t);
       INHERIT (DONT_USE, t);
@@ -457,6 +470,12 @@ push_target (t)
   update_current_target ();
 
   cleanup_target (&current_target); /* Fill in the gaps */
+
+#ifdef MAINTENANCE_CMDS
+  if (targetdebug)
+    setup_target_debug ();
+#endif
+
   return prev != 0;
 }
 
@@ -1448,6 +1467,370 @@ normal_pid_to_str (pid)
   return buf;
 }
 
+#ifdef MAINTENANCE_CMDS
+static struct target_ops debug_target;
+
+static void
+debug_to_open (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  debug_target.to_open (args, from_tty);
+
+  fprintf_unfiltered (stderr, "target_open (%s, %d)\n", args, from_tty);
+}
+
+static void
+debug_to_close (quitting)
+     int quitting;
+{
+  debug_target.to_close (quitting);
+
+  fprintf_unfiltered (stderr, "target_close (%d)\n", quitting);
+}
+
+static void
+debug_to_attach (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  debug_target.to_attach (args, from_tty);
+
+  fprintf_unfiltered (stderr, "target_attach (%s, %d)\n", args, from_tty);
+}
+
+static void
+debug_to_detach (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  debug_target.to_detach (args, from_tty);
+
+  fprintf_unfiltered (stderr, "target_detach (%s, %d)\n", args, from_tty);
+}
+
+static void
+debug_to_resume (pid, step, siggnal)
+     int pid;
+     int step;
+     enum target_signal siggnal;
+{
+  debug_target.to_resume (pid, step, siggnal);
+
+  fprintf_unfiltered (stderr, "target_resume (%d, %s, %s)\n", pid,
+		      step ? "step" : "continue",
+		      target_signal_to_name (siggnal));
+}
+
+static int
+debug_to_wait (pid, status)
+     int pid;
+     struct target_waitstatus *status;
+{
+  int retval;
+
+  retval = debug_target.to_wait (pid, status);
+
+  fprintf_unfiltered (stderr, "target_wait (%d, status) = %d,   ", pid, retval);
+  fprintf_unfiltered (stderr, "status->kind = ");
+  switch (status->kind)
+    {
+    case TARGET_WAITKIND_EXITED:
+      fprintf_unfiltered (stderr, "exited, status = %d\n", status->value.integer);
+      break;
+    case TARGET_WAITKIND_STOPPED:
+      fprintf_unfiltered (stderr, "stopped, signal = %s\n",
+			  target_signal_to_name (status->value.sig));
+      break;
+    case TARGET_WAITKIND_SIGNALLED:
+      fprintf_unfiltered (stderr, "signalled, signal = %s\n",
+			  target_signal_to_name (status->value.sig));
+      break;
+    case TARGET_WAITKIND_LOADED:
+      fprintf_unfiltered (stderr, "loaded\n");
+      break;
+    case TARGET_WAITKIND_SPURIOUS:
+      fprintf_unfiltered (stderr, "spurious\n");
+      break;
+    default:
+      fprintf_unfiltered (stderr, "unknown???\n");
+      break;
+    }
+
+  return retval;
+}
+
+static void
+debug_to_fetch_registers (regno)
+     int regno;
+{
+  debug_target.to_fetch_registers (regno);
+
+  fprintf_unfiltered (stderr, "target_fetch_registers (%s)",
+		      regno != -1 ? reg_names[regno] : "-1");
+  if (regno != -1)
+    fprintf_unfiltered (stderr, " = 0x%x %d", read_register (regno),
+			read_register (regno));
+  fprintf_unfiltered (stderr, "\n");
+}
+
+static void
+debug_to_store_registers (regno)
+     int regno;
+{
+  debug_target.to_store_registers (regno);
+
+  if (regno >= 0 && regno < NUM_REGS)
+    fprintf_unfiltered (stderr, "target_store_registers (%s) = 0x%x %d\n",
+			reg_names[regno], read_register (regno),
+			read_register (regno));
+  else
+    fprintf_unfiltered (stderr, "target_store_registers (%d)\n", regno);
+}
+
+static void
+debug_to_prepare_to_store ()
+{
+  debug_target.to_prepare_to_store ();
+
+  fprintf_unfiltered (stderr, "target_prepare_to_store ()\n");
+}
+
+static int
+debug_to_xfer_memory (memaddr, myaddr, len, write, target)
+     CORE_ADDR memaddr;
+     char *myaddr;
+     int len;
+     int write;
+     struct target_ops *target;
+{
+  int retval;
+
+  retval = debug_target.to_xfer_memory (memaddr, myaddr, len, write, target);
+
+  fprintf_unfiltered (stderr, "target_xfer_memory (0x%x, xxx, %d, %s, xxx) = %d",
+		      memaddr, len, write ? "write" : "read", retval);
+
+  if (retval > 0)
+    {
+      int i;
+
+      fputs_unfiltered (", bytes =", gdb_stderr);
+      for (i = 0; i < retval; i++)
+	fprintf_unfiltered (stderr, " %02x", myaddr[i] & 0xff);
+    }
+
+  fputc_unfiltered ('\n', gdb_stderr);
+
+  return retval;
+}
+
+static void
+debug_to_files_info (target)
+     struct target_ops *target;
+{
+  debug_target.to_files_info (target);
+
+  fprintf_unfiltered (stderr, "target_files_info (xxx)\n");
+}
+
+static int
+debug_to_insert_breakpoint (addr, save)
+     CORE_ADDR addr;
+     char *save;
+{
+  int retval;
+
+  retval = debug_target.to_insert_breakpoint (addr, save);
+
+  fprintf_unfiltered (stderr, "target_insert_breakpoint (0x%x, xxx) = %d\n",
+		      addr, retval);
+  return retval;
+}
+
+static int
+debug_to_remove_breakpoint (addr, save)
+     CORE_ADDR addr;
+     char *save;
+{
+  int retval;
+
+  retval = debug_target.to_remove_breakpoint (addr, save);
+
+  fprintf_unfiltered (stderr, "target_remove_breakpoint (0x%x, xxx) = %d\n",
+		      addr, retval);
+  return retval;
+}
+
+static void
+debug_to_terminal_init ()
+{
+  debug_target.to_terminal_init ();
+
+  fprintf_unfiltered (stderr, "target_terminal_init ()\n");
+}
+
+static void
+debug_to_terminal_inferior ()
+{
+  debug_target.to_terminal_inferior ();
+
+  fprintf_unfiltered (stderr, "target_terminal_inferior ()\n");
+}
+
+static void
+debug_to_terminal_ours_for_output ()
+{
+  debug_target.to_terminal_ours_for_output ();
+
+  fprintf_unfiltered (stderr, "target_terminal_ours_for_output ()\n");
+}
+
+static void
+debug_to_terminal_ours ()
+{
+  debug_target.to_terminal_ours ();
+
+  fprintf_unfiltered (stderr, "target_terminal_ours ()\n");
+}
+
+static void
+debug_to_terminal_info (arg, from_tty)
+     char *arg;
+     int from_tty;
+{
+  debug_target.to_terminal_info (arg, from_tty);
+
+  fprintf_unfiltered (stderr, "target_terminal_info (%s, %d)\n", arg,
+		      from_tty);
+}
+
+static void
+debug_to_kill ()
+{
+  debug_target.to_kill ();
+
+  fprintf_unfiltered (stderr, "target_kill ()\n");
+}
+
+static void
+debug_to_load (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  debug_target.to_load (args, from_tty);
+
+  fprintf_unfiltered (stderr, "target_load (%s, %d)\n", args, from_tty);
+}
+
+static int
+debug_to_lookup_symbol (name, addrp)
+     char *name;
+     CORE_ADDR *addrp;
+{
+  int retval;
+
+  retval = debug_target.to_lookup_symbol (name, addrp);
+
+  fprintf_unfiltered (stderr, "target_lookup_symbol (%s, xxx)\n", name);
+
+  return retval;
+}
+
+static void
+debug_to_create_inferior (exec_file, args, env)
+     char *exec_file;
+     char *args;
+     char **env;
+{
+  debug_target.to_create_inferior (exec_file, args, env);
+
+  fprintf_unfiltered (stderr, "target_create_inferior (%s, %s, xxx)\n",
+		      exec_file, args);
+}
+
+static void
+debug_to_mourn_inferior ()
+{
+  debug_target.to_mourn_inferior ();
+
+  fprintf_unfiltered (stderr, "target_mourn_inferior ()\n");
+}
+
+static int
+debug_to_can_run ()
+{
+  int retval;
+
+  retval = debug_target.to_can_run ();
+
+  fprintf_unfiltered (stderr, "target_can_run () = %d\n", retval);
+
+  return retval;
+}
+
+static void
+debug_to_notice_signals (pid)
+     int pid;
+{
+  debug_target.to_notice_signals (pid);
+
+  fprintf_unfiltered (stderr, "target_notice_signals (%d)\n", pid);
+}
+
+static int
+debug_to_thread_alive (pid)
+     int pid;
+{
+  debug_target.to_thread_alive (pid);
+
+  fprintf_unfiltered (stderr, "target_thread_alive (%d)\n", pid);
+  return (0);
+}
+
+static void
+debug_to_stop ()
+{
+  debug_target.to_stop ();
+
+  fprintf_unfiltered (stderr, "target_stop ()\n");
+}
+
+static void
+setup_target_debug ()
+{
+  memcpy (&debug_target, &current_target, sizeof debug_target);
+
+  current_target.to_open = debug_to_open;
+  current_target.to_close = debug_to_close;
+  current_target.to_attach = debug_to_attach;
+  current_target.to_detach = debug_to_detach;
+  current_target.to_resume = debug_to_resume;
+  current_target.to_wait = debug_to_wait;
+  current_target.to_fetch_registers = debug_to_fetch_registers;
+  current_target.to_store_registers = debug_to_store_registers;
+  current_target.to_prepare_to_store = debug_to_prepare_to_store;
+  current_target.to_xfer_memory = debug_to_xfer_memory;
+  current_target.to_files_info = debug_to_files_info;
+  current_target.to_insert_breakpoint = debug_to_insert_breakpoint;
+  current_target.to_remove_breakpoint = debug_to_remove_breakpoint;
+  current_target.to_terminal_init = debug_to_terminal_init;
+  current_target.to_terminal_inferior = debug_to_terminal_inferior;
+  current_target.to_terminal_ours_for_output = debug_to_terminal_ours_for_output;
+  current_target.to_terminal_ours = debug_to_terminal_ours;
+  current_target.to_terminal_info = debug_to_terminal_info;
+  current_target.to_kill = debug_to_kill;
+  current_target.to_load = debug_to_load;
+  current_target.to_lookup_symbol = debug_to_lookup_symbol;
+  current_target.to_create_inferior = debug_to_create_inferior;
+  current_target.to_mourn_inferior = debug_to_mourn_inferior;
+  current_target.to_can_run = debug_to_can_run;
+  current_target.to_notice_signals = debug_to_notice_signals;
+  current_target.to_thread_alive = debug_to_thread_alive;
+  current_target.to_stop = debug_to_stop;
+}
+#endif /* MAINTENANCE_CMDS */
+
 static char targ_desc[] = 
     "Names of targets and files being debugged.\n\
 Shows the entire stack of targets currently in use (including the exec-file,\n\
@@ -1460,6 +1843,15 @@ initialize_targets ()
 
   add_info ("target", target_info, targ_desc);
   add_info ("files", target_info, targ_desc);
+
+#ifdef MAINTENANCE_CMDS
+  add_show_from_set (
+     add_set_cmd ("targetdebug", class_maintenance, var_zinteger,
+		  (char *)&targetdebug,
+		 "Set target debugging.\n\
+When non-zero, target debugging is enabled.", &setlist),
+		     &showlist);
+#endif
 
   if (!STREQ (signals[TARGET_SIGNAL_LAST].string, "TARGET_SIGNAL_MAGIC"))
     abort ();

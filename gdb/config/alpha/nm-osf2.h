@@ -1,4 +1,4 @@
-/* Native definitions for alpha running OSF/1-2.x and higher, using procfs.
+/* Native definitions for alpha running OSF/1-2.x, using procfs.
    Copyright (C) 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Get generic OSF/1 definitions.  */
 #include "alpha/nm-osf.h"
@@ -27,8 +27,16 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* OSF/1 doesn't provide the standard fault definitions, so don't use them.  */
 #define FAULTED_USE_SIGINFO
 
+/* Don't trace faults under OSF/1, rely on the posting of the appropriate
+   signal if fault tracing is disabled.
+   Tracing T_IFAULT under Alpha OSF/1 causes a `floating point enable'
+   fault from which we cannot continue (except by disabling the
+   tracing).
+   And as OSF/1 doesn't provide the standard fault definitions, the
+   mapping of faults to appropriate signals in procfs_wait is difficult.  */
+#define PROCFS_DONT_TRACE_FAULTS
+
 /* Work around some peculiarities in the OSF/1 procfs implementation.  */
-#define PROCFS_DONT_TRACE_IFAULT
 #define PROCFS_SIGPEND_OFFSET
 #define PROCFS_NEED_PIOCSSIG_FOR_KILL
 #define PROCFS_DONT_PIOCSSIG_CURSIG

@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -28,7 +28,14 @@ set bug_id 0
 
 # are we on a target board
 if ![isnative] then {
-    warning "These test cases can't run on a target system."
+    continue
+}
+if [istarget "m68k*-*-hpux*"] then {
+    # The top-level makefile passes CFLAGS= (no -g) for hp300.  This probably
+    # should be fixed (it is only needed for gcc bootstrapping, not gdb),
+    # but until then.....
+    setup_xfail "*-*-*"
+    fail "cannot test self if compiled without debug info"
     continue
 }
 
@@ -36,7 +43,6 @@ proc test_with_self {} {
     global prompt
     global tool
     global det_file
-    global timeout
     global decimal
 
     # load yourself into the debugger
@@ -46,16 +52,13 @@ proc test_with_self {} {
     # entire symbol table.  Set the timeout to 10 minutes, which should be
     # adequate for most environments (it *has* timed out with 5 min on a
     # SPARCstation SLC under moderate load, so this isn't unreasonable).
-    # After gdb is loaded, set the timeout to 30 seconds for the duration
+    # After gdb is started, set the timeout to 30 seconds for the duration
     # of this test, and then back to the original value.
 
-    set oldtimeout $timeout
     set timeout 600
     if {[gdb_load "./x$tool"] <0} then {
 	return -1
     }
-
-    set timeout 30
 
     # disassemble yourself
     send "x/10i main\n"
@@ -112,6 +115,10 @@ proc test_with_self {} {
 	}
     }
 
+    # It may take a very long time for the inferior gdb to start (lynx),
+    # so we wait until after it's started to reset the timeout value.
+    set timeout 30
+
     # do we have a version number ?
     send "print version\n"
     expect {
@@ -163,7 +170,7 @@ proc test_with_self {} {
 	    fail "$description"
 	}
 	timeout {
-	    fail "$description" (timeout)"
+	    fail "$description (timeout)"
 	}
     }
 
@@ -183,7 +190,7 @@ proc test_with_self {} {
 	    fail "$description"
 	}
 	timeout {
-	    fail "$description" (timeout)"
+	    fail "$description (timeout)"
 	}
     }
     
@@ -203,7 +210,7 @@ proc test_with_self {} {
 	    fail "$description"
 	}
 	timeout {
-	    fail "$description" (timeout)"
+	    fail "$description (timeout)"
 	}
     }
     
@@ -223,7 +230,7 @@ proc test_with_self {} {
 	    fail "$description"
 	}
 	timeout {
-	    fail "$description" (timeout)"
+	    fail "$description (timeout)"
 	}
     }
 
@@ -300,9 +307,6 @@ proc test_with_self {} {
 	}
     }
 
-    # This one fails on Solaris (for some versions of gdb) because you
-    # can't next over library functions
-    setup_xfail "sparc-sun-solaris2" 1817
     set next_ok 1
     set need_to_step_over_cmdsize 1
     set description "next over SET_TOP_LEVEL call"
@@ -364,14 +368,12 @@ proc test_with_self {} {
 		fail "$description"
 	    }
 	    timeout {
-		fail "$description" (timeout)"
+		fail "$description (timeout)"
 	    }
 	}
     }
 
     # and another step for good luck
-    # This one fails on Solaris (for some versions of gdb) because you
-    # can't step into library functions
     if $next_ok {
 	set description "step into xmalloc call"
         send "step\n"
@@ -444,14 +446,20 @@ GDB.*Copyright \[0-9\]+ Free Software Foundation, Inc..*$prompt $"\
     }
     
     # get a stack trace
-    setup_xfail "i486-*-sysv4"
+    setup_xfail "i*86-*-linux*" "i*86-*-sysv4*"
     set description "backtrace through signal handler"
     send "backtrace\n"
     expect {
-	-re "#0.*read.*#\[1-9\].*main.c.*$prompt $" {
+	-re "#0.*read.*in main \\(.*\\) at .*main\\.c.*$prompt $" {
 	    pass "$description"
 	}
 	-re ".*$prompt $" {
+	    # On the alpha, we hit the infamous problem about gdb
+	    # being unable to get the frame pointer (mentioned in
+	    # gdb/README).  As it is intermittent, there is no way to
+	    # XFAIL it which will give us an XPASS if the problem goes
+	    # away.
+	    setup_xfail "alpha*-*-osf*"
 	    fail "$description"
 	}
 	timeout {
@@ -462,7 +470,6 @@ GDB.*Copyright \[0-9\]+ Free Software Foundation, Inc..*$prompt $"\
     gdb_exit
 
     # Set the timeout back to the value it had when we were called.
-    set timeout $oldtimeout
 
     # Restart gdb in case next test expects it to be started already.
     gdb_start

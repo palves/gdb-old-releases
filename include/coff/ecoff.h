@@ -315,6 +315,25 @@ struct ecoff_value_adjust
   long adjust;
 };
 
+/* These structures are used by the ECOFF find_nearest_line function.  */
+
+struct ecoff_fdrtab_entry
+{
+  /* Base address in .text of this FDR.  */
+  bfd_vma base_addr;
+  FDR *fdr;
+};
+
+struct ecoff_find_line
+{
+  /* Allocated memory to hold function and file names.  */
+  char *find_buffer;
+
+  /* FDR table, sorted by address: */
+  long fdrtab_len;
+  struct ecoff_fdrtab_entry *fdrtab;
+};
+
 /********************** SWAPPING **********************/
 
 /* The generic ECOFF code needs to be able to swap debugging
