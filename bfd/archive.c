@@ -39,7 +39,7 @@ another BFD and then closing the parent BFD.
    o - all arch headers are the same size (across architectures).
 */
 
-/* $Id: archive.c,v 1.27 1991/08/22 16:16:51 steve Exp $ */
+/* $Id: archive.c,v 1.29 1991/09/20 03:44:13 gnu Exp $ */
 
 #include <sysdep.h>
 #include "bfd.h"

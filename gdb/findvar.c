@@ -645,7 +645,6 @@ locate_var_value (var, frame)
 {
   CORE_ADDR addr = 0;
   struct type *type = SYMBOL_TYPE (var);
-  struct type *result_type;
   value lazy_value;
 
   /* Evaluate it first; if the result is a memory address, we're fine.
@@ -671,14 +670,7 @@ locate_var_value (var, frame)
 	  type = TYPE_TARGET_TYPE (type);
 	}
 
-      /* Address of an array is of the type of address of it's elements.  */
-	/* FIXME, this is probably wrong now for ANSI C. */
-      result_type =
-	lookup_pointer_type (TYPE_CODE (type) == TYPE_CODE_ARRAY ?
-			     TYPE_TARGET_TYPE (type) : type);
-
-      return value_cast (result_type,
-			 value_from_long (builtin_type_long, (LONGEST) addr));
+      return value_from_longest (lookup_pointer_type (type), (LONGEST) addr);
     }
 
   /* Not a memory address; check what the problem was.  */

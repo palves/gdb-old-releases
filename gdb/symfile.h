@@ -87,6 +87,7 @@ struct sym_fns {
 
 			/*   Functions   */
 
+extern struct symtab *allocate_symtab ();
 extern int  free_named_symtabs ();
 extern void fill_in_vptr_fieldno ();
 extern void add_symtab_fns ();

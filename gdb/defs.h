@@ -129,7 +129,6 @@ extern void restore_cleanups ();
 extern void free_current_contents ();
 extern int myread ();
 extern int query ();
-extern int lines_to_list ();
 extern void wrap_here (
 #ifdef __STDC__
 		       char *
@@ -227,5 +226,31 @@ char *baud_rate;
 #define longest_to_int(x) ((int) (x))
 #endif /* No LONG_LONG.  */
 #endif /* No longest_to_int.  */
+
+/* Languages represented in the symbol table and elsewhere. */
+
+enum language 
+{
+   language_unknown, 		/* Language not known */
+   language_auto,		/* Placeholder for automatic setting */
+   language_c, 			/* C */
+   language_m2,			/* Modula-2 */
+};
+
+/* Return a format string for printf that will print a number in the local
+   (language-specific) hexadecimal format.  Result is static and is
+   overwritten by the next call.  local_hex_format_custom takes printf
+   options like "08" or "l" (to produce e.g. %08x or %lx).  */
+
+#define local_hex_format() (current_language->la_hex_format)
+char *local_hex_format_custom();		/* language.c */
+
+/* Return a string that contains a number formatted in the local
+   (language-specific) hexadecimal format.  Result is static and is
+   overwritten by the next call.  local_hex_string_custom takes printf
+   options like "08" or "l".  */
+
+char *local_hex_string ();			/* language.c */
+char *local_hex_string_custom ();		/* language.c */
 
 #endif /* no DEFS_H */

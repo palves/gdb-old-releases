@@ -19,6 +19,7 @@ hp300ux-xdep.c\
 i386-pinsn.c\
 i386-tdep.c\
 i386-xdep.c\
+i387-tdep.c\
 i960-pinsn.c\
 i960-tdep.c\
 infptrace.c\
@@ -37,7 +38,9 @@ ns32k-pinsn.c\
 pyr-pinsn.c\
 pyr-tdep.c\
 pyr-xdep.c\
+remote-adapt.c\
 remote-eb.c\
+remote-mm.c\
 remote-nindy.c\
 remote-vx.c\
 solib.c\
@@ -50,6 +53,7 @@ symm-tdep.c\
 symm-xdep.c\
 tahoe-pinsn.c\
 tdesc.c\
+ultra3-xdep.c\
 umax-xdep.c\
 vax-pinsn.c
 
@@ -76,6 +80,7 @@ tm-hp300bsd.h\
 tm-hp300hpux.h\
 tm-i386v-g.h\
 tm-i386v.h\
+tm-irix3.h\
 tm-isi.h\
 tm-merlin.h\
 tm-mips.h\
@@ -93,6 +98,7 @@ tm-sun3os4.h\
 tm-sun4os4.h\
 tm-symmetry.h\
 tm-tahoe.h\
+tm-ultra3.h\
 tm-umax.h\
 tm-vax.h\
 tm-vx68.h\
@@ -108,6 +114,7 @@ xm-hp300hpux.h\
 xm-i386sco.h\
 xm-i386v.h\
 xm-i386v32.h\
+xm-irix3.h\
 xm-isi.h\
 xm-merlin.h\
 xm-mips.h\
@@ -116,6 +123,7 @@ xm-news1000.h\
 xm-np1.h\
 xm-pn.h\
 xm-pyr.h\
+xm-rtbsd.h\
 xm-sparc.h\
 xm-sun2.h\
 xm-sun3.h\
@@ -124,14 +132,16 @@ xm-sun3os4.h\
 xm-sun4os4.h\
 xm-symmetry.h\
 xm-tahoe.h\
+xm-ultra3.h\
 xm-umax.h\
 xm-vax.h
 
 ALLCONFIG=\
 ./tconfig/3b1\
+./tconfig/a29k\
+./tconfig/a29k-kern\
 ./tconfig/altos\
 ./tconfig/altosgas\
-./tconfig/am29k\
 ./tconfig/arm\
 ./tconfig/bigmips\
 ./tconfig/convex\
@@ -144,6 +154,7 @@ ALLCONFIG=\
 ./tconfig/i386v32\
 ./tconfig/i386v32-g\
 ./tconfig/i960\
+./tconfig/irix3\
 ./tconfig/isi\
 ./tconfig/littlemips\
 ./tconfig/m88k\
@@ -166,6 +177,7 @@ ALLCONFIG=\
 ./tconfig/sun4os4\
 ./tconfig/symmetry\
 ./tconfig/tahoe\
+./tconfig/ultra3\
 ./tconfig/umax\
 ./tconfig/vax\
 ./tconfig/vxworks68\
@@ -184,6 +196,7 @@ ALLCONFIG=\
 ./xconfig/i386v-g\
 ./xconfig/i386v32\
 ./xconfig/i386v32-g\
+./xconfig/irix3\
 ./xconfig/isi\
 ./xconfig/littlemips\
 ./xconfig/m88k\
@@ -194,6 +207,7 @@ ALLCONFIG=\
 ./xconfig/np1\
 ./xconfig/pn\
 ./xconfig/pyramid\
+./xconfig/rtbsd\
 ./xconfig/sun2os3\
 ./xconfig/sun2os4\
 ./xconfig/sun3\
@@ -205,6 +219,7 @@ ALLCONFIG=\
 ./xconfig/sun4os4\
 ./xconfig/symmetry\
 ./xconfig/tahoe\
+./xconfig/ultra3\
 ./xconfig/umax\
 ./xconfig/vax
 

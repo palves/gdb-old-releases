@@ -1,5 +1,5 @@
 /* Convex stuff for GDB.
-   Copyright (C) 1990 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -339,12 +339,12 @@ value_of_trapped_internalvar (var)
 
   if (!strcmp (name, "vl"))
     {
-      val = value_from_long (builtin_type_int,
+      val = value_from_longest (builtin_type_int,
 			     (LONGEST) *read_vector_register_1 (VL_REGNUM));
     }
   else if (!strcmp (name, "vs"))
     {
-      val = value_from_long (builtin_type_int,
+      val = value_from_longest (builtin_type_int,
 			     (LONGEST) *read_vector_register_1 (VS_REGNUM));
     }
   else if (!strcmp (name, "vm"))
@@ -376,10 +376,10 @@ value_of_trapped_internalvar (var)
     }
 
   else if (name[0] == 'c')
-    val = value_from_long (builtin_type_int,
+    val = value_from_longest (builtin_type_int,
 			   read_comm_register (atoi (&name[1])));
   else if (name[0] == 'C')
-    val = value_from_long (builtin_type_long_long,
+    val = value_from_longest (builtin_type_long_long,
 			   read_comm_register (atoi (&name[1])));
 
   VALUE_LVAL (val) = lval_internalvar;
@@ -723,7 +723,7 @@ set_thread_command (arg)
     set_current_frame (create_new_frame (read_register (FP_REGNUM),
 					 read_pc ()));
     select_frame (get_current_frame (), 0);
-    print_sel_frame (1);
+    print_stack_frame (selected_frame, selected_frame_level, -1);
 }
 
 /* Here on CONT command; gdb's dispatch address is changed to come here.
@@ -760,18 +760,15 @@ comm_registers_info (arg)
 
   if (arg)
     {
-      if (sscanf (arg, "0x%x", &regnum) == 1
-	  || sscanf (arg, "%d", &regnum) == 1)
-	{
-	  if (regnum > 0)
-	    regnum &= ~0x8000;
-	}
-      else if (sscanf (arg, "$c%d", &regnum) == 1)
+             if (sscanf (arg, "$c%d", &regnum) == 1) {
 	;
-      else if (sscanf (arg, "$C%d", &regnum) == 1)
+      } else if (sscanf (arg, "$C%d", &regnum) == 1) {
 	;
-      else
+      } else {
 	regnum = parse_and_eval_address (arg);
+	if (regnum > 0)
+	  regnum &= ~0x8000;
+      }
 
       if (regnum >= 64)
 	error ("%s: invalid register name.", arg);

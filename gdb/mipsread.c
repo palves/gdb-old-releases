@@ -249,6 +249,9 @@ mipscoff_symfile_read(sf, addr, mainline)
   int symtab_offset;
   int stringtab_offset;
 
+  /* Initialize a variable that we couldn't do at _initialize_ time. */
+  builtin_type_ptr = lookup_pointer_type (builtin_type_void);
+
 /* WARNING WILL ROBINSON!  ACCESSING BFD-PRIVATE DATA HERE!  FIXME!  */
    desc = fileno ((FILE *)(abfd->iostream));	/* Raw file descriptor */
 /* End of warning */
@@ -273,7 +276,8 @@ mipscoff_symfile_read(sf, addr, mainline)
   
 /* Exported procedure: Allocate zeroed memory */
 
-char *xzalloc(size)
+char *
+xzalloc(size)
 {
 	char           *p = xmalloc(size);
 
@@ -841,6 +845,12 @@ data:		/* Common code for symbols describing data */
 		SYMBOL_VALUE(s) = sh->value;
 		SYMBOL_TYPE(s) = parse_type(ax + sh->index, sh, 0);
 		add_symbol(s, top_stack->cur_block);
+#if 0
+		/* FIXME:  This has not been tested.  See dbxread.c */
+		/* Add the type of this parameter to the function/procedure
+		   type of this block. */
+		add_param_to_type(&top_stack->cur_block->function->type,s);
+#endif
 		break;
 
 	    case stLabel:	/* label, goes into current block */
@@ -852,7 +862,7 @@ data:		/* Common code for symbols describing data */
 		add_symbol(s, top_stack->cur_block);
 		break;
 
-	    case stProc:	/* Procedure, goes into current block? FIXME */
+	    case stProc:	/* Procedure, usually goes into global block */
 	    case stStaticProc:	/* Static procedure, goes into current block */
 		s = new_symbol(sh->iss);
 		SYMBOL_NAMESPACE(s) = VAR_NAMESPACE;
@@ -862,10 +872,27 @@ data:		/* Common code for symbols describing data */
 			t = builtin_type_int;
 		else
 			t = parse_type(ax + sh->index, sh, 0);
-		add_symbol(s, top_stack->cur_block);
+		b = top_stack->cur_block;
+		if (sh->st == stProc) {
+		    struct blockvector *bv = BLOCKVECTOR(top_stack->cur_st);
+		    /* The next test should normally be true,
+		       but provides a hook for nested functions
+		       (which we don't want to make global). */
+		    if (b == BLOCKVECTOR_BLOCK(bv, STATIC_BLOCK))
+			b = BLOCKVECTOR_BLOCK(bv, GLOBAL_BLOCK);
+		}
+		add_symbol(s, b);
 
 		/* Make a type for the procedure itself */
+#if 0
+		/* FIXME:  This has not been tested yet!  See dbxread.c */
+		/* Generate a template for the type of this function.  The 
+		   types of the arguments will be added as we read the symbol 
+		   table. */
+		bcopy(SYMBOL_TYPE(s),lookup_function_type(t),sizeof(struct type));
+#else
 		SYMBOL_TYPE(s) = lookup_function_type (t);
+#endif
 
 		/* Create and enter a new lexical context */
 		b = new_block(top_stack->maxsyms);
@@ -1426,7 +1453,7 @@ parse_lines(fh, lt)
 	FDR *fh;
 	struct linetable *lt;
 {
-	char *base = (char*)fh->cbLineOffset;
+	unsigned char *base = (unsigned char*)fh->cbLineOffset;
 	int i, j, k;
 	int delta, count, lineno = 0;
 	PDR *pr;
@@ -1460,14 +1487,18 @@ parse_lines(fh, lt)
 		 */
 		if (pr->iline >= halt) continue;
 
-		base = (char*)pr->cbLineOffset;
+		base = (unsigned char*)pr->cbLineOffset;
 		l = pr->adr >> 2;	/* in words */
 		halt += (pr->adr >> 2) - pr->iline;
 		for (lineno = pr->lnLow; l < halt;) {
 			count = *base & 0x0f;
 			delta = *base++ >> 4;
+			if (delta >= 8)
+				delta -= 16;
 			if (delta == -8) {
-				delta = (base[0] << 8) | (base[1] & 0xff);
+				delta = (base[0] << 8) | base[1];
+				if (delta >= 0x8000)
+					delta -= 0x10000;
 				base += 2;
 			}
 			lineno += delta;/* first delta is 0 */
@@ -1541,7 +1572,7 @@ parse_partial_symbols(end_of_text_seg)
 	 *
 	 * Only parse the Local and External symbols, and the Relative FDR.
 	 * Fixup enough of the loader symtab to be able to use it.
-	 * Allocate space only for the file`s portions we need to
+	 * Allocate space only for the file's portions we need to
 	 * look at. (XXX)
 	 */
 
@@ -1705,9 +1736,12 @@ parse_partial_symbols(end_of_text_seg)
 			case stConstant:		/* Constant decl */
 				SYMBOL_CLASS(p) = LOC_CONST;
 				break;
-			case stBlock:			/* { }, str, un, enum */
-				/* Eventually we want struct names and enum
-				   values out of here.  FIXME */
+			case stBlock:			/* { }, str, un, enum*/
+				if (sh->sc == scInfo) {
+                                      SYMBOL_NAMESPACE(p) = STRUCT_NAMESPACE;
+                                      SYMBOL_CLASS(p) = LOC_TYPEDEF;
+                                      pst->n_static_syms++;
+				}
 				/* Skip over the block */
 				s_idx = sh->index;
 				continue;
@@ -2335,12 +2369,9 @@ struct symtab *
 new_symtab(name, maxsyms, maxlines)
 	char *name;
 {
-	struct symtab *s = (struct symtab *) xzalloc(sizeof(struct symtab));
-	int i;
+	struct symtab *s = allocate_symtab (name);
 
 	LINETABLE(s) = new_linetable(maxlines);
-
-	s->filename = name;
 
 	/* All symtabs must have at least two blocks */
 	BLOCKVECTOR(s) = new_bvect(2);
@@ -2378,7 +2409,7 @@ new_psymtab(name)
 	pst->next = partial_symtab_list;
 	partial_symtab_list = pst;
 
-	/* Keep a backpointer to the file`s symbols */
+	/* Keep a backpointer to the file's symbols */
 	/* FIXME, we should use private data that is a proper pointer. */
 	pst->ldsymlen = (int)cur_hdr;
 
@@ -2766,10 +2797,13 @@ _initialize_mipsread ()
 					   0, "floating_decimal");
 
 	/* Templates types */
-	builtin_type_ptr = lookup_pointer_type (builtin_type_void);
 	builtin_type_struct = make_type(TYPE_CODE_STRUCT, 0, 0, 0);
 	builtin_type_union = make_type(TYPE_CODE_UNION, 0, 0, 0);
 	builtin_type_enum = make_type(TYPE_CODE_ENUM, 0, 0, 0);
 	builtin_type_range = make_type(TYPE_CODE_RANGE, 0, 0, 0);
 	builtin_type_set = make_type(TYPE_CODE_SET, 0, 0, 0);
+
+	/* We can't do this now because builtin_type_void may not
+	   be set yet.  Do it at symbol reading time.  */
+	/* builtin_type_ptr = lookup_pointer_type (builtin_type_void); */
 }

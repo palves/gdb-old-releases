@@ -93,6 +93,12 @@ struct frame_saved_regs
 
 extern FRAME selected_frame;
 
+/* Level of the selected frame:
+   0 for innermost, 1 for its caller, ...
+   or -1 for frame specified by address with no defined level.  */
+
+int selected_frame_level;
+
 extern struct frame_info *get_frame_info ();
 extern struct frame_info *get_prev_frame_info ();
 
@@ -121,8 +127,7 @@ void print_frame_args ();
 
 /* In stack.c */
 extern FRAME find_relative_frame ();
-extern void print_selected_frame ();
-extern void print_sel_frame ();
+extern void print_stack_frame ();
 extern void select_frame ();
 extern void record_selected_frame ();
 

@@ -3,10 +3,24 @@
 # script appropriate for this directory.  For more information, check
 # any existing configure script.
 
-configdirs="libiberty bfd binutils bison gcc readline ld gas gnulib ${clib} gdb make prms "
+configdirs="libiberty bfd binutils bison gcc readline ld gas gnulib ${clib} gdb emacs make grep diff rcs gdbm cvs prms"
 srctrigger=README.configure
 srcname="gnu development package"
 
 # per-host:
 
+# XXX - FIXME there needs to be a case for hmake-dgux
+
+case "${host_os}" in
+sysv* | irix*) host_makefile_frag=config/hmake-sysv ;;
+esac
+
 # per-target:
+
+# XXX - FIXME there needs to be a case for tmake-a29k
+
+#
+# Local Variables:
+# fill-column: 131
+# End:
+#

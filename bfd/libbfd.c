@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: libbfd.c,v 1.19 1991/08/19 20:52:31 pesch Exp $ */
+/* $Id: libbfd.c,v 1.20 1991/09/11 04:50:00 gnu Exp $ */
 
 #include <sysdep.h>
 #include "bfd.h"
@@ -388,9 +388,8 @@ DEFUN(_do_getb64,(addr),
 
   return high << 32 | low;
 #else
-  bfd_vma foo;
   BFD_FAIL();
-  return foo;
+  return 0;
 #endif
 
 }
@@ -414,9 +413,8 @@ DEFUN(_do_getl64,(addr),
 
   return high << 32 | low;
 #else
-bfd_vma foo;
   BFD_FAIL();
-return foo;
+  return 0;
 #endif
 
 }

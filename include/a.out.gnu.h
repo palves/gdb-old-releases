@@ -169,8 +169,12 @@ struct nlist {
 #define N_TEXT 4
 #define N_DATA 6
 #define N_BSS 8
-#define N_FN 0x1e
+#define	N_COMM	0x12		/* common (visible in shared lib commons) */
+#define N_FN 0x1F		/* File name of a .o file */
 
+/* Note: N_EXT can only usefully be OR-ed with N_UNDF, N_ABS, N_TEXT,
+   N_DATA, or N_BSS.  When the low-order bit of other types is set,
+   (e.g. N_WARNING versus N_FN), they are two different types.  */
 #define N_EXT 1
 #define N_TYPE 036
 #define N_STAB 0340
@@ -205,6 +209,12 @@ struct nlist {
 
 /* This is output from LD.  */
 #define N_SETV	0x1C		/* Pointer to set vector in data area.  */
+
+/* Warning symbol. The text gives a warning message, the next symbol
+   in the table will be undefined. When the symbol is referenced, the
+   message is printed.  */
+
+#define	N_WARNING 0x1e
 
 /* This structure describes a single relocation to be performed.
    The text-relocation section of the file is a vector of these structures,

@@ -1,7 +1,7 @@
 _dnl__								-*- Texinfo -*-
 _dnl__ Copyright (c) 1990 1991 Free Software Foundation, Inc.
 _dnl__ This file is part of the source for the GDB manual.
-@c M4 FRAGMENT $Id: gdbinv-s.m4,v 2.2 1991/07/24 01:36:11 pesch Exp $
+@c M4 FRAGMENT $Id: gdbinv-s.m4,v 2.1 1991/09/20 21:43:19 pesch Exp $
 @c This text diverted to "Remote Debugging" section in general case;
 @c however, if we're doing a manual specifically for one of these, it
 @c belongs up front (in "Getting In and Out" chapter).
@@ -35,9 +35,9 @@ session.  @xref{Target Commands}.
 @end itemize
 
 @menu
-* Nindy Startup::		Startup with Nindy
-* Nindy Options::		Options for Nindy
-* Nindy reset::			Nindy Reset Command
+* Nindy Startup::               Startup with Nindy
+* Nindy Options::               Options for Nindy
+* Nindy reset::                 Nindy Reset Command
 @end menu
 
 @node Nindy Startup, Nindy Options, i960-Nindy Remote, i960-Nindy Remote
@@ -132,9 +132,9 @@ you've hooked the cable between the PC's @file{COM1} port and
 @file{/dev/ttya} on the Unix system.
 
 @menu
-* Comms (EB29K)::		Communications Setup
-* _GDBP__-EB29K::			EB29K cross-debugging
-* Remote Log::			Remote Log
+* Comms (EB29K)::               Communications Setup
+* _GDBP__-EB29K::                   EB29K cross-debugging
+* Remote Log::                  Remote Log
 @end menu
 
 @node Comms (EB29K), _GDBP__-EB29K, EB29K Remote, EB29K Remote
@@ -332,9 +332,9 @@ _GDBN__ will come up showing the prompt:
 @end smallexample
 
 @menu
-* VxWorks connection::		Connecting to VxWorks
-* VxWorks download::		VxWorks Download
-* VxWorks attach::		Running Tasks
+* VxWorks connection::          Connecting to VxWorks
+* VxWorks download::            VxWorks Download
+* VxWorks attach::              Running Tasks
 @end menu
 
 @node VxWorks connection, VxWorks download, VxWorks Remote, VxWorks Remote

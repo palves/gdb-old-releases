@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: bout.c,v 1.9 1991/07/31 16:57:28 gnu Exp $ */
+/* $Id: bout.c,v 1.10 1991/09/11 04:49:57 gnu Exp $ */
 
 #include <sysdep.h>
 #include "bfd.h"
@@ -523,21 +523,18 @@ b_out_squirt_out_relocs (abfd, section)
 	else  if(g->section->output_section == obj_textsec(abfd)) {
 	  symnum = N_TEXT;
  	  BFD_ASSERT(g->addend + obj_textsec(abfd)->vma == 0);
-
 	}
 	else if (g->section->output_section == obj_datasec(abfd)) {
 	  symnum  = N_DATA;
  	  BFD_ASSERT(g->addend + obj_datasec(abfd)->vma == 0);
-
 	}
 	else if (g->section->output_section == obj_bsssec(abfd)) {
 	  symnum = N_BSS;
  	  BFD_ASSERT(g->addend + obj_bsssec(abfd)->vma == 0);
-
-
 	}
 	else {
 	  BFD_ASSERT(0);
+	  symnum = N_ABS;
 	}
       }
       if (abfd->xvec->header_byteorder_big_p) {
@@ -551,7 +548,7 @@ b_out_squirt_out_relocs (abfd, section)
       }  
     }
 
-  if ( bfd_write ((PTR) native, 1, natsize, abfd) != natsize) {
+  if (bfd_write ((PTR) native, 1, natsize, abfd) != natsize) {
     free((PTR)native);
     return false;
   }

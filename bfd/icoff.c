@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: icoff.c,v 1.18 1991/07/31 16:57:41 gnu Exp $ */
+/* $Id: icoff.c,v 1.19 1991/09/11 04:49:58 gnu Exp $ */
 
 #define I960 1
 #define BADMAG(x) I960BADMAG(x)
@@ -86,10 +86,9 @@ asection *ignore_input_section;
 	result = bfd_reloc_ok;
 	break;
       case C_SCALL:
-	{
-	  /* This is a call to a system call, replace with a calls to # */
-	  BFD_ASSERT(0);
-	}
+	/* This is a call to a system call, replace with a calls to # */
+	BFD_ASSERT(0);
+	result = bfd_reloc_ok;
 	break;
       default:
 	result = bfd_reloc_ok;

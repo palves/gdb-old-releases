@@ -22,10 +22,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* FIXME: Can a MIPS porter/tester determine which of these include
-   files we still need?   -- gnu@cygnus.com */
 #include <stdio.h>
-#include <mips/inst.h>
 #include "defs.h"
 #include "param.h"
 #include "frame.h"
@@ -33,6 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "value.h"
 #include "gdbcmd.h"
+#include "language.h"
 
 #ifdef USG
 #include <sys/types.h>
@@ -575,9 +573,9 @@ mips_print_register(regnum, all)
 	  if (val == 0)
 	    printf_filtered ("0");
 	  else if (all)
-	    printf_filtered ("0x%x", val);
+	    printf_filtered (local_hex_format(), val);
 	  else
-	    printf_filtered ("0x%x=%d", val, val);
+	    printf_filtered ("%s=%d", local_hex_string(val), val);
 	}
 }
 

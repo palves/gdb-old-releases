@@ -125,14 +125,14 @@ TERMCAP = -ltermcap
 
 # Libraries and corresponding dependencies for compiling gdb.
 # {X,T}M_CLIBS, defined in *config files, have host- and target-dependent libs.
-# TERMCAP comes last, since readline depends on it.
-CLIBS = $(XM_CLIBS) ${TM_CLIBS} ${BFD_LIB} ${LIBIBERTY} ${RL_LIB} ${TERMCAP}
+# TERMCAP comes after readline, since readline depends on it.
+CLIBS = ${BFD_LIB} ${LIBIBERTY} ${RL_LIB} ${TERMCAP} ${XM_CLIBS} ${TM_CLIBS}
 CDEPS = ${XM_CDEPS} ${TM_CDEPS} ${BFD_LIB} ${LIBIBERTY} ${RL_LIB}
 
 ADD_FILES = ${REGEX} ${ALLOCA}  ${GNU_MALLOC} ${XM_ADD_FILES} ${TM_ADD_FILES}
 ADD_DEPS = ${REGEX1} ${ALLOCA1} ${GNU_MALLOC} ${XM_ADD_FILES} ${TM_ADD_FILES}
 
-VERSION = 4.0.1
+VERSION = 4.1
 DIST=gdb
 
 LINT=/usr/5bin/lint
@@ -146,10 +146,10 @@ SFILES_MAINDIR = \
 	 environ.c eval.c expprint.c findvar.c infcmd.c inflow.c infrun.c \
 	 main.c printcmd.c \
 	 remote.c source.c stack.c symmisc.c symtab.c symfile.c \
-	 utils.c valarith.c valops.c valprint.c values.c expread.y \
+	 utils.c valarith.c valops.c valprint.c values.c c-exp.y m2-exp.y \
 	 signame.c cplus-dem.c mem-break.c target.c inftarg.c \
 	 dbxread.c coffread.c \
-	 ieee-float.c 
+	 ieee-float.c language.c parse.c
 
 # Source files in subdirectories (which will be handled separately by
 #  'make gdb.tar.Z').
@@ -183,7 +183,7 @@ NONSRC_SUBDIR = \
 SFILES = $(SFILES_MAINDIR) $(SFILES_SUBDIR)
 
 # All source files that lint should look at
-LINTFILES = $(SFILES) expread.tab.c init.c
+LINTFILES = $(SFILES) $(YYFILES) init.c
 
 # Any additional files specified on these lines should also be added to
 # the OTHERS = definition below, so they go in the tar files.
@@ -192,11 +192,11 @@ SFILES_KGDB  = $(SFILES) stuff.c kdb-start.c
 
 # Header files that are not named in tconfig/* or xconfig/* go here.
 HFILES=	breakpoint.h command.h defs.h environ.h \
-	expression.h frame.h gdbcmd.h gdbcore.h \
-	getpagesize.h ieee-float.h inferior.h param-no-tm.h param.h \
+	expression.h frame.h gdbcmd.h gdbcore.h getpagesize.h \
+	ieee-float.h inferior.h minimon.h param-no-tm.h param.h \
 	signals.h signame.h symfile.h symtab.h \
 	target.h tdesc.h terminal.h tm-68k.h tm-i960.h tm-sunos.h \
-	value.h
+	language.h parser-defs.h value.h
 
 # Header files for machine opcode tables.
 # when OPCODE_DIR changes to ../include, remove the whole $(OPCODES)
@@ -228,7 +228,7 @@ OTHERS = Makefile.in depend alldeps.mak \
 	 createtags munch configure configure.in config.sub \
 	 ChangeLog ChangeLog-3.x refcard.ps \
 	 README TODO TAGS WHATS.NEW Projects \
-	 .gdbinit COPYING expread.tab.c \
+	 .gdbinit COPYING $(YYFILES) \
 	 copying.c Convex.notes copying.awk \
 	 saber.suppress standalone.c stuff.c kdb-start.c \
 	 putenv.c
@@ -242,7 +242,7 @@ INFOFILES = gdb.info*
 
 DEPFILES= ${TDEPFILES} ${XDEPFILES}
 
-SOURCES=$(SFILES) $(ALLDEPFILES)
+SOURCES=$(SFILES) $(ALLDEPFILES) $(YYFILES)
 TAGFILES = $(SOURCES) ${HFILES} ${OPCODES} ${ALLPARAM} ${POSSLIBS} 
 TAGFILES_MAINDIR = $(SFILES_MAINDIR) $(ALLDEPFILES_MAINDIR) \
              ${HFILES} ${OPCODES} ${ALLPARAM} ${POSSLIBS_MAINDIR} 
@@ -251,9 +251,9 @@ TARFILES = ${TAGFILES_MAINDIR} ${OTHERS} ${REMOTE_EXAMPLES}
 OBS = main.o blockframe.o breakpoint.o findvar.o stack.o source.o \
     values.o eval.o valops.o valarith.o valprint.o printcmd.o \
     symtab.o symfile.o symmisc.o infcmd.o infrun.o remote.o \
-    command.o utils.o expread.o expprint.o environ.o version.o \
+    command.o utils.o expprint.o environ.o version.o \
     copying.o $(DEPFILES) signame.o cplus-dem.o mem-break.o target.o \
-    inftarg.o ieee-float.o putenv.o \
+    inftarg.o ieee-float.o putenv.o parse.o language.o $(YYOBJ) \
     dbxread.o coffread.o # mipsread.o
 
 RAPP_OBS = rgdb.o rudp.o rserial.o serial.o udp.o $(XDEPFILES)
@@ -265,6 +265,10 @@ NTSOBS = standalone.o
 TSSTART = /lib/crt0.o
 
 NTSSTART = kdb-start.o
+
+# For now, shortcut the "configure GDB for fewer languages" stuff.
+YYFILES = c-exp.tab.c m2-exp.tab.c
+YYOBJ = c-exp.tab.o m2-exp.tab.o
 
 # Prevent Sun make from putting in the machine type.  Setting
 # TARGET_ARCH to nothing works for SunOS 3, 4.0, but not for 4.1.
@@ -278,7 +282,7 @@ install: gdb
 	mv $(bindir)/gdb.new $(bindir)/gdb
 	$(M_INSTALL)
 
-init.c: $(srcdir)/munch $(MUNCH_DEFINE) $(OBS) $(TSOBS)
+init.c: $(srcdir)/munch $(OBS) $(TSOBS)
 	$(srcdir)/munch ${MUNCH_DEFINE} $(OBS) $(TSOBS) > init.c
 
 gdb: $(OBS) $(TSOBS) ${ADD_DEPS} ${CDEPS} init.o
@@ -288,9 +292,9 @@ gdb: $(OBS) $(TSOBS) ${ADD_DEPS} ${CDEPS} init.o
 saber_gdb: $(SFILES) $(DEPFILES) copying.c version.c
 	#setopt load_flags $(CFLAGS) -I$(BFD_DIR) -DHOST_SYS=SUN4_SYS
 	#load ./init.c $(SFILES)
-	#unload ${srcdir}/expread.y ${srcdir}/vx-share/*.h
+	#unload ${srcdir}/c-exp.y ${srcdir}/m2-exp.y ${srcdir}/vx-share/*.h
 	#unload ${srcdir}/nindy-share/[A-Z]*
-	#load ${srcdir}/expread.tab.c
+	#load ${srcdir}/c-exp.tab.c ${srcdir}/m2-exp.tab.c
 	#load copying.c version.c
 	#load `echo " "$(DEPFILES) | sed -e 's/\.o/.c/g' -e 's, , ../,g'`
 	#load ${LIBIBERTY_DIR}/*.c
@@ -316,7 +320,7 @@ gdb1: gdb
 # remote support.
 rapp: $(RAPP_OBS)
 	rm -f rapp_init.c
-	${srcdir}/munch ${RAPP_OBS} > rapp_init.c
+	${srcdir}/munch ${MUNCH_DEFINE} ${RAPP_OBS} > rapp_init.c
 	${CC-LD} $(LDFLAGS) -o $@ rapp_init.c $(RAPP_OBS)
 	
 # Support for building Makefile out of configured pieces, automatically
@@ -442,7 +446,23 @@ TAGS: ${TAGFILES}
 	$(srcdir)/createtags $(TM_FILE) ${XM_FILE} $(DEPFILES) ${TAGFILES}
 tags: TAGS
 
+# Making distributions of GDB and friends.
+
+# Make a directory `proto-gdb.dir' that contains an image of the GDB
+# directory of the distribution, built up with symlinks.
+make-proto-gdb.dir: force_update 
+	$(MAKE) $(MFLAGS) -f Makefile.in setup-to-dist
+	$(MAKE) $(MFLAGS) -f Makefile    make-proto-gdb-1
+
+# Make a tar file containing the GDB directory of the distribution.
 gdb.tar.Z: force_update
+	$(MAKE) $(MFLAGS) -f Makefile.in setup-to-dist
+	$(MAKE) $(MFLAGS) -f Makefile.in gdb-$(VERSION).tar.Z
+
+# Set up the GDB directory for distribution, by building all files that
+# are products of other files.
+setup-to-dist: force_update
+	./configure -template=./configure
 	./configure none
 	rm -f alldeps.mak
 	$(MAKE) $(MFLAGS) alldeps.mak
@@ -450,45 +470,54 @@ gdb.tar.Z: force_update
 	rm -f depend
 	$(MAKE) $(MFLAGS) depend
 	./configure none
-	(cd doc; $(MAKE) $(MFLAGS) rdl-apps.texi)
+	(cd doc; $(MAKE) $(MFLAGS) rdl-apps.texi gdbVN.m4)
 	$(MAKE) $(MFLAGS) gdb.info
 	$(MAKE) $(MFLAGS) refcard.ps
-	$(MAKE) $(MFLAGS) gdb-$(VERSION).tar.Z
 
-gdb-$(VERSION).tar.Z: ${TARFILES} ${TARDIRS} gdb.info
-	rm -f gdb.tar gdb-$(VERSION).tar.Z; rm -rf $(DIST)
-	mkdir $(DIST)
-	cd $(DIST) ; for i in ${TARFILES} ; do ln -s ../$$i . ; done
-	cd $(DIST) ; ln -s ../${INFOFILES} .
-	cd $(DIST); for i in ${TARDIRS}; do \
+# Build a tar file from a proto-gdb.dir.
+gdb-$(VERSION).tar.Z: force_update
+	rm -f gdb.tar gdb-$(VERSION).tar.Z
+	$(MAKE) $(MFLAGS) -f Makefile    make-proto-gdb-1
+	ln -s proto-gdb.dir $(DIST)
+	tar chf - $(DIST) | compress >gdb-$(VERSION).tar.Z
+	rm -rf $(DIST) proto-gdb.dir
+
+# Build a proto-gdb.dir after GDB has been set up for distribution.
+# This stuff must be run in `Makefile', not `Makefile.in`; we use the makefile
+# built in the setup-to-dist process, since it defines things like ALLCONFIG
+# and ALLDEPFILES, that we need.
+make-proto-gdb-1: ${TARFILES} ${TARDIRS} gdb.info
+	rm -rf proto-gdb.dir
+	mkdir proto-gdb.dir
+	cd proto-gdb.dir ; for i in ${TARFILES} ; do ln -s ../$$i . ; done
+	cd proto-gdb.dir ; ln -s ../${INFOFILES} .
+	cd proto-gdb.dir ; for i in ${TARDIRS}; do \
 	  (mkdir $$i; cd $$i; \
 	  ln -s ../../$$i/* .; \
 	  rm -rf SCCS CVS.adm RCS); done
-	mkdir $(DIST)/xconfig ${DIST}/tconfig
-	cd $(DIST)/tconfig ; \
+	mkdir proto-gdb.dir/xconfig proto-gdb.dir/tconfig
+	cd proto-gdb.dir/tconfig ; \
 	  for i in $(ALLCONFIG) ; do ln -s ../../$$i ../$$i ; done
-	mkdir $(DIST)/vx-share $(DIST)/nindy-share
-	cd $(DIST)/tconfig ; \
+	mkdir proto-gdb.dir/vx-share proto-gdb.dir/nindy-share
+	cd proto-gdb.dir/tconfig ; \
 	  for i in $(SFILES_SUBDIR) $(NONSRC_SUBDIR) $(ALLDEPFILES_SUBDIR); \
 	    do ln -s ../../$$i ../$$i ; done
 	chmod og=u `find . -print`
-	tar chf - $(DIST) | compress >gdb-$(VERSION).tar.Z
-	rm -rf $(DIST)
 
 clean:
 	rm -f ${OBS} ${TSOBS} ${NTSOBS} ${ADD_FILES}
 	rm -f init.c init.o version.c
 	rm -f gdb core gdb.tar gdb.tar.Z make.log
 	rm -f gdb[0-9]
-	cd $(srcdir)/doc; make clean
+	cd $(srcdir)/doc; $(MAKE) clean
 
-distclean: clean expread.tab.c TAGS
+distclean: clean c-exp.tab.c m2-exp.tab.c TAGS
 	rm -f tm.h xm.h config.status
 	rm -f y.output yacc.acts yacc.tmp
 	rm -f ${TESTS} Makefile depend
 
 realclean: clean
-	rm -f expread.tab.c TAGS
+	rm -f c-exp.tab.c m2-exp.tab.c TAGS
 	rm -f tm.h xm.h config.status
 	rm -f Makefile depend
 
@@ -536,26 +565,26 @@ force:
 # Documentation!
 # GDB QUICK REFERENCE (TeX dvi file, CM fonts)
 refcard.dvi : $(srcdir)/doc/refcard.tex
-	( cd $(srcdir)/doc; make refcard.dvi )
+	( cd $(srcdir)/doc; $(MAKE) refcard.dvi )
 	mv $(srcdir)/doc/refcard.dvi .
 
 # GDB QUICK REFERENCE (PostScript output, common PS fonts)
 refcard.ps : $(srcdir)/doc/refcard.tex
-	( cd $(srcdir)/doc; make refcard.ps )
+	( cd $(srcdir)/doc; $(MAKE) refcard.ps )
 	mv $(srcdir)/doc/refcard.ps .
 
 # GDB MANUAL: TeX dvi file
 gdb.dvi : $(srcdir)/doc/gdb-all.texi $(srcdir)/doc/rdl-apps.texi
-	( cd $(srcdir)/doc; make gdb.dvi )
+	( cd $(srcdir)/doc; $(MAKE) M4=$(M4) gdb.dvi )
 	mv $(srcdir)/doc/gdb.dvi .
 
 # GDB MANUAL: info file
 gdb.info: $(srcdir)/doc/gdb-all.texi
-	( cd $(srcdir)/doc; make gdb.info )
+	( cd $(srcdir)/doc; $(MAKE) M4=$(M4) gdb.info )
 	mv $(srcdir)/doc/gdb.info* .
 
 $(srcdir)/doc/gdb-all.texi:
-	(cd $(srcdir)/doc; $(MAKE) gdb-all.texi)
+	(cd $(srcdir)/doc; $(MAKE) M4=$(M4) gdb-all.texi)
 $(srcdir)/doc/rdl-apps.texi:
 	(cd $(srcdir)/doc; $(MAKE) rdl-apps.texi)
 
@@ -566,17 +595,20 @@ copying.c : COPYING copying.awk
 version.c : Makefile.in
 	echo 'char *version = "$(VERSION)";' >version.c
 
-# expread.tab.c is generated in srcdir from expread.y, then compiled in target
-# directory to expread.o.
-${srcdir}/expread.tab.c : $(srcdir)/expread.y
+# c-exp.tab.c is generated in srcdir from c-exp.y, then compiled in target
+# directory to c-exp.tab.o.
+c-exp.tab.o: ${srcdir}/c-exp.tab.c
+${srcdir}/c-exp.tab.c : $(srcdir)/c-exp.y
 	@echo 'Expect 4 shift/reduce conflicts.'
-	${YACC} $(srcdir)/expread.y
-	mv y.tab.c ${srcdir}/expread.tab.c
+	${YACC} $(srcdir)/c-exp.y
+	mv y.tab.c ${srcdir}/c-exp.tab.c
 
-expread.o : ${srcdir}/expread.tab.c defs.h param.h symtab.h \
-            frame.h expression.h value.h command.h
-	$(CC) -c ${CFLAGS} `echo ${srcdir}/expread.tab.c | sed 's,^\./,,'`
-	mv expread.tab.o expread.o
+# m2-exp.tab.c is generated in srcdir from m2-exp.y, then compiled in target
+# directory to m2-exp.tab.o.
+m2-exp.tab.o: ${srcdir}/m2-exp.tab.c
+${srcdir}/m2-exp.tab.c : $(srcdir)/m2-exp.y
+	${YACC} $(srcdir)/m2-exp.y
+	mv y.tab.c ${srcdir}/m2-exp.tab.c
 
 # dbxread, coffread, mipsread have dependencies on BFD header files.
 dbxread.o: ${srcdir}/dbxread.c
@@ -632,6 +664,12 @@ force_update :
 cplus-dem.o : cplus-dem.c
 	${CC} -c ${CFLAGS} -Dnounderscore \
 	  `echo ${srcdir}/cplus-dem.c | sed 's,^\./,,'`
+
+# GNU Make has an annoying habit of putting *all* the Makefile variables
+# into the environment, unless you include this target as a circumvention.
+# Rumor is that this will be fixed (and this target can be removed)
+# in GNU Make 4.0.
+.NOEXPORT:
 
 # This is the end of "Makefile.in".  When built into "Makefile"
 # by the configure script, two things are added below this point:

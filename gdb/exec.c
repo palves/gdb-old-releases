@@ -35,12 +35,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "gdbcore.h"
 
-#ifdef STILL_NEEDED_FOR_DECSTATION
-#include <sys/dir.h>		/* For DECstations */
-#include <sys/user.h>		/* After a.out.h  */
-#include <sys/file.h>
-#endif
-
 #include <ctype.h>
 #include <sys/stat.h>
 
@@ -51,6 +45,17 @@ extern void symbol_file_command ();
 /* The Binary File Descriptor handle for the executable file.  */
 
 bfd *exec_bfd = NULL;
+
+/* Whether to open exec and core files read-only or read-write.  */
+
+int write_files = 0;
+
+/* Text start and end addresses (KLUDGE) if needed */
+
+#ifdef NEED_TEXT_START_END
+CORE_ADDR text_start = 0;
+CORE_ADDR text_end   = 0;
+#endif
 
 /* Forward decl */
 
@@ -92,8 +97,8 @@ exec_file_command (filename, from_tty)
       filename = tilde_expand (filename);
       make_cleanup (free, filename);
       
-/* FIXME, if writeable is set, open for read/write. */
-      scratch_chan = openp (getenv ("PATH"), 1, filename, O_RDONLY, 0,
+      scratch_chan = openp (getenv ("PATH"), 1, filename, 
+			    write_files? O_RDWR: O_RDONLY, 0,
 			    &scratch_pathname);
       if (scratch_chan < 0)
 	perror_with_name (filename);
@@ -138,6 +143,21 @@ exec_file_command (filename, from_tty)
 				&exec_ops.sections_end))
 	error ("Can't find the file sections in `%s': %s", 
 		exec_bfd->filename, bfd_errmsg (bfd_error));
+
+#ifdef NEED_TEXT_START_END
+      /* This is a KLUDGE (FIXME) because a few places in a few ports
+	 (29K springs to mind) need this info for now.  */
+      {
+	struct section_table *p;
+	for (p = exec_ops.sections; p < exec_ops.sections_end; p++)
+	  if (!strcmp (".text", bfd_section_name (p->bfd, p->sec_ptr)))
+	    {
+	      text_start = p->addr;
+	      text_end   = p->endaddr;
+	      break;
+	    }
+      }
+#endif
 
       validate_files ();
 
@@ -303,10 +323,11 @@ exec_files_info ()
 
   printf ("\tExecutable file `%s'.\n", bfd_get_filename(exec_bfd));
 
-  for (p = exec_ops.sections; p < exec_ops.sections_end; p++)
-    printf("\texecutable from 0x%08x to 0x%08x is %s\n",
-	p->addr, p->endaddr,
+  for (p = exec_ops.sections; p < exec_ops.sections_end; p++) {
+    printf("\texecutable from %s", local_hex_string_custom (p->addr, "08"));
+    printf(" to %s is %s\n", local_hex_string_custom (p->endaddr, "08"),
 	bfd_section_name (exec_bfd, p->sec_ptr));
+  }
 }
 
 static void
@@ -394,5 +415,11 @@ This can be used if the exec file does not contain section addresses,\n\
 file itself are wrong.  Each section must be changed separately.  The\n\
 ``info files'' command lists all the sections and their addresses.");
 
+  add_show_from_set
+    (add_set_cmd ("write", class_support, var_boolean, (char *)&write_files,
+		  "Set writing into executable and core files.",
+		  &setlist),
+     &showlist);
+  
   add_target (&exec_ops);
 }

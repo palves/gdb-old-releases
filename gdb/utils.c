@@ -21,14 +21,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <pwd.h>
+#include <varargs.h>
+#include <ctype.h>
+#include <string.h>
+
 #include "defs.h"
 #include "param.h"
 #include "signals.h"
 #include "gdbcmd.h"
 #include "terminal.h"
-#include <varargs.h>
-#include <ctype.h>
-#include <string.h>
 #include "bfd.h"
 #include "target.h"
 
@@ -51,7 +52,15 @@ extern char *realloc();
 #else  /* !__GNU_LIBRARY */
 
 #ifndef vfprintf
-#define vfprintf(file, format, ap) _doprnt (format, ap, file)
+/* Can't #define it since language.c needs it (though FIXME it shouldn't) */
+void
+vfprintf (file, format, ap)
+     FILE *file;
+     char *format;
+     va_list ap;
+{
+  _doprnt (format, ap, file);
+}
 #endif /* vfprintf */
 
 #ifndef vprintf
@@ -101,6 +110,10 @@ int asm_demangle = 0;
    international character, and the terminal or window can cope.)  */
 
 int sevenbit_strings = 0;
+
+/* String to be printed before error messages, if any.  */
+
+char *error_pre_print;
 
 /* Add a new cleanup to the cleanup_chain,
    and return the previous chain pointer
@@ -202,7 +215,10 @@ error (va_alist)
 
   va_start (args);
   target_terminal_ours ();
+  wrap_here("");			/* Force out any buffered output */
   fflush (stdout);
+  if (error_pre_print)
+    fprintf (stderr, error_pre_print);
   string = va_arg (args, char *);
   vfprintf (stderr, string, args);
   fprintf (stderr, "\n");
@@ -622,7 +638,7 @@ printchar (ch, stream, quoter)
 {
   register int c = ch;
 
-  if (c < 040 || (sevenbit_strings && c >= 0177))
+  if (c < 040 || (sevenbit_strings && c >= 0177)) {
     switch (c)
       {
       case '\n':
@@ -650,12 +666,11 @@ printchar (ch, stream, quoter)
 	fprintf_filtered (stream, "\\%.3o", (unsigned int) c);
 	break;
       }
-  else
-    {
-      if (c == '\\' || c == quoter)
-	fputs_filtered ("\\", stream);
-      fprintf_filtered (stream, "%c", c);
-    }
+  } else {
+    if (c == '\\' || c == quoter)
+      fputs_filtered ("\\", stream);
+    fprintf_filtered (stream, "%c", c);
+  }
 }
 
 /* Number of lines per page or UINT_MAX if paging is disabled.  */
@@ -683,20 +698,6 @@ static unsigned int lines_printed, chars_printed;
 
 static char *wrap_buffer, *wrap_pointer, *wrap_indent;
 static int wrap_column;
-
-/* Get the number of lines to print with commands like "list".
-   This is based on guessing how many long (i.e. more than chars_per_line
-   characters) lines there will be.  To be completely correct, "list"
-   and friends should be rewritten to count characters and see where
-   things are wrapping, but that would be a fair amount of work.  */
-int
-lines_to_list ()
-{
-  /* RMS didn't like the following algorithm.  Let's set it back to
-     10 and see if anyone else complains.  */
-  /* return lines_per_page == UINT_MAX ? 10 : lines_per_page / 2; */
-  return 10;
-}
 
 /* ARGSUSED */
 static void 
@@ -748,6 +749,10 @@ reinitialize_more_filter ()
    If the line is already overfull, we immediately print a newline and
    the indentation, and disable further wrapping.
 
+   If we don't know the width of lines, but we know the page height,
+   we must not wrap words, but should still keep track of newlines
+   that were explicitly printed.
+
    INDENT should not contain tabs, as that
    will mess up the char count on the next line.  FIXME.  */
 
@@ -762,7 +767,11 @@ wrap_here(indent)
     }
   wrap_pointer = wrap_buffer;
   wrap_buffer[0] = '\0';
-  if (chars_printed >= chars_per_line)
+  if (chars_per_line == UINT_MAX)		/* No line overflow checking */
+    {
+      wrap_column = 0;
+    }
+  else if (chars_printed >= chars_per_line)
     {
       puts_filtered ("\n");
       puts_filtered (indent);
@@ -918,6 +927,7 @@ fputs_demangled (linebuffer, stream, arg_mode)
   /* If user wants to see raw output, no problem.  */
   if (!demangle) {
     fputs_filtered (linebuffer, stream);
+    return;
   }
 
   p = linebuffer;

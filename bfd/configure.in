@@ -16,6 +16,7 @@ else
 	mips)
 		case "${host_vendor}" in
 		dec)	bfd_host=dec3100 ;;
+		sgi)	bfd_host=irix3 ;;
 		esac
 		;;
 	m88k)
@@ -57,17 +58,24 @@ else
 		esac
 		;;
 
-	rtpc)	bfd_host=rtbsd ;;
-	tahoe | vax)	bfd_host=${host_cpu} ;;
+	rtpc)	bfd_host=rtbsd
+		;;
+
+	a29k)	bfd_host=ultra3
+		;;
+
+	tahoe | vax)
+		bfd_host=${host_cpu}
+		;;
 	esac
 fi
 
-if [ ! -f config/hmake-${bfd_host} ] ; then
-	echo '***' BFD does not support host ${host}: no file config/hmake-${bfd_host}
+if [ ! -f config/h-${bfd_host} ] ; then
+	echo '***' BFD does not support host ${host}: no file config/h-${bfd_host}
 	exit 1
 fi
 
-host_makefile_frag=config/hmake-${bfd_host}
+host_makefile_frag=config/h-${bfd_host}
 
 # per-target:
 
@@ -102,9 +110,22 @@ hp)
 		;;
 	esac
 	;;
-none)
+sgi)
+	case "${target_cpu}" in
+	mips)
+		bfd_target=irix3 ;;
+	esac
+	;;
+none|nyu)
 	case "${target_cpu}" in
 	i386) bfd_target=i386-coff ;;
+	a29k) case "${target_os}" in
+		aout) bfd_target=a29k-aout ;;
+		coff) bfd_target=a29k-coff ;;
+		sym1) bfd_target=a29k-coff ;;
+	       esac
+	       ;;
+	tahoe | vax) bfd_target=${target_cpu} ;;
 	esac
 	;;
 *)
@@ -114,12 +135,12 @@ none)
 	;;
 esac
 
-if [ ! -f config/tmake-${bfd_target} ] ; then
-	echo '***' BFD does not support target ${target}: no file config/tmake-${bfd_target}
+if [ ! -f config/t-${bfd_target} ] ; then
+	echo '***' BFD does not support target ${target}: no file config/t-${bfd_target}
 	exit 1
 fi
 
-target_makefile_frag=config/tmake-${bfd_target}
+target_makefile_frag=config/t-${bfd_target}
 
 files=
 links=

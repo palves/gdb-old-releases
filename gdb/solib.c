@@ -33,6 +33,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "frame.h"
 #include "regex.h"
+#include "inferior.h"
 
 extern char *getenv();
 
@@ -46,7 +47,8 @@ struct so_list {
     long   ld_text;
     char inferior_so_name[MAX_PATH_SIZE];	/* Shared Object Library Name */
     struct so_list *next;			/* Next Structure */
-    int	symbols_loaded;
+    char	symbols_loaded;			/* Flag: loaded? */
+    char	from_tty;			/* Flag: print msgs? */
     bfd *so_bfd;
     struct section_table *sections;
     struct section_table *sections_end;
@@ -125,7 +127,6 @@ struct so_list *find_solib(so_list_ptr)
 struct so_list *so_list_ptr;			/* so_list_head position ptr */
 {
 struct so_list *so_list_next = 0;
-CORE_ADDR inferior_dynamic_ptr = 0;
 struct link_map *inferior_lm = 0;
 struct link_dynamic inferior_dynamic_cpy;
 struct link_dynamic_2 inferior_ld_2_cpy;
@@ -134,15 +135,12 @@ int i;
 
      if (!so_list_ptr) {
 	 if (!(so_list_next = so_list_head)) {
-	     for (i = 0; i < misc_function_count; i++) {
-		 if (!strcmp (misc_function_vector[i].name, "_DYNAMIC")) {
-		     inferior_dynamic_ptr = misc_function_vector[i].address;
-		     break;
-		 }	
-	     }		
-	     if (inferior_dynamic_ptr) {
-		 read_memory(inferior_dynamic_ptr, &inferior_dynamic_cpy, sizeof(struct link_dynamic));
-		 if (inferior_dynamic_cpy.ld_version == 3) {
+	     i = lookup_misc_func ("_DYNAMIC");
+	     if (i >= 0 && misc_function_vector[i].address != 0) {
+		 read_memory(misc_function_vector[i].address,
+			     &inferior_dynamic_cpy,
+			     sizeof(struct link_dynamic));
+		 if (inferior_dynamic_cpy.ld_version >= 2) {
 		     read_memory((CORE_ADDR)inferior_dynamic_cpy.ld_un.ld_2,
 				 &inferior_ld_2_cpy,
 				 sizeof(struct link_dynamic_2));
@@ -216,6 +214,21 @@ int i;
      return(so_list_next);
 }
 
+/* A small stub to get us past the arg-passing pinhole of catch_errors.  */
+
+static int
+symbol_add_stub (arg)
+     char *arg;
+{
+  register struct so_list *so = (struct so_list *)arg;	/* catch_errs bogon */
+
+  symbol_file_add (so->inferior_so_name, so->from_tty,
+		   (unsigned int)so->inferior_lm.lm_addr, 0);
+  return 1;
+}
+
+/* The real work of adding a shared library file to the symtab and
+   the section list.  */
 
 void
 solib_add (arg_string, from_tty, target)
@@ -238,21 +251,16 @@ solib_add (arg_string, from_tty, target)
      frameless.  */
   reinit_frame_cache ();
 
-  printf_filtered ("Shared libraries");
-  if (arg_string)
-    printf_filtered (" matching regular expresion \"%s\"", arg_string);
-  printf_filtered (":\n");
-  
-  dont_repeat();
-
   while (so = find_solib(so)) {
       if (re_exec(so->inferior_so_name)) {
 	  if (so->symbols_loaded) {
-	      printf("Symbols already loaded for %s\n", so->inferior_so_name);
+	      if (from_tty)
+	        printf("Symbols already loaded for %s\n", so->inferior_so_name);
 	  } else {
-	      symbol_file_add (so->inferior_so_name, from_tty,
-			       (unsigned int)so->inferior_lm.lm_addr, 0);
 	      so->symbols_loaded = 1;
+	      so->from_tty = from_tty;
+       	      catch_errors (symbol_add_stub, (char *)so,
+		    "Error while reading shared library symbols:\n");
 	  }
       }
   }
@@ -294,17 +302,18 @@ solib_add (arg_string, from_tty, target)
 
 /*=======================================================================*/
 
-static void solib_info()
+static void
+solib_info()
 {
 register struct so_list *so = 0;  	/* link map state variable */
 
     while (so = find_solib(so)) {
 	if (so == so_list_head) {
-	    printf("      Address Range      Symbols     Shared Object Library\n");
+	    printf("      Address Range     Syms Read    Shared Object Library\n");
 	}
-	printf(" 0x%08x - 0x%08x   %s   %s\n", 
-	    so->inferior_lm.lm_addr, 
-	    so->inferior_lm.lm_addr + so->ld_text - 1,
+	printf(" %s - ", local_hex_string_custom (so->inferior_lm.lm_addr, "08"));
+	printf("%s   %s   %s\n", 
+	    local_hex_string_custom (so->inferior_lm.lm_addr + so->ld_text - 1, "08"),
 	    (so->symbols_loaded ? "Yes" : "No "),
 	    so->inferior_so_name);
     }
@@ -349,9 +358,90 @@ struct so_list *next;
   }
 }
 
+/* Called by child_create_inferior when the inferior is stopped at its
+   first instruction.  */
+
+void 
+solib_create_inferior_hook()
+{
+  struct link_dynamic inferior_dynamic_cpy;
+  CORE_ADDR inferior_debug_addr;
+  struct ld_debug inferior_debug_cpy;
+  int in_debugger;
+  CORE_ADDR in_debugger_addr;
+  CORE_ADDR breakpoint_addr;
+  int i, j;
+
+  /* FIXME:  We should look around in the executable code to find _DYNAMIC,
+     if it isn't in the symbol table.  It's not that hard to find... 
+     Then we can debug stripped executables using shared library symbols.  */
+  i = lookup_misc_func ("_DYNAMIC");
+  if (i < 0)			/* Can't find shared lib ptr. */
+    return;
+  if (misc_function_vector[i].address == 0)	/* statically linked program */
+    return;
+
+  /* Get link_dynamic structure */
+  j = target_read_memory(misc_function_vector[i].address,
+	      (char *)&inferior_dynamic_cpy,
+	      sizeof(struct link_dynamic));
+  if (j)					/* unreadable */
+    return;
+
+  /* Calc address of debugger interface structure */
+  inferior_debug_addr = (CORE_ADDR)inferior_dynamic_cpy.ldd;
+  /* Calc address of `in_debugger' member of debugger interface structure */
+  in_debugger_addr = inferior_debug_addr + (CORE_ADDR)((char *)&inferior_debug_cpy.ldd_in_debugger - (char *)&inferior_debug_cpy);
+  /* Write a value of 1 to this member.  */
+  in_debugger = 1;
+  write_memory(in_debugger_addr, &in_debugger, sizeof(in_debugger));
+
+  /* Now run the target.  Seeing `in_debugger' set, it will set a
+     breakpoint at some convenient place, remember the original contents
+     of that place, and eventually take a SIGTRAP when it runs into the
+     breakpoint.  We handle this by restoring the contents of the
+     breakpointed location (which is only known after it stops), 
+     chasing around to locate the shared libraries that have been
+     loaded, then resuming.  */
+
+  clear_proceed_status ();
+  stop_soon_quietly = 1;
+  target_resume (0, 0);
+  wait_for_inferior ();
+  while (stop_signal != SIGTRAP)
+    {
+      /* FIXME, what if child has exit()ed?  Must exit loop somehow */
+      target_resume (0, stop_signal);
+      wait_for_inferior ();
+    }
+  stop_soon_quietly = 0;
+
+  /* Set `in_debugger' to zero now.  WHY, is this needed?  */
+  in_debugger = 0;
+  write_memory(in_debugger_addr, &in_debugger, sizeof(in_debugger));
+  read_memory(inferior_debug_addr, &inferior_debug_cpy, sizeof(inferior_debug_cpy));
+  /* FIXME: maybe we should add the common symbols from the ldd_cp chain
+   * to the misc_function_vector ?
+   */
+  breakpoint_addr = (CORE_ADDR)inferior_debug_cpy.ldd_bp_addr;
+  if (stop_pc - DECR_PC_AFTER_BREAK == breakpoint_addr)
+    {
+      write_memory(breakpoint_addr, &inferior_debug_cpy.ldd_bp_inst, sizeof(inferior_debug_cpy.ldd_bp_inst));
+      if (DECR_PC_AFTER_BREAK)
+        {
+          stop_pc -= DECR_PC_AFTER_BREAK;
+          write_register (PC_REGNUM, stop_pc);
+        }
+    }
+  solib_add ((char *)0, 0, (struct target_ops *)0);
+}
+
 void
 sharedlibrary_command (args, from_tty)
+  char *args;
+  int from_tty;
 {
+  dont_repeat();
   solib_add (args, from_tty, (struct target_ops *)0);
 }
 

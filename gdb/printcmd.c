@@ -24,6 +24,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "frame.h"
 #include "symtab.h"
 #include "value.h"
+#include "language.h"
 #include "expression.h"
 #include "gdbcore.h"
 #include "gdbcmd.h"
@@ -262,7 +263,7 @@ print_scalar_formatted (valaddr, type, format, size, stream)
       switch (format)
 	{
 	case 'x':
-	  fprintf_filtered (stream, "0x%08x%08x", v1, v2);
+	  fprintf_filtered (stream, local_hex_format_custom("08x%08"), v1, v2);
 	  break;
 	default:
 	  error ("Output size \"g\" unimplemented for format \"%c\".",
@@ -291,9 +292,9 @@ print_scalar_formatted (valaddr, type, format, size, stream)
 	{
 	  /* no size specified, like in print.  Print varying # of digits. */
 #if defined (LONG_LONG)
-	  fprintf_filtered (stream, "0x%llx", val_long);
+	  fprintf_filtered (stream, local_hex_format_custom("ll"), val_long);
 #else /* not LONG_LONG.  */
-	  fprintf_filtered (stream, "0x%lx", val_long);
+	  fprintf_filtered (stream, local_hex_format_custom("l"), val_long);
 #endif /* not LONG_LONG.  */
 	}
       else
@@ -301,16 +302,16 @@ print_scalar_formatted (valaddr, type, format, size, stream)
       switch (size)
 	{
 	case 'b':
-	  fprintf_filtered (stream, "0x%02llx", val_long);
+	  fprintf_filtered (stream, local_hex_format_custom("02ll"), val_long);
 	  break;
 	case 'h':
-	  fprintf_filtered (stream, "0x%04llx", val_long);
+	  fprintf_filtered (stream, local_hex_format_custom("04ll"), val_long);
 	  break;
 	case 'w':
-	  fprintf_filtered (stream, "0x%08llx", val_long);
+	  fprintf_filtered (stream, local_hex_format_custom("08ll"), val_long);
 	  break;
 	case 'g':
-	  fprintf_filtered (stream, "0x%016llx", val_long);
+	  fprintf_filtered (stream, local_hex_format_custom("016ll"), val_long);
 	  break;
 	default:
 	  error ("Undefined output size \"%c\".", size);
@@ -319,16 +320,16 @@ print_scalar_formatted (valaddr, type, format, size, stream)
       switch (size)
 	{
 	case 'b':
-	  fprintf_filtered (stream, "0x%02x", val_long);
+	  fprintf_filtered (stream, local_hex_format_custom("02"), val_long);
 	  break;
 	case 'h':
-	  fprintf_filtered (stream, "0x%04x", val_long);
+	  fprintf_filtered (stream, local_hex_format_custom("04"), val_long);
 	  break;
 	case 'w':
-	  fprintf_filtered (stream, "0x%08x", val_long);
+	  fprintf_filtered (stream, local_hex_format_custom("08"), val_long);
 	  break;
 	case 'g':
-	  fprintf_filtered (stream, "0x%016x", val_long);
+	  fprintf_filtered (stream, local_hex_format_custom("016"), val_long);
 	  break;
 	default:
 	  error ("Undefined output size \"%c\".", size);
@@ -355,9 +356,9 @@ print_scalar_formatted (valaddr, type, format, size, stream)
     case 'o':
       if (val_long)
 #ifdef LONG_LONG
-	fprintf_filtered (stream, "0%llo", val_long);
+	fprintf_filtered (stream, local_octal_format_custom("ll"), val_long);
 #else
-	fprintf_filtered (stream, "0%o", val_long);
+	fprintf_filtered (stream, local_octal_format(), val_long);
 #endif
       else
 	fprintf_filtered (stream, "0");
@@ -368,7 +369,7 @@ print_scalar_formatted (valaddr, type, format, size, stream)
       break;
 
     case 'c':
-      value_print (value_from_long (builtin_type_char, val_long), stream, 0,
+      value_print (value_from_longest (builtin_type_char, val_long), stream, 0,
 		   Val_pretty_default);
       break;
 
@@ -444,7 +445,8 @@ set_next_address (addr)
 
   /* Make address available to the user as $_.  */
   set_internalvar (lookup_internalvar ("_"),
-		   value_from_long (builtin_type_int, (LONGEST) addr));
+		   value_from_longest (lookup_pointer_type (builtin_type_void),
+				    (LONGEST) addr));
 }
 
 /* Optionally print address ADDR symbolically as <SYMBOL+OFFSET> on STREAM,
@@ -490,7 +492,7 @@ print_address (addr, stream)
      CORE_ADDR addr;
      FILE *stream;
 {
-  fprintf_filtered (stream, "0x%x", addr);
+  fprintf_filtered (stream, local_hex_format(), addr);
   print_address_symbolic (addr, stream, asm_demangle, " ");
 }
 
@@ -508,7 +510,7 @@ print_address_demangle (addr, stream, do_demangle)
   if (addr == 0) {
     fprintf_filtered (stream, "0");
   } else if (addressprint) {
-    fprintf_filtered (stream, "0x%x", addr);
+    fprintf_filtered (stream, local_hex_format(), addr);
     print_address_symbolic (addr, stream, do_demangle, " ");
   } else {
     print_address_symbolic (addr, stream, do_demangle, "");
@@ -634,7 +636,7 @@ print_command_1 (exp, inspect, voidprint)
     {
       extern int objectprint;
       struct type *type;
-      expr = parse_c_expression (exp);
+      expr = parse_expression (exp);
       old_chain = make_cleanup (free_current_contents, &expr);
       cleanup = 1;
       val = evaluate_expression (expr);
@@ -732,7 +734,7 @@ output_command (exp, from_tty)
       format = fmt.format;
     }
 
-  expr = parse_c_expression (exp);
+  expr = parse_expression (exp);
   old_chain = make_cleanup (free_current_contents, &expr);
 
   val = evaluate_expression (expr);
@@ -748,7 +750,7 @@ set_command (exp, from_tty)
      char *exp;
      int from_tty;
 {
-  struct expression *expr = parse_c_expression (exp);
+  struct expression *expr = parse_expression (exp);
   register struct cleanup *old_chain
     = make_cleanup (free_current_contents, &expr);
   evaluate_expression (expr);
@@ -786,8 +788,8 @@ address_info (exp, from_tty)
 	  break;
 
       if (i < misc_function_count)
-	printf ("Symbol \"%s\" is at 0x%x in a file compiled without debugging.\n",
-		exp, misc_function_vector[i].address);
+	printf ("Symbol \"%s\" is at %s in a file compiled without debugging.\n",
+		exp, local_hex_string(misc_function_vector[i].address));
       else
 	error ("No symbol \"%s\" in current context.", exp);
       return;
@@ -804,7 +806,7 @@ address_info (exp, from_tty)
       break;
 
     case LOC_LABEL:
-      printf ("a label at address 0x%x", SYMBOL_VALUE_ADDRESS (sym));
+      printf ("a label at address %s", local_hex_string(SYMBOL_VALUE_ADDRESS (sym)));
       break;
 
     case LOC_REGISTER:
@@ -812,7 +814,7 @@ address_info (exp, from_tty)
       break;
 
     case LOC_STATIC:
-      printf ("static storage at address 0x%x", SYMBOL_VALUE_ADDRESS (sym));
+      printf ("static storage at address %s", local_hex_string(SYMBOL_VALUE_ADDRESS (sym)));
       break;
 
     case LOC_REGPARM:
@@ -840,8 +842,8 @@ address_info (exp, from_tty)
       break;
 
     case LOC_BLOCK:
-      printf ("a function at address 0x%x",
-	      BLOCK_START (SYMBOL_BLOCK_VALUE (sym)));
+      printf ("a function at address %s",
+	      local_hex_string(BLOCK_START (SYMBOL_BLOCK_VALUE (sym))));
       break;
 
     default:
@@ -877,7 +879,7 @@ x_command (exp, from_tty)
 
   if (exp != 0 && *exp != 0)
     {
-      expr = parse_c_expression (exp);
+      expr = parse_expression (exp);
       /* Cause expression not to be there any more
 	 if this command is repeated with Newline.
 	 But don't clobber a user-defined command's definition.  */
@@ -903,10 +905,12 @@ x_command (exp, from_tty)
   /* Set a couple of internal variables if appropriate. */
   if (last_examine_value)
     {
-      /* Make last address examined available to the user as $_.  */
+      /* Make last address examined available to the user as $_.  Use
+	 the correct pointer type.  */
       set_internalvar (lookup_internalvar ("_"),
-		       value_from_long (builtin_type_int, 
-					(LONGEST) last_examine_address));
+	       value_from_longest (
+		 lookup_pointer_type (VALUE_TYPE (last_examine_value)),
+				   (LONGEST) last_examine_address));
       
       /* Make contents of last address examined available to the user as $__.*/
       set_internalvar (lookup_internalvar ("__"), last_examine_value);
@@ -928,7 +932,7 @@ whatis_exp (exp, show)
 
   if (exp)
     {
-      expr = parse_c_expression (exp);
+      expr = parse_expression (exp);
       old_chain = make_cleanup (free_current_contents, &expr);
       val = evaluate_type (expr);
     }
@@ -955,6 +959,20 @@ whatis_command (exp, from_tty)
   whatis_exp (exp, -1);
 }
 
+/* Simple subroutine for ptype_command.  */
+static
+struct type *
+ptype_eval(exp)
+   struct expression *exp;
+{
+   enum exp_opcode op;
+
+   if(exp->elts[0].opcode==OP_TYPE)
+      return exp->elts[1].type;
+   else
+      return 0;
+}
+
 /* TYPENAME is either the name of a type, or an expression.  */
 /* ARGSUSED */
 static void
@@ -967,100 +985,31 @@ ptype_command (typename, from_tty)
   register struct block *b
     = target_has_stack ? get_current_block () : 0;
   register struct type *type;
+  struct expression *expr;
+  register struct cleanup *old_chain;
 
-  if (typename == 0)
-    {
-      whatis_exp (typename, 1);
-      return;
-    }
+  if (typename)
+  {
+     expr = parse_expression (typename);
+     old_chain = make_cleanup (free_current_contents, &expr);
+     type = ptype_eval (expr);
 
-  while (*p && *p != ' ' && *p != '\t') p++;
-  len = p - typename;
-  while (*p == ' ' || *p == '\t') p++;
-
-  if (len == 6 && !strncmp (typename, "struct", 6))
-    type = lookup_struct (p, b);
-  else if (len == 5 && !strncmp (typename, "union", 5))
-    type = lookup_union (p, b);
-  else if (len == 4 && !strncmp (typename, "enum", 4))
-    type = lookup_enum (p, b);
+     if(type)
+     {
+	printf_filtered ("type = ");
+	type_print (type, "", stdout, 1);
+	printf_filtered ("\n");
+	do_cleanups (old_chain);
+     }
+     else
+     {
+	do_cleanups (old_chain);
+	whatis_exp (typename, 1);
+     }
+  }
   else
-    {
-      type = lookup_typename (typename, b, 1);
-      if (type == 0)
-	{
-	  register struct symbol *sym
-	    = lookup_symbol (typename, b, STRUCT_NAMESPACE, 0,
-			     (struct symtab **)NULL);
-	  if (sym == 0)
-	    {
-	      /* It's not the name of a type, either VAR_NAMESPACE
-		 or STRUCT_NAMESPACE, so it must be an expression.  */
-	      whatis_exp (typename, 1);
-	      return;
-	    }
-	  printf_filtered ("No type named %s, ", typename);
-	  wrap_here ("");
-	  printf_filtered ("but there is ");
-	  switch (TYPE_CODE (SYMBOL_TYPE (sym)))
-	    {
-	    case TYPE_CODE_STRUCT:
-	      printf_filtered ("a struct");
-	      break;
-
-	    case TYPE_CODE_UNION:
-	      printf_filtered ("a union");
-	      break;
-
-	    case TYPE_CODE_ENUM:
-	      printf_filtered ("an enum");
-	      break;
-
-	    default:
-	      printf_filtered ("(Internal error in gdb)");
-	      break;
-	    }
-	  printf_filtered (" %s.  ", typename);
-	  wrap_here ("");
-	  printf_filtered ("(Type \"help ptype\".)\n");
-	  type = SYMBOL_TYPE (sym);
-	}
-    }
-
-  type_print (type, "", stdout, 1);
-  printf_filtered ("\n");
+     whatis_exp (typename, 1);
 }
-
-#if 0
-/* This is not necessary.  Instead, decode_line_1 takes any variable,
-   so "info line foo" is a close equivalent to "whereis foo".  */
-static void
-whereis_command (var, from_tty)
-     char *var;
-     int from_tty;
-{
-  struct symtab *s;
-  struct symbol *sym;
-  
-  if (var == NULL)
-    error_no_arg ("Variable name.");
-
-  sym = lookup_symbol (var, get_selected_block (), VAR_NAMESPACE,
-		       NULL, &s);
-  
-  if (sym != NULL && s != NULL)
-    printf_filtered ("Symbol \"%s\" is at line %d of file %s\n",
-		     var, sym->line, s->filename);
-  else
-    {
-      if (lookup_misc_func (var) >= 0)
-	printf_filtered ("Symbol \"%s\" is in a file compiled without -g.",
-			 var);
-      else
-    	error ("No symbol \"%s\" in current context.", var);
-    }
-}
-#endif /* 0 */
 
 enum display_status {disabled, enabled};
 
@@ -1122,7 +1071,7 @@ display_command (exp, from_tty)
     }
 
   innermost_block = 0;
-  expr = parse_c_expression (exp);
+  expr = parse_expression (exp);
 
   new = (struct display *) xmalloc (sizeof (struct display));
 
@@ -1896,7 +1845,8 @@ disassemble_command (arg, from_tty)
       printf_filtered ("for function %s:\n", name);
     }
   else
-    printf_filtered ("from 0x%x to 0x%x:\n", low, high);
+    printf_filtered ("from %s ", local_hex_string(low));
+    printf_filtered ("to %s:\n", local_hex_string(high));
 
   /* Dump the specified range.  */
   for (pc = low; pc < high; )
@@ -2012,8 +1962,9 @@ You can see these environment settings with the \"show\" command.",
   /* "call" is the same as "set", but handy for dbx users to call fns. */
   add_com ("call", class_vars, call_command,
 	   "Call a function in the inferior process.\n\
-The argument is the function name and arguments, in standard C notation.\n\
-The result is printed and saved in the value history, if it is not void.");
+The argument is the function name and arguments, in the notation of the\n\
+current working language.  The result is printed and saved in the value\n\
+history, if it is not void.");
 
   add_cmd ("variable", class_vars, set_command,
            "Perform an assignment VAR = EXP.\n\

@@ -211,26 +211,49 @@ void _initialize_kernel_u_addr ()
 	  (int *)(offsetof (struct user, u_ar0)), 0) - KERNEL_U_ADDR
 #endif
 
+/* Registers we shouldn't try to fetch.  */
+#if !defined (CANNOT_FETCH_REGISTER)
+#define CANNOT_FETCH_REGISTER(regno) 0
+#endif
+
 /* Fetch one register.  */
+
 static void
 fetch_register (regno)
      int regno;
 {
   register unsigned int regaddr;
   char buf[MAX_REGISTER_RAW_SIZE];
+  char mess[128];				/* For messages */
   register int i;
 
   /* Offset of registers within the u area.  */
-  unsigned int offset = U_REGS_OFFSET;
+  unsigned int offset;
+
+  if (CANNOT_FETCH_REGISTER (regno))
+    {
+      bzero (buf, REGISTER_RAW_SIZE (regno));	/* Supply zeroes */
+      supply_register (regno, buf);
+      return;
+    }
+
+  offset = U_REGS_OFFSET;
 
   regaddr = register_addr (regno, offset);
   for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (int))
     {
+      errno = 0;
       *(int *) &buf[i] = ptrace (PT_READ_U, inferior_pid, (int *)regaddr, 0);
       regaddr += sizeof (int);
+      if (errno != 0)
+	{
+	  sprintf (mess, "reading register %s (#%d)", reg_names[regno], regno);
+	  perror_with_name (mess);
+	}
     }
   supply_register (regno, buf);
 }
+
 
 /* Fetch all registers, or just one, from the child process.  */
 

@@ -57,7 +57,7 @@ DEFUN(ieee_write_int,(abfd, value),
       bfd *abfd AND
       bfd_vma value)
 {
-  if (value >= 0 && value <= 127) {
+  if (((unsigned)value) <= 127) {
     ieee_write_byte(abfd, value);
   }
   else {

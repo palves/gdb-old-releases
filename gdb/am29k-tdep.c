@@ -27,6 +27,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "inferior.h"
 
+extern CORE_ADDR text_start;	/* FIXME, kludge... */
+
 /* Structure to hold cached info about function prologues.  */
 struct prologue_info
 {
@@ -383,10 +385,11 @@ init_extra_frame_info (fci)
     /* Assume innermost frame.  May produce strange results for "info frame"
        but there isn't any way to tell the difference.  */
     init_frame_info (1, fci);
-  else
-    /* We're in get_prev_frame_info.
-       Take care of everything in init_frame_pc.  */
-    ;
+  else {
+      /* We're in get_prev_frame_info.
+         Take care of everything in init_frame_pc.  */
+      ;
+    }
 }
 
 void
@@ -455,7 +458,7 @@ read_register_stack (memaddr, myaddr, actual_mem_addr, lval)
       if (lval != NULL)
 	*lval = lval_memory;
       if (actual_mem_addr != NULL)
-	*actual_mem_addr == memaddr;
+	*actual_mem_addr = memaddr;
     }
 }
 
@@ -500,7 +503,7 @@ write_register_stack (memaddr, myaddr, actual_mem_addr)
       if (myaddr != NULL)
 	write_memory (memaddr, myaddr, 4);
       if (actual_mem_addr != NULL)
-	*actual_mem_addr == memaddr;
+	*actual_mem_addr = memaddr;
     }
 }
 
@@ -605,9 +608,9 @@ pop_frame ()
 	write_register
 	  (SR_REGNUM (i + 128),
 	   read_register (LR0_REGNUM + DUMMY_ARG / 4 + i));
-      for (i = 0; i < DUMMY_SAVE_GR96; ++i)
+      for (i = 0; i < DUMMY_SAVE_GREGS; ++i)
 	write_register
-	  (GR96_REGNUM + i,
+	  (RETURN_REGNUM + i,
 	   read_register (LR0_REGNUM + DUMMY_ARG / 4 + DUMMY_SAVE_SR128 + i));
     }
 
@@ -689,7 +692,7 @@ push_dummy_frame ()
   for (i = 0; i < DUMMY_SAVE_SR128; ++i)
     write_register (LR0_REGNUM + DUMMY_ARG / 4 + i,
 		    read_register (SR_REGNUM (i + 128)));
-  for (i = 0; i < DUMMY_SAVE_GR96; ++i)
+  for (i = 0; i < DUMMY_SAVE_GREGS; ++i)
     write_register (LR0_REGNUM + DUMMY_ARG / 4 + DUMMY_SAVE_SR128 + i,
-		    read_register (GR96_REGNUM + i));
+		    read_register (RETURN_REGNUM + i));
 }

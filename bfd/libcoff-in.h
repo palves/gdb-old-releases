@@ -18,25 +18,24 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: libcoff-in.h,v 1.1 1991/08/21 21:37:28 pesch Exp $ */
+/* $Id: libcoff-in.h,v 1.2 1991/09/13 01:51:45 gnu Exp $ */
 
 /* Object file tdata; access macros */
 
-#define obj_icof(bfd)		((struct icofdata *) ((bfd)->tdata))
-#define coff_data(bfd)		((struct icofdata *) ((bfd)->tdata))
-#define exec_hdr(bfd)		(obj_icof(bfd)->hdr)
-#define obj_symbols(bfd)	(obj_icof(bfd)->symbols)
-#define	obj_sym_filepos(bfd)	(obj_icof(bfd)->sym_filepos)
+#define coff_data(bfd)		((coff_data_type *) ((bfd)->tdata))
+#define exec_hdr(bfd)		(coff_data(bfd)->hdr)
+#define obj_symbols(bfd)	(coff_data(bfd)->symbols)
+#define	obj_sym_filepos(bfd)	(coff_data(bfd)->sym_filepos)
 
-#define obj_relocbase(bfd)	(obj_icof(bfd)->relocbase)
-#define obj_raw_syments(bfd)	(obj_icof(bfd)->raw_syments)
-#define obj_convert(bfd)	(obj_icof(bfd)->conversion_table)
+#define obj_relocbase(bfd)	(coff_data(bfd)->relocbase)
+#define obj_raw_syments(bfd)	(coff_data(bfd)->raw_syments)
+#define obj_convert(bfd)	(coff_data(bfd)->conversion_table)
 #if CFILE_STUFF
-#define obj_symbol_slew(bfd)	(obj_icof(bfd)->symbol_index_slew)
+#define obj_symbol_slew(bfd)	(coff_data(bfd)->symbol_index_slew)
 #else
 #define obj_symbol_slew(bfd) 0
 #endif
-#define obj_string_table(bfd)	(obj_icof(bfd)->string_table)
+#define obj_string_table(bfd)	(coff_data(bfd)->string_table)
 
 #if 0
 typedef struct coff_ptr_struct
@@ -59,23 +58,36 @@ typedef struct
 } coff_symbol_type;
 #endif
 
-typedef struct icofdata 
-{
+/* `Tdata' information kept for COFF files.  */
 
-struct   coff_symbol_struct *symbols;	/* symtab for input bfd */
+typedef struct coff_tdata
+{
+  struct   coff_symbol_struct *symbols;	/* symtab for input bfd */
   unsigned int *conversion_table;
   file_ptr sym_filepos;
 
   long symbol_index_slew;	/* used during read to mark whether a
 				   C_FILE symbol as been added. */
 
-struct coff_ptr_struct *raw_syments;
+  struct coff_ptr_struct *raw_syments;
   struct lineno *raw_linenos;
   unsigned int raw_syment_count;
   char *string_table;
   unsigned short flags;
+
   /* These are only valid once writing has begun */
   long int relocbase;
+
+  /* These members communicate important constants about the symbol table
+     to GDB's symbol-reading code.  These `constants' unfortunately vary
+     from coff implementation to implementation...  */
+  unsigned local_n_btmask;
+  unsigned local_n_btshft;
+  unsigned local_n_tmask;
+  unsigned local_n_tshift;
+  unsigned local_symesz;
+  unsigned local_auxesz;
+  unsigned local_linesz;
 } coff_data_type;
 
 /* We take the address of the first element of a asymbol to ensure that the

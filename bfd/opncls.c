@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: opncls.c,v 1.24 1991/08/21 21:55:01 steve Exp $ */
+/* $Id: opncls.c,v 1.25 1991/09/13 01:40:18 gnu Exp $ */
 
 #include <sysdep.h>
 #include "bfd.h"
@@ -152,9 +152,12 @@ DEFUN(bfd_fdopenr,(filename, target, fd),
 
   bfd_error = system_call_error;
   
+#ifdef NO_FCNTL
+  fdflags = O_RDWR;			/* Assume full access */
+#else
   fdflags = fcntl (fd, F_GETFL, NULL);
+#endif
   if (fdflags == -1) return NULL;
-
 
   nbfd = new_bfd();
 
@@ -190,7 +193,6 @@ DEFUN(bfd_fdopenr,(filename, target, fd),
   default: abort ();
   }
 				   
-
   bfd_cache_init (nbfd);
 
   return nbfd;

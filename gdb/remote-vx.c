@@ -18,6 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include <stdio.h>
 #include "defs.h"
 #include "param.h"
 #include "frame.h"
@@ -29,7 +30,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "symfile.h"		/* for struct complaint */
 
-#include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
@@ -179,310 +179,6 @@ vx_remove_breakpoint (addr)
     return net_break (addr, VX_BREAK_DELETE);
     }
 
-/* Call a function on the VxWorks target system.
-   ARGS is a vector of values of arguments (NARGS of them).
-   FUNCTION is a value, the function to be called.
-   Returns a struct value * representing what the function returned.
-   May fail to return, if a breakpoint or signal is hit
-   during the execution of the function.  */
-
-#ifdef FIXME
-/* FIXME, function calls are really fried.  GO back to manual method. */
-value
-vx_call_function (function, nargs, args)
-     value function;
-     int nargs;
-     value *args;
-{
-  register CORE_ADDR sp;
-  register int i;
-  CORE_ADDR start_sp;
-  static REGISTER_TYPE dummy[] = CALL_DUMMY;
-  REGISTER_TYPE dummy1[sizeof dummy / sizeof (REGISTER_TYPE)];
-  CORE_ADDR old_sp;
-  struct type *value_type;
-  unsigned char struct_return;
-  CORE_ADDR struct_addr;
-  struct inferior_status inf_status;
-  struct cleanup *old_chain;
-  CORE_ADDR funaddr;
-  int using_gcc;
-
-  save_inferior_status (&inf_status, 1);
-  old_chain = make_cleanup (restore_inferior_status, &inf_status);
-
-  /* PUSH_DUMMY_FRAME is responsible for saving the inferior registers
-     (and POP_FRAME for restoring them).  (At least on most machines)
-     they are saved on the stack in the inferior.  */
-  PUSH_DUMMY_FRAME;
-
-  old_sp = sp = read_register (SP_REGNUM);
-
-#if 1 INNER_THAN 2		/* Stack grows down */
-  sp -= sizeof dummy;
-  start_sp = sp;
-#else				/* Stack grows up */
-  start_sp = sp;
-  sp += sizeof dummy;
-#endif
-
-  funaddr = find_function_addr (function, &value_type);
-
-  {
-    struct block *b = block_for_pc (funaddr);
-    /* If compiled without -g, assume GCC.  */
-    using_gcc = b == NULL || BLOCK_GCC_COMPILED (b);
-  }
-
-  /* Are we returning a value using a structure return or a normal
-     value return? */
-
-  struct_return = using_struct_return (function, funaddr, value_type,
-				       using_gcc);
-
-  /* Create a call sequence customized for this function
-     and the number of arguments for it.  */
-  bcopy (dummy, dummy1, sizeof dummy);
-  FIX_CALL_DUMMY (dummy1, start_sp, funaddr, nargs, args,
-		  value_type, using_gcc);
-
-#if CALL_DUMMY_LOCATION == ON_STACK
-  write_memory (start_sp, dummy1, sizeof dummy);
-
-#else /* Not on stack.  */
-#if CALL_DUMMY_LOCATION == BEFORE_TEXT_END
-  /* Convex Unix prohibits executing in the stack segment. */
-  /* Hope there is empty room at the top of the text segment. */
-  {
-    static checked = 0;
-    if (!checked)
-      for (start_sp = text_end - sizeof dummy; start_sp < text_end; ++start_sp)
-	if (read_memory_integer (start_sp, 1) != 0)
-	  error ("text segment full -- no place to put call");
-    checked = 1;
-    sp = old_sp;
-    start_sp = text_end - sizeof dummy;
-    write_memory (start_sp, dummy1, sizeof dummy);
-  }
-#else /* After text_end.  */
-  {
-    int errcode;
-    sp = old_sp;
-    start_sp = text_end;
-    errcode = target_write_memory (start_sp, dummy1, sizeof dummy);
-    if (errcode != 0)
-      error ("Cannot write text segment -- call_function failed");
-  }
-#endif /* After text_end.  */
-#endif /* Not on stack.  */
-
-#ifdef STACK_ALIGN
-  /* If stack grows down, we must leave a hole at the top. */
-  {
-    int len = 0;
-
-    /* Reserve space for the return structure to be written on the
-       stack, if necessary */
-
-    if (struct_return)
-      len += TYPE_LENGTH (value_type);
-    
-    for (i = nargs - 1; i >= 0; i--)
-      len += TYPE_LENGTH (VALUE_TYPE (value_arg_coerce (args[i])));
-#ifdef CALL_DUMMY_STACK_ADJUST
-    len += CALL_DUMMY_STACK_ADJUST;
-#endif
-#if 1 INNER_THAN 2
-    sp -= STACK_ALIGN (len) - len;
-#else
-    sp += STACK_ALIGN (len) - len;
-#endif
-  }
-#endif /* STACK_ALIGN */
-
-    /* Reserve space for the return structure to be written on the
-       stack, if necessary */
-
-    if (struct_return)
-      {
-#if 1 INNER_THAN 2
-	sp -= TYPE_LENGTH (value_type);
-	struct_addr = sp;
-#else
-	struct_addr = sp;
-	sp += TYPE_LENGTH (value_type);
-#endif
-      }
-
-#if defined (REG_STRUCT_HAS_ADDR)
-  {
-    /* This is a machine like the sparc, where we need to pass a pointer
-       to the structure, not the structure itself.  */
-    if (REG_STRUCT_HAS_ADDR (using_gcc))
-      for (i = nargs - 1; i >= 0; i--)
-	if (TYPE_CODE (VALUE_TYPE (args[i])) == TYPE_CODE_STRUCT)
-	  {
-	    CORE_ADDR addr;
-#if !(1 INNER_THAN 2)
-	    /* The stack grows up, so the address of the thing we push
-	       is the stack pointer before we push it.  */
-	    addr = sp;
-#endif
-	    /* Push the structure.  */
-	    sp = value_push (sp, args[i]);
-#if 1 INNER_THAN 2
-	    /* The stack grows down, so the address of the thing we push
-	       is the stack pointer after we push it.  */
-	    addr = sp;
-#endif
-	    /* The value we're going to pass is the address of the thing
-	       we just pushed.  */
-	    args[i] = value_from_long (builtin_type_long, (LONGEST) addr);
-	  }
-  }
-#endif /* REG_STRUCT_HAS_ADDR.  */
-
-#ifdef PUSH_ARGUMENTS
-  PUSH_ARGUMENTS(nargs, args, sp, struct_return, struct_addr);
-#else /* !PUSH_ARGUMENTS */
-  for (i = nargs - 1; i >= 0; i--)
-    sp = value_arg_push (sp, args[i]);
-#endif /* !PUSH_ARGUMENTS */
-
-#ifdef CALL_DUMMY_STACK_ADJUST
-#if 1 INNER_THAN 2
-  sp -= CALL_DUMMY_STACK_ADJUST;
-#else
-  sp += CALL_DUMMY_STACK_ADJUST;
-#endif
-#endif /* CALL_DUMMY_STACK_ADJUST */
-
-  /* Store the address at which the structure is supposed to be
-     written.  Note that this (and the code which reserved the space
-     above) assumes that gcc was used to compile this function.  Since
-     it doesn't cost us anything but space and if the function is pcc
-     it will ignore this value, we will make that assumption.
-
-     Also note that on some machines (like the sparc) pcc uses a 
-     convention like gcc's.  */
-
-  if (struct_return)
-    STORE_STRUCT_RETURN (struct_addr, sp);
-
-  /* Write the stack pointer.  This is here because the statements above
-     might fool with it.  On SPARC, this write also stores the register
-     window into the right place in the new stack frame, which otherwise
-     wouldn't happen.  (See write_inferior_registers in sparc-xdep.c.)  */
-  write_register (SP_REGNUM, sp);
-
-  /* Figure out the value returned by the function.  */
-  {
-    char retbuf[REGISTER_BYTES];
-
-    /* Execute the stack dummy routine, calling FUNCTION.
-       When it is done, discard the empty frame
-       after storing the contents of all regs into retbuf.  */
-    run_stack_dummy (start_sp + CALL_DUMMY_START_OFFSET, retbuf);
-
-    do_cleanups (old_chain);
-
-    return value_being_returned (value_type, retbuf, struct_return);
-  }
-}
-/* should return a value of some sort */
- 
-value
-vx_call_function (funcAddr, nargs, args, valueType)
-    char *funcAddr;
-    int nargs;
-    value *args;
-    struct type * valueType;
-{
-    int i;
-    func_call funcInfo;
-    arg_value *argValue;
-    enum clnt_stat status;
-    register int len;
-    arg_value funcReturn;
-    value gdbValue;
-
-    argValue = (arg_value *) xmalloc (nargs * sizeof (arg_value));
-
-    bzero (argValue, nargs * sizeof (arg_value));
-    bzero (&funcReturn, sizeof (funcReturn));
-
-    for (i = nargs - 1; i >= 0; i--)
-	{
-	len = TYPE_LENGTH (VALUE_TYPE (args [i]));
-
-	switch (TYPE_CODE (VALUE_TYPE (args[i])))
-	    {
-	    /* XXX put other types here.  Where's CHAR, etc??? */
-
-	    case TYPE_CODE_FLT:
-		argValue[i].type = T_FLOAT;
-		break;
-	    case TYPE_CODE_INT:
-	    case TYPE_CODE_PTR:
-	    case TYPE_CODE_ENUM:
-	    case TYPE_CODE_FUNC:
-		argValue[i].type = T_INT;
-		break;
-
-	    case TYPE_CODE_UNDEF:
-	    case TYPE_CODE_ARRAY:
-	    case TYPE_CODE_STRUCT:
-	    case TYPE_CODE_UNION:
-	    case TYPE_CODE_VOID:
-	    case TYPE_CODE_SET:
-	    case TYPE_CODE_RANGE:
-	    case TYPE_CODE_PASCAL_ARRAY:
-	    case TYPE_CODE_MEMBER:	    /* C++ */
-	    case TYPE_CODE_METHOD:	    /* C++ */
-	    case TYPE_CODE_REF:		    /* C++ */
-	    default:
-		error ("No corresponding VxWorks type for %d.  CHECK IT OUT!!!\n",
-			TYPE_CODE(VALUE_TYPE(args[i])));
-	    } /* switch */
-	if (TYPE_CODE(VALUE_TYPE(args[i])) == TYPE_CODE_FUNC)
-	    argValue[i].arg_value_u.v_int = VALUE_ADDRESS(args[i]);
-	else
-	    bcopy (VALUE_CONTENTS (args[i]), (char *) &argValue[i].arg_value_u,
-	       	   len);
-	}
-
-    /* XXX what should the type of this function addr be?
-     * XXX Both in gdb and vxWorks
-     */
-    funcInfo.func_addr = (int) funcAddr;
-    funcInfo.args.args_len = nargs;
-    funcInfo.args.args_val = argValue;
-
-    status = net_clnt_call (VX_CALL_FUNC, xdr_func_call, (char *) &funcInfo,
-			    xdr_arg_value, &funcReturn);
-
-    free ((char *) argValue);
-
-    if (status == RPC_SUCCESS)
-	{
-	/* XXX this assumes that vxWorks ALWAYS returns an int, and that
-	 * XXX gdb isn't expecting anything more
-	 */
-
-	/*******************
-	if (funcReturn.type == T_UNKNOWN)
-	    return YYYXXX...;
-	*******************/
-	gdbValue = allocate_value (valueType);
-	bcopy (&funcReturn.arg_value_u.v_int, VALUE_CONTENTS (gdbValue),
-		sizeof (int));
-        return gdbValue;
-	}
-    else 
-	error (rpcerr);
-    }
-#endif /* FIXME */
- 
 /* Start an inferior process and sets inferior_pid to its pid.
    EXEC_FILE is the file to run.
    ALLARGS is a string containing the arguments to the program.
@@ -958,9 +654,9 @@ vx_files_info ()
 void
 vx_run_files_info ()
 {
-  printf ("\tRunning %s VxWorks process 0x%x", 
+  printf ("\tRunning %s VxWorks process %s", 
 	  vx_running? "child": "attached",
-	  inferior_pid);
+	  local_hex_string(inferior_pid));
   if (vx_running)
     printf (", function `%s'", vx_running);
   printf(".\n");
@@ -1288,7 +984,7 @@ vx_wait (status)
 	  sleep_ms (200);	/* FIXME Don't kill the network too badly */
 	}
       else if (pid != inferior_pid)
-	fatal ("Bad pid for debugged task: 0x%x\n", pid);
+	fatal ("Bad pid for debugged task: %s\n", local_hex_string(pid));
     } while (pid == 0);
 
   /* FIXME, eventually do more then SIGTRAP on everything...  */
@@ -1340,16 +1036,15 @@ vx_wait (status)
 
 static int
 symbol_stub (arg)
-     int arg;
+     char *arg;
 {
-  char *bootFile = (char *)arg;
-  symbol_file_command (bootFile, 0);
+  symbol_file_command (arg, 0);
   return 1;
 }
 
 static int
 add_symbol_stub (arg)
-     int arg;
+     char *arg;
 {
   struct ldfile *pLoadFile = (struct ldfile *)arg;
 
@@ -1413,8 +1108,8 @@ vx_open (args, from_tty)
     {
       if (*bootFile) {
 	printf_filtered ("\t%s: ", bootFile);
-	if (catch_errors (symbol_stub, (int)bootFile,
-		"Error reading symbols from boot file"))
+	if (catch_errors (symbol_stub, bootFile,
+		"Error while reading symbols from boot file:\n"))
 	  puts_filtered ("ok\n");
       } else if (from_tty)
 	printf ("VxWorks kernel symbols not loaded.\n");
@@ -1450,7 +1145,7 @@ vx_open (args, from_tty)
       /* Botches, FIXME:
 	 (1)  Searches the PATH, not the source path.
 	 (2)  data and bss are assumed to be at the usual offsets from text.  */
-      catch_errors (add_symbol_stub, (int)pLoadFile, (char *)0);
+      catch_errors (add_symbol_stub, (char *)pLoadFile, (char *)0);
 #endif
     }
   printf_filtered ("Done.\n");
@@ -1483,7 +1178,7 @@ vx_attach (args, from_tty)
     error ("Invalid process-id -- give a single number in decimal or 0xhex");
 
   if (from_tty)
-      printf ("Attaching pid 0x%x.\n", pid);
+      printf ("Attaching pid %s.\n", local_hex_string(pid));
 
   bzero ((char *)&ptrace_in,  sizeof (ptrace_in));
   bzero ((char *)&ptrace_out, sizeof (ptrace_out));
@@ -1549,7 +1244,7 @@ vx_detach (args, from_tty)
     error ("Argument given to VxWorks \"detach\".");
 
   if (from_tty)
-      printf ("Detaching pid 0x%x.\n", inferior_pid);
+      printf ("Detaching pid %s.\n", local_hex_string(inferior_pid));
 
   if (args)		/* FIXME, should be possible to leave suspended */
     signal = atoi (args);
@@ -1586,7 +1281,7 @@ vx_kill (args, from_tty)
     error ("Argument given to VxWorks \"kill\".");
 
   if (from_tty)
-      printf ("Killing pid 0x%x.\n", inferior_pid);
+      printf ("Killing pid %s.\n", local_hex_string(inferior_pid));
 
   bzero ((char *)&ptrace_in,  sizeof (ptrace_in));
   bzero ((char *)&ptrace_out, sizeof (ptrace_out));

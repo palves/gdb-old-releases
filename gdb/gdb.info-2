@@ -25,6 +25,62 @@ Public License" may be included in a translation approved by the
 Free Software Foundation instead of in the original English.
 
 
+File: gdb.info,  Node: Kill Process,  Prev: Attach,  Up: Running
+
+Killing the Child Process
+=========================
+
+`kill'
+     Kill the child process in which your program is running under GDB.
+
+   This command is useful if you wish to debug a core dump instead of
+a
+running process.  GDB ignores any core dump file while your program
+is running.
+
+   On some operating systems, a program can't be executed outside GDB
+while
+you have breakpoints set on it inside GDB.  You can use the `kill'
+command in this situation to permit running the program outside the
+debugger.
+
+   The `kill' command is also useful if you wish to recompile and
+relink the program, since on many systems it is impossible to modify
+an executable file while it is running in a process.  In this case,
+when you next type `run', GDB will notice that the file has changed,
+and will re-read the symbol table (while trying to preserve your
+current breakpoint settings).
+
+
+File: gdb.info,  Node: Stopping,  Next: Stack,  Prev: Running,  Up: Top
+
+Stopping and Continuing
+***********************
+
+   The principal purpose of using a debugger is so that you can stop
+your program before it terminates; or so that, if the program runs
+into trouble, you can investigate and find out why.
+
+   Inside GDB, your program may stop for any of several reasons, such
+as a signal, a breakpoint, or reaching a new line after a GDB
+command such as `step'.  You may then examine and change variables,
+set
+new breakpoints or remove old ones, and then continue execution. 
+Usually, the messages shown by GDB provide ample explanation of the
+status of your program--but you can also explicitly request this
+information at any time.
+
+`info program'
+     Display information about the status of your program: whether it
+     is running or not, what process it is, and why it stopped.
+
+* Menu:
+
+* Breakpoints::                 Breakpoints, Watchpoints, and Exceptions
+* Continuing and Stepping::     Resuming Execution
+* Signals::                     Signals
+
+
 File: gdb.info,  Node: Breakpoints,  Next: Continuing and Stepping,  Prev: Stopping,  Up: Stopping
 
 Breakpoints, Watchpoints, and Exceptions
@@ -395,7 +451,7 @@ address.  (In that case, GDB might see the other breakpoint first
 and stop the program without checking the condition of this one.) 
 Note that breakpoint commands are usually more convenient and
 flexible for the purpose of performing side effects when a
-breakpoint is reached (*note Break Commands::.).
+breakpoint is reached  (*note Break Commands::.).
 
    Break conditions can be specified when a breakpoint is set, by
 using `if' in the arguments to the `break' command.  *Note Set
@@ -733,7 +789,7 @@ until you see the problem happen.
 `u LOCATION'
      Continue running the program until either the specified location
      is reached, or the current stack frame returns.  LOCATION is
-     any of the forms of argument acceptable to `break' (*note Set
+     any of the forms of argument acceptable to `break'  (*note Set
      Breaks::.).  This form of the command uses breakpoints, and
      hence is quicker than `until' without an argument.
 
@@ -870,7 +926,7 @@ select whichever frame you are interested in.
 
    When the program stops, GDB automatically selects the currently
 executing frame and describes it briefly as the `frame' command does
-(*note Info: Frame Info.).
+(*note Frame Info::.).
 
 * Menu:
 
@@ -1002,9 +1058,8 @@ selected.
      In addition, this can be useful when the program has multiple
      stacks and switches between them.
 
-     _if_(1) On the SPARC architecture, `frame' needs two addresses
-     to select an arbitrary frame: a frame pointer and a stack
-     pointer.   _fi_(1)
+     On the SPARC architecture, `frame' needs two addresses to select
+     an arbitrary frame: a frame pointer and a stack pointer.
 
 `up N'
      Move N frames up the stack.  For positive numbers N, this
@@ -1061,11 +1116,13 @@ selected stack frame.
      This command prints a verbose description of the selected stack
      frame, including the address of the frame, the addresses of the
      next frame down (called by this frame) and the next frame up
-     (caller of this frame), the address of the frame's arguments,
-     the program counter saved in it (the address of execution in
-     the caller frame), and which registers were saved in the frame.
-     The verbose description is useful when something has gone wrong
-     that has made the stack format fail to fit the usual conventions.
+     (caller of this frame), the language that the source code
+     corresponding to this frame was written in, the address of the
+     frame's arguments, the program counter saved in it (the address
+     of execution in the caller frame), and which registers were
+     saved in the frame.  The verbose description is useful when
+     something has gone wrong that has made the stack format fail to
+     fit the usual conventions.
 
 `info frame ADDR'
 `info f ADDR'
@@ -1114,125 +1171,5 @@ use Emacs facilities to view source; *note Emacs::..
 * Search::                      Searching Source Files
 * Source Path::                 Specifying Source Directories
 * Machine Code::                Source and Machine Code
-
-
-File: gdb.info,  Node: List,  Next: Search,  Prev: Source,  Up: Source
-
-Printing Source Lines
-=====================
-
-   To print lines from a source file, use the `list' command
-(abbreviated `l').  There are several ways to specify what part of
-the file you want to print.
-
-   Here are the forms of the `list' command most commonly used:
-
-`list LINENUM'
-     Print ten lines centered around line number LINENUM in the
-     current source file.
-
-`list FUNCTION'
-     Print ten lines centered around the beginning of function
-     FUNCTION.
-
-`list'
-     Print ten more lines.  If the last lines printed were printed
-     with a `list' command, this prints ten lines following the last
-     lines printed; however, if the last line printed was a solitary
-     line printed as part of displaying a stack frame (*note
-     Stack::.), this prints ten lines centered around that line.
-
-`list -'
-     Print ten lines just before the lines last printed.
-
-   Repeating a `list' command with RET discards the argument, so it
-is equivalent to typing just `list'.  This is more useful than
-listing the same lines again.  An exception is made for an argument
-of `-'; that argument is preserved in repetition so that each
-repetition moves up in the source file.
-
-   In general, the `list' command expects you to supply zero, one or
-two "linespecs".  Linespecs specify source lines; there are several
-ways of writing them but the effect is always to specify some source
-line.  Here is a complete description of the possible arguments for
-`list':
-
-`list LINESPEC'
-     Print ten lines centered around the line specified by LINESPEC.
-
-`list FIRST,LAST'
-     Print lines from FIRST to LAST.  Both arguments are linespecs.
-
-`list ,LAST'
-     Print ten lines ending with LAST.
-
-`list FIRST,'
-     Print ten lines starting with FIRST.
-
-`list +'
-     Print ten lines just after the lines last printed.
-
-`list -'
-     Print ten lines just before the lines last printed.
-
-`list'
-     As described in the preceding table.
-
-   Here are the ways of specifying a single source line--all the
-kinds of linespec.
-
-`NUMBER'
-     Specifies line NUMBER of the current source file.  When a `list'
-     command has two linespecs, this refers to the same source file
-     as the first linespec.
-
-`+OFFSET'
-     Specifies the line OFFSET lines after the last line printed. 
-     When used as the second linespec in a `list' command that has
-     two, this specifies the line OFFSET lines down from the first
-     linespec.
-
-`-OFFSET'
-     Specifies the line OFFSET lines before the last line printed.
-
-`FILENAME:NUMBER'
-     Specifies line NUMBER in the source file FILENAME.
-
-`FUNCTION'
-     Specifies the line of the open-brace that begins the body of the
-     function FUNCTION.
-
-`FILENAME:FUNCTION'
-     Specifies the line of the open-brace that begins the body of the
-     function FUNCTION in the file FILENAME.  You only need the file
-     name with a function name to avoid ambiguity when there are
-     identically named functions in different source files.
-
-`*ADDRESS'
-     Specifies the line containing the program address ADDRESS. 
-     ADDRESS may be any expression.
-
-
-File: gdb.info,  Node: Search,  Next: Source Path,  Prev: List,  Up: Source
-
-Searching Source Files
-======================
-
-   There are two commands for searching through the current source
-file for a regular expression.
-
-`forward-search REGEXP'
-`search REGEXP'
-     The command `forward-search REGEXP' checks each line, starting
-     with the one following the last line listed, for a match for
-     REGEXP.  It lists the line that is found.  You can abbreviate
-     the command name as `fo'.  The synonym `search REGEXP' is also
-     supported.
-
-`reverse-search REGEXP'
-     The command `reverse-search REGEXP' checks each line, starting
-     with the one before the last line listed and going backward,
-     for a match for REGEXP.  It lists the line that is found.  You
-     can abbreviate this command as `rev'.
 
 

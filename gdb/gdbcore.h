@@ -56,6 +56,10 @@ extern void (*exec_file_display_hook) ();
 extern bfd *core_bfd;
 extern bfd *exec_bfd;
 
+/* Whether to open exec and core files read-only or read-write.  */
+
+extern int write_files;
+
 void core_file_command ();
 void exec_file_command ();
 void validate_files ();

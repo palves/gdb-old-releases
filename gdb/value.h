@@ -138,7 +138,7 @@ extern int value_fetch_lazy ();
 /* Convert a REF to the object referenced. */
 
 #define COERCE_REF(arg)    \
-{ if (TYPE_CODE ( VALUE_TYPE (arg)) == TYPE_CODE_REF)			\
+{ if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_REF)			\
     arg = value_at_lazy (TYPE_TARGET_TYPE (VALUE_TYPE (arg)),		\
 			 unpack_long (VALUE_TYPE (arg),			\
 				      VALUE_CONTENTS (arg)));}
@@ -163,7 +163,7 @@ extern int value_fetch_lazy ();
 /* If ARG is an enum, convert it to an integer.  */
 
 #define COERCE_ENUM(arg)    \
-{ if (TYPE_CODE ( VALUE_TYPE (arg)) == TYPE_CODE_REF)			\
+{ if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_REF)			\
     arg = value_ind (arg);						\
   if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ENUM)			\
     arg = value_cast (builtin_type_unsigned_int, arg);			\
@@ -211,7 +211,7 @@ CORE_ADDR unpack_pointer (
 #endif
 			  );
 long unpack_field_as_long ();
-value value_from_long ();
+value value_from_longest ();
 value value_from_double ();
 value value_at ();
 value value_at_lazy ();

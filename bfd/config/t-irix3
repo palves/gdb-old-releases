@@ -1,0 +1,2 @@
+TDEFINES = -DDEFAULT_VECTOR=ecoff_big_vec
+

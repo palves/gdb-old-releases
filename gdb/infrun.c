@@ -350,7 +350,7 @@ proceed (addr, siggnal, step)
   if (step < 0)
     stop_after_trap = 1;
 
-  if (addr == -1)
+  if (addr == (CORE_ADDR)-1)
     {
       /* If there is a breakpoint at the address we will resume at,
 	 step one instruction before inserting breakpoints
@@ -528,7 +528,7 @@ child_create_inferior (exec_file, allargs, env)
 #ifdef TIOCGPGRP
       /* Run inferior in a separate process group.  */
       debug_setpgrp = setpgrp (getpid (), getpid ());
-      if (0 != debug_setpgrp)
+      if (debug_setpgrp == -1)
 	 perror("setpgrp failed in child");
 #endif /* TIOCGPGRP */
 
@@ -631,6 +631,13 @@ child_create_inferior (exec_file, allargs, env)
     }
   stop_soon_quietly = 0;
 
+  /* We are now in the child process of interest, having exec'd the
+     correct program, and are poised at the first instruction of the
+     new program.  */
+#ifdef SOLIB_CREATE_INFERIOR_HOOK
+  SOLIB_CREATE_INFERIOR_HOOK ();
+#endif
+
   /* Should this perhaps just be a "proceed" call?  FIXME */
   insert_step_breakpoint ();
   breakpoints_failed = insert_breakpoints ();
@@ -726,6 +733,9 @@ child_attach (args, from_tty)
   /*proceed (-1, 0, -2);*/
   target_terminal_inferior ();
   wait_for_inferior ();
+#ifdef SOLIB_ADD
+  SOLIB_ADD ((char *)0, from_tty, (struct target_ops *)0);
+#endif
   normal_stop ();
 #endif  /* ATTACH_DETACH */
 }
@@ -1400,19 +1410,24 @@ Further execution is probably impossible.\n");
     return;
 
   /* Select innermost stack frame except on return from a stack dummy routine,
-     or if the program has exited.  */
+     or if the program has exited.  Print it without a level number if
+     we have changed functions or hit a breakpoint.  Print source line
+     if we have one.  */
   if (!stop_stack_dummy)
     {
       select_frame (get_current_frame (), 0);
 
       if (stop_print_frame)
 	{
-	  int source_only = bpstat_print (stop_bpstat);
-	  print_sel_frame
-	    (source_only
-	     || (stop_step
+	  int source_only;
+
+	  source_only = bpstat_print (stop_bpstat);
+	  source_only = source_only ||
+	        (   stop_step
 		 && step_frame_address == stop_frame_address
-		 && step_start_function == find_pc_function (stop_pc)));
+		 && step_start_function == find_pc_function (stop_pc));
+
+          print_stack_frame (selected_frame, -1, source_only? -1: 1);
 
 	  /* Display the auto-display expressions.  */
 	  do_displays ();

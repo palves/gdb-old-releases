@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: targets.c,v 1.25 1991/08/22 18:27:02 pesch Exp $ */
+/* $Id: targets.c,v 1.27 1991/09/20 03:44:21 gnu Exp $ */
 
 #include <sysdep.h>
 #include "bfd.h"
@@ -290,6 +290,7 @@ extern bfd_target oasys_vec;
 extern bfd_target m88k_bcs_vec;
 extern bfd_target m68kcoff_vec;
 extern bfd_target i386coff_vec;
+extern bfd_target a29kcoff_big_vec;
 #ifdef DEFAULT_VECTOR
 extern bfd_target DEFAULT_VECTOR;
 #endif
@@ -316,6 +317,7 @@ extern bfd_target DEFAULT_VECTOR;
 #define SREC_VEC                srec_vec
 #define M68KCOFF_VEC            m68kcoff_vec
 #define I386COFF_VEC            i386coff_vec
+#define A29KCOFF_BIG_VEC	a29kcoff_big_vec
 #endif
 
 bfd_target *target_vector[] = {

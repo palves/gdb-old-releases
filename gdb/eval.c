@@ -1,5 +1,5 @@
 /* Evaluate expressions for GDB.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -36,7 +36,7 @@ CORE_ADDR
 parse_and_eval_address (exp)
      char *exp;
 {
-  struct expression *expr = parse_c_expression (exp);
+  struct expression *expr = parse_expression (exp);
   register CORE_ADDR addr;
   register struct cleanup *old_chain
     = make_cleanup (free_current_contents, &expr);
@@ -53,7 +53,7 @@ CORE_ADDR
 parse_and_eval_address_1 (expptr)
      char **expptr;
 {
-  struct expression *expr = parse_c_1 (expptr, (struct block *)0, 0);
+  struct expression *expr = parse_exp_1 (expptr, (struct block *)0, 0);
   register CORE_ADDR addr;
   register struct cleanup *old_chain
     = make_cleanup (free_current_contents, &expr);
@@ -67,7 +67,7 @@ value
 parse_and_eval (exp)
      char *exp;
 {
-  struct expression *expr = parse_c_expression (exp);
+  struct expression *expr = parse_expression (exp);
   register value val;
   register struct cleanup *old_chain
     = make_cleanup (free_current_contents, &expr);
@@ -85,7 +85,7 @@ value
 parse_to_comma_and_eval (expp)
      char **expp;
 {
-  struct expression *expr = parse_c_1 (expp, (struct block *) 0, 1);
+  struct expression *expr = parse_exp_1 (expp, (struct block *) 0, 1);
   register value val;
   register struct cleanup *old_chain
     = make_cleanup (free_current_contents, &expr);
@@ -96,7 +96,7 @@ parse_to_comma_and_eval (expp)
 }
 
 /* Evaluate an expression in internal prefix form
-   such as is constructed by expread.y.
+   such as is constructed by parse.y.
 
    See expression.h for info on the format of an expression.  */
 
@@ -170,7 +170,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 
     case OP_LONG:
       (*pos) += 3;
-      return value_from_long (exp->elts[pc + 1].type,
+      return value_from_longest (exp->elts[pc + 1].type,
 			      exp->elts[pc + 2].longconst);
 
     case OP_DOUBLE:
@@ -371,9 +371,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
 			      ? "structure" : "structure pointer");
 	  if (VALUE_OFFSET (temp))
 	    {
-	      arg2 = value_from_long (builtin_type_long,
+	      arg2 = value_from_longest (lookup_pointer_type (VALUE_TYPE (temp)),
 				      value_as_long (arg2)+VALUE_OFFSET (temp));
-	      VALUE_TYPE (arg2) = lookup_pointer_type (VALUE_TYPE (temp));
 	      argvec[1] = arg2;
 	    }
 	  if (static_memfuncp)
@@ -460,10 +459,9 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	      && (TYPE_CODE (TYPE_TARGET_TYPE (VALUE_TYPE (arg2)))
 		  != TYPE_CODE_METHOD)))
 	error ("non-pointer-to-member value used in pointer-to-member construct");
-      arg3 = value_from_long (builtin_type_long,
+      arg3 = value_from_longest (
+	lookup_pointer_type (TYPE_TARGET_TYPE (TYPE_TARGET_TYPE (VALUE_TYPE (arg2)))),
 			      value_as_long (arg1) + value_as_long (arg2));
-      VALUE_TYPE (arg3) =
-	lookup_pointer_type (TYPE_TARGET_TYPE (TYPE_TARGET_TYPE (VALUE_TYPE (arg2))));
       return value_ind (arg3);
 
     case STRUCTOP_MPTR:
@@ -476,10 +474,9 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	  || (TYPE_CODE (TYPE_TARGET_TYPE (VALUE_TYPE (arg2))) != TYPE_CODE_MEMBER
 	      && TYPE_CODE (TYPE_TARGET_TYPE (VALUE_TYPE (arg2))) != TYPE_CODE_METHOD))
 	error ("non-pointer-to-member value used in pointer-to-member construct");
-      arg3 = value_from_long (builtin_type_long,
+      arg3 = value_from_longest (
+	lookup_pointer_type (TYPE_TARGET_TYPE (TYPE_TARGET_TYPE (VALUE_TYPE (arg2)))),
 			      value_as_long (arg1) + value_as_long (arg2));
-      VALUE_TYPE (arg3) =
-	lookup_pointer_type (TYPE_TARGET_TYPE (TYPE_TARGET_TYPE (VALUE_TYPE (arg2))));
       return value_ind (arg3);
 
     case BINOP_ASSIGN:
@@ -586,7 +583,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	  tem = value_zerop (arg1);
 	  arg2 = evaluate_subexp (NULL_TYPE, exp, pos,
 				  (tem ? EVAL_SKIP : noside));
-	  return value_from_long (builtin_type_int,
+	  return value_from_longest (builtin_type_int,
 				  (LONGEST) (!tem && !value_zerop (arg2)));
 	}
 
@@ -612,7 +609,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	  tem = value_zerop (arg1);
 	  arg2 = evaluate_subexp (NULL_TYPE, exp, pos,
 				  (!tem ? EVAL_SKIP : noside));
-	  return value_from_long (builtin_type_int,
+	  return value_from_longest (builtin_type_int,
 				  (LONGEST) (!tem || !value_zerop (arg2)));
 	}
 
@@ -628,7 +625,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       else
 	{
 	  tem = value_equal (arg1, arg2);
-	  return value_from_long (builtin_type_int, (LONGEST) tem);
+	  return value_from_longest (builtin_type_int, (LONGEST) tem);
 	}
 
     case BINOP_NOTEQUAL:
@@ -643,7 +640,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       else
 	{
 	  tem = value_equal (arg1, arg2);
-	  return value_from_long (builtin_type_int, (LONGEST) ! tem);
+	  return value_from_longest (builtin_type_int, (LONGEST) ! tem);
 	}
 
     case BINOP_LESS:
@@ -658,7 +655,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       else
 	{
 	  tem = value_less (arg1, arg2);
-	  return value_from_long (builtin_type_int, (LONGEST) tem);
+	  return value_from_longest (builtin_type_int, (LONGEST) tem);
 	}
 
     case BINOP_GTR:
@@ -673,7 +670,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       else
 	{
 	  tem = value_less (arg2, arg1);
-	  return value_from_long (builtin_type_int, (LONGEST) tem);
+	  return value_from_longest (builtin_type_int, (LONGEST) tem);
 	}
 
     case BINOP_GEQ:
@@ -688,7 +685,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       else
 	{
 	  tem = value_less (arg1, arg2);
-	  return value_from_long (builtin_type_int, (LONGEST) ! tem);
+	  return value_from_longest (builtin_type_int, (LONGEST) ! tem);
 	}
 
     case BINOP_LEQ:
@@ -703,7 +700,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       else 
 	{
 	  tem = value_less (arg2, arg1);
-	  return value_from_long (builtin_type_int, (LONGEST) ! tem);
+	  return value_from_longest (builtin_type_int, (LONGEST) ! tem);
 	}
 
     case BINOP_REPEAT:
@@ -755,7 +752,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (unop_user_defined_p (op, arg1))
 	return value_x_unop (arg1, op);
       else
-	return value_from_long (builtin_type_int,
+	return value_from_longest (builtin_type_int,
 				(LONGEST) value_zerop (arg1));
 
     case UNOP_IND:
@@ -849,7 +846,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
       else
 	{
-	  arg2 = value_add (arg1, value_from_long (builtin_type_char, 
+	  arg2 = value_add (arg1, value_from_longest (builtin_type_char, 
 						   (LONGEST) 1));
 	  return value_assign (arg1, arg2);
 	}
@@ -864,7 +861,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
       else
 	{
-	  arg2 = value_sub (arg1, value_from_long (builtin_type_char, 
+	  arg2 = value_sub (arg1, value_from_longest (builtin_type_char, 
 						   (LONGEST) 1));
 	  return value_assign (arg1, arg2);
 	}
@@ -879,7 +876,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
       else
 	{
-	  arg2 = value_add (arg1, value_from_long (builtin_type_char, 
+	  arg2 = value_add (arg1, value_from_longest (builtin_type_char, 
 						   (LONGEST) 1));
 	  value_assign (arg1, arg2);
 	  return arg1;
@@ -895,7 +892,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
       else
 	{
-	  arg2 = value_sub (arg1, value_from_long (builtin_type_char, 
+	  arg2 = value_sub (arg1, value_from_longest (builtin_type_char, 
 						   (LONGEST) 1));
 	  value_assign (arg1, arg2);
 	  return arg1;
@@ -910,7 +907,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
     }
 
  nosideret:
-  return value_from_long (builtin_type_long, (LONGEST) 1);
+  return value_from_longest (builtin_type_long, (LONGEST) 1);
 }
 
 /* Evaluate a subexpression of EXP, at index *POS,
@@ -1036,22 +1033,22 @@ evaluate_subexp_for_sizeof (exp, pos)
     case UNOP_IND:
       (*pos)++;
       val = evaluate_subexp (NULL_TYPE, exp, pos, EVAL_AVOID_SIDE_EFFECTS);
-      return value_from_long (builtin_type_int, (LONGEST)
+      return value_from_longest (builtin_type_int, (LONGEST)
 		      TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (val))));
 
     case UNOP_MEMVAL:
       (*pos) += 3;
-      return value_from_long (builtin_type_int, 
+      return value_from_longest (builtin_type_int, 
 			      (LONGEST) TYPE_LENGTH (exp->elts[pc + 1].type));
 
     case OP_VAR_VALUE:
       (*pos) += 3;
-      return value_from_long (builtin_type_int,
+      return value_from_longest (builtin_type_int,
 	 (LONGEST) TYPE_LENGTH (SYMBOL_TYPE (exp->elts[pc + 1].symbol)));
 
     default:
       val = evaluate_subexp (NULL_TYPE, exp, pos, EVAL_AVOID_SIDE_EFFECTS);
-      return value_from_long (builtin_type_int,
+      return value_from_longest (builtin_type_int,
 			      (LONGEST) TYPE_LENGTH (VALUE_TYPE (val)));
     }
 }

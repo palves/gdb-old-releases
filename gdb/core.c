@@ -20,6 +20,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdio.h>
 #include <errno.h>
 #include <signal.h>
+#include <fcntl.h>
 #include "defs.h"
 #include "param.h"
 #include "frame.h"  /* required by inferior.h */
@@ -79,9 +80,9 @@ core_close (quitting)
 
 int 
 solib_add_stub (from_tty)
-     int from_tty;
+     char *from_tty;
 {
-    SOLIB_ADD (NULL, from_tty, &core_ops);
+    SOLIB_ADD (NULL, (int)from_tty, &core_ops);
     return 0;
 }
 #endif /* SOLIB_ADD */
@@ -99,6 +100,7 @@ core_open (filename, from_tty)
   char *temp;
   bfd *temp_bfd;
   int ontop;
+  int scratch_chan;
 
   target_preopen (from_tty);
   if (!filename)
@@ -116,7 +118,12 @@ core_open (filename, from_tty)
   }
 
   old_chain = make_cleanup (free, filename);
-  temp_bfd = bfd_openr (filename, NULL);
+
+  scratch_chan = open (filename, write_files? O_RDWR: O_RDONLY, 0);
+  if (scratch_chan < 0)
+    perror_with_name (filename);
+
+  temp_bfd = bfd_fdopenr (filename, NULL, scratch_chan);
   if (temp_bfd == NULL)
     {
       perror_with_name (filename);
@@ -161,13 +168,14 @@ core_open (filename, from_tty)
 
     /* Add symbols and section mappings for any shared libraries */
 #ifdef SOLIB_ADD
-    (void) catch_errors (solib_add_stub, from_tty, (char *)0);
+    (void) catch_errors (solib_add_stub, (char *)from_tty, (char *)0);
 #endif
+
     /* Now, set up the frame cache, and print the top of stack */
-    set_current_frame ( create_new_frame (read_register (FP_REGNUM),
-					  read_pc ()));
+    set_current_frame (create_new_frame (read_register (FP_REGNUM),
+					 read_pc ()));
     select_frame (get_current_frame (), 0);
-    print_sel_frame (0);	/* Print the top frame and source line */
+    print_stack_frame (selected_frame, selected_frame_level, 1);
   } else {
     printf (
 "Warning: you won't be able to access this core file until you terminate\n\
@@ -242,8 +250,8 @@ validate_files ()
 {
   if (exec_bfd && core_bfd)
     {
-      if (core_file_matches_executable_p (core_bfd, exec_bfd))
-	printf ("Warning: core file does not match specified executable file.\n");
+      if (!core_file_matches_executable_p (core_bfd, exec_bfd))
+	printf ("Warning: core file may not match specified executable file.\n");
       else if (bfd_get_mtime(exec_bfd) > bfd_get_mtime(core_bfd))
 	printf ("Warning: exec file is newer than core file.\n");
     }
@@ -273,17 +281,17 @@ core_files_info (t)
 
   printf ("\tCore file `%s'.\n", bfd_get_filename(core_bfd));
 
-  for (p = t->sections; p < t->sections_end; p++)
-    if (p->bfd == core_bfd)
-      printf("\tcore file  from 0x%08x to 0x%08x is %s\n",
-	  p->addr, p->endaddr,
-	  bfd_section_name (p->bfd, p->sec_ptr));
-    else {
-      printf("\tshared lib from 0x%08x to 0x%08x is %s in %s\n",
-	  p->addr, p->endaddr,
-	  bfd_section_name (p->bfd, p->sec_ptr),
-	  bfd_get_filename (p->bfd));
+  for (p = t->sections; p < t->sections_end; p++) {
+    printf(p->bfd == core_bfd? "\tcore file  ": "\tshared lib ");
+    printf("from %s", local_hex_string_custom (p->addr, "08"));
+    printf(" to %s", local_hex_string_custom (p->endaddr, "08"));
+    if (p->bfd != core_bfd) {
+      printf(" is %s in %s",
+	     bfd_section_name (p->bfd, p->sec_ptr),
+	     bfd_get_filename (p->bfd));
     }
+    printf ("\n");
+  }
 }
 
 void
@@ -296,16 +304,16 @@ memory_error (status, memaddr)
     {
       /* Actually, address between memaddr and memaddr + len
 	 was out of bounds. */
-      error ("Cannot access memory at address 0x%x.", memaddr);
+      error ("Cannot access memory at address %s.", local_hex_string(memaddr));
     }
   else
     {
       if (status >= sys_nerr || status < 0)
-	error ("Error accessing memory address 0x%x: unknown error (%d).",
-	       memaddr, status);
+	error ("Error accessing memory address %s: unknown error (%d).",
+	       local_hex_string(memaddr), status);
       else
-	error ("Error accessing memory address 0x%x: %s.",
-	       memaddr, sys_errlist[status]);
+	error ("Error accessing memory address %s: %s.",
+	       local_hex_string(memaddr), sys_errlist[status]);
     }
 }
 

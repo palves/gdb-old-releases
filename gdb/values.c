@@ -557,6 +557,9 @@ value_as_pointer (val)
    to member which reaches here is considered to be equivalent
    to an INT (or some size).  After all, it is only an offset.  */
 
+/* FIXME:  This should be rewritten as a switch statement for speed and
+   ease of comprehension.  */
+
 LONGEST
 unpack_long (type, valaddr)
      struct type *type;
@@ -566,7 +569,7 @@ unpack_long (type, valaddr)
   register int len = TYPE_LENGTH (type);
   register int nosign = TYPE_UNSIGNED (type);
 
-  if (code == TYPE_CODE_ENUM)
+  if (code == TYPE_CODE_ENUM || code == TYPE_CODE_BOOL)
     code = TYPE_CODE_INT;
   if (code == TYPE_CODE_FLT)
     {
@@ -699,6 +702,8 @@ unpack_long (type, valaddr)
     }
   else if (code == TYPE_CODE_MEMBER)
     error ("not implemented: member types in unpack_long");
+  else if (code == TYPE_CODE_CHAR)
+    return *(unsigned char *)valaddr;
 
   error ("Value not integer or pointer.");
   return 0; 	/* For lint -- never reached */
@@ -836,7 +841,7 @@ value_primitive_field (arg1, offset, fieldno, arg_type)
   offset += TYPE_FIELD_BITPOS (arg_type, fieldno) / 8;
   if (TYPE_FIELD_BITSIZE (arg_type, fieldno))
     {
-      v = value_from_long (type,
+      v = value_from_longest (type,
 			   unpack_field_as_long (arg_type,
 						 VALUE_CONTENTS (arg1),
 						 fieldno));
@@ -917,7 +922,7 @@ value_virtual_fn_field (arg1, f, j, type)
      should serve just fine as a function type).  Then, index into
      the table, and convert final value to appropriate function type.  */
   value entry, vfn, vtbl;
-  value vi = value_from_long (builtin_type_int, 
+  value vi = value_from_longest (builtin_type_int, 
 			      (LONGEST) TYPE_FN_FIELD_VOFFSET (f, j));
   struct type *fcontext = TYPE_FN_FIELD_FCONTEXT (f, j);
   struct type *context;
@@ -1018,7 +1023,8 @@ value_headof (arg, btype, dtype)
   nelems = longest_to_int (value_as_long (value_field (entry, 2)));
   for (i = 1; i <= nelems; i++)
     {
-      entry = value_subscript (vtbl, value_from_long (builtin_type_int, i));
+      entry = value_subscript (vtbl, value_from_longest (builtin_type_int, 
+						      (LONGEST) i));
       offset = longest_to_int (value_as_long (value_field (entry, 0)));
       if (offset < best_offset)
 	{
@@ -1397,7 +1403,7 @@ modify_field (addr, fieldval, bitpos, bitsize)
 /* Convert C numbers into newly allocated values */
 
 value
-value_from_long (type, num)
+value_from_longest (type, num)
      struct type *type;
      register LONGEST num;
 {
@@ -1405,7 +1411,10 @@ value_from_long (type, num)
   register enum type_code code = TYPE_CODE (type);
   register int len = TYPE_LENGTH (type);
 
-  if (code == TYPE_CODE_INT || code == TYPE_CODE_ENUM)
+  /* FIXME, we assume that pointers have the same form and byte order as
+     integers, and that all pointers have the same form.  */
+  if (code == TYPE_CODE_INT  || code == TYPE_CODE_ENUM || 
+      code == TYPE_CODE_CHAR || code == TYPE_CODE_PTR)
     {
       if (len == sizeof (char))
 	* (char *) VALUE_CONTENTS_RAW (val) = num;

@@ -374,7 +374,7 @@ jump_command (arg, from_tty)
   addr = ADDR_BITS_SET (sal.pc);
 
   if (from_tty)
-    printf ("Continuing at 0x%x.\n", addr);
+    printf ("Continuing at %s.\n", local_hex_string(addr));
 
   clear_proceed_status ();
   proceed (addr, 0, 0);
@@ -554,10 +554,12 @@ finish_command (arg, from_tty)
   fi = get_frame_info (selected_frame);
   function = find_pc_function (fi->pc);
 
+  /* Print info on the selected frame, including level number
+     but not source.  */
   if (from_tty)
     {
-      printf ("Run till exit from ");
-      print_selected_frame ();
+      printf_filtered ("Run till exit from ");
+      print_stack_frame (selected_frame, selected_frame_level, 0);
     }
 
   proceed_to_finish = 1;		/* We want stop_registers, please... */
@@ -606,7 +608,7 @@ program_info (args, from_tty)
     }
 
   target_files_info ();
-  printf ("Program stopped at 0x%x.\n", stop_pc);
+  printf ("Program stopped at %s.\n", local_hex_string(stop_pc));
   if (stop_step)
     printf ("It stopped after being stepped.\n");
   else if (num != 0)

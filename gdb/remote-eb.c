@@ -44,6 +44,8 @@ extern struct value *call_function_by_hand();
 
 extern struct target_ops eb_ops;		/* Forward declaration */
 
+static void eb_close();
+
 #define LOG_FILE "eb.log"
 #if defined (LOG_FILE)
 FILE *log_file;
@@ -400,7 +402,7 @@ the baud rate, and the name of the program to run on the remote system.");
 
 /* Close out all files and local state before this target loses control. */
 
-void
+static void
 eb_close (quitting)
      int quitting;
 {
@@ -692,7 +694,7 @@ eb_fetch_registers ()
 
 /* Fetch register REGNO, or all registers if REGNO is -1.
    Returns errno value.  */
-int
+void
 eb_fetch_register (regno)
      int regno;
 {
@@ -707,7 +709,7 @@ eb_fetch_register (regno)
       get_hex_regs (1, regno);
       expect_prompt ();
     }
-  return 0;
+  return;
 }
 
 /* Store the remote registers from the contents of the block REGS.  */

@@ -65,6 +65,7 @@ mips)
 	sony)	gdb_host=bigmips ;;
 	dec)	gdb_host=dec3100 ;;
 	little)	gdb_host=littlemips ;;
+	sgi)	gdb_host=irix3 ;;
 	esac
 	;;
 
@@ -90,7 +91,17 @@ ns32k)
 	esac
 	;;
 
-arm | vax | m88k | merlin | none | np1 | pn | pyramid | tahoe)	gdb_host=${host_cpu} ;;
+romp)
+	gdb_host=rtbsd
+	;;
+
+a29k)
+	gdb_host=ultra3
+	;;
+
+arm | vax | m88k | merlin | none | np1 | pn | pyramid | tahoe)
+	gdb_host=${host_cpu}
+	;;
 
 ### unhandled hosts
 #altosgas
@@ -151,16 +162,23 @@ m68030)
 	esac
 	;;
 
-none | tahoe | vax | np1 | pn | np1 | pn | pyramid | merlin | m88k)
+none | arm | tahoe | vax | np1 | pn | np1 | pn | pyramid | merlin | m88k)
 	gdb_target=${target_cpu} ;;
-a29k)	gdb_target=am29k ;;
-arm)	gdb_target=${target_cpu} ;;
 
+a29k)
+	case "${target_os}" in
+	none|aout|coff)	gdb_target=a29k ;;
+	sym1)	gdb_target=ultra3 ;;
+	kern)	gdb_target=a29k-kern ;;
+	esac
+	;;
+	
 mips)
 	case "${target_vendor}" in
 	sony)	gdb_target=bigmips ;;
 	dec)	gdb_target=dec3100 ;;
 	little)	gdb_target=littlemips ;;
+	sgi)	gdb_target=irix3 ;;
 	esac
 	;;
 

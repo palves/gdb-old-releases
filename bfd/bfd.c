@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: bfd.c,v 1.22 1991/08/22 18:27:01 pesch Exp $ */
+/* $Id: bfd.c,v 1.25 1991/09/20 03:44:14 gnu Exp $ */
 
 /*proto*
 @section @code{typedef bfd}

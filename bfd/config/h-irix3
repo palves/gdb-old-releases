@@ -1,0 +1,3 @@
+HDEFINES=-DHOST_SYS=IRIX3_SYS \
+	 -lmalloc
+RANLIB=echo

@@ -1,5 +1,5 @@
 /* Symbol table definitions for GDB.
-   Copyright (C) 1986, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -59,7 +59,7 @@ extern void free ();
 /* Actually, the misc function list is used to store *all* of the
    global symbols (text, data, bss, and abs).  It is sometimes used
    to figure out what symtabs to read in.  The "type" field is used
-   occasionally.
+   occasionally.  Calling it the misc "function" vector is now a misnomer.
 
    The misc_info field is available for machine-specific information
    that can be cached along with a misc function vector entry.  The
@@ -83,8 +83,6 @@ struct misc_function
 struct misc_function *misc_function_vector;
 int misc_function_count;
 
-enum language {language_unknown, language_c};
-
 /* All data types of symbols in the compiled program
    are represented by `struct type' objects.
    All of these objects are pointed to by the typevector.
@@ -119,6 +117,10 @@ enum type_code
   TYPE_CODE_MEMBER,		/* Member type */
   TYPE_CODE_METHOD,		/* Method type */
   TYPE_CODE_REF,		/* C++ Reference types */
+
+  /* Modula-2 */
+  TYPE_CODE_CHAR,		/* *real* character type */
+  TYPE_CODE_BOOL,		/* Builtin Modula-2 BOOLEAN */
 };
 
 /* This appears in a type's flags word for an unsigned integer type.  */
@@ -861,6 +863,13 @@ extern struct type *builtin_type_error;
 extern struct type *builtin_type_long_long;
 extern struct type *builtin_type_unsigned_long_long;
 
+/* Modula-2 types */
+extern struct type *builtin_type_m2_char;
+extern struct type *builtin_type_m2_int;
+extern struct type *builtin_type_m2_card;
+extern struct type *builtin_type_m2_real;
+extern struct type *builtin_type_m2_bool;
+
 /* LONG_LONG is defined if the host has "long long".  */
 #ifdef LONG_LONG
 #define BUILTIN_TYPE_LONGEST builtin_type_long_long
@@ -934,5 +943,12 @@ char **make_symbol_completion_list ();
 
 /* The entry point of a file we are reading.  */
 extern CORE_ADDR entry_point;
+
+/* Maximum and minimum values of built-in types */
+#define	MAX_OF_TYPE(t)	\
+   TYPE_UNSIGNED(t) ? UMAX_OF_SIZE(TYPE_LENGTH(t)) : MAX_OF_SIZE(TYPE_LENGTH(t))
+
+#define MIN_OF_TYPE(t)	\
+   TYPE_UNSIGNED(t) ? UMIN_OF_SIZE(TYPE_LENGTH(t)) : MIN_OF_SIZE(TYPE_LENGTH(t))
 
 #endif /* symtab.h not already included.  */

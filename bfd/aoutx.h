@@ -99,8 +99,8 @@ To configure a new machine to use host-aout.c, specify:
 TDEFINES = -DDEFAULT_VECTOR=host_aout_big_vec
 TDEPFILES= host-aout.o trad-core.o
 
-in the config/tmake-XXX file, and modify configure.in to use the
-tmake-XXX file (by setting "bfd_target=XXX") when your configuration is
+in the config/t-XXX file, and modify configure.in to use the
+t-XXX file (by setting "bfd_target=XXX") when your configuration is
 selected.
 
 */
@@ -578,26 +578,37 @@ DEFUN(NAME(aout,set_section_contents),(abfd, section, location, offset, count),
       bfd_size_type count)
 {
   if (abfd->output_has_begun == false)
-      {				/* set by bfd.c handler */
-	if ((obj_textsec (abfd) == NULL) || (obj_datasec (abfd) == NULL)) 
-	    {
-	      bfd_error = invalid_operation;
-	      return false;
+    {				/* set by bfd.c handler */
+      switch (abfd->direction)
+	{
+	  case read_direction:
+	  case no_direction:
+	    bfd_error = invalid_operation;
+	    return false;
+
+	  case both_direction:
+	    break;
+
+	  case write_direction:
+	    if ((obj_textsec (abfd) == NULL) || (obj_datasec (abfd) == NULL)) 
+		{
+		  bfd_error = invalid_operation;
+		  return false;
+		}
+	    /*if (abfd->flags & D_PAGED) {	  
+	      obj_textsec(abfd)->filepos = 0;
 	    }
-/*	if (abfd->flags & D_PAGED) {	  
-	  obj_textsec(abfd)->filepos = 0;
+	    else*/ {
+	      obj_textsec(abfd)->filepos = EXEC_BYTES_SIZE;
+	    }
+	    obj_textsec(abfd)->size = align_power(obj_textsec(abfd)->size,
+						  obj_textsec(abfd)->alignment_power);
+	    obj_datasec(abfd)->filepos =  obj_textsec (abfd)->size + EXEC_BYTES_SIZE;
+	    obj_datasec(abfd)->size = align_power(obj_datasec(abfd)->size,
+						obj_datasec(abfd)->alignment_power);
 	}
-	else*/ {
-	  obj_textsec(abfd)->filepos = EXEC_BYTES_SIZE;
-	}
-	obj_textsec(abfd)->size = align_power(obj_textsec(abfd)->size,
-					      obj_textsec(abfd)->alignment_power);
-	obj_datasec(abfd)->filepos =  obj_textsec (abfd)->size + EXEC_BYTES_SIZE;
-	obj_datasec(abfd)->size = align_power(obj_datasec(abfd)->size,
-					      obj_datasec(abfd)->alignment_power);
-	  
-	  
-      }
+    }
+
   /* regardless, once we know what we're doing, we might as well get going */
   if (section != obj_bsssec(abfd)) 
       {
@@ -1108,6 +1119,7 @@ DEFUN(NAME(aout,swap_std_reloc_out),(abfd, g, natptr),
       }
       else {
 	BFD_ASSERT(0);
+	r_index = N_ABS | N_EXT;
       }
     }
     
@@ -1192,6 +1204,7 @@ DEFUN(NAME(aout,swap_ext_reloc_out),(abfd, g, natptr),
     }
     else {
       BFD_ASSERT(0);
+      r_index = N_ABS | N_EXT;
     }
   }
 

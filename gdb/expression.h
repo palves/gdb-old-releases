@@ -62,6 +62,7 @@ enum exp_opcode
   BINOP_ASSIGN,		/* = */
   BINOP_COMMA,		/* , */
   BINOP_SUBSCRIPT,	/* x[y] */
+  BINOP_MULTI_SUBSCRIPT, /* Modula-2 x[a,b,...] */
   BINOP_EXP,		/* Exponentiation */
 
 /* C++.  */
@@ -77,13 +78,22 @@ enum exp_opcode
   STRUCTOP_MPTR,
 /* end of C++.  */
 
-  BINOP_END,
+  /* For Modula-2 integer division DIV */
+  BINOP_INTDIV,
 
   BINOP_ASSIGN_MODIFY,	/* +=, -=, *=, and so on.
 			   The following exp_element is another opcode,
 			   a BINOP_, saying how to modify.
 			   Then comes another BINOP_ASSIGN_MODIFY,
 			   making three exp_elements in total.  */
+
+  /* Modula-2 standard (binary) procedures*/
+  BINOP_VAL,
+  BINOP_INCL,
+  BINOP_EXCL,
+
+  /* This must be the highest BINOP_ value, for expprint.c.  */
+  BINOP_END,
 
 /* Operates on three values computed by following subexpressions.  */
   TERNOP_COND,		/* ?: */
@@ -150,6 +160,22 @@ enum exp_opcode
   UNOP_POSTDECREMENT,	/* -- after an expression */
   UNOP_SIZEOF,		/* Unary sizeof (followed by expression) */
 
+  UNOP_PLUS,		/* Unary plus */
+
+  UNOP_CAP,		/* Modula-2 standard (unary) procedures */
+  UNOP_CHR,
+  UNOP_ORD,
+  UNOP_ABS,
+  UNOP_FLOAT,
+  UNOP_HIGH,
+  UNOP_MAX,
+  UNOP_MIN,
+  UNOP_ODD,
+  UNOP_TRUNC,
+
+  OP_BOOL,		/* Modula-2 builtin BOOLEAN type */
+  OP_M2_STRING,		/* Modula-2 string constants */
+
 /* STRUCTOP_... operate on a value from a following subexpression
    by extracting a structure component specified by a string
    that appears in the following exp_elements (as many as needed).
@@ -172,6 +198,10 @@ enum exp_opcode
      a string, which, of course, is variable length.  */
   OP_SCOPE,
 
+  /* OP_TYPE is for parsing types, and used with the "ptype" command
+     so we can look up types that are qualified by scope, either with
+     the GDB "::" operator, or the Modula-2 '.' operator. */
+  OP_TYPE,
 };
 
 union exp_element
@@ -187,18 +217,20 @@ union exp_element
 
 struct expression
 {
+  struct language_defn *language_defn;	/* The language it was entered in */
   int nelts;
   union exp_element elts[1];
 };
 
-/* From expread.y.  */
-struct expression *parse_c_expression ();
-struct expression *parse_c_1 ();
+/* From parse.c */
+struct expression *parse_expression ();
+struct expression *parse_exp_1 ();
 
 /* The innermost context required by the stack and register variables
    we've encountered so far.  To use this, set it to NULL, then call
-   parse_c_<whatever>, then look at it.  */
+   parse_<whatever>, then look at it.  */
 extern struct block *innermost_block;
 
 /* From expprint.c.  */
 void print_expression ();
+char *op_string();

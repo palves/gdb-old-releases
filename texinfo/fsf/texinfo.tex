@@ -1391,9 +1391,9 @@ P\or Q\or R\or S\or T\or U\or V\or W\or X\or Y\or Z\else
 % Define chapters, sections, etc.
 
 \newcount \chapno
-\newcount \secno
-\newcount \subsecno
-\newcount \subsubsecno
+\newcount \secno        \secno=0
+\newcount \subsecno     \subsecno=0
+\newcount \subsubsecno  \subsubsecno=0
 
 % This counter is funny since it counts through charcodes of letters A, B, ...
 \newcount \appendixno  \appendixno = `\@
@@ -1614,6 +1614,7 @@ P\or Q\or R\or S\or T\or U\or V\or W\or X\or Y\or Z\else
 }}
 
 % These are variants which are not "outer", so they can appear in @ifinfo.
+% Actually, they should now be obsolete; ordinary section commands should work.
 \def\infotop{\parsearg\unnumberedzzz}
 \def\infounnumbered{\parsearg\unnumberedzzz}
 \def\infounnumberedsec{\parsearg\unnumberedseczzz}
@@ -1629,6 +1630,13 @@ P\or Q\or R\or S\or T\or U\or V\or W\or X\or Y\or Z\else
 \def\infosection{\parsearg\sectionzzz}
 \def\infosubsection{\parsearg\subsectionzzz}
 \def\infosubsubsection{\parsearg\subsubsectionzzz}
+
+% These macros control what the section commands do, according
+% to what kind of chapter we are in (ordinary, appendix, or unnumbered).
+% Define them by default for a numbered chapter.
+\global\let\section = \numberedsec
+\global\let\subsection = \numberedsubsec
+\global\let\subsubsection = \numberedsubsubsec
 
 % Define @majorheading, @heading and @subheading
 
@@ -2826,6 +2834,9 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 \newcount \footnoteno
 
 \def\supereject{\par\penalty -20000\footnoteno =0 }
+
+% @footnotestyle is meaningful for info output only..
+\let\footnotestyle=\comment
 
 \let\ptexfootnote=\footnote
 

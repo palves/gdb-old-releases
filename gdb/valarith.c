@@ -32,7 +32,7 @@ value
 value_add (arg1, arg2)
 	value arg1, arg2;
 {
-  register value val, valint, valptr;
+  register value valint, valptr;
   register int len;
 
   COERCE_ARRAY (arg1);
@@ -57,11 +57,9 @@ value_add (arg1, arg2)
 	}
       len = TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (valptr)));
       if (len == 0) len = 1;	/* For (void *) */
-      val = value_from_long (builtin_type_long,
-			     value_as_long (valptr)
-			     + (len * value_as_long (valint)));
-      VALUE_TYPE (val) = VALUE_TYPE (valptr);
-      return val;
+      return value_from_longest (VALUE_TYPE (valptr),
+			      value_as_long (valptr)
+			      + (len * value_as_long (valint)));
     }
 
   return value_binop (arg1, arg2, BINOP_ADD);
@@ -71,7 +69,6 @@ value
 value_sub (arg1, arg2)
 	value arg1, arg2;
 {
-  register value val;
 
   COERCE_ARRAY (arg1);
   COERCE_ARRAY (arg2);
@@ -81,22 +78,19 @@ value_sub (arg1, arg2)
       if (TYPE_CODE (VALUE_TYPE (arg2)) == TYPE_CODE_INT)
 	{
 	  /* pointer - integer.  */
-	  val = value_from_long
-	    (builtin_type_long,
+	  return value_from_longest
+	    (VALUE_TYPE (arg1),
 	     value_as_long (arg1)
 	     - (TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (arg1)))
 		* value_as_long (arg2)));
-	  VALUE_TYPE (val) = VALUE_TYPE (arg1);
-	  return val;
 	}
       else if (VALUE_TYPE (arg1) == VALUE_TYPE (arg2))
 	{
 	  /* pointer to <type x> - pointer to <type x>.  */
-	  val = value_from_long
-	    (builtin_type_long,
+	  return value_from_longest
+	    (builtin_type_long,		/* FIXME -- should be ptrdiff_t */
 	     (value_as_long (arg1) - value_as_long (arg2))
 	     / TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (arg1))));
-	  return val;
 	}
       else
 	{
@@ -687,7 +681,7 @@ value_neg (arg1)
   if (TYPE_CODE (type) == TYPE_CODE_FLT)
     return value_from_double (type, - value_as_double (arg1));
   else if (TYPE_CODE (type) == TYPE_CODE_INT)
-    return value_from_long (type, - value_as_long (arg1));
+    return value_from_longest (type, - value_as_long (arg1));
   else {
     error ("Argument to negate operation not a number.");
     return 0;  /* For lint -- never reached */
@@ -703,6 +697,6 @@ value_lognot (arg1)
   if (TYPE_CODE (VALUE_TYPE (arg1)) != TYPE_CODE_INT)
     error ("Argument to complement operation not an integer.");
 
-  return value_from_long (VALUE_TYPE (arg1), ~ value_as_long (arg1));
+  return value_from_longest (VALUE_TYPE (arg1), ~ value_as_long (arg1));
 }
 

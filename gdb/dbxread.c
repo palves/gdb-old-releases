@@ -326,6 +326,13 @@ int context_stack_size;
 
 int within_function;
 
+#if 0
+/* The type of the function we are currently reading in.  This is
+   used by define_symbol to record the type of arguments to a function. */
+
+static struct type *in_function_type;
+#endif
+
 /* List of blocks already made (lexical contexts already closed).
    This is used at the end to make the blockvector.  */
 
@@ -387,7 +394,7 @@ struct complaint string_table_offset_complaint =
   {"bad string table offset in symbol %d", 0, 0};
 
 struct complaint unknown_symtype_complaint =
-  {"unknown symbol type 0x%x", 0, 0};
+  {"unknown symbol type %s", 0, 0};
 
 struct complaint lbrac_rbrac_complaint =
   {"block start larger than block end", 0, 0};
@@ -1137,7 +1144,7 @@ end_symtab (end_addr)
 
   for (subfile = subfiles; subfile; subfile = nextsub)
     {
-      symtab = (struct symtab *) xmalloc (sizeof (struct symtab));
+      symtab = allocate_symtab (subfile->name);
 
       /* Fill in its components.  */
       symtab->blockvector = blockvector;
@@ -1149,19 +1156,12 @@ end_symtab (end_addr)
       type_vector->length = type_vector_length;
       symtab->typevector = type_vector;
 
-      symtab->filename = subfile->name;
       symtab->dirname = subfile->dirname;
 
       symtab->free_code = free_linetable;
       symtab->free_ptr = 0;
       if (subfile->next == 0)
 	symtab->free_ptr = (char *) type_vector;
-
-      symtab->nlines = 0;
-      symtab->line_charpos = 0;
-
-      symtab->language = language_unknown;
-      symtab->fullname = NULL;
 
       /* There should never already be a symtab for this name, since
 	 any prev dups have been removed when the psymtab was read in.
@@ -1825,10 +1825,7 @@ read_dbx_symtab (symfile_name, addr,
 	  /* We need to be able to deal with both N_FN or N_TEXT,
 	     because we have no way of knowing whether the sys-supplied ld
 	     or GNU ld was used to make the executable.  */
-#if ! (N_FN & N_EXT)
 	case N_FN:
-#endif
-	case N_FN | N_EXT:
 	case N_TEXT:
 	  bufp->n_value += addr;		/* Relocate */
 	  SET_NAMESTRING();
@@ -1968,7 +1965,6 @@ read_dbx_symtab (symfile_name, addr,
 			       namestring, valu,
 			       first_symnum * sizeof (struct nlist),
 			       global_psymbols.next, static_psymbols.next);
-
 	  continue;
 	}
 
@@ -2009,7 +2005,7 @@ read_dbx_symtab (symfile_name, addr,
 	     source file, or a previously included file.
 
 	     This seems to be a lot of time to be spending on N_SOL, but
-	     things like "break expread.y:435" need to work (I
+	     things like "break c-exp.y:435" need to work (I
 	     suppose the psymtab_include_list could be hashed or put
 	     in a binary tree, if profiling shows this is a major hog).  */
 	  if (!strcmp (namestring, pst->filename))
@@ -2315,6 +2311,7 @@ read_dbx_symtab (symfile_name, addr,
 	case N_LBRAC:
 	case N_RBRAC:
 	case N_NSYMS:		/* Ultrix 4.0: symbol count */
+	case N_DEFD:		/* GNU Modula-2 */
 	  /* These symbols aren't interesting; don't worry about them */
 
 	  continue;
@@ -2322,7 +2319,7 @@ read_dbx_symtab (symfile_name, addr,
 	default:
 	  /* If we haven't found it yet, ignore it.  It's probably some
 	     new type we don't know about yet.  */
-	  complain (&unknown_symtype_complaint, bufp->n_type);
+	  complain (&unknown_symtype_complaint, local_hex_string(bufp->n_type));
 	  continue;
 	}
     }
@@ -2933,7 +2930,7 @@ read_ofile_symtab (desc, stringtab, stringtab_size, sym_offset,
 	processing_gcc_compilation = 1;
       else if (type & N_EXT || type == (unsigned char)N_TEXT
 	       || type == (unsigned char)N_NBTEXT
-	       )
+	       ) {
 	  /* Global symbol: see if we came across a dbx defintion for
 	     a corresponding symbol.  If so, store the value.  Remove
 	     syms from the chain when their values are stored, but
@@ -2944,6 +2941,7 @@ read_ofile_symtab (desc, stringtab, stringtab_size, sym_offset,
 	     be satisfied in each file as it appears. So we skip this
 	     section. */
 	  ;
+        }
     }
 
   return end_symtab (text_offset + text_size);
@@ -3150,9 +3148,8 @@ process_one_symbol (type, desc, valu, name)
 	local_symbols = new->locals;
       break;
 
-    case N_FN | N_EXT:
-      /* This kind of symbol supposedly indicates the start
-	 of an object file.  In fact this type does not appear.  */
+    case N_FN:
+      /* This kind of symbol indicates the start of an object file.  */
       break;
 
     case N_SO:
@@ -3241,6 +3238,7 @@ process_one_symbol (type, desc, valu, name)
 
     case N_ECOML:
     case N_LENG:
+    case N_DEFD:		/* GNU Modula-2 symbol */
       break;
 
     default:
@@ -3449,7 +3447,22 @@ define_symbol (valu, string, desc, type)
 
       if ((deftype == 'F' || deftype == 'f')
 	  && TYPE_CODE (type_read) != TYPE_CODE_FUNC)
+      {
+#if 0
+/* This code doesn't work -- it needs to realloc and can't.  */
+	struct type *new = (struct type *)
+	      obstack_alloc (symbol_obstack, sizeof (struct type));
+
+	/* Generate a template for the type of this function.  The 
+	   types of the arguments will be added as we read the symbol 
+	   table. */
+	*new = *lookup_function_type (type_read);
+	SYMBOL_TYPE(sym) = new;
+	in_function_type = new;
+#else
 	SYMBOL_TYPE (sym) = lookup_function_type (type_read);
+#endif
+      }
       else
 	SYMBOL_TYPE (sym) = type_read;
     }
@@ -3508,6 +3521,10 @@ define_symbol (valu, string, desc, type)
       SYMBOL_CLASS (sym) = DBX_PARM_SYMBOL_CLASS (type);
       SYMBOL_VALUE (sym) = valu;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
+#if 0
+      /* This doesn't work yet.  */
+      add_param_to_type (&in_function_type, sym);
+#endif
       add_symbol_to_list (sym, &local_symbols);
 
       /* If it's gcc-compiled, if it says `short', believe it.  */
@@ -4954,6 +4971,14 @@ read_enum_type (pp, type)
 	break;
     }
 
+  /* Is this Modula-2's BOOLEAN type?  Flag it as such if so. */
+  if(TYPE_NFIELDS(type) == 2 &&
+     ((!strcmp(TYPE_FIELD_NAME(type,0),"TRUE") &&
+       !strcmp(TYPE_FIELD_NAME(type,1),"FALSE")) ||
+      (!strcmp(TYPE_FIELD_NAME(type,1),"TRUE") &&
+       !strcmp(TYPE_FIELD_NAME(type,0),"FALSE"))))
+     TYPE_CODE(type) = TYPE_CODE_BOOL;
+
   return type;
 }
 
@@ -5070,8 +5095,8 @@ read_huge_number (pp, end, valu, bits)
     }
 }
 
-#define	MAX_OF_TYPE(t)	((1 << (sizeof (t)*8 - 1)) - 1)
-#define MIN_OF_TYPE(t)	(-(1 << (sizeof (t)*8 - 1)))
+#define	MAX_OF_C_TYPE(t)	((1 << (sizeof (t)*8 - 1)) - 1)
+#define MIN_OF_C_TYPE(t)	(-(1 << (sizeof (t)*8 - 1)))
 
 static struct type *
 read_range_type (pp, typenums)
@@ -5231,34 +5256,39 @@ read_range_type (pp, typenums)
 					       sizeof (struct type));
   bzero (result_type, sizeof (struct type));
 
-  TYPE_TARGET_TYPE (result_type) = (self_subrange ?
-				    builtin_type_int :
-				    *dbx_lookup_type(rangenums));
-
-  /* We have to figure out how many bytes it takes to hold this
-     range type.  I'm going to assume that anything that is pushing
-     the bounds of a long was taken care of above.  */
-  if (n2 >= MIN_OF_TYPE(char) && n3 <= MAX_OF_TYPE(char))
-    TYPE_LENGTH (result_type) = 1;
-  else if (n2 >= MIN_OF_TYPE(short) && n3 <= MAX_OF_TYPE(short))
-    TYPE_LENGTH (result_type) = sizeof (short);
-  else if (n2 >= MIN_OF_TYPE(int) && n3 <= MAX_OF_TYPE(int))
-    TYPE_LENGTH (result_type) = sizeof (int);
-  else if (n2 >= MIN_OF_TYPE(long) && n3 <= MAX_OF_TYPE(long))
-    TYPE_LENGTH (result_type) = sizeof (long);
-  else
-    /* Ranged type doesn't fit within known sizes.  */
-    return error_type (pp);
-
-  TYPE_LENGTH (result_type) = TYPE_LENGTH (TYPE_TARGET_TYPE (result_type));
   TYPE_CODE (result_type) = TYPE_CODE_RANGE;
+
+  TYPE_TARGET_TYPE (result_type) = *dbx_lookup_type(rangenums);
+
   TYPE_NFIELDS (result_type) = 2;
   TYPE_FIELDS (result_type) =
-    (struct field *) obstack_alloc (symbol_obstack,
-				    2 * sizeof (struct field));
+     (struct field *) obstack_alloc (symbol_obstack,
+				     2 * sizeof (struct field));
   bzero (TYPE_FIELDS (result_type), 2 * sizeof (struct field));
   TYPE_FIELD_BITPOS (result_type, 0) = n2;
   TYPE_FIELD_BITPOS (result_type, 1) = n3;
+
+#if 0
+/* Note that TYPE_LENGTH (result_type) is just overridden a few
+   statements down.  What do we really need here?  */
+  /* We have to figure out how many bytes it takes to hold this
+     range type.  I'm going to assume that anything that is pushing
+     the bounds of a long was taken care of above.  */
+  if (n2 >= MIN_OF_C_TYPE(char) && n3 <= MAX_OF_C_TYPE(char))
+    TYPE_LENGTH (result_type) = 1;
+  else if (n2 >= MIN_OF_C_TYPE(short) && n3 <= MAX_OF_C_TYPE(short))
+    TYPE_LENGTH (result_type) = sizeof (short);
+  else if (n2 >= MIN_OF_C_TYPE(int) && n3 <= MAX_OF_C_TYPE(int))
+    TYPE_LENGTH (result_type) = sizeof (int);
+  else if (n2 >= MIN_OF_C_TYPE(long) && n3 <= MAX_OF_C_TYPE(long))
+    TYPE_LENGTH (result_type) = sizeof (long);
+  else
+    /* Ranged type doesn't fit within known sizes.  */
+    /* FIXME -- use "long long" here.  */
+    return error_type (pp);
+#endif
+
+  TYPE_LENGTH (result_type) = TYPE_LENGTH (TYPE_TARGET_TYPE (result_type));
 
   return result_type;
 }

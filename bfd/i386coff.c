@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: i386coff.c,v 1.4 1991/07/31 16:57:40 gnu Exp $ */
+/* $Id: i386coff.c,v 1.6 1991/09/20 03:44:19 gnu Exp $ */
 
 #define I386 1
 #include <ansidecl.h>

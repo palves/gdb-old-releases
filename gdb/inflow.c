@@ -71,8 +71,13 @@ static int lmode_ours;
 #endif
 
 #ifdef TIOCGPGRP
+# ifdef SHORT_PGRP
+static short pgrp_inferior;
+static short pgrp_ours;
+# else
 static int pgrp_inferior;
 static int pgrp_ours;
+# endif
 #else
 static void (*sigint_ours) ();
 static void (*sigquit_ours) ();
@@ -381,7 +386,7 @@ kill_command (arg, from_tty)
     if (selected_frame == NULL)
       fputs_filtered ("No selected stack frame.\n", stdout);
     else
-      print_sel_frame (0);
+      print_stack_frame (selected_frame, selected_frame_level, 1);
   }
 }
 

@@ -24,7 +24,7 @@ configdirs=
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-# $Id: configure,v 1.31 1991/08/23 04:50:57 rich Exp $
+# $Id: configure,v 1.38 1991/09/20 01:03:38 grossman Exp $
 
 #
 # Shell script to create proper links to machine-dependent files in
@@ -184,7 +184,7 @@ fi
 # script appropriate for this directory.  For more information, check
 # any existing configure script.
 
-configdirs="libiberty bfd binutils bison gcc readline ld gas gnulib ${clib} gdb make prms "
+configdirs="libiberty bfd binutils bison gcc readline ld gas gnulib ${clib} gdb emacs make grep diff rcs gdbm cvs prms"
 srctrigger=README.configure
 srcname="gnu development package"
 
@@ -328,6 +328,12 @@ for host in ${hosts} ; do
 
 #### configure.in per-host parts come in here.
 
+# XXX - FIXME there needs to be a case for hmake-dgux
+
+case "${host_os}" in
+sysv* | irix*) host_makefile_frag=config/hmake-sysv ;;
+esac
+
 ## end of per-host part.
 
 	for target in ${targets} ; do
@@ -340,6 +346,14 @@ for host in ${hosts} ; do
 		target_makefile_frag=config/tmake-${target}
 
 #### configure.in per-target parts come in here.
+
+# XXX - FIXME there needs to be a case for tmake-a29k
+
+#
+# Local Variables:
+# fill-column: 131
+# End:
+#
 ## end of per-target part.
 
 		# Temporarily, we support only direct subdir builds.
@@ -598,6 +612,27 @@ exit 0
 
 #
 # $Log: configure,v $
+# Revision 1.38  1991/09/20  01:03:38  grossman
+# configure +template to bring in irix stuff.
+#
+# Revision 1.37  1991/09/12  00:33:18  rich
+# Add gdbm.
+#
+# Revision 1.36  1991/08/31  03:54:36  rich
+# Welcome emacs to the mess.
+#
+# Revision 1.35  1991/08/26  04:29:31  rich
+# Welcome cvs to the big time.
+#
+# Revision 1.34  1991/08/25  23:40:23  rich
+# rcs enters the soup.
+#
+# Revision 1.33  1991/08/25  21:48:38  rich
+# Adding diff to the fray.
+#
+# Revision 1.32  1991/08/25  20:18:20  rich
+# Adding grep to the fray.
+#
 # Revision 1.31  1991/08/23  04:50:57  rich
 # Minor config polish.
 #

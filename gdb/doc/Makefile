@@ -1,5 +1,6 @@
 ##Copyright (C) 1991 Free Software Foundation, Inc.
 
+# Makefile for GDB documentation.
 # This file is part of GDB.
 
 # This program is free software; you can redistribute it and/or modify
@@ -36,12 +37,12 @@ READLINE_DIR = ${srcdir}/../readline
 
 # Main GDB manual's source files
 SFILES_DOCDIR = \
-	gdb.texinfo pretex.m4 none.m4 all.m4 gdbinv-m.m4 gdbinv-s.m4   
+	gdb.texinfo pretex.m4 none.m4 all.m4 gdbinv-m.m4 gdbinv-s.m4 gdbVN.m4
 
 all: gdb.info gdb.dvi refcard.dvi gdb-internals gdbint.dvi
 
 clean:
-	rm -f gdb.dvi rdl-apps.texi gdb-all* gdb.info* 
+	rm -f gdb.dvi rdl-apps.texi gdb-all* gdb.info* gdbVN.m4
 	rm -f gdb-internals gdbint.?? gdbint.???
 	rm -f refcard.ps refcard.dvi rcfonts.tex refcard.log *~
 
@@ -49,12 +50,14 @@ clean:
 refcard.dvi : refcard.tex
 	rm -f rcfonts.tex; cp rc-cm.tex rcfonts.tex
 	TEXINPUTS=.:$$TEXINPUTS tex refcard.tex; rm -f refcard.log 
+	rm -f rcfonts.tex
 
 # GDB QUICK REFERENCE (PostScript output, common PS fonts)
 refcard.ps : refcard.tex
 	rm -f rcfonts.tex; cp rc-ps.tex rcfonts.tex
 	TEXINPUTS=.:$$TEXINPUTS tex refcard.tex
 	dvips -t landscape refcard -o; rm -f refcard.dvi refcard.log
+	rm -f rcfonts.tex
 
 # Cover file for "Readline" appendices
 rdl-apps.texi: ${READLINE_DIR}/inc-readline.texinfo \
@@ -62,6 +65,11 @@ rdl-apps.texi: ${READLINE_DIR}/inc-readline.texinfo \
 	rm -f rdl-apps.texi
 	echo "@include ${READLINE_DIR}/inc-readline.texinfo" >rdl-apps.texi
 	echo "@include ${READLINE_DIR}/inc-history.texinfo" >>rdl-apps.texi
+
+# File to record current GDB version number (copied from main dir Makefile.in)
+gdbVN.m4 : ${srcdir}/Makefile.in
+	( VER=`sed <${srcdir}/Makefile.in -n 's/VERSION = //p'` ;\
+	echo "_define__(<_GDB_VN__>,$$VER)" > gdbVN.m4 )
 
 # GDB MANUAL: texinfo source, created by preprocessing w/m4
 # Be sure to not create a bad gdb-all.texi if ${M4} is missing or aborts...

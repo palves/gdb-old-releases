@@ -1,0 +1,3 @@
+Tue Sep  3 06:36:23 1991  John Gilmore  (gnu at cygint.cygnus.com)
+
+	* obstack.c:  Merge with latest FSF version.

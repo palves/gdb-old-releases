@@ -332,7 +332,7 @@ DEFUN(swapcore_sun3,(abfd, ext, intcore),
 }
 
 
-/* byte-swap in the Sun-3 core structure */
+/* byte-swap in the Sparc core structure */
 static void
 DEFUN(swapcore_sparc,(abfd, ext, intcore),
       bfd *abfd AND
@@ -360,9 +360,8 @@ DEFUN(swapcore_sparc,(abfd, ext, intcore),
 	intcore->c_len - sizeof (extcore->c_ucode) + (unsigned char *)extcore);
   /* Supposedly the user stack grows downward from the bottom of kernel memory.
      Presuming that this remains true, this definition will work. */
-#define USRSTACK (-(128*1024*1024))
-  intcore->c_stacktop = USRSTACK;	/* By experimentation */
-#undef USRSTACK
+#define SPARC_USRSTACK (-(128*1024*1024))
+  intcore->c_stacktop = SPARC_USRSTACK;	/* By experimentation */
 }
 
 /* need this cast because ptr is really void * */
@@ -390,7 +389,6 @@ DEFUN(sunos4_core_file_p,(abfd),
   int core_mag;
   struct internal_sunos_core *core;
   char *extcore;
-  char *rawptr;
   struct mergem {
     struct suncoredata suncoredata;
     struct internal_sunos_core internal_sunos_core;
@@ -457,7 +455,7 @@ DEFUN(sunos4_core_file_p,(abfd),
   if (core_stacksec (abfd) == NULL) {
   loser:
     bfd_error = no_memory;
-    bfd_release (abfd, rawptr);
+    bfd_release (abfd, (char *)mergem);
     return 0;
   }
   core_datasec (abfd) = (asection *) bfd_zalloc (abfd, sizeof (asection));
@@ -483,10 +481,10 @@ DEFUN(sunos4_core_file_p,(abfd),
   core_regsec (abfd)->name = ".reg";
   core_reg2sec (abfd)->name = ".reg2";
 
-  core_stacksec (abfd)->flags = SEC_ALLOC + SEC_LOAD;
-  core_datasec (abfd)->flags = SEC_ALLOC + SEC_LOAD;
-  core_regsec (abfd)->flags = SEC_ALLOC;
-  core_reg2sec (abfd)->flags = SEC_ALLOC;
+  core_stacksec (abfd)->flags = SEC_ALLOC + SEC_LOAD + SEC_HAS_CONTENTS;
+  core_datasec (abfd)->flags = SEC_ALLOC + SEC_LOAD + SEC_HAS_CONTENTS;
+  core_regsec (abfd)->flags = SEC_ALLOC + SEC_HAS_CONTENTS;
+  core_reg2sec (abfd)->flags = SEC_ALLOC + SEC_HAS_CONTENTS;
 
   core_stacksec (abfd)->size = core->c_ssize;
   core_datasec (abfd)->size = core->c_dsize;
@@ -543,7 +541,8 @@ DEFUN(sunos4_core_file_matches_executable_p, (core_bfd, exec_bfd),
     return false;
   }
 
-  return (bcmp ((char *)&core_hdr (core_bfd), (char*) &exec_hdr (exec_bfd),
+  return (bcmp ((char *)&core_hdr (core_bfd)->c_aouthdr, 
+		(char *) exec_hdr (exec_bfd),
 		sizeof (struct internal_exec)) == 0) ? true : false;
 }
 

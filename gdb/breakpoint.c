@@ -32,6 +32,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "command.h"
 #include "inferior.h"
 #include "target.h"
+#include "language.h"
 #include <string.h>
 
 extern int addressprint;		/* Print machine addresses? */
@@ -130,7 +131,7 @@ set_breakpoint_count (num)
 {
   breakpoint_count = num;
   set_internalvar (lookup_internalvar ("bpnum"),
-		   value_from_long (builtin_type_int, (LONGEST) num));
+		   value_from_longest (builtin_type_int, (LONGEST) num));
 }
 
 /* Default address, symtab and line to put a breakpoint at
@@ -245,7 +246,7 @@ condition_command (arg, from_tty)
 	    /* I don't know if it matters whether this is the string the user
 	       typed in or the decompiled expression.  */
 	    b->cond_string = savestring (arg, strlen (arg));
-	    b->cond = parse_c_1 (&arg, block_for_pc (b->address), 0);
+	    b->cond = parse_exp_1 (&arg, block_for_pc (b->address), 0);
 	    if (*arg)
 	      error ("Junk at end of expression");
 	  }
@@ -418,6 +419,10 @@ insert_breakpoints ()
 #endif
 	      {
 		fprintf (stderr, "Cannot insert breakpoint %d:\n", b->number);
+#ifdef ONE_PROCESS_WRITETEXT
+		fprintf (stderr,
+		  "The same program may be running in another process.\n");
+#endif
 		memory_error (val, b->address);	/* which bombs us out */
 	      }
 	  }
@@ -447,8 +452,12 @@ remove_breakpoints ()
 	  return val;
 	b->inserted = 0;
 #ifdef BREAKPOINT_DEBUG
-	printf ("Removed breakpoint at 0x%x, shadow 0x%x, 0x%x.\n",
-		b->address, b->shadow_contents[0], b->shadow_contents[1]);
+	printf ("Removed breakpoint at %s",
+		local_hex_string(b->address));
+	printf (", shadow %s",
+		local_hex_string(b->shadow_contents[0]));
+	printf (", %s.\n",
+		local_hex_string(b->shadow_contents[1]));
 #endif /* BREAKPOINT_DEBUG */
       }
 
@@ -670,14 +679,14 @@ bpstat_print (bs)
 
 /* Evaluate the expression EXP and return 1 if value is zero.
    This is used inside a catch_errors to evaluate the breakpoint condition. 
-   The argument is a "struct expression *" that has been cast to int to 
+   The argument is a "struct expression *" that has been cast to char * to 
    make it pass through catch_errors.  */
 
 static int
 breakpoint_cond_eval (exp)
-     int exp;
+     char *exp;
 {
-  return value_zerop (evaluate_expression ((struct expression *)exp));
+  return !value_true (evaluate_expression ((struct expression *)exp));
 }
 
 /* Allocate a new bpstat and chain it to the current one.  */
@@ -823,8 +832,9 @@ which its expression is valid.\n", b->number);
 		 so that the conditions will have the right context.  */
 	      select_frame (get_current_frame (), 0);
 	      value_is_zero
-		= catch_errors (breakpoint_cond_eval, (int)(b->cond),
-				"Error occurred in testing breakpoint condition.");
+		= catch_errors (breakpoint_cond_eval, (char *)(b->cond),
+				"Error in testing breakpoint condition:\n");
+				/* FIXME-someday, should give breakpoint # */
 	      free_all_values ();
 	    }
 	  if (b->cond && value_is_zero)
@@ -944,7 +954,7 @@ breakpoint_1 (bnum, watchpoints)
 	  print_expression (b->exp, stdout);
 	} else {
 	    if (addressprint)
-	      printf_filtered (" 0x%08x ", b->address);
+	      printf_filtered (" %s ", local_hex_string_custom(b->address, "08"));
 
 	    last_addr = b->address;
 	    if (b->symtab)
@@ -966,7 +976,8 @@ breakpoint_1 (bnum, watchpoints)
 	printf_filtered ("\n");
 
 	if (b->frame)
-	  printf_filtered ("\tstop only in stack frame at 0x%x\n", b->frame);
+	  printf_filtered ("\tstop only in stack frame at %s\n",
+			   local_hex_string(b->frame));
 	if (b->cond)
 	  {
 	    printf_filtered ("\tstop only if ");
@@ -1052,7 +1063,7 @@ describe_other_breakpoints (pc)
 		    (b->enable == disabled) ? " (disabled)" : "",
 		    (others > 1) ? "," : ((others == 1) ? " and" : ""));
 	  }
-      printf ("also set at pc 0x%x.\n", pc);
+      printf ("also set at pc %s.\n", local_hex_string(pc));
     }
 }
 
@@ -1181,7 +1192,8 @@ mention (b)
     }
   else
     {
-      printf_filtered ("Breakpoint %d at 0x%x", b->number, b->address);
+      printf_filtered ("Breakpoint %d at %s", b->number,
+		       local_hex_string(b->address));
       if (b->symtab)
 	printf_filtered (": file %s, line %d.",
 			 b->symtab->filename, b->line_number);
@@ -1320,7 +1332,7 @@ break_command_1 (arg, tempflag, from_tty)
 	    {
 	      arg += 2;
 	      cond_start = arg;
-	      cond = parse_c_1 (&arg, block_for_pc (pc), 0);
+	      cond = parse_exp_1 (&arg, block_for_pc (pc), 0);
 	      cond_end = arg;
 	    }
 	  else
@@ -1394,7 +1406,7 @@ watch_command (arg, from_tty)
   
   /* Parse arguments.  */
   innermost_block = NULL;
-  exp = parse_c_expression (arg);
+  exp = parse_expression (arg);
   exp_valid_block = innermost_block;
   val = evaluate_expression (exp);
   release_value (val);
@@ -1740,8 +1752,7 @@ catch_command_1 (arg, tempflag, from_tty)
 	{
 	  if (arg[0] == 'i' && arg[1] == 'f'
 	      && (arg[2] == ' ' || arg[2] == '\t'))
-	    cond = (struct expression *) parse_c_1 ((arg += 2, &arg),
-						    block_for_pc (pc), 0);
+	    cond = parse_exp_1 ((arg += 2, &arg), block_for_pc (pc), 0);
 	  else
 	    error ("Junk at end of arguments.");
 	}
@@ -1762,7 +1773,7 @@ catch_command_1 (arg, tempflag, from_tty)
       if (tempflag)
 	b->enable = temporary;
 
-      printf ("Breakpoint %d at 0x%x", b->number, b->address);
+      printf ("Breakpoint %d at %s", b->number, local_hex_string(b->address));
       if (b->symtab)
 	printf (": file %s, line %d.", b->symtab->filename, b->line_number);
       printf ("\n");
@@ -1970,13 +1981,12 @@ delete_command (arg, from_tty)
 }
 
 /* Reset a breakpoint given it's struct breakpoint * BINT.
-   FIXME: Assumes sizeof(int) >= sizeof (struct breakpoint *).
    The value we return ends up being the return value from catch_errors.
    Unused in this case.  */
 
 static int
 breakpoint_re_set_one (bint)
-     int bint;
+     char *bint;
 {
   struct breakpoint *b = (struct breakpoint *)bint;  /* get past catch_errs */
   int i;
@@ -2006,7 +2016,7 @@ breakpoint_re_set_one (bint)
 	  if (b->cond_string != NULL)
 	    {
 	      s = b->cond_string;
-	      b->cond = parse_c_1 (&s, block_for_pc (sal.pc), 0);
+	      b->cond = parse_exp_1 (&s, block_for_pc (sal.pc), 0);
 	    }
 	  
 	  check_duplicates (b->address);
@@ -2032,8 +2042,8 @@ breakpoint_re_set ()
   ALL_BREAKPOINTS (b)
     {
       b->symtab = 0;		/* Be sure we don't point to old dead symtab */
-      (void) catch_errors (breakpoint_re_set_one, (int) b, 
-			   "Error in re-setting breakpoint");
+      (void) catch_errors (breakpoint_re_set_one, (char *) b, 
+			   "Error in re-setting breakpoint:\n");
     }
 
   /* Blank line to finish off all those mention() messages we just printed.  */
@@ -2296,8 +2306,8 @@ then no output is printed when it is hit, except what the commands print.");
 
   add_com ("condition", class_breakpoint, condition_command,
 	   "Specify breakpoint number N to break only if COND is true.\n\
-N is an integer; COND is a C expression to be evaluated whenever\n\
-breakpoint N is reached.  Actually break only when COND is nonzero.");
+N is an integer; COND is an expression to be evaluated whenever\n\
+breakpoint N is reached.  ");
 
   add_com ("tbreak", class_breakpoint, tbreak_command,
 	   "Set a temporary breakpoint.  Args like \"break\" command.\n\

@@ -25,6 +25,137 @@ Public License" may be included in a translation approved by the
 Free Software Foundation instead of in the original English.
 
 
+File: gdb.info,  Node: List,  Next: Search,  Prev: Source,  Up: Source
+
+Printing Source Lines
+=====================
+
+   To print lines from a source file, use the `list' command
+(abbreviated `l').  There are several ways to specify what part of
+the file you want to print.
+
+   Here are the forms of the `list' command most commonly used:
+
+`list LINENUM'
+     Print lines centered around line number LINENUM in the current
+     source file.
+
+`list FUNCTION'
+     Print lines centered around the beginning of function FUNCTION.
+
+`list'
+     Print more lines.  If the last lines printed were printed with a
+     `list' command, this prints lines following the last lines
+     printed; however, if the last line printed was a solitary line
+     printed as part of displaying a stack frame (*note Stack::.),
+     this prints  lines centered around that line.
+
+`list -'
+     Print lines just before the lines last printed.
+
+   By default, GDB prints ten source lines with any of these forms of
+the `list' command.  You can change this using `set listsize':
+
+`set listsize COUNT'
+     Make the `list' command display COUNT source lines (unless the
+     `list' argument explicitly specifies some other number).
+
+`show listsize'
+     Display the number of lines that `list' will currently display
+     by default.
+
+   Repeating a `list' command with RET discards the argument, so it
+is equivalent to typing just `list'.  This is more useful than
+listing the same lines again.  An exception is made for an argument
+of
+`-'; that argument is preserved in repetition so that each
+repetition moves up in the source file.
+
+   In general, the `list' command expects you to supply zero, one or
+two "linespecs".  Linespecs specify source lines; there are several
+ways of writing them but the effect is always to specify some source
+line.  Here is a complete description of the possible arguments for
+`list':
+
+`list LINESPEC'
+     Print lines centered around the line specified by LINESPEC.
+
+`list FIRST,LAST'
+     Print lines from FIRST to LAST.  Both arguments are linespecs.
+
+`list ,LAST'
+     Print lines ending with LAST.
+
+`list FIRST,'
+     Print lines starting with FIRST.
+
+`list +'
+     Print lines just after the lines last printed.
+
+`list -'
+     Print lines just before the lines last printed.
+
+`list'
+     As described in the preceding table.
+
+   Here are the ways of specifying a single source line--all the
+kinds of linespec.
+
+`NUMBER'
+     Specifies line NUMBER of the current source file.  When a `list'
+     command has two linespecs, this refers to the same source file
+     as the first linespec.
+
+`+OFFSET'
+     Specifies the line OFFSET lines after the last line printed. 
+     When used as the second linespec in a `list' command that has
+     two, this specifies the line OFFSET lines down from the first
+     linespec.
+
+`-OFFSET'
+     Specifies the line OFFSET lines before the last line printed.
+
+`FILENAME:NUMBER'
+     Specifies line NUMBER in the source file FILENAME.
+
+`FUNCTION'
+     Specifies the line of the open-brace that begins the body of the
+     function FUNCTION.
+
+`FILENAME:FUNCTION'
+     Specifies the line of the open-brace that begins the body of the
+     function FUNCTION in the file FILENAME.  You only need the file
+     name with a function name to avoid ambiguity when there are
+     identically named functions in different source files.
+
+`*ADDRESS'
+     Specifies the line containing the program address ADDRESS. 
+     ADDRESS may be any expression.
+
+
+File: gdb.info,  Node: Search,  Next: Source Path,  Prev: List,  Up: Source
+
+Searching Source Files
+======================
+
+   There are two commands for searching through the current source
+file for a regular expression.
+
+`forward-search REGEXP'
+`search REGEXP'
+     The command `forward-search REGEXP' checks each line, starting
+     with the one following the last line listed, for a match for
+     REGEXP.  It lists the line that is found.  You can abbreviate
+     the command name as `fo'.  The synonym `search REGEXP' is also
+     supported.
+
+`reverse-search REGEXP'
+     The command `reverse-search REGEXP' checks each line, starting
+     with the one before the last line listed and going backward,
+     for a match for REGEXP.  It lists the line that is found.  You
+     can abbreviate this command as `rev'.
+
+
 File: gdb.info,  Node: Source Path,  Next: Machine Code,  Prev: Search,  Up: Source
 
 Specifying Source Directories
@@ -146,7 +277,7 @@ the last `info line' example:
      (gdb)
 
 
-File: gdb.info,  Node: Data,  Next: Cplusplus,  Prev: Source,  Up: Top
+File: gdb.info,  Node: Data,  Next: Languages,  Prev: Source,  Up: Top
 
 Examining Data
 **************
@@ -154,7 +285,7 @@ Examining Data
    The usual way to examine data in your program is with the `print'
 command (abbreviated `p'), or its synonym `inspect'.  It evaluates
 and prints the value of an expression of the language your program
-is written in (for now, C or C++).  You type
+is written in (*note Languages::.).  You type
 
      print EXP
 
@@ -196,12 +327,20 @@ expression in GDB.  This includes conditional expressions, function
 calls, casts and string constants.  It unfortunately does not
 include symbols defined by preprocessor `#define' commands.
 
+   Because C is so widespread, most of the expressions shown in
+examples in this manual are in C.  *Note Using GDB with Different
+Languages: Languages, for information on how to use expressions in
+other languages.
+
+   In this section, we discuss operators that you can use in GDB
+expressions regardless of your programming language.
+
    Casts are supported in all languages, not just in C, because it is
 so useful to cast a number into a pointer so as to examine a
 structure at that address in memory.
 
-   GDB supports three kinds of operator in addition to those of
-programming languages:
+   GDB supports these operators in addition to those of programming
+languages:
 
 `@'
      `@' is a binary operator for treating parts of memory as arrays.
@@ -262,7 +401,7 @@ Here FILE is the name of the source file whose variable you want.
 
    This use of `::' is very rarely in conflict with the very similar
 use of the same notation in C++.  GDB also supports use of the C++
-name resolution operator in GDB expressions.
+scope resolution operator in GDB expressions.
 
      *Warning:* Occasionally, a local variable may appear to have the
      wrong value at certain points in a function--just after entry
@@ -477,8 +616,8 @@ right place.
    When the `print' command shows a value that resides in memory,
 `print' also sets the default address for the `x' command.  `info
 line' also sets the default for `x', to the address of the start of
-the machine code for the specified line (*note Machine Code::.), and
-`info breakpoints' sets it to the address of the last breakpoint
+the machine code for the specified line  (*note Machine Code::.), 
+and `info breakpoints' sets it to the address of the last breakpoint
 listed (*note Set Breaks::.).
 
    When you use RET to repeat an `x' command, the address specified
@@ -904,11 +1043,15 @@ given values likely to be useful.
      last address examined (*note Memory::.).  Other commands which
      provide a default address for `x' to examine also set `$_' to
      that address; these commands include `info line' and `info
-     breakpoint'.
+     breakpoint'.  The type of `$_' is `void *' except when set by
+     the `x' command, in which case it is a pointer to the type of
+    
+     `$__'.
 
 `$__'
      The variable `$__' is automatically set by the `x' command to
-     the value found in the last address examined.
+     the value found in the last address examined.  Its type is
+     chosen to match the format in which the data was printed.
 
 
 File: gdb.info,  Node: Registers,  Next: Floating Point Hardware,  Prev: Convenience Vars,  Up: Data
@@ -954,7 +1097,8 @@ where stacks grow downward in memory (most machines, nowadays).
 This assumes that the innermost stack frame is selected; setting
 `$sp' is not allowed when other stack frames are selected.  (To pop
 entire frames off the stack, regardless of machine architecture, use
-`return'; *note Returning::..)
+`return';
+*note Returning::..)
 
    Often `$fp' is used for a register that contains a pointer to the
 current stack frame, and `$ps' is sometimes used for a register that
@@ -962,9 +1106,7 @@ contains the processor status.  These standard register names may be
 available on your machine even though the `info registers' command
 shows other names.  For example, on the SPARC, `info registers'
 displays the processor status register as `$psr' but you can also
-refer
-to
-it as `$ps'.
+refer to it as `$ps'.
 
    GDB always considers the contents of an ordinary register as an
 integer when the register is examined in this way.  Some machines
@@ -1012,302 +1154,170 @@ hardware.
      depending on the floating point chip.
 
 
-File: gdb.info,  Node: Cplusplus,  Next: Symbols,  Prev: Data,  Up: Top
+File: gdb.info,  Node: Languages,  Next: Symbols,  Prev: Data,  Up: Top
 
-C++ and GDB
-***********
+Using GDB with Different Languages
+**********************************
 
-   GDB includes facilities to let you debug C++ programs naturally
-and easily.  The GNU C++ compiler and GDB implement the support for
-these facilities together.  Therefore, to debug your C++ code most
-effectively, you must compile your C++ programs with the GNU C++
-compiler, `g++'.
+   Although programming languages generally have common aspects, they
+are rarely expressed in the same manner.  For instance, in ANSI C,
+dereferencing a pointer `p' is accomplished by `*p', but in
+Modula-2, it is accomplished by `p^'.  Values can also be
+represented (and displayed) differently.  Hex numbers in C are
+written like `0x1ae', while in Modula-2 they appear as `1AEH'.
 
-* Menu:
-
-* Cplusplus expressions::               C++ Expressions
-* Cplusplus commands::          GDB Commands for C++
-
-
-File: gdb.info,  Node: Cplusplus expressions,  Next: Cplusplus commands,  Prev: Cplusplus,  Up: Cplusplus
-
-C++ Expressions
-===============
-
-   Since C++ is closely related to C, all the facilities for
-evaluating C expressions (*note Expressions::.) continue to work in
-C++.  GDB's expression handling also has the following extensions to
-interpret a significant subset of C++ expressions:
-
-  1. Member function calls are allowed; you can use expressions like
-
-          count = aml->GetOriginal(x, y)
-
-  2. While a member function is active (in the selected stack frame),
-     your expressions have the same namespace available as the
-     member function; that is, GDB allows implicit references to the
-     class instance pointer `this' following the same rules as C++.
-
-  3. You can call overloaded functions; GDB will resolve the function
-     call to the right definition, with one restriction--you must
-     use arguments of the type required by the function that you
-     want to call.  GDB will not perform conversions requiring
-     constructors or user-defined type operators.
-
-  4. GDB understands variables declared as C++ references; you can
-     use them in expressions just as you do in C++ source--they are
-     automatically dereferenced.
-
-        In the parameter list shown when GDB displays a frame, the
-     values of reference variables are not displayed (unlike other
-     variables); this avoids clutter, since references are often
-     used for large structures.  The *address* of a reference
-     variable is always shown, unless you've specified `set print
-     address off'.
-
-  5. GDB supports the C++ name resolution operator `::'--your
-     expressions can use it just as expressions in your program do. 
-     GDB also allows resolving name scope by reference to source
-     files, in both C and C++ debugging; *note Variables::..
-
-
-File: gdb.info,  Node: Cplusplus commands,  Prev: Cplusplus expressions,  Up: Cplusplus
-
-GDB Commands for C++
-====================
-
-   Some GDB commands are particularly useful with C++, and some are
-designed specifically for use with C++.  Here is a summary:
-
-`breakpoint menus'
-     When you want a breakpoint in a function whose name is
-     overloaded, GDB's breakpoint menus help you specify which
-     function definition you want.  *Note Breakpoint Menus::.
-
-`rbreak REGEX'
-     Setting breakpoints using regular expressions is helpful for
-     setting breakpoints on overloaded functions that are not
-     members of any special classes.  *Note Set Breaks::.
-
-`catch EXCEPTIONS'
-`info catch'
-     Debug C++ exception handling using these commands.  *Note
-     Exception Handling::.
-
-`ptype TYPENAME'
-     Print inheritance relationships as well as other information for
-     type TYPENAME.  *Note Symbols::.
-
-`set print demangle'
-`show print demangle'
-`set print asm-demangle'
-`show print asm-demangle'
-     Control whether C++ symbols display in their source form, both
-     when displaying code as C++ source and when displaying
-     disassemblies.  *Note Print Settings::.
-
-`set print object'
-`show print object'
-     Choose whether to print derived (actual) or declared types of
-     objects.  *Note Print Settings::.
-
-`set print vtbl'
-`show print vtbl'
-     Control the format for printing virtual function tables.  *Note
-     Print Settings::.
-
-
-File: gdb.info,  Node: Symbols,  Next: Altering,  Prev: Cplusplus,  Up: Top
-
-Examining the Symbol Table
-**************************
-
-   The commands described in this section allow you to inquire about
-the symbols (names of variables, functions and types) defined in
-your program.  This information is inherent in the text of your
-program and does not change as the program executes.  GDB finds it
-in your program's symbol table, in the file indicated when you
-started GDB  (*note File Options::.), or by one of the
-file-management commands (*note Files::.).
-
-`info address SYMBOL'
-     Describe where the data for SYMBOL is stored.  For a register
-     variable, this says which register it is kept in.  For a
-     non-register local variable, this prints the stack-frame offset
-     at which the variable is always stored.
-
-     Note the contrast with `print &SYMBOL', which does not work at
-     all for a register variables, and for a stack local variable
-     prints the exact address of the current instantiation of the
-     variable.
-
-`whatis EXP'
-     Print the data type of expression EXP.  EXP is not actually
-     evaluated, and any side-effecting operations (such as
-     assignments or function calls) inside it do not take place. 
-    
-     *Note Expressions::.
-
-`whatis'
-     Print the data type of `$', the last value in the value history.
-
-`ptype TYPENAME'
-     Print a description of data type TYPENAME.  TYPENAME may be the
-     name of a type, or for C code it may have the form `struct
-     STRUCT-TAG', `union UNION-TAG' or `enum ENUM-TAG'.
-
-`ptype EXP'
-     Print a description of the type of expression EXP.  `ptype'
-     differs from `whatis' by printing a detailed description,
-     instead of just the name of the type.  For example, if your
-     program declares a variable as
-
-          struct complex {double real; double imag;} v;
-
-     compare the output of the two commands:
-
-          (gdb) whatis v
-          type = struct complex
-          (gdb) ptype v
-          type = struct complex {
-              double real;
-              double imag;
-          }
-
-`info types REGEXP'
-`info types'
-     Print a brief description of all types whose name matches REGEXP
-     (or all types in your program, if you supply no argument). 
-     Each complete typename is matched as though it were a complete
-     line; thus, `i type value' gives information on all types in
-     your program whose name includes the string `value', but `i
-     type ^value$' gives information only on types whose complete
-     name is `value'.
-
-     This command differs from `ptype' in two ways: first, like
-     `whatis', it does not print a detailed description; second, it
-     lists all source files where a type is defined.
-
-`info source'
-     Show the name of the current source file--that is, the source
-     file for the function containing the current point of execution.
-
-`info sources'
-     Print the names of all source files in the program for which
-     there is debugging information, organized into two lists: files
-     whose symbols have already been read, and files whose symbols
-     will be read when needed.
-
-`info functions'
-     Print the names and data types of all defined functions.
-
-`info functions REGEXP'
-     Print the names and data types of all defined functions whose
-     names contain a match for regular expression REGEXP.  Thus,
-     `info fun step' finds all functions whose names include `step';
-     `info fun ^step' finds those whose names start with `step'.
-
-`info variables'
-     Print the names and data types of all variables that are
-     declared outside of functions (i.e., excluding local variables).
-
-`info variables REGEXP'
-     Print the names and data types of all variables (except for
-     local variables) whose names contain a match for regular
-     expression REGEXP.
-
-`printsyms FILENAME'
-     Write a dump of debugging symbol data into the file FILENAME. 
-     Only symbols with debugging data are included.  GDB includes
-     all the symbols it already knows about: that is, FILENAME
-     reflects symbols for only those files whose symbols GDB has read.
-     You can find out which files these are using the command `info
-     files'.  The description of `symbol-file' describes how GDB
-     reads symbols; both commands are described under *Note Files::.
-
-
-File: gdb.info,  Node: Altering,  Next: GDB Files,  Prev: Symbols,  Up: Top
-
-Altering Execution
-******************
-
-   Once you think you have found an error in the program, you might
-want to find out for certain whether correcting the apparent error
-would lead to correct results in the rest of the run.  You can find
-the answer by experiment, using the GDB features for altering
-execution of the program.
-
-   For example, you can store new values into variables or memory
-locations, give the program a signal, restart it at a different
-address, or even return prematurely from a function to its caller.
+   Language-specific information is built into GDB for some
+languages, allowing you to express operations like the above in the
+program's native language, and allowing GDB to output values in a
+manner consistent with the syntax of the program's native language. 
+The language you use to build expressions, called the "working
+language", can be selected manually, or GDB can set it automatically.
 
 * Menu:
 
-* Assignment::                  Assignment to Variables
-* Jumping::                     Continuing at a Different Address
-* Signaling::                   Giving the Program a Signal
-* Returning::                   Returning from a Function
-* Calling::                     Calling your Program's Functions
+* Setting::                     Switching between source languages
+* Show::                        Displaying the language
+* Checks::                      Type and Range checks
+* Support::                     Supported languages
 
 
-File: gdb.info,  Node: Assignment,  Next: Jumping,  Prev: Altering,  Up: Altering
+File: gdb.info,  Node: Setting,  Next: Show,  Prev: Languages,  Up: Languages
 
-Assignment to Variables
+Switching between source languages
+==================================
+
+   There are two ways to control the working language--either have
+GDB set it automatically, or select it manually yourself.  You can
+use the `set language' command for either purpose.  On startup, GDB
+defaults to setting the language automatically.
+
+* Menu:
+
+* Manually::                    Setting the working language manually
+* Automatically::               Having GDB infer the source language
+
+
+File: gdb.info,  Node: Manually,  Next: Automatically,  Prev: Setting,  Up: Setting
+
+Setting the working language
+----------------------------
+
+   To set the language, issue the command `set language LANG', where
+LANG is the name of a language: `c' or `modula-2'.  For a list of
+the supported languages, type `set language'.
+
+   Setting the language manually prevents GDB from updating the
+working language automatically.  This can lead to confusion if you
+try to debug a program when the working language is not the same as
+the
+source language, when an expression is acceptable to both
+languages--but means different things.  For instance, if the current
+source file were written in C, and GDB was parsing Modula-2, a
+command such as:
+
+     print a = b + c
+
+might not have the effect you intended.  In C, this means to add `b'
+and `c' and place the result in `a'.  The result printed would be
+the value of `a'.  In Modula-2, this means to compare `a' to the
+result of `b+c', yielding a `BOOLEAN' value.
+
+   If you allow GDB to set the language automatically, then you can
+count on expressions evaluating the same way in your debugging
+session and in your program.
+
+
+File: gdb.info,  Node: Automatically,  Prev: Manually,  Up: Setting
+
+Having GDB infer the source language
+------------------------------------
+
+   To have GDB set the working language automatically, use `set
+language local' or `set language auto'.  GDB then infers the
+language that a program was written in by looking at the name of its
+source files, and examining their extensions:
+
+`*.mod'
+     Modula-2 source file
+
+`*.c'
+`*.cc'
+     C or C++ source file.
+
+   This information is recorded for each function or procedure in a
+source file.  When your program stops in a frame (usually by
+encountering a breakpoint), GDB sets the working language to the
+language recorded for the function in that frame.  If the language
+for a frame is unknown (that is, if the function or block
+corresponding to the frame was defined in a source file that does
+not have a recognized extension), the current working language is
+not changed, and GDB issues a warning.
+
+   This may not seem necessary for most programs, which are written
+entirely in one source language.  However, program modules and
+libraries written in one source language can be used by a main
+program written in a different source language.  Using `set language
+auto' in this case frees you from having to set the working language
+manually.
+
+
+File: gdb.info,  Node: Show,  Next: Checks,  Prev: Setting,  Up: Languages
+
+Displaying the language
 =======================
 
-   To alter the value of a variable, evaluate an assignment expression.
-*Note Expressions::.  For example,
+   The following commands will help you find out which language is
+the working language, and also what language source files were
+written in.
 
-     print x=4
+`show language'
+     Display the current working language.  This is the language you
+     can use with commands such as `print' to build and compute
+     expressions that may involve variables in the program.
 
-would store the value 4 into the variable `x', and then print the
-value
-of the assignment expression (which is 4).  All the assignment
-operators of C are supported, including the increment operators `++'
-and `--', and combining assignments such as `+=' and `<<='.
+`info frame'
+     Among the other information listed here (*note Information about
+     a Frame: Frame Info.) is the source language for this frame. 
+     This is the language that will become the working language if
+     you ever use an identifier that is in this frame.
 
-   If you are not interested in seeing the value of the assignment,
-use
-the `set' command instead of the `print' command.  `set' is really
-the same as `print' except that the expression's value is not
-printed and is not put in the value history (*note Value
-History::.).  The expression is evaluated only for its effects.
+`info source'
+     Among the other information listed here (*note Examining the
+     Symbol Table: Symbols.) is the source language of this source
+     file.
 
-   If the beginning of the argument string of the `set' command
-appears
-identical to a `set' subcommand, use the `set variable' command
-instead of just `set'.  This command is identical to `set' except
-for its lack of subcommands.  For example, a program might well have
-a variable `width'--which leads to an error if we try to set a new
-value with just `set width=13', as we might if `set width' didn't
-happen to be a GDB command:
+
+File: gdb.info,  Node: Checks,  Next: Support,  Prev: Show,  Up: Languages
 
-     (gdb) whatis width
-     type = double
-     (gdb) p width
-     $4 = 13
-     (gdb) set width=47
-     Invalid syntax in expression.
+Type and range Checking
+=======================
 
-The invalid expression, of course, is `=47'.  What we can do in order
-to actually set our program's variable `width' is
+     *Warning:* In this release, the GDB commands for type and range
+    
+     checking are included, but they do not yet have any effect. 
+     This section documents the intended facilities.
 
-     (gdb) set var width=47
+   Some languages are designed to guard you against making seemingly
+common errors through a series of compile- and run-time checks. 
+These
+include checking the type of arguments to functions and operators,
+and making sure mathematical overflows are caught at run time. 
+Checks such as these help to ensure a program's correctness once it
+has
+been compiled by eliminating type mismatches, and providing active
+checks for range errors when the program is running.
 
-   GDB allows more implicit conversions in assignments than C does;
-you can freely store an integer value into a pointer variable or
-vice
-versa, and any structure can be converted to any other structure
-that is the same length or shorter.
+   GDB can check for conditions like the above if you wish.  Although
+GDB will not check the statements in your program, it can check
+expressions entered directly into GDB for evaluation via the `print'
+command, for example.  As with the working language, GDB can also
+decide whether or not to check automatically based on the source
+language of the program being debugged.  *Note Supported Languages:
+Support, for the default settings of supported languages.
 
-   To store values into arbitrary places in memory, use the `{...}'
-construct to generate a value of specified type at a specified
-address (*note Expressions::.).  For example, `{int}0x83040' refers
-to memory location `0x83040' as an integer (which implies a certain
-size and representation in memory), and
+* Menu:
 
-     set {int}0x83040 = 4
-
-stores the value 4 into that memory location.
+* Type Checking::               An overview of type checking
+* Range Checking::              An overview of range checking
 
 

@@ -119,9 +119,9 @@ loser2:
   core_datasec (abfd)->name = ".data";
   core_regsec (abfd)->name = ".reg";
 
-  core_stacksec (abfd)->flags = SEC_ALLOC + SEC_LOAD;
-  core_datasec (abfd)->flags = SEC_ALLOC + SEC_LOAD;
-  core_regsec (abfd)->flags = SEC_ALLOC;
+  core_stacksec (abfd)->flags = SEC_ALLOC + SEC_LOAD + SEC_HAS_CONTENTS;
+  core_datasec (abfd)->flags = SEC_ALLOC + SEC_LOAD + SEC_HAS_CONTENTS;
+  core_regsec (abfd)->flags = SEC_ALLOC + SEC_HAS_CONTENTS;
 
   core_datasec (abfd)->size =  NBPG * u.u_dsize;
   core_stacksec (abfd)->size = NBPG * u.u_ssize;

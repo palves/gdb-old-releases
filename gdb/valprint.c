@@ -27,6 +27,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcmd.h"
 #include "target.h"
 #include "obstack.h"
+#include "language.h"
 
 #include <errno.h>
 extern int sys_nerr;
@@ -451,6 +452,8 @@ val_print_fields (type, valaddr, stream, format, recurse, pretty, dont_print)
 {
   int i, len, n_baseclasses;
 
+  check_stub_type (type);
+
   fprintf_filtered (stream, "{");
   len = TYPE_NFIELDS (type);
   n_baseclasses = TYPE_N_BASECLASSES (type);
@@ -515,7 +518,7 @@ val_print_fields (type, valaddr, stream, format, recurse, pretty, dont_print)
 
 	      /* Bitfields require special handling, especially due to byte
 		 order problems.  */
-	      v = value_from_long (TYPE_FIELD_TYPE (type, i),
+	      v = value_from_longest (TYPE_FIELD_TYPE (type, i),
 				   unpack_field_as_long (type, valaddr, i));
 
 	      val_print (TYPE_FIELD_TYPE (type, i), VALUE_CONTENTS (v), 0,
@@ -1216,6 +1219,46 @@ val_print (type, valaddr, address, stream, format,
   return 0;
 }
 
+/* Print a description of a type in the format of a 
+   typedef for the current language.
+   NEW is the new name for a type TYPE. */
+void
+typedef_print (type, new, stream)
+   struct type *type;
+   struct symbol *new;
+   FILE *stream;
+{
+   switch (current_language->la_language)
+   {
+#ifdef _LANG_c
+   case language_c:
+      fprintf_filtered(stream, "typedef ");
+      type_print(type,"",stream,0);
+      if(TYPE_NAME ((SYMBOL_TYPE (new))) == 0
+	 || 0 != strcmp (TYPE_NAME ((SYMBOL_TYPE (new))),
+			 SYMBOL_NAME (new)))
+	 fprintf_filtered(stream,  " %s", SYMBOL_NAME(new));
+      break;
+#endif
+#ifdef _LANG_m2
+   case language_m2:
+      fprintf_filtered(stream, "TYPE ");
+      if(!TYPE_NAME(SYMBOL_TYPE(new)) ||
+	 strcmp (TYPE_NAME(SYMBOL_TYPE(new)),
+		    SYMBOL_NAME(new)))
+	 fprintf_filtered(stream, "%s = ", SYMBOL_NAME(new));
+      else
+	 fprintf_filtered(stream, "<builtin> = ");
+      type_print(type,"",stream,0);
+      break;
+#endif
+   default:
+      error("Language not supported.");
+   }
+   fprintf_filtered(stream, ";\n");
+}
+
+
 /* Print a description of a type TYPE
    in the form of a declaration of a variable named VARSTRING.
    (VARSTRING is demangled if necessary.)
@@ -1746,19 +1789,19 @@ type_print_base (type, stream, show, level)
       break;
 
     case TYPE_CODE_INT:
-      if (TYPE_LENGTH (type) > sizeof (LONGEST))
-	{
-	  fprintf_filtered (stream, "<%d bit integer>",
-			    TYPE_LENGTH (type) * TARGET_CHAR_BIT);
-	}
-      else
+      name = 0;
+      if (TYPE_LENGTH (type) <= sizeof (LONGEST))
 	{
 	  if (TYPE_UNSIGNED (type))
 	    name = unsigned_type_table[TYPE_LENGTH (type)];
 	  else
 	    name = signed_type_table[TYPE_LENGTH (type)];
 	}
-      fputs_filtered (name, stream);
+      if (name)
+	fputs_filtered (name, stream);
+      else
+	fprintf_filtered (stream, "<%d bit integer>",
+			  TYPE_LENGTH (type) * TARGET_CHAR_BIT);
       break;
 
     case TYPE_CODE_FLT:
@@ -1974,6 +2017,8 @@ _initialize_valprint ()
 
   print_max = 200;
 
+  /* FIXME!  This assumes that these sizes and types are the same on the
+     host and target machines!  */
   unsigned_type_table
     = (char **) xmalloc ((1 + sizeof (unsigned LONGEST)) * sizeof (char *));
   bzero (unsigned_type_table, (1 + sizeof (unsigned LONGEST)));
@@ -1982,7 +2027,8 @@ _initialize_valprint ()
   unsigned_type_table[sizeof (unsigned long)] = "unsigned long";
   unsigned_type_table[sizeof (unsigned int)] = "unsigned int";
 #ifdef LONG_LONG
-  unsigned_type_table[sizeof (unsigned long long)] = "unsigned long long";
+  unsigned_type_table[TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT] =
+						"unsigned long long";
 #endif
 
   signed_type_table
@@ -1993,7 +2039,7 @@ _initialize_valprint ()
   signed_type_table[sizeof (long)] = "long";
   signed_type_table[sizeof (int)] = "int";
 #ifdef LONG_LONG
-  signed_type_table[sizeof (long long)] = "long long";
+  signed_type_table[TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT] = "long long";
 #endif
 
   float_type_table

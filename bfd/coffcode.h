@@ -235,7 +235,7 @@ $ } coff_symbol_type;
 
 */
 
-/* $Id: coffcode.h,v 1.18 1991/08/23 20:55:25 gnu Exp $ */
+/* $Id: coffcode.h,v 1.21 1991/09/20 03:44:15 gnu Exp $ */
 /* Most of this hacked by Steve Chamberlain, steve@cygnus.com */
 
 /* Align an address upward to a boundary, expressed as a number of bytes.
@@ -462,7 +462,11 @@ DEFUN(coff_swap_sym_in,(abfd, ext1, in1),
     in->_n._n_n._n_offset = bfd_h_get_32(abfd, (bfd_byte *) ext->e.e.e_offset);
   }
   else {
+#if SYMNMLEN != E_SYMNMLEN
+   -> Error, we need to cope with truncating or extending SYMNMLEN!;
+#else
     memcpy(in->_n._n_name, ext->e.e_name, SYMNMLEN);
+#endif
   }
   in->n_value = bfd_h_get_32(abfd, (bfd_byte *) ext->e_value);
   in->n_scnum = bfd_h_get_16(abfd, (bfd_byte *) ext->e_scnum);
@@ -487,7 +491,11 @@ DEFUN(coff_swap_sym_out,(abfd,in,  ext),
     bfd_h_put_32(abfd, in->_n._n_n._n_offset, (bfd_byte *)  ext->e.e.e_offset);
   }
   else {
+#if SYMNMLEN != E_SYMNMLEN
+   -> Error, we need to cope with truncating or extending SYMNMLEN!;
+#else
     memcpy(ext->e.e_name, in->_n._n_name, SYMNMLEN);
+#endif
   }
   bfd_h_put_32(abfd,  in->n_value , (bfd_byte *) ext->e_value);
   bfd_h_put_16(abfd,  in->n_scnum , (bfd_byte *) ext->e_scnum);
@@ -519,8 +527,11 @@ DEFUN(coff_swap_aux_in,(abfd, ext1, type, class, in1),
       in->x_file.x_n.x_zeroes = 0;
       in->x_file.x_n.x_offset  = bfd_h_get_32(abfd, (bfd_byte *) ext->x_file.x_n.x_offset);
     } else {
-      memcpy (in->x_file.x_fname, ext->x_file.x_fname,
-	      sizeof (in->x_file.x_fname));
+#if FILNMLEN != E_FILNMLEN
+   -> Error, we need to cope with truncating or extending FILNMLEN!;
+#else
+      memcpy (in->x_file.x_fname, ext->x_file.x_fname, FILNMLEN);
+#endif
     }
 
     break;
@@ -542,10 +553,14 @@ DEFUN(coff_swap_aux_in,(abfd, ext1, type, class, in1),
 #endif
 
     if (ISARY(type) || class == C_BLOCK) {
+#if DIMNUM != E_DIMNUM
+   -> Error, we need to cope with truncating or extending DIMNUM!;
+#else
       in->x_sym.x_fcnary.x_ary.x_dimen[0] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[0]);
       in->x_sym.x_fcnary.x_ary.x_dimen[1] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[1]);
       in->x_sym.x_fcnary.x_ary.x_dimen[2] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[2]);
       in->x_sym.x_fcnary.x_ary.x_dimen[3] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[3]);
+#endif
     }
       in->x_sym.x_fcnary.x_fcn.x_lnnoptr = GET_FCN_LNNOPTR(abfd, ext);
       in->x_sym.x_fcnary.x_fcn.x_endndx.l = GET_FCN_ENDNDX(abfd, ext);
@@ -575,8 +590,11 @@ DEFUN(coff_swap_aux_out,(abfd, in, type, class, ext),
       PUTWORD(abfd, in->x_file.x_n.x_offset, (bfd_byte *) ext->x_file.x_n.x_offset);
     }
     else {
-      memcpy ( ext->x_file.x_fname,in->x_file.x_fname,
-	      sizeof (in->x_file.x_fname));
+#if FILNMLEN != E_FILNMLEN
+   -> Error, we need to cope with truncating or extending FILNMLEN!;
+#else
+      memcpy (ext->x_file.x_fname, in->x_file.x_fname, FILNMLEN);
+#endif
     }    
     break;
   case C_STAT:
@@ -605,11 +623,14 @@ DEFUN(coff_swap_aux_out,(abfd, in, type, class, ext),
     else {
 
       if (ISARY(type) || class == C_BLOCK) {
+#if DIMNUM != E_DIMNUM
+   -> Error, we need to cope with truncating or extending DIMNUM!;
+#else
 	bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[0], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[0]);
 	bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[1], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[1]);
 	bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[2], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[2]);
 	bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[3], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[3]);
-
+#endif
       }
 	PUT_LNSZ_LNNO(abfd, in->x_sym.x_misc.x_lnsz.x_lnno, ext);
 	PUT_LNSZ_SIZE(abfd, in->x_sym.x_misc.x_lnsz.x_size, ext);
@@ -1011,7 +1032,18 @@ DEFUN(coff_real_object_p,(abfd, nscns, internal_f, internal_a),
   
   coff->sym_filepos = internal_f->f_symptr;
   
-  
+  /* These members communicate important constants about the symbol table
+     to GDB's symbol-reading code.  These `constants' unfortunately vary
+     from coff implementation to implementation...  */
+#ifndef NO_COFF_SYMBOLS
+  coff->local_n_btmask = N_BTMASK;
+  coff->local_n_btshft = N_BTSHFT;
+  coff->local_n_tmask  = N_TMASK;
+  coff->local_n_tshift = N_TSHIFT;
+  coff->local_symesz   = SYMESZ;
+  coff->local_auxesz   = AUXESZ;
+  coff->local_linesz   = LINESZ;
+#endif
   
   coff->symbols = (coff_symbol_type *) NULL;
   bfd_get_start_address(abfd) = internal_f->f_opthdr ? internal_a->entry : 0;
@@ -1443,10 +1475,8 @@ DEFUN(coff_fix_symbol_name,(abfd, symbol, native),
   char *  name = ( char *)(symbol->name);
 
   if (name == (char *) NULL) {
-    /*
-      coff symbols always have names, so we'll make one up
-      */
- symbol->name = "strange";
+    /* coff symbols always have names, so we'll make one up */
+    symbol->name = "strange";
     name = (char *)symbol->name;
   }
   name_length = strlen(name);
@@ -3108,7 +3138,7 @@ DEFUN(coff_find_nearest_line,(abfd,
   static alent   *cache_l;
     
   unsigned int    i = 0;
-  struct icofdata *cof = obj_icof(abfd);
+  coff_data_type *cof = coff_data(abfd);
   /* Run through the raw syments if available */
   combined_entry_type *p;
   alent          *l;
@@ -3123,7 +3153,7 @@ DEFUN(coff_find_nearest_line,(abfd,
   if (abfd->xvec->flavour != bfd_target_coff_flavour_enum)
     return false;
     
-  if (cof == (struct icofdata *)NULL)
+  if (cof == NULL)
     return false;
 
   p = cof->raw_syments;

@@ -1,12 +1,11 @@
-		README for GNU development tools
-	John Gilmore			23 August 91
+		   README for GNU development tools
+			    Cygnus Support
 
 This directory contains various GNU compilers, assemblers, linkers, 
 debuggers, etc., plus their support routines, definitions, and documentation.
 
 If you are receiving this as part of a GDB release, see the file
-gdb/README for full information.
-
+gdb/README.  If with a gas release, see gas/README, etc.
 
 It is now possible to configure and build a variety of tools with one
 command.  To build any or all of the tools contained herein, run the

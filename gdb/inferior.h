@@ -152,6 +152,13 @@ extern int step_over_calls;
 
 extern int step_multi;
 
+/* Nonzero means expecting a trap and caller will handle it themselves.
+   It is used after attach, due to attaching to a process;
+   when running in the shell before the child program has been exec'd;
+   and when running some kinds of remote stuff (FIXME?).  */
+
+int stop_soon_quietly;
+
 /* Nonzero if proceed is being used for a "finish" command or a similar
    situation when stop_registers should be saved.  */
 
@@ -180,11 +187,7 @@ int attach_flag;
 #define AFTER_TEXT_END 3
 
 #if !defined (CALL_DUMMY_LOCATION)
-#if defined (CANNOT_EXECUTE_STACK)
-#define CALL_DUMMY_LOCATION BEFORE_TEXT_END
-#else /* Can execute stack.  */
 #define CALL_DUMMY_LOCATION ON_STACK
-#endif /* Can execute stack.  */
 #endif /* No CALL_DUMMY_LOCATION.  */
 
 /* Are we in a call dummy?  The code below which allows DECR_PC_AFTER_BREAK
@@ -192,11 +195,13 @@ int attach_flag;
    subtracted out.  */
 #if !defined (PC_IN_CALL_DUMMY)
 #if CALL_DUMMY_LOCATION == BEFORE_TEXT_END
+extern CORE_ADDR text_end;
 #define PC_IN_CALL_DUMMY(pc, sp, frame_address) \
   ((pc) >= text_end - CALL_DUMMY_LENGTH         \
    && (pc) < text_end + DECR_PC_AFTER_BREAK)
 #else /* Not before text_end.  */
 #if CALL_DUMMY_LOCATION == AFTER_TEXT_END
+extern CORE_ADDR text_end;
 #define PC_IN_CALL_DUMMY(pc, sp, frame_address) \
   ((pc) >= text_end   \
    && (pc) < text_end + CALL_DUMMY_LENGTH + DECR_PC_AFTER_BREAK)

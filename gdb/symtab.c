@@ -1,5 +1,5 @@
 /* Symbol table lookup for the GNU debugger, GDB.
-   Copyright (C) 1986, 1987, 1988, 1989, 1990 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -28,6 +28,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symfile.h"
 #include "gdbcmd.h"
 #include "regex.h"
+#include "language.h"
 
 #include <obstack.h>
 #include <assert.h>
@@ -51,22 +52,7 @@ static struct partial_symbol *lookup_partial_symbol ();
 static struct partial_symbol *lookup_demangled_partial_symbol ();
 static struct symbol *lookup_demangled_block_symbol ();
 
-/* These variables point to the objects
-   representing the predefined C data types.  */
-
-struct type *builtin_type_void;
-struct type *builtin_type_char;
-struct type *builtin_type_short;
-struct type *builtin_type_int;
-struct type *builtin_type_long;
-struct type *builtin_type_long_long;
-struct type *builtin_type_unsigned_char;
-struct type *builtin_type_unsigned_short;
-struct type *builtin_type_unsigned_int;
-struct type *builtin_type_unsigned_long;
-struct type *builtin_type_unsigned_long_long;
-struct type *builtin_type_float;
-struct type *builtin_type_double;
+/* The single non-language-specific builtin type */
 struct type *builtin_type_error;
 
 /* Block in which the most recently searched-for symbol was found.
@@ -206,7 +192,8 @@ type_name_no_tag (type)
    If this is a stubbed struct (i.e. declared as struct foo *), see if
    we can find a full definition in some other file. If so, copy this
    definition, so we can use it in future.  If not, set a flag so we 
-   don't waste too much time in future.
+   don't waste too much time in future.  (FIXME, this doesn't seem
+   to be happening...)
 
    This used to be coded as a macro, but I don't think it is called 
    often enough to merit such treatment.
@@ -271,21 +258,12 @@ struct type *
 lookup_primitive_typename (name)
      char *name;
 {
-  if (!strcmp (name, "int"))
-    return builtin_type_int;
-  if (!strcmp (name, "long"))
-    return builtin_type_long;
-  if (!strcmp (name, "short"))
-    return builtin_type_short;
-  if (!strcmp (name, "char"))
-    return builtin_type_char;
-  if (!strcmp (name, "float"))
-    return builtin_type_float;
-  if (!strcmp (name, "double"))
-    return builtin_type_double;
-  if (!strcmp (name, "void"))
-    return builtin_type_void;
-  return 0;
+   struct type ** const *p;
+
+   for (p = current_language->la_builtin_type_vector; *p; p++)
+      if(!strcmp((**p)->name, name))
+	 return **p;
+   return 0; 
 }
 
 /* Lookup a typedef or primitive type named NAME,
@@ -304,9 +282,12 @@ lookup_typename (name, block, noerr)
     {
       struct type *tmp;
       tmp = lookup_primitive_typename (name);
-      if (!tmp && noerr)
+      if(tmp)
+	 return tmp;
+      else if (!tmp && noerr)
 	return 0;
-      error ("No type named %s.", name);
+      else
+	 error ("No type named %s.", name);
     }
   return SYMBOL_TYPE (sym);
 }
@@ -315,16 +296,11 @@ struct type *
 lookup_unsigned_typename (name)
      char *name;
 {
-  if (!strcmp (name, "int"))
-    return builtin_type_unsigned_int;
-  if (!strcmp (name, "long"))
-    return builtin_type_unsigned_long;
-  if (!strcmp (name, "short"))
-    return builtin_type_unsigned_short;
-  if (!strcmp (name, "char"))
-    return builtin_type_unsigned_char;
-  error ("No type named unsigned %s.", name);
-  return (struct type *)-1;  /* for lint */
+  char *uns = alloca (strlen(name) + 10);
+
+  strcpy (uns, "unsigned ");
+  strcpy (uns+9, name);
+  return lookup_typename (uns, (struct block *)0, 0);
 }
 
 /* Lookup a structure type named "struct NAME",
@@ -752,6 +728,7 @@ create_array_type (element_type, number)
 {
   struct type *result_type = (struct type *)
     obstack_alloc (symbol_obstack, sizeof (struct type));
+  struct type *range_type;
 
   bzero (result_type, sizeof (struct type));
 
@@ -761,7 +738,27 @@ create_array_type (element_type, number)
   TYPE_NFIELDS (result_type) = 1;
   TYPE_FIELDS (result_type) =
     (struct field *) obstack_alloc (symbol_obstack, sizeof (struct field));
-  TYPE_FIELD_TYPE (result_type, 0) = builtin_type_int;
+
+  {
+    /* Create range type.  */
+    range_type = (struct type *) obstack_alloc (symbol_obstack,
+						sizeof (struct type));
+    TYPE_CODE (range_type) = TYPE_CODE_RANGE;
+    TYPE_TARGET_TYPE (range_type) = builtin_type_int;  /* FIXME */
+
+    /* This should never be needed.  */
+    TYPE_LENGTH (range_type) = sizeof (int);
+
+    TYPE_NFIELDS (range_type) = 2;
+    TYPE_FIELDS (range_type) =
+      (struct field *) obstack_alloc (symbol_obstack,
+				      2 * sizeof (struct field));
+    TYPE_FIELD_BITPOS (range_type, 0) = 0; /* FIXME */
+    TYPE_FIELD_BITPOS (range_type, 1) = number-1; /* FIXME */
+    TYPE_FIELD_TYPE (range_type, 0) = builtin_type_int; /* FIXME */
+    TYPE_FIELD_TYPE (range_type, 1) = builtin_type_int; /* FIXME */
+  }
+  TYPE_FIELD_TYPE(result_type,0)=range_type;
   TYPE_VPTR_FIELDNO (result_type) = -1;
 
   return result_type;
@@ -2440,6 +2437,7 @@ sources_info ()
    If CLASS is zero, list all symbols except functions and type names.
    If CLASS is 1, list only functions.
    If CLASS is 2, list only type names.
+   If CLASS is 3, list only method names.
 
    BPT is non-zero if we should set a breakpoint at the functions
    we find.  */
@@ -2595,28 +2593,22 @@ list_symbols (regexp, class, bpt)
 
 		    if (class != 2 && i == STATIC_BLOCK)
 		      printf_filtered ("static ");
+
+		    /* Typedef that is not a C++ class */
 		    if (class == 2
 			&& SYMBOL_NAMESPACE (sym) != STRUCT_NAMESPACE)
-		      printf_filtered ("typedef ");
-
-		    if (class < 3)
+		       typedef_print (SYMBOL_TYPE(sym), sym, stdout);
+		    /* variable, func, or typedef-that-is-c++-class */
+		    else if (class < 2 || 
+			     (class == 2 && 
+				SYMBOL_NAMESPACE(sym) == STRUCT_NAMESPACE))
 		      {
-			type_print (SYMBOL_TYPE (sym),
-				    (SYMBOL_CLASS (sym) == LOC_TYPEDEF
-				     ? "" : SYMBOL_NAME (sym)),
-				    stdout, 0);
-
-			if (class == 2
-			    && SYMBOL_NAMESPACE (sym) != STRUCT_NAMESPACE
-			    && (TYPE_NAME ((SYMBOL_TYPE (sym))) == 0
-				|| 0 != strcmp (TYPE_NAME ((SYMBOL_TYPE (sym))),
-						SYMBOL_NAME (sym))))
-			  {
-			    fputs_filtered (" ", stdout);
-			    fprint_symbol (stdout, SYMBOL_NAME (sym));
-			  }
-
-			printf_filtered (";\n");
+			 type_print (SYMBOL_TYPE (sym),
+				     (SYMBOL_CLASS (sym) == LOC_TYPEDEF
+				      ? "" : SYMBOL_NAME (sym)),
+				     stdout, 0);
+			 
+			 printf_filtered (";\n");
 		      }
 		    else
 		      {
@@ -2704,9 +2696,8 @@ rbreak_command (regexp)
   list_symbols (regexp, 1, 1);
 }
 
-/* Initialize the standard C scalar types.  */
+/* Helper function to initialize the standard scalar types.  */
 
-static
 struct type *
 init_type (code, length, uns, name)
      enum type_code code;
@@ -2890,6 +2881,51 @@ make_symbol_completion_list (text)
   return (return_val);
 }
 
+#if 0
+/* Add the type of the symbol sym to the type of the current
+   function whose block we are in (assumed).  The type of
+   this current function is contained in *TYPE.
+   
+   This basically works as follows:  When we find a function
+   symbol (N_FUNC with a 'f' or 'F' in the symbol name), we record
+   a pointer to its type in the global in_function_type.  Every 
+   time we come across a parameter symbol ('p' in its name), then
+   this procedure adds the name and type of that parameter
+   to the function type pointed to by *TYPE.  (Which should correspond
+   to in_function_type if it was called correctly).
+
+   Note that since we are modifying a type, the result of 
+   lookup_function_type() should be bcopy()ed before calling
+   this.  When not in strict typing mode, the expression
+   evaluator can choose to ignore this.
+
+   Assumption:  All of a function's parameter symbols will
+   appear before another function symbol is found.  The parameters 
+   appear in the same order in the argument list as they do in the
+   symbol table. */
+
+void
+add_param_to_type (type,sym)
+   struct type **type;
+   struct symbol *sym;
+{
+   int num = ++(TYPE_NFIELDS(*type));
+
+   if(TYPE_NFIELDS(*type)-1)
+      TYPE_FIELDS(*type) = 
+	 (struct field *)xrealloc((char *)(TYPE_FIELDS(*type)),
+				  num*sizeof(struct field));
+   else
+      TYPE_FIELDS(*type) =
+	 (struct field *)xmalloc(num*sizeof(struct field));
+   
+   TYPE_FIELD_BITPOS(*type,num-1) = num-1;
+   TYPE_FIELD_BITSIZE(*type,num-1) = 0;
+   TYPE_FIELD_TYPE(*type,num-1) = SYMBOL_TYPE(sym);
+   TYPE_FIELD_NAME(*type,num-1) = SYMBOL_NAME(sym);
+}
+#endif 
+
 void
 _initialize_symtab ()
 {
@@ -2922,31 +2958,6 @@ are listed.");
   add_com ("rbreak", no_class, rbreak_command,
 	    "Set a breakpoint for all functions matching REGEXP.");
 
-  /* FIXME:  The code below assumes that the sizes of the basic data
-     types are the same on the host and target machines!!!  */
-
-  builtin_type_void = init_type (TYPE_CODE_VOID, 1, 0, "void");
-
-  builtin_type_float = init_type (TYPE_CODE_FLT, sizeof (float), 0, "float");
-  builtin_type_double = init_type (TYPE_CODE_FLT, sizeof (double), 0, "double");
-
-  builtin_type_char = init_type (TYPE_CODE_INT, sizeof (char), 0, "char");
-  builtin_type_short = init_type (TYPE_CODE_INT, sizeof (short), 0, "short");
-  builtin_type_long = init_type (TYPE_CODE_INT, sizeof (long), 0, "long");
-  builtin_type_int = init_type (TYPE_CODE_INT, sizeof (int), 0, "int");
-
-  builtin_type_unsigned_char = init_type (TYPE_CODE_INT, sizeof (char), 1, "unsigned char");
-  builtin_type_unsigned_short = init_type (TYPE_CODE_INT, sizeof (short), 1, "unsigned short");
-  builtin_type_unsigned_long = init_type (TYPE_CODE_INT, sizeof (long), 1, "unsigned long");
-  builtin_type_unsigned_int = init_type (TYPE_CODE_INT, sizeof (int), 1, "unsigned int");
-
-  builtin_type_long_long =
-    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
-	       0, "long long");
-  builtin_type_unsigned_long_long = 
-    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
-	       1, "unsigned long long");
-
+  /* Initialize the one built-in type that isn't language dependent... */
   builtin_type_error = init_type (TYPE_CODE_ERROR, 0, 0, "<unknown type>");
 }
-
