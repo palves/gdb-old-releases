@@ -529,11 +529,15 @@ child_create_inferior (exec_file, allargs, env)
 
 #ifdef TIOCGPGRP
       /* Run inferior in a separate process group.  */
+#ifdef NEED_POSIX_SETPGID
+      debug_setpgrp = setpgid (0, 0);
+#else
 #ifdef USG
       debug_setpgrp = setpgrp ();
 #else
       debug_setpgrp = setpgrp (getpid (), getpid ());
-#endif
+#endif /* USG */
+#endif /* NEED_POSIX_SETPGID */
       if (debug_setpgrp == -1)
 	 perror("setpgrp failed in child");
 #endif /* TIOCGPGRP */
@@ -597,10 +601,6 @@ child_create_inferior (exec_file, allargs, env)
   inferior_pid = pid;		/* Needed for wait_for_inferior stuff below */
 
   clear_proceed_status ();
-
-#if defined (START_INFERIOR_HOOK)
-  START_INFERIOR_HOOK ();
-#endif
 
   /* We will get a trace trap after one instruction.
      Continue it automatically.  Eventually (after shell does an exec)
@@ -902,7 +902,7 @@ wait_for_inferior ()
 	     will be set and we should check whether we've hit the
 	     step breakpoint.  */
 	  if (stop_signal == SIGTRAP && trap_expected
-	      && step_resume_break_address == NULL)
+	      && step_resume_break_address == 0)
 	    bpstat_clear (&stop_bpstat);
 	  else
 	    {
@@ -1038,8 +1038,15 @@ wait_for_inferior ()
 	     gdb can only handle one level deep of lack of
 	     frame pointer. */
 	  if (stop_step_resume_break
-	      && (step_frame_address == 0
-		  || (stop_frame_address == step_frame_address)))
+/*
+   Disable test for step_frame_address match so that we always stop even if the
+   frames don't match.  Reason: if we hit the step_resume_breakpoint, there is
+   no way to temporarily disable it so that we can step past it.  If we leave
+   the breakpoint in, then we loop forever repeatedly hitting, but never
+   getting past the breakpoint.  This change keeps nexting over recursive
+   function calls from hanging gdb.
+/*	      && (step_frame_address == 0
+		  || (stop_frame_address == step_frame_address))*/)
 	    {
 	      remove_step_breakpoint ();
 	      step_resume_break_address = 0;
@@ -1313,7 +1320,7 @@ wait_for_inferior ()
 	      breakpoints_inserted = 0;
 	    }
 	  else if (!breakpoints_inserted &&
-		   (step_resume_break_address != NULL || !another_trap))
+		   (step_resume_break_address != 0 || !another_trap))
 	    {
 	      insert_step_breakpoint ();
 	      breakpoints_failed = insert_breakpoints ();

@@ -28,8 +28,8 @@ newsos* | mach*)
 	files=sysdep-obsd.h
 	;;
 
-svr4*)
-	my_host=svr4
+sysv4*)
+	my_host=sysv4
 	;;
 
 sysv*)

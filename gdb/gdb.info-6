@@ -1,18 +1,16 @@
-Info file gdb.info, produced by Makeinfo, -*- Text -*- from input file
-gdb-all.texi.
-
-   gdb.info
+Info file ./gdb.info, produced by Makeinfo, -*- Text -*- from input
+file gdb-all.texi.
 
 START-INFO-DIR-ENTRY
 * Gdb: (gdb).                   The GNU debugger.
 END-INFO-DIR-ENTRY
-
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.00, December 1991, of `Using GDB: A Guide to the
-GNU Source-Level Debugger' for GDB Version 4.3.
+   This is Edition 4.01, January 1992, of `Using GDB: A Guide to the
+GNU Source-Level Debugger' for GDB Version 4.4.
 
-   Copyright (C) 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991 1992 Free Software Foundation,
+Inc.
 
    Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -276,9 +274,9 @@ specific, complete example.  That is the easiest thing for you to do,
 and the most helpful.
 
    Keep in mind that the purpose of a bug report is to enable us to fix
-the bug if it is new to us.  It isn't as important what happens if the
-bug is already known.  Therefore, always write your bug reports on the
-assumption that the bug has not been reported previously.
+the bug if it is new to us.  It is not as important as what happens if
+the bug is already known.  Therefore, always write your bug reports on
+the assumption that the bug has not been reported previously.
 
    Sometimes people give a few sketchy facts and ask, "Does this ring a
 bell?"  Those bug reports are useless, and we urge everyone to *refuse
@@ -289,24 +287,28 @@ to respond to them* except to chide the sender to report bugs properly.
    * The version of GDB.  GDB announces it if you start with no
      arguments; you can also print it at any time using `show version'.
 
-     Without this, we won't know whether there is any point in looking
-     for the bug in the current version of GDB.
+     Without this, we will not know whether there is any point in
+     looking for the bug in the current version of GDB.
 
-   * A complete input script, and all necessary source files, that will
-     reproduce the bug.
+   * The type of machine you are using, and the operating system name
+     and version number.
 
    * What compiler (and its version) was used to compile GDB--e.g. 
      "gcc-1.37.1".
 
+   * What compiler (and its version) was used to compile the program
+     you are debugging--e.g.  "gcc-1.37.1".
+
    * The command arguments you gave the compiler to compile your
      example and observe the bug.  For example, did you use `-O'?  To
-     guarantee you won't omit something important, list them all.
+     guarantee you will not omit something important, list them all. 
+     A copy of the Makefile (or the output from make) is sufficient.
 
      If we were to try to guess the arguments, we would probably guess
      wrong and then we might not encounter the bug.
 
-   * The type of machine you are using, and the operating system name
-     and version number.
+   * A complete input script, and all necessary source files, that will
+     reproduce the bug.
 
    * A description of what behavior you observe that you believe is
      incorrect.  For example, "It gets a fatal signal."
@@ -331,8 +333,8 @@ to respond to them* except to chide the sender to report bugs properly.
      diffs.  If you even discuss something in the GDB source, refer to
      it by context, not by line number.
 
-     The line numbers in our development sources won't match those in
-     your sources.  Your line numbers would convey no useful
+     The line numbers in our development sources will not match those
+     in your sources.  Your line numbers would convey no useful
      information to us.
 
    Here are some things that are not necessary:
@@ -369,12 +371,12 @@ to respond to them* except to chide the sender to report bugs properly.
      Sometimes with a program as complicated as GDB it is very hard to
      construct an example that will make the program follow a certain
      path through the code.  If you do not send us the example, we
-     won't be able to construct one, so we won't be able to verify
-     that the bug is fixed.
+     will not be able to construct one, so we will not be able to
+     verify that the bug is fixed.
 
      And if we cannot understand what bug you are trying to fix, or
-     why your patch should be an improvement, we won't install it.  A
-     test case will help us to understand.
+     why your patch should be an improvement, we will not install it. 
+     A test case will help us to understand.
 
    * A guess about what the bug is or what it depends on.
 
@@ -387,7 +389,7 @@ File: gdb.info,  Node: Renamed Commands,  Next: Installing GDB,  Prev: GDB Bugs,
 Renamed Commands
 ****************
 
-   The following commands were renamed in GDB 4.0, in order to make the
+   The following commands were renamed in GDB 4, in order to make the
 command set as a whole more consistent and easier to use and remember:
 
      OLD COMMAND               NEW COMMAND
@@ -429,143 +431,145 @@ Installing GDB
 preparing GDB for installation; you can then use `make' to build the
 `gdb' program.
 
-   The gdb distribution includes all the source code you need for gdb
-in a single directory `gdb-4.3'.  That directory in turn contains:
+   The GDB distribution includes all the source code you need for GDB
+in a single directory, whose name is usually composed by appending the
+version number to `gdb'.
 
-`gdb-4.3/configure (and supporting files)'
+   For example, the GDB version 4.4 distribution is in the `gdb-4.4'
+directory.  That directory contains:
+
+`gdb-4.4/configure (and supporting files)'
      script for configuring GDB and all its supporting libraries.
 
-`gdb-4.3/gdb'
+`gdb-4.4/gdb'
      the source specific to GDB itself
 
-`gdb-4.3/bfd'
+`gdb-4.4/bfd'
      source for the Binary File Descriptor Library
 
-`gdb-4.3/include'
+`gdb-4.4/include'
      GNU include files
 
-`gdb-4.3/libiberty'
+`gdb-4.4/libiberty'
      source for the `-liberty' free software library
 
-`gdb-4.3/readline'
+`gdb-4.4/readline'
      source for the GNU command-line interface
 
-It is most convenient to run `configure' from the `gdb-4.3' directory.
- The simplest way to configure and build GDB is the following:
+   The simplest way to configure and build GDB is to run `configure'
+from the `gdb-VERSION-NUMBER' source directory, which in this example
+is the `gdb-4.4' directory.
 
-     cd gdb-4.3
+   First switch to the `gdb-VERSION-NUMBER' source directory if you
+are not already in it; then run `configure'.  Pass the identifier for
+the platform on which GDB will run as an argument.
+
+   For example:
+
+     cd gdb-4.4
      ./configure HOST
      make
 
-where HOST is something like `sun4' or `decstation', that identifies
-the platform where GDB will run.  This builds the three libraries
+where HOST is an identifier such as `sun4' or `decstation', that
+identifies the platform where GDB will run.
+
+   These `configure' and `make' commands build the three libraries
 `bfd', `readline', and `libiberty', then `gdb' itself.  The configured
 source files, and the binaries, are left in the corresponding source
 directories.
 
    `configure' is a Bourne-shell (`/bin/sh') script; if your system
 does not recognize this automatically when you run a different shell,
-you may need to run `sh' on it explicitly: `sh configure HOST'.
+you may need to run `sh' on it explicitly:
 
-   You can *run* the `configure' script from any of the subordinate
-directories in the GDB distribution (if you only want to configure
-that subdirectory); but be sure to specify a path to it.  For example,
-to configure only the `bfd' subdirectory,
+     sh configure HOST
 
-     cd gdb-4.3/bfd
+   If you run `configure' from a directory that contains source
+directories for multiple libraries or programs, such as the `gdb-4.4'
+source directory for version 4.4, `configure' creates configuration
+files for every directory level underneath (unless you tell it not to,
+with the `--norecursion' option).
+
+   You can run the `configure' script from any of the subordinate
+directories in the GDB distribution, if you only want to configure
+that subdirectory; but be sure to specify a path to it.
+
+   For example, with version 4.4, type the following to configure only
+the `bfd' subdirectory:
+
+     cd gdb-4.4/bfd
      ../configure HOST
 
-   You can install `gdb' anywhere; it has no hardwired paths.  Simply
-copy `gdb/gdb' to the desired directory.
-
-   However, you should make sure that the shell on your path (named by
-the `SHELL' environment variable) is publicly readable; some systems
-refuse to let GDB debug child processes whose programs are not
-readable, and GDB uses the shell to start your program.
+   You can install `gdb' anywhere; it has no hardwired paths. 
+However, you should make sure that the shell on your path (named by
+the `SHELL' environment variable) is publicly readable.  Remember that
+GDB uses the shell to start your program--some systems refuse to let
+GDB debug child processes whose programs are not readable.
 
 * Menu:
 
-* Subdirectories::              Configuration subdirectories
+* Separate Objdir::             Compiling GDB in another directory
 * Config Names::                Specifying names for hosts and targets
 * configure Options::           Summary of options for configure
 * Formatting Documentation::    How to format and print GDB documentation
 
 
-File: gdb.info,  Node: Subdirectories,  Next: Config Names,  Prev: Installing GDB,  Up: Installing GDB
+File: gdb.info,  Node: Separate Objdir,  Next: Config Names,  Prev: Installing GDB,  Up: Installing GDB
 
-Configuration Subdirectories
-============================
+Compiling GDB in Another Directory
+==================================
 
    If you want to run GDB versions for several host or target machines,
-you'll need a different gdb compiled for each combination of host and
-target.  `configure' is designed to make this easy by allowing you to
-generate each configuration in a separate subdirectory.  If your
-`make' program handles the `VPATH' feature (GNU `make' does), running
-`make' in each of these directories then builds the gdb program
-specified there.
+you'll need a different `gdb' compiled for each combination of host
+and target.  `configure' is designed to make this easy by allowing you
+to generate each configuration in a separate subdirectory, rather than
+in the source directory.  If your `make' program handles the `VPATH'
+feature (GNU `make' does), running `make' in each of these directories
+then builds the `gdb' program specified there.
 
-   `configure' creates these subdirectories for you when you
-simultaneously specify several configurations; but it is a good habit
-even for a single configuration.  You can specify the use of
-subdirectories using the `+subdirs' option (abbreviated `+sub').  For
-example, you can build GDB this way on a Sun 4 as follows:
+   To build `gdb' in a separate directory, run `configure' with the
+`--srcdir' option to specify where to find the source.  (Remember,
+you'll also need to specify a path to find `configure' itself from
+your working directory.)
 
-     cd gdb-4.3
-     ./configure +sub sun4
-     cd H-sun4/T-sun4
+   For example, with version 4.4, you can build GDB in a separate
+directory for a Sun 4 like this:
+
+     cd gdb-4.4
+     mkdir ../gdb-sun4
+     cd ../gdb-sun4
+     ../gdb-4.4/configure --srcdir=../gdb-4.4 sun4
      make
 
-   When `configure' uses subdirectories to build programs or
-libraries, it creates nested directories `H-HOST/T-TARGET'. 
-`configure' uses these two directory levels because GDB can be
-configured for cross-compiling: GDB can run on one machine (the host)
-while debugging programs that run on another machine (the target). 
-You specify cross-debugging targets by giving the `+target=TARGET'
-option to `configure'.  Specifying only hosts still gives you two
-levels of subdirectory for each host, with the same configuration
-suffix on both; that is, if you give any number of hosts but no
-targets, GDB will be configured for native debugging on each host.  On
-the other hand, whenever you specify both hosts and targets on the
-same command line, `configure' creates all combinations of the hosts
-and targets you list.
+   When `configure' builds a configuration using a remote source
+directory, it creates a tree for the binaries with the same structure
+(and using the same names) as the tree under the source directory.  In
+the example, you'd find the Sun 4 library `libiberty.a' in the
+directory `gdb-sun4/libiberty', and GDB itself in `gdb-sun4/gdb'.
 
-   If you run `configure' from a directory (notably, `gdb-4.3') that
-contains source directories for multiple libraries or programs,
-`configure' creates the `H-HOST/T-TARGET' subdirectories in each
-library or program's source directory.  For example, typing:
-
-     cd gdb-4.3
-     configure sun4 +target=vxworks960
-
-creates the following directories:
-
-     gdb-4.3/H-sun4/T-vxworks960
-     gdb-4.3/bfd/H-sun4/T-vxworks960
-     gdb-4.3/gdb/H-sun4/T-vxworks960
-     gdb-4.3/libiberty/H-sun4/T-vxworks960
-     gdb-4.3/readline/H-sun4/T-vxworks960
+   One popular use for building several GDB configurations in separate
+directories is to configure GDB for cross-compiling (where GDB runs on
+one machine--the host--while debugging programs that run on another
+machine--the target).  You specify a cross-debugging target by giving
+the `--target=TARGET' option to `configure'.
 
    When you run `make' to build a program or library, you must run it
-in a configured directory.  If you made a single configuration,
-without subdirectories, run `make' in the source directory.  If you
-have `H-HOST/T-TARGET' subdirectories, run `make' in those
-subdirectories.
+in a configured directory--whatever directory you were in when you
+called `configure' (or one of its subdirectories).
 
    The `Makefile' generated by `configure' for each source directory
-runs recursively, so that typing `make' in `gdb-4.3' (or in a
-`gdb-4.3/H-HOST/T-TARGET' subdirectory) builds all the required
-libraries, then GDB.
+also runs recursively.  If you type `make' in a source directory such
+as `gdb-4.4' (or in a separate configured directory configured with
+`--srcdir=PATH/gdb-4.4'), you will build all the required libraries,
+then build GDB.
 
-   When you have multiple hosts or targets configured, you can run
-`make' on them in parallel (for example, if they are NFS-mounted on
-each of the hosts); they will not interfere with each other.
-
-   You can also use the `+objdir=ALTROOT' option to have the
-configured files placed in a parallel directory structure rather than
-alongside the source files; *note configure Options::..
+   When you have multiple hosts or targets configured in separate
+directories, you can run `make' on them in parallel (for example, if
+they are NFS-mounted on each of the hosts); they will not interfere
+with each other.
 
 
-File: gdb.info,  Node: Config Names,  Next: configure Options,  Prev: Subdirectories,  Up: Installing GDB
+File: gdb.info,  Node: Config Names,  Next: configure Options,  Prev: Separate Objdir,  Up: Installing GDB
 
 Specifying Names for Hosts and Targets
 ======================================
@@ -582,8 +586,9 @@ a `+target=TARGET' option, but the equivalent full name is
 `sparc-sun-sunos4'.
 
    The following table shows all the architectures, hosts, and OS
-prefixes that `configure' recognizes in GDB 4.3.  Entries in the "OS
-prefix" column ending in a `*' may be followed by a release number.
+prefixes that `configure' recognizes in GDB version 4.4.  Entries in
+the "OS prefix" column ending in a `*' may be followed by a release
+number.
 
 
      ARCHITECTURE  VENDOR                     OS prefix
@@ -615,13 +620,13 @@ prefix" column ending in a `*' may be followed by a release number.
       xmp        |                          |
       ymp        |                          |
 
-          *Warning:* `configure' can represent a very large number of
+     *Warning:* `configure' can represent a very large number of
      combinations of architecture, vendor, and OS.  There is by no
      means support available for all possible combinations!
 
-   The `configure' script accompanying GDB 4.3 does not provide any
-query facility to list all supported host and target names or aliases.
- `configure' calls the Bourne shell script `config.sub' to map
+   The `configure' script accompanying GDB does not provide any query
+facility to list all supported host and target names or aliases. 
+`configure' calls the Bourne shell script `config.sub' to map
 abbreviations to full names; you can read the script, if you wish, or
 you can use it to test your guesses on abbreviations--for example:
 
@@ -638,7 +643,8 @@ you can use it to test your guesses on abbreviations--for example:
      % sh config.sub i486v
      *** Configuration "i486v" not recognized
 
-`config.sub' is also distributed in the directory `gdb-4.3'.
+`config.sub' is also distributed in the GDB source directory
+(`gdb-4.4', for version 4.4).
 
 
 File: gdb.info,  Node: configure Options,  Next: Formatting Documentation,  Prev: Config Names,  Up: Installing GDB
@@ -649,60 +655,47 @@ File: gdb.info,  Node: configure Options,  Next: Formatting Documentation,  Prev
    Here is a summary of all the `configure' options and arguments that
 you might use for building GDB:
 
-     configure [+destdir=DIR] [+subdirs]
-               [+objdir=ALTROOT] [+norecursion] [+rm]
-               [+target=TARGET...] HOST...
+     configure [--destdir=DIR] [--srcdir=PATH]
+               [--norecursion] [--rm]
+               [--target=TARGET] HOST
 
-You may introduce options with the character `-' rather than `+' if
-you prefer; but you may abbreviate option names if you use `+'.
+You may introduce options with a single `-' rather than `--' if you
+prefer; but you may abbreviate option names if you use `--'.
 
-`+destdir=DIR'
+`--destdir=DIR'
      DIR is an installation directory *path prefix*.  After you
      configure with this option, `make install' will install GDB as
      `DIR/bin/gdb', and the libraries in `DIR/lib'.  If you specify
-     `+destdir=/usr/local', for example, `make install' creates
+     `--destdir=/usr/local', for example, `make install' creates
      `/usr/local/bin/gdb'.
 
-`+subdirs'
-     Write configuration specific files in subdirectories of the form
+`--srcdir=PATH'
+     Use this option to make configurations in directories separate
+     from the GDB source directories.  Among other things, you can use
+     this to build (or maintain) several configurations
+     simultaneously, in separate directories.  `configure' writes
+     configuration specific files in the current directory, but
+     arranges for them to use the source in the directory PATH. 
+     `configure' will create directories under the working directory
+     in parallel to the source directories below PATH.
 
-          H-HOST/T-TARGET
+`--norecursion'
+     Configure only the directory level where `configure' is executed;
+     do not propagate configuration to subdirectories.
 
-          (and configure the `Makefile' to generate object code in
-     subdirectories of this form as well).  Without this option, if you
-     specify only one configuration for GDB, `configure' will use the
-     same directory for source, configured files, and binaries.  This
-     option is used automatically if you specify more than one HOST or
-     more than one `+target=TARGET' option on the `configure' command
-     line.
-
-`+norecursion'
-     Configure only the directory where `configure' is executed; do not
-     propagate configuration to subdirectories.
-
-`+objdir=ALTROOT'
-     ALTROOT is an alternative directory used as the root for
-     configured files.  `configure' will create directories under
-     ALTROOT in parallel to the source directories.  If you use
-     `+objdir=ALTROOT' with `+subdirs', `configure' also builds the
-     `H-HOST/T-TARGET' subdirectories in the directory tree rooted in
-     ALTROOT.
-
-`+rm'
+`--rm'
      Remove the configuration that the other arguments specify.
 
-`+target=TARGET ...'
-     Configure GDB for cross-debugging programs running on each
-     specified TARGET.  You may specify as many `+target' options as
-     you wish.  Without this option, GDB is configured to debug
+`--target=TARGET'
+     Configure GDB for cross-debugging programs running on the
+     specified TARGET.  Without this option, GDB is configured to debug
      programs that run on the same machine (HOST) as GDB itself.
 
      There is no convenient way to generate a list of all available
      targets.
 
 `HOST ...'
-     Configure GDB to run on each specified HOST.  You may specify as
-     many host names as you wish.
+     Configure GDB to run on the specified HOST.
 
      There is no convenient way to generate a list of all available
      hosts.
@@ -717,62 +710,71 @@ File: gdb.info,  Node: Formatting Documentation,  Prev: configure Options,  Up: 
 Formatting the Documentation
 ============================
 
-   The GDB 4.3 release includes an already-formatted reference card,
-ready for printing on a PostScript printer, as
-`gdb-4.3/gdb/refcard.ps'.  It uses the most common PostScript fonts:
-the Times family, Courier, and Symbol.  If you have a PostScript
-printer, you can print the reference card by just sending `refcard.ps'
-to the printer.
+   All the documentation for GDB, including this manual, comes as part
+of the distribution.  The documentation is written in Texinfo format,
+which is a documentation system that uses a single source file to
+produce both on-line information and a printed manual.  You can use
+one of the Info formatting commands to create the on-line version of
+the documentation and TeX (or `texi2roff') to typeset the printed
+version.
 
-   The release also includes the online Info version of this manual
-already formatted: the main Info file is `gdb-4.3/gdb/gdb.info', and it
-refers to subordinate files matching `gdb.info*' in the same directory.
+   GDB includes an already formatted copy of the on-line Info version
+of this manual in the `gdb' subdirectory.  The main Info file is
+`gdb-VERSION-NUMBER/gdb/gdb.info', and it refers to subordinate files
+matching `gdb.info*' in the same directory.
 
-   If you want to make these Info files yourself from the GDB manual's
-source, you need the GNU `makeinfo' program.  Once you have it, you
-can type
+   If you want to format these Info files yourself, you need one of the
+Info formatting programs, such as `texinfo-format-buffer' or
+`makeinfo'.
 
-     cd gdb-4.3/gdb
+   If you have `makeinfo' installed, and are in the top level GDB
+source directory (`gdb-4.4', in the case of version 4.4), you can make
+the Info file by typing:
+
+     cd gdb
      make gdb.info
 
-to make the Info file.
+   If you want to typeset and print copies of this manual, you need
+TeX, a printing program such as `lpr', and `texinfo.tex', the Texinfo
+definitions file.
 
-   If you want to format and print copies of the manual, you need
-several things:
+   TeX is typesetting program; it does not print files directly, but
+produces output files called DVI files.  To print a typeset document,
+you need a program to print DVI files.  If your system has TeX
+installed, chances are it has such a program.  The precise command to
+use depends on your system; `lpr -d' is common; another is `dvips'. 
+The DVI print command may require a file name without any extension or
+a `.dvi' extension.
 
-   * TeX, the public domain typesetting program written by Donald
-     Knuth, must be installed on your system and available through
-     your execution path.
+   TeX also requires a macro definitions file called `texinfo.tex'. 
+This file tells TeX how to typeset a document written in Texinfo
+format.  On its own, TeX cannot read, much less typeset a Texinfo
+file.  `texinfo.tex' is distributed with GDB and is located in the
+`gdb-VERSION-NUMBER/texinfo' directory.
 
-   * `gdb-4.3/texinfo': TeX macros defining the GNU Documentation
-     Format.
+   If you have TeX and a DVI printer program installed, you can
+typeset and print this manual.  First switch to the the `gdb'
+subdirectory of the main source directory (for example, to
+`gdb-4.4/gdb') and then type:
 
-   * *A DVI output program.*  TeX does not actually make marks on
-     paper; it produces output files called DVI files.  If your system
-     has TeX installed, chances are it has a program for printing out
-     these files; one popular example is `dvips', which can print DVI
-     files on PostScript printers.
-
-Once you have these things, you can type
-
-     cd gdb-4.3/gdb
      make gdb.dvi
 
-to format the text of this manual, and print it with the usual output
-method for TeX DVI files at your site.
+   In addition to the manual, the GDB 4 release includes a three-column
+reference card.  Format the GDB reference card by typing:
 
-   If you want to print the reference card, but do not have a
-PostScript printer, or you want to use Computer Modern fonts instead,
-you can still print it if you have TeX.  Format the reference card by
-typing
-
-     cd gdb-4.3/gdb
      make refcard.dvi
 
-The GDB reference card is designed to print in landscape mode on US
+   The GDB reference card is designed to print in landscape mode on US
 "letter" size paper; that is, on a sheet 11 inches wide by 8.5 inches
 high.  You will need to specify this form of printing as an option to
 your DVI output program.
+
+   The GDB 4 release includes an already-formatted reference card,
+ready for printing on a PostScript or GhostScript printer, in the `gdb'
+subdirectory of the main source directory--in `gdb-4.2/gdb/refcard.ps'
+of the version 4.2 release.  If you have a PostScript or GhostScript
+printer, you can print the reference card by just sending `refcard.ps'
+to the printer.
 
 
 File: gdb.info,  Node: Copying,  Next: Index,  Prev: Installing GDB,  Up: Top
@@ -877,16 +879,16 @@ modification follow.
      distribute such modifications or work under the terms of Section 1
      above, provided that you also meet all of these conditions:
 
-       a) You must cause the modified files to carry prominent notices
+       a. You must cause the modified files to carry prominent notices
           stating that you changed the files and the date of any
           change.
 
-       b) You must cause any work that you distribute or publish, that
+       b. You must cause any work that you distribute or publish, that
           in whole or in part contains or is derived from the Program
           or any part thereof, to be licensed as a whole at no charge
           to all third parties under the terms of this License.
 
-       c) If the modified program normally reads commands interactively
+       c. If the modified program normally reads commands interactively
           when run, you must cause it, when started running for such
           interactive use in the most ordinary way, to print or
           display an announcement including an appropriate copyright
@@ -898,7 +900,7 @@ modification follow.
           print such an announcement, your work based on the Program
           is not required to print an announcement.)
 
-             These requirements apply to the modified work as a whole.  If
+        These requirements apply to the modified work as a whole.  If
      identifiable sections of that work are not derived from the
      Program, and can be reasonably considered independent and
      separate works in themselves, then this License, and its terms,
@@ -924,12 +926,12 @@ modification follow.
      terms of Sections 1 and 2 above provided that you also do one of
      the following:
 
-       a) Accompany it with the complete corresponding machine-readable
+       a. Accompany it with the complete corresponding machine-readable
           source code, which must be distributed under the terms of
           Sections 1 and 2 above on a medium customarily used for
           software interchange; or,
 
-       b) Accompany it with a written offer, valid for at least three
+       b. Accompany it with a written offer, valid for at least three
           years, to give any third party, for a charge no more than
           your cost of physically performing source distribution, a
           complete machine-readable copy of the corresponding source
@@ -937,14 +939,14 @@ modification follow.
           above on a medium customarily used for software interchange;
           or,
 
-       c) Accompany it with the information you received as to the
+       c. Accompany it with the information you received as to the
           offer to distribute corresponding source code.  (This
           alternative is allowed only for noncommercial distribution
           and only if you received the program in object code or
           executable form with such an offer, in accord with
           Subsection b above.)
 
-             The source code for a work means the preferred form of the
+        The source code for a work means the preferred form of the
      work for making modifications to it.  For an executable work,
      complete source code means all the source code for all modules it
      contains, plus any associated interface definition files, plus
@@ -1133,9 +1135,10 @@ program.
 your school, if any, to sign a "copyright disclaimer" for the program,
 if necessary.  Here is a sample; alter the names:
 
-     Yoyodyne, Inc., hereby disclaims all copyright interest in
-     the program `Gnomovision' (which makes passes at compilers)
-     written by James Hacker.
+     Yoyodyne, Inc., hereby disclaims all copyright
+     interest in the program `Gnomovision'
+     (which makes passes at compilers) written
+     by James Hacker.
      
      SIGNATURE OF TY COON, 1 April 1989
      Ty Coon, President of Vice

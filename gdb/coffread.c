@@ -1795,9 +1795,7 @@ decode_base_type (cs, c_type, aux)
 	    type = coff_alloc_type (cs->c_symnum);
 	    TYPE_CODE (type) = TYPE_CODE_STRUCT;
 	    TYPE_NAME (type) = concat ("struct ", "<opaque>", NULL);
-	    TYPE_CPLUS_SPECIFIC (type)
-	      = (struct cplus_struct_type *) obstack_alloc (symbol_obstack, sizeof (struct cplus_struct_type));
-	    bzero (TYPE_CPLUS_SPECIFIC (type), sizeof (struct cplus_struct_type));
+	    INIT_CPLUS_SPECIFIC(type);
 	    TYPE_LENGTH (type) = 0;
 	    TYPE_FIELDS (type) = 0;
 	    TYPE_NFIELDS (type) = 0;
@@ -1816,9 +1814,7 @@ decode_base_type (cs, c_type, aux)
 	    /* anonymous union type */
 	    type = coff_alloc_type (cs->c_symnum);
 	    TYPE_NAME (type) = concat ("union ", "<opaque>", NULL);
-	    TYPE_CPLUS_SPECIFIC (type) = (struct cplus_struct_type *)
-	      obstack_alloc (symbol_obstack, sizeof (struct cplus_struct_type));
-	    bzero (TYPE_CPLUS_SPECIFIC (type), sizeof (struct cplus_struct_type));
+	    INIT_CPLUS_SPECIFIC(type);
 	    TYPE_LENGTH (type) = 0;
 	    TYPE_LENGTH (type) = 0;
 	    TYPE_FIELDS (type) = 0;
@@ -1894,9 +1890,7 @@ read_struct_type (index, length, lastsym)
 
   type = coff_alloc_type (index);
   TYPE_CODE (type) = TYPE_CODE_STRUCT;
-  TYPE_CPLUS_SPECIFIC (type)
-    = (struct cplus_struct_type *) obstack_alloc (symbol_obstack, sizeof (struct cplus_struct_type));
-  bzero (TYPE_CPLUS_SPECIFIC (type), sizeof (struct cplus_struct_type));
+  INIT_CPLUS_SPECIFIC(type);
   TYPE_LENGTH (type) = length;
 
   while (!done && symnum < lastsym && symnum < nlist_nsyms_global)

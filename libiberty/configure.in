@@ -5,7 +5,6 @@
 configdirs=
 srctrigger=getopt1.c
 srcname="-liberty library"
-commontargets=true
 
 # per-host:
 
@@ -14,7 +13,7 @@ links="alloca-conf.h"
 
 case "${host_os}" in
 
-sysv | dgux | irix | svr4 | m88kbcs )
+sysv* | dgux | irix | m88kbcs )
 	host_makefile_frag=config/mh-sysv
 	;;
 
@@ -28,7 +27,6 @@ aix)
 	;;
 
 *)
-	host_makefile_frag=config/mh-default
 	;;
 
 esac

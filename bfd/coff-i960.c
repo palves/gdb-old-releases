@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: coff-i960.c,v 1.24 1991/12/01 05:23:44 sac Exp $ */
+/* $Id: coff-i960.c,v 1.26 1992/01/24 22:43:57 sac Exp $ */
 
 #define I960 1
 #define BADMAG(x) I960BADMAG(x)
@@ -141,7 +141,7 @@ static reloc_howto_type howto_table[] =
 /* The real code is in coffcode.h */
 
 #define RTYPE2HOWTO(cache_ptr, dst) \
-	    cache_ptr->howto = howto_table + dst.r_type;
+	    cache_ptr->howto = howto_table + (dst)->r_type;
 
 #include "coffcode.h"
 

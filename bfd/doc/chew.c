@@ -24,6 +24,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
  that the old way
   
  sac
+
+Basically, this is a sort of string forth, maybe we should call it
+struth?
+
+You define new words thus:
+: <newword> <oldwords> ;
+There is  no
+
 */
 
 
@@ -32,9 +40,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sysdep.h"
 
 #define DEF_SIZE 5000
-
-char *EXFUN(malloc,(int));
-char *EXFUN(realloc,(char *,int));
+#define STACK 50
 
 int internal_wanted;
 int internal_mode;
@@ -55,11 +61,6 @@ typedef struct buffer
 
 
 
-static void DEFUN(remchar,(buffer),
-	   string_type *buffer)
-{
-    buffer->write_idx--;    
-}
 
 static void DEFUN(init_string_with_size,(buffer, size),
 	   string_type *buffer AND
@@ -205,8 +206,84 @@ DEFUN(skip_white_and_stars,(src, idx),
 /***********************************************************************/
 
 
-string_type stack[20];
+string_type stack[STACK];
 string_type *tos;
+
+unsigned int idx = 0; /* Pos in input buffer */
+string_type *ptr; /* and the buffer */
+typedef void (*stinst_type)();
+stinst_type *pc;
+stinst_type sstack[STACK];
+stinst_type *ssp = &sstack[0];
+int istack[STACK];
+int *isp = &istack[0];
+
+typedef int *word_type;
+
+
+
+struct dict_struct
+{
+    char *word;
+    struct dict_struct *next;
+   stinst_type *code;
+    int code_length;
+    int code_end;
+    int var;
+    
+};
+typedef struct dict_struct dict_type;
+#define WORD(x) static void x()
+
+static void DEFUN(exec,(word),
+		  dict_type *word)
+{
+    pc = word->code;
+    while (*pc) 
+    {
+	(*pc)();
+    }
+    
+}
+WORD(call)
+{
+stinst_type *oldpc = pc;
+    dict_type *e;
+    e =  (dict_type *)(pc [1]);
+    exec(e);
+    pc = oldpc + 2;
+    
+}
+
+WORD(remchar)
+{
+    tos->write_idx--;    
+    pc++;
+    
+}
+
+WORD(push_number)
+{
+    isp++;
+    pc++;
+    *isp = (int)(*pc);
+    pc++;
+    
+}
+
+
+
+
+WORD(push_text)
+{
+    
+    tos++;
+    init_string(tos);
+    pc++;
+    cattext(tos,*((char **)pc));
+    pc++;
+    
+}
 
 
    
@@ -233,6 +310,11 @@ DEFUN(remove_noncomments,(src,dst),
 	    idx+=3;
 	    
 	    idx = skip_white_and_stars(src,idx);
+
+	    /* Remove leading dot */
+	    if (at(src, idx) == '.')
+	     idx++;
+	    
 	    /* Copy to the end of the line, or till the end of the
 	       comment */
 	    while (at(src, idx))
@@ -261,34 +343,13 @@ DEFUN(remove_noncomments,(src,dst),
 	}
 	else idx++;
     }
-    
 }
-
-#define PUSH_TEXT (char *)1
-#define	SKIP_PAST_NEWLINE (char *)2
-#define	CATSTR (char *)3
-#define	COPY_PAST_NEWLINE (char *)4
-#define DUP (char *)5
-#define REMCHAR (char *)6
-#define GET_STUFF_IN_COMMAND (char *)7
-#define	DO_FANCY_STUFF (char *)8
-#define	BULLETIZE (char *)9
-#define	COURIERIZE (char *)10
-#define	EXIT (char *)11
-#define	SWAP (char *)12
-#define OUTPUTDOTS (char *)13
-#define EXFUNSTUFF (char *)14
-#define MAYBECATSTR (char *)15
-#define INTERNALMODE (char *)16
-#define TRANSLATECOMMENTS (char *)17
-typedef char * command_type;
-
 /* turn foobar name(stuff); into foobar EXFUN(name,(stuff));
 
  */
 
 static void
-DEFUN_VOID(insert_exfun)
+DEFUN_VOID(exfunstuff)
 {
     unsigned int openp;
     unsigned int fname;
@@ -298,7 +359,7 @@ DEFUN_VOID(insert_exfun)
     
 
     /* make sure that it's not already exfuned */
-    if(find(tos,"EXFUN") || find(tos,"PROTO")) {
+    if(find(tos,"EXFUN") || find(tos,"PROTO") || !find(tos,"(")) {
 	    catstr(&out,tos);
 	}
     else 
@@ -307,6 +368,7 @@ DEFUN_VOID(insert_exfun)
 	/*Find the open paren*/
 	for (openp = 0; at(tos, openp) != '('  && at(tos,openp); openp++)
 	 ;
+
 	fname = openp;
 	/* Step back to the fname */
 	fname--;
@@ -335,7 +397,9 @@ DEFUN_VOID(insert_exfun)
 	}
 	cattext(&out,");\n");
     }
-overwrite_string(tos, &out);    
+    overwrite_string(tos, &out);    
+    pc++;
+    
 }
 
 
@@ -343,8 +407,7 @@ overwrite_string(tos, &out);
 /* turn {*
    and *} into comments */
 
-static void 
-DEFUN_VOID(translate_comments)
+WORD(translatecomments)
 {
     unsigned int idx = 0;
     string_type out;
@@ -372,7 +435,42 @@ DEFUN_VOID(translate_comments)
 
     overwrite_string(tos, &out);
     
+    pc++;
+    
+}
 
+/* turn everything not starting with a . into a comment */
+
+WORD(manglecomments)
+{
+    unsigned int idx = 0;
+    string_type out;
+    init_string(&out);
+    
+    while (at(tos, idx)) 
+    {
+	if (at(tos,idx) == '\n' && at(tos,idx+1) =='*') 
+	{
+	    cattext(&out,"	/*");
+	    idx+=2;
+	}
+	else if (at(tos,idx) == '*' && at(tos,idx+1) =='}') 
+	{
+	    cattext(&out,"*/");
+	    idx+=2;
+	}
+	else  
+	{
+	    catchar(&out, at(tos, idx));
+	    idx++;
+	}
+    }
+
+
+    overwrite_string(tos, &out);
+    
+    pc++;
+    
 }
 
 /* Mod tos so that only lines with leading dots remain */
@@ -416,11 +514,12 @@ DEFUN_VOID(outputdots)
     }	
 
     overwrite_string(tos, &out);
+    pc++;
+    
 }
 
-/* Find lines starting with . and put example around them on tos */
-static void
-DEFUN_VOID(courierize)
+/* Find lines starting with . and | and put example around them on tos */
+WORD(courierize)
 {
     string_type out;
     unsigned int idx = 0;
@@ -429,7 +528,9 @@ DEFUN_VOID(courierize)
     
     while (at(tos, idx)) 
     {
-	if (at(tos, idx) == '\n' && at(tos, idx +1 ) == '.') 
+	if (at(tos, idx) == '\n' 
+	    && (at(tos, idx +1 ) == '.'
+		|| at(tos,idx+1) == '|')) 
 	{
 	    cattext(&out,"\n@example\n");
 	    do 
@@ -468,7 +569,8 @@ DEFUN_VOID(courierize)
 		catchar(&out,'\n');
 	    }  
 	    while (at(tos, idx) == '\n' 
-		   && at(tos, idx+1) == '.') ;
+		   && (at(tos, idx+1) == '.')
+		   || (at(tos,idx+1) == '|'));
 	    cattext(&out,"@end example");
 	}
 	else 
@@ -479,15 +581,17 @@ DEFUN_VOID(courierize)
     }    
 
     overwrite_string(tos, &out);
+    pc++;
 
+    
 }
 
 /* Finds any lines starting with "o ", if there are any, then turns
    on @itemize @bullet, and @items each of them. Then ends with @end
    itemize, inplace at TOS*/
 
-static void
-DEFUN_VOID(bulletize)
+
+WORD(bulletize)
 {
     unsigned int idx = 0;
     int on = 0;
@@ -495,6 +599,14 @@ DEFUN_VOID(bulletize)
     init_string(&out);
     
     while (at(tos, idx)) {
+	if (at(tos, idx) == '@' &&
+	    at(tos, idx+1) == '*') 
+	{
+	  cattext(&out,"*");
+	  idx+=2;
+	}
+	
+else
 	    if (at(tos, idx) == '\n' &&
 		at(tos, idx+1) == 'o' &&
 		isspace(at(tos, idx +2)))
@@ -522,12 +634,14 @@ DEFUN_VOID(bulletize)
 
     delete_string(tos);
     *tos = out;
+    pc++;
+    
 }
 
 /* Turn <<foo>> into @code{foo} in place at TOS*/
    
-static void
-DEFUN_VOID(do_fancy_stuff)
+
+WORD(do_fancy_stuff)
 {
     unsigned int idx = 0;
     string_type out;
@@ -559,6 +673,8 @@ DEFUN_VOID(do_fancy_stuff)
     }
     delete_string(tos);
     *tos = out;
+    pc++;
+    
 }
 /* A command is all upper case,and alone on a line */
 static int 
@@ -568,7 +684,8 @@ DEFUN( iscommand,(ptr, idx),
 {
     unsigned int len = 0;
     while (at(ptr,idx)) {
-	    if (isupper(at(ptr,idx)) || at(ptr,idx) == ' ') 
+	    if (isupper(at(ptr,idx)) || at(ptr,idx) == ' ' ||
+		at(ptr,idx) == '_') 
 	    {
 	     len++;
 	     idx++;
@@ -584,7 +701,7 @@ DEFUN( iscommand,(ptr, idx),
 
 }
 
-static unsigned int
+
 DEFUN(copy_past_newline,(ptr, idx, dst),
       string_type *ptr AND
       unsigned int idx AND
@@ -599,168 +716,321 @@ DEFUN(copy_past_newline,(ptr, idx, dst),
     catchar(dst, at(ptr, idx));
     idx++;
     return idx;
-    
 
 }
 
-static unsigned int 
-DEFUN(get_stuff_in_command,(str, idx, dst),
-      string_type *str AND
-      unsigned int idx AND
-      string_type *dst)
+WORD(icopy_past_newline)
 {
-    while (at(str, idx)) {
-	    if (iscommand(str, idx))  break;
-	    idx =   copy_past_newline(str, idx, dst);
+    tos++;
+    init_string(tos);
+    idx = copy_past_newline(ptr, idx, tos);
+    pc++;	
+}
+
+/* indent
+   Take the string at the top of the stack, do some prettying */
+
+
+
+
+WORD(kill_bogus_lines)
+{
+    int sl ;
+    
+    int nl = 0;
+    int idx = 0;
+    int c;
+    int dot = 0    ;
+    
+    string_type out;    
+    init_string(&out);
+    /* Drop leading nl */
+    while (at(tos,idx) == '\n')
+    {
+	idx++;
+    }
+    c = idx;
+    
+    /* Find the last char */
+    while (at(tos,idx))
+    {
+	idx++;
+    }
+    
+    /* find the last non white before the nl */
+    idx--;
+    
+    while (idx && isspace(at(tos,idx)))
+     idx--;
+    idx++;
+    
+    /* Copy buffer upto last char, but blank lines before and after
+       dots don't count */
+    sl = 1;
+
+    while (c < idx)
+    {
+	if (at(tos,c) == '\n' 
+	    && at(tos,c+1) == '\n'
+	    && at(tos,c+2) == '.') 
+	{
+	    /* Ignore two linelines before  a dot*/
+	    c++;
 	}
-    return idx;
+	else if (at(tos,c) == '.' && sl)
+	{
+	    /* remember that this line started with a dot */
+	    dot=2;
+	}
+	else if (at(tos,c) == '\n' 
+		 && at(tos,c+1) == '\n'
+		 && dot)
+	{
+	    c++;
+	    /* Ignore two newlines when last line was dot */
+	}
+
+	catchar(&out, at(tos,c));
+	if (at(tos,c) == '\n')
+	{
+	    sl = 1;
+	    
+	    if (dot == 2)dot=1;else dot = 0;
+	}
+	
+	c++;	
+
+    }
+    
+    /* Append nl*/
+    catchar(&out, '\n');
+    pc++;
+    delete_string(tos);
+    *tos = out;
+    
     
 }
 
-static void
-DEFUN_VOID(swap)
+WORD(indent)
+{
+    string_type out;
+    int tab = 0;
+    int idx = 0;
+    int ol =0;
+    init_string(&out);
+    while (at(tos,idx)) {
+	    switch (at(tos,idx)) 
+	    {
+	      case '\n':
+		cattext(&out,"\n");
+		idx++;
+		if (tab) 
+		{
+		    cattext(&out,"    ");
+		}
+		ol = 0;
+		break;
+	      case '(':
+		tab++;
+		if (ol == 0)
+		    cattext(&out,"   ");
+		idx++;
+		cattext(&out,"(");
+		ol = 1;
+		break;
+	      case ')':
+		tab--;
+		cattext(&out,")");
+		idx++;
+		ol=1;
+		
+		break;
+	      default:
+		catchar(&out,at(tos,idx));
+		ol=1;
+		
+		idx++;
+		break;
+	    }
+	}	
+
+    pc++;
+    delete_string(tos);
+    *tos = out;
+
+}
+
+
+WORD(get_stuff_in_command)
+{
+    tos++;
+    init_string(tos);
+
+    while (at(ptr, idx)) {
+	    if (iscommand(ptr, idx))  break;
+	    idx =   copy_past_newline(ptr, idx, tos);
+	}
+pc++;    
+}
+
+WORD(swap)
 {
     string_type t;
     
     t = tos[0];
     tos[0] = tos[-1];
     tos[-1] =t; 
+    pc++;
+    
 }
 
-static void
-DEFUN_VOID(dup)
+WORD(dup)
 {
     tos++;
     init_string(tos);
     catstr(tos, tos-1);
+    pc++;
+    
 }
 
 
 
-typedef struct 
+WORD(icatstr)
 {
-    char *command;    
-    int length;
-    command_type *list;
-}list_type;
+    catstr(tos-1, tos);
+    delete_string(tos);
+    tos--;
+    pc++;
+    
+}
 
-
-
-
-static unsigned int
-DEFUN(skip_past_newline,(ptr, idx), 
-      string_type *ptr AND
-      unsigned int idx)
+WORD(skip_past_newline)
 {
     while (at(ptr,idx) 
 	   && at(ptr,idx) != '\n')
      idx++;
     idx++;
-    return idx;
+    pc++;
 }
 
 
-static unsigned int 
-DEFUN(execute_function,(str, idx, list),
-      string_type *str AND
-      unsigned int idx AND
-     command_type *list)
+WORD(internalmode)
+{
+    internal_mode = *(isp);
+    isp--;
+    pc++;
+}
+
+WORD(maybecatstr)
+{
+    if (internal_wanted == internal_mode) 
+    {
+	catstr(tos-1, tos);
+    }
+    delete_string(tos);
+    tos--;
+    pc++;
+    
+}
+
+char *
+DEFUN(nextword,(string, word),
+      char *string AND
+      char **word)
+{
+    char *word_start;
+    int idx;
+    char *dst;
+    char *src;
+    
+    int length = 0;
+    
+    while (isspace(*string) || *string == '-') {
+	    if (*string == '-') 
+	    {
+		while (*string && *string != '\n') 
+		 string++;
+		
+	    }
+	    else {
+		    string++;
+		}
+	}
+    if (!*string) return 0;
+    
+    word_start = string;    	
+    if (*string == '"') 
+    {
+	string++;
+	length++;
+	
+	while (*string != '"') 
+	{
+	    string++;
+	    length++;
+	}
+    }
+    else     
+    {
+	
+
+	while (!isspace(*string)) 
+	{
+	    string++;
+	    length++;
+	
+	}
+    }
+    
+    *word = malloc(length + 1);
+
+    dst = *word;
+    src = word_start;
+
+
+    for (idx= 0; idx < length; idx++) 
+    {
+    
+	if (src[idx] == '\\' && src[idx+1] == 'n') 
+	{
+	    *dst++ = '\n';
+	    idx++;
+    
+	}
+	else *dst++ = src[idx];
+    }
+    *dst++ = 0;
+
+
+
+
+
+    if(*string)    
+     return string + 1;
+    else 
+     return 0;
+    
+}
+dict_type *root;
+dict_type *
+DEFUN(lookup_word,(word),
+      char *word)
+{
+    dict_type *ptr = root;
+    while (ptr) {
+	    if (strcmp(ptr->word, word) == 0) return ptr;
+	    ptr = ptr->next;
+	    
+	 }
+    fprintf(stderr,"Can't find %s\n",word);
+    return 0;
+    
+    
+}
+
+static void DEFUN_VOID(perform)
 {
     tos = stack;
-
-    
-    while (*list)  
-    {
-	switch ((int)(*list))
-	{
-	  case TRANSLATECOMMENTS:
-	    translate_comments();
-	    break;
-
-	  case INTERNALMODE:
-	    
-	    list++;
-	    internal_mode = (int)*list;
-	    break;
-	    
-	  case PUSH_TEXT:
-	    tos++;
-	    init_string(tos);
-	    list++;
-	    cattext(tos,*((char **)list));
-	    break;
-	  case SKIP_PAST_NEWLINE:
-	    idx = skip_past_newline(str, idx);
-	    break;
-	  case OUTPUTDOTS:
-	    outputdots();
-	    break;
-	    
-	  case CATSTR:
-	    catstr(tos-1, tos);
-	    delete_string(tos);
-	    tos--;
-	    break;
-	  case 	COPY_PAST_NEWLINE :
-	    tos++;
-	    init_string(tos);
-	    idx = copy_past_newline(str, idx, tos);
-	    break;
-	  case SWAP:
-	    
-	    swap();
-	    break;
-	  case EXFUNSTUFF:
-	    insert_exfun();
-	    break;
-	  case MAYBECATSTR:
-	    /* if in internal mode, and -i then  cat */
-	    if (internal_wanted == internal_mode) 
-	    {
-		catstr(tos-1, tos);
-	    }
-	    delete_string(tos);
-	    tos--;
-	    
-	    break;		
-	   
-	  case DUP:
-	    dup();
-	    break;	    
-	  case REMCHAR:
-	    remchar(tos);
-	    break;
-	  case GET_STUFF_IN_COMMAND:
-	    tos++;
-	    init_string(tos);
-	    idx = get_stuff_in_command(str, idx, tos);
-	    break;
-	  case	DO_FANCY_STUFF:
-	    do_fancy_stuff();
-	    break;
-	  case	BULLETIZE:
-	    bulletize();
-	    break;
-	  case	COURIERIZE:
-	    courierize();
-	    break;
-	    
-
-	}
-	list++;	    
-	    
-    }    
-    if (tos != stack) abort();
-
-    return idx;
-    
-}
-
-static void DEFUN(perform,( list, ptr),
-	   list_type *list AND
-	   string_type *ptr)
-{
-    unsigned int idx = 0;
     
     while (at(ptr, idx)) {
 	    /* It's worth looking through the command list */
@@ -768,237 +1038,219 @@ static void DEFUN(perform,( list, ptr),
 	    {
 		unsigned int i;
 		int found = 0;
-		for(i = 0; list[i].command && !found; i++)
-		{
-		    if (strncmp(list[i].command,
-				addr(ptr, idx) ,
-				list[i].length)==0) 
-		    {
-			idx = execute_function(ptr, idx, list[i].list);
 
-			found = 1;
-		    }
+		char *next;
+		dict_type *word ;
+		
+		(void)		nextword(addr(ptr, idx), &next);
+
+
+		word = lookup_word(next);
+
+
+		
+
+		if (word) 
+		{
+		    exec(word);
 		}
-
-		if (!found) 
+		else
 		{
-		    char buf[100];
-		    unsigned int i;
-		    for (i = 0; i < sizeof(buf)-1; i++)
-		    {
-			if (at(ptr, idx+i) == '\n'
-			    ||  at(ptr, idx+i) == 0) break;
-			buf[i] = at(ptr, idx+i);
-		    }
-		    buf[i] = 0;
-		    fprintf(stderr,"warning, %s is not recognised\n",  buf);
-		    idx = skip_past_newline(ptr, idx);
+		    fprintf(stderr,"warning, %s is not recognised\n",  next);
+		    skip_past_newline();
 		}
 		
 	    }
-	    else idx = skip_past_newline(ptr, idx);
+	    else skip_past_newline();
+
 	}
 }
 
-
-
-
-
-		
-
-static char * section_list[] =
+dict_type *
+DEFUN(newentry,(word),
+      char *word)
 {
-    SKIP_PAST_NEWLINE,
-    PUSH_TEXT,
-    "@section ",
-    CATSTR,
-    COPY_PAST_NEWLINE,
-    CATSTR,
-    0,
- };
-static char * subsection_list[] =
-{
-    SKIP_PAST_NEWLINE,
-    PUSH_TEXT,
-    "@subsection ",
-    CATSTR,
-    COPY_PAST_NEWLINE,
-    CATSTR,
-    0,
- };
-static char * subsubsection_list[] =
-{
-    SKIP_PAST_NEWLINE,
-    PUSH_TEXT,
-    "@subsubsection ",
-    CATSTR,
-    COPY_PAST_NEWLINE,
-    CATSTR,
-    0,
- };
-/* turn X into a X b X z */
-/* FUNCTION foo->@findex foo @subsubsection {foo} */
-  
-static char *function_list[] =
-{
-    PUSH_TEXT,			/* a */
-    (command_type)    "@findex ",
-    SKIP_PAST_NEWLINE,  
-    COPY_PAST_NEWLINE,		
-    DUP,			/* a X X */
-    PUSH_TEXT,
-    (command_type) "@subsubsection @code{", /* a X X b */
-    SWAP,			/* a X b X */
-    REMCHAR,
-    PUSH_TEXT,
-    (command_type)    "}\n",	/* a X b X c */
-    CATSTR,			/* a X b Xc*/
-    CATSTR,			/* a X bXc */
-    CATSTR,			/* a XbXc*/
-    CATSTR,			/* aXbXc*/
-    CATSTR,			/* put onto output */
-    0,
-};
-
-
-static char * description_list[] =
-{
-    SKIP_PAST_NEWLINE,
-    GET_STUFF_IN_COMMAND,
-    DO_FANCY_STUFF,
-    BULLETIZE,
-    COURIERIZE,
-    CATSTR,
-    0,
-}   ;
-
-#define TEXT(x) PUSH_TEXT,x
-static command_type synopsis_list[] =
-{
-    SKIP_PAST_NEWLINE,
-    TEXT("@example\n"),
-    CATSTR,
-    GET_STUFF_IN_COMMAND,	/* @example x */
-    CATSTR,
-    TEXT("@end example\n"),
-    CATSTR,
-0,
-};
-
-
-
-command_type enddd_list[] = 
-{
-SKIP_PAST_NEWLINE,
-INTERNALMODE,0,
-    0,
-};
-
-command_type internal_mode_list[] = 
-{
-SKIP_PAST_NEWLINE,
-INTERNALMODE,(char *)1,
-    0,
-};
-
-command_type example_list[] =
-{
-    SKIP_PAST_NEWLINE,
-    TEXT("@example\n"),
-    CATSTR,
-    GET_STUFF_IN_COMMAND,
-    TRANSLATECOMMENTS,
-    CATSTR,
-    TEXT("@end example\n"),
-    CATSTR,
-
-    0,
-};
-
-
-list_type doc_stuff[] =
-{
-    "SECTION",7,section_list,
-    "TYPEDEF",7,function_list,
-    "SUBSECTION",10,subsection_list,
-    "SUBSUBSECTION",13,subsubsection_list,
-    "FUNCTION",8,function_list,
-    "INTERNAL FUNCTION",17, function_list,
-    "DESCRIPTION",11,description_list,
-    "EXAMPLE",7,example_list,
-    "INTERNAL",8,description_list,
-    "RETURNS",7,description_list,
-    "SYNOPSIS",8,synopsis_list,
-    "ENDDD",5,enddd_list,
-    0,
+    dict_type *new = (dict_type *)malloc(sizeof(dict_type));
+    new->word = word;
+    new->next = root;
+    root = new;
+    new->code = (stinst_type *)malloc(sizeof(stinst_type ));
+    new->code_length = 1;
+    new->code_end = 0;
+    return new;
+    
 }
-;
 
 
-command_type internal_list[] =
+unsigned int
+DEFUN(add_to_definition,(entry, word), 
+      dict_type *entry AND
+      stinst_type word)
 {
-    INTERNALMODE,(char*)1,
-    SKIP_PAST_NEWLINE,
-    GET_STUFF_IN_COMMAND,
-    OUTPUTDOTS,
-    MAYBECATSTR,
+    if (entry->code_end == entry->code_length) 
+    {
+	entry->code_length += 2;
+	entry->code =
+	 (stinst_type *) realloc((char *)(entry->code),
+			       entry->code_length *sizeof(word_type));
+    }
+    entry->code[entry->code_end] = word;
+    
+return     entry->code_end++;  
+}
 
-    0,
-};
 
-command_type internal_synopsis_list[] =
+
+
+
+
+
+void
+DEFUN(add_intrinsic,(name, func),
+      char *name AND
+      void (*func)())
 {
-SKIP_PAST_NEWLINE,
-GET_STUFF_IN_COMMAND,
-EXFUNSTUFF,
-MAYBECATSTR,
-0
-};
+    dict_type *new = newentry(name);
+    add_to_definition(new, func);
+    add_to_definition(new, 0);
+}
 
-command_type internal_description_list[] =
+WORD(push_addr)
 {
-SKIP_PAST_NEWLINE,
-GET_STUFF_IN_COMMAND,
-OUTPUTDOTS,
-MAYBECATSTR,
-0,
-};
+    
 
+}
 
-list_type internal_stuff[] =
+void
+DEFUN(add_var,(name),
+      char *name)
 {
-    "SECTION",7,enddd_list,
-    "SUBSECTION",10,enddd_list,
-    "SUBSUBSECTION",13,enddd_list,
-    "FUNCTION",8,enddd_list,
-    "EXAMPLE",7,enddd_list,
-    "DESCRIPTION",11,internal_description_list,
-    "INTERNAL FUNCTION",17, internal_mode_list,
-    "INTERNAL",8,internal_list,
-    "RETURNS",7,enddd_list,
-    "TYPEDEF",7,enddd_list,
-    "SYNOPSIS",8,internal_synopsis_list,
-    "SYNOPSIS",8,internal_synopsis_list,
-    "ENDDD",5,enddd_list,
-    0,
-};
+    dict_type *new = newentry(name);
+    add_to_definition(new, push_number);
+    add_to_definition(new, (stinst_type)(&(new->var)));
+    add_to_definition(new,0);
+    
+}
+      
 
 
 
+void 
+DEFUN(compile, (string), 
+      char *string)
+
+{
+    int jstack[STACK];
+    int *jptr = jstack;
+    /* add words to the dictionary */
+    char *word;
+    string = nextword(string, &word);
+    while (string && *string && word[0]) 
+    {
+	if (strcmp(word,"var")==0) 
+	{
+ string=nextword(string, &word);
+	  
+	  add_var(word);
+ string=nextword(string, &word);
+	}
+else	
+	    
+	if (word[0] == ':')
+	{
+	    dict_type *ptr;
+	    /* Compile a word and add to dictionary */
+	    string = nextword(string, &word);
+	    
+	    ptr = newentry(word);
+	    string = nextword(string, &word);
+	    while (word[0] != ';' ) 
+	    {
+		 switch (word[0]) 
+		 {
+		    
+		    
+		   case '"':
+		     /* got a string, embed magic push string
+			function */
+		     add_to_definition(ptr, push_text);
+		     add_to_definition(ptr, (stinst_type)(word+1));
+		     break;
+		   case '0':
+		   case '1':
+		   case '2':
+		   case '3':
+		   case '4':
+		   case '5':
+		   case '6':
+		   case '7':
+		   case '8':
+		   case '9':
+		     /* Got a number, embedd the magic push number
+			function */
+		     add_to_definition(ptr, push_number);
+		     add_to_definition(ptr, atol(word));
+		     break;
+		   default:
+		     add_to_definition(ptr, call);
+		     add_to_definition(ptr, lookup_word(word));
+		 }
+
+		string = nextword(string, &word);		     
+	    }
+	    add_to_definition(ptr,0);
+	    string = nextword(string, &word);
+	}
+	else 
+	{
+	    fprintf(stderr,"syntax error at %s\n",string-1);
+	}	    
+    }
+
+}
+
+ 
+static void DEFUN_VOID(bang)
+{
+*(int *)((isp[0])) = isp[-1];
+isp-=2;
+pc++;
+
+}
+
+WORD(atsign)
+{
+    isp[0] = *(int *)(isp[0]);
+    pc++;
+}
+
+WORD(hello)
+{
+    
+    printf("hello\n");
+    pc++;    
+}
 
 
-static void DEFUN(read_in, (str), 
-	   string_type *str)
+
+static void DEFUN(read_in, (str, file), 
+	   string_type *str AND
+		  FILE *file)
 {
     char buff[10000];    
     unsigned int r;
     do 
     {
-	r = fread(buff, 1, sizeof(buff), stdin);
+	r = fread(buff, 1, sizeof(buff), file);
 	catbuf(str, buff, r);
     }
     while (r);
+    buff[0] = 0;
+    
+    catbuf(str, buff,1);
+    
 }
+
 
 static void DEFUN_VOID(usage)
 {
@@ -1010,46 +1262,76 @@ int DEFUN(main,(ac,av),
 int ac AND
 char *av[])
 {
-
-    char *malloc();
+    unsigned int i;
+    
 
     string_type buffer;
-    string_type dst;
+    string_type pptr;
+    
 
     init_string(&buffer);
-    init_string(&dst);
+    init_string(&pptr);
     init_string(stack+0);
     tos=stack+1;
+    ptr = &pptr;
+    
+    add_intrinsic("push_text", push_text);
+    add_intrinsic("!", bang);
+    add_intrinsic("@", atsign);
+    add_intrinsic("hello",hello);    
+    add_intrinsic("skip_past_newline", skip_past_newline );
+    add_intrinsic("catstr", icatstr );
+    add_intrinsic("copy_past_newline", icopy_past_newline );
+    add_intrinsic("dup", dup );
+    add_intrinsic("remchar", remchar );
+    add_intrinsic("get_stuff_in_command", get_stuff_in_command );
+    add_intrinsic("do_fancy_stuff", do_fancy_stuff );
+    add_intrinsic("bulletize", bulletize );
+    add_intrinsic("courierize", courierize );
+    add_intrinsic("exit", exit );
+    add_intrinsic("swap", swap );
+    add_intrinsic("outputdots", outputdots );
+    add_intrinsic("exfunstuff", exfunstuff );
+    add_intrinsic("maybecatstr", maybecatstr );
+    add_intrinsic("translatecomments", translatecomments );
+    add_intrinsic("kill_bogus_lines", kill_bogus_lines);
+    add_intrinsic("indent", indent);
+    add_intrinsic("internalmode", internalmode);
     
     /* Put a nl at the start */
     catchar(&buffer,'\n');
 
-    read_in(&buffer); 
-    remove_noncomments(&buffer, &dst);
-    if(ac == 2 && av[1][0] == '-') 
+    read_in(&buffer, stdin); 
+    remove_noncomments(&buffer, ptr);
+    for (i= 1; i < ac; i++) 
     {
-	switch (av[1][1]) 
+	if (av[i][0] == '-')
 	{
-	  case 'd':
-	    perform(doc_stuff, &dst);
-	    break;
-	  case 'i':
-	    internal_wanted = 1;
-	    perform(internal_stuff, &dst);
-	    break;
-	  case 'g':
-	    internal_wanted =0;
-	    perform(internal_stuff, &dst);
-	    break;
-	  default:
-	    usage();
+	    if (av[i][1] == 'f')
+	    {
+		string_type b;
+		FILE *f;
+		init_string(&b);
+
+		f  = fopen(av[i+1],"r");
+		if (!f) 
+		{
+		  fprintf(stderr,"Can't open the input file %s\n",av[i+1]);
+		  return 33;
+		}
+		
+		  
+		read_in(&b, f);
+		compile(b.ptr);
+		perform();	
+	    }
+	    else    if (av[i][1] == 'i') 
+	    {
+		internal_wanted = 1;
+	    }
 	}
-    }
-    else 
-    {
-	usage();
-      
-    }
+
+    }      
     write_buffer(stack+0);
     return 0;
 }

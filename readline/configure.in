@@ -6,7 +6,7 @@
 configdirs=
 srctrigger=readline.c
 srcname="the readline library"
-commontargets=true
+subdirs=doc
 
 # per-host:
 
@@ -14,12 +14,17 @@ files=sysdep-norm.h
 links=sysdep.h
 
 case "${host_os}" in
-m88kbcs | sysv*)
-	host_makefile_frag=config/mh-sysv
+sysv4*)
+	host_makefile_frag=config/mh-sysv4
 	;;
 
-svr4)
-	host_makefile_frag=config/mh-svr4
+scosysv*)
+	host_makefile_frag=config/mh-sco
+	files=sysdep-sco.h
+	;;
+
+m88kbcs | sysv*)
+	host_makefile_frag=config/mh-sysv
 	;;
 
 aix*)
@@ -36,13 +41,6 @@ irix*)
 
 newsos* | mach*)
 	files=sysdep-obsd.h
-	;;
-esac
-
-case "${host_vendor}" in
-sco* )
-	host_makefile_frag=config/mh-sco
-	files=sysdep-sco.h
 	;;
 esac
 

@@ -18,14 +18,21 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: libbfd.c,v 1.28 1991/11/30 22:33:58 sac Exp $ */
+/* $Id: libbfd.c,v 1.30 1992/01/24 22:44:23 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
 
-/** Dummies for targets that don't want or need to implement
-   certain operations */
+/*
+SECTION
+	libbfd
+
+DESCRIPTION
+	This file contains various routines which are used within BFD.
+	They are not intended for export, but are documented here for
+	completeness.
+*/
 
 boolean
 DEFUN(_bfd_dummy_new_section_hook,(ignore, ignore_newsect),
@@ -126,15 +133,15 @@ DEFUN(zalloc,(size),
 #endif
 
 /*
-INTERNAL 
-FUNCTION
+INTERNAL_FUNCTION
 	bfd_xmalloc
+
+SYNOPSIS
+	PTR  bfd_xmalloc( bfd_size_type size);
 
 DESCRIPTION
 	Like malloc, but exit if no more memory.
 
-SYNOPSIS
-	PTR  bfd_xmalloc( bfd_size_type size);
 */
 
 /** There is major inconsistency in how running out of memory is handled.
@@ -198,17 +205,17 @@ DEFUN(bfd_write,(ptr, size, nitems, abfd),
 }
 
 /*
-INTERNAL 
-FUNCTION
+INTERNAL_FUNCTION
 	bfd_write_bigendian_4byte_int
+
+SYNOPSIS
+	void bfd_write_bigendian_4byte_int(bfd *abfd,  int i);
 
 DESCRIPTION
 	Writes a 4 byte integer to the outputing bfd, in big endian
 	mode regardless of what else is going on.  This is usefull in
 	archives.
 
-SYNOPSIS
-	void bfd_write_bigendian_4byte_int(bfd *abfd,  int i);
 */
 void
 DEFUN(bfd_write_bigendian_4byte_int,(abfd, i),
@@ -558,7 +565,7 @@ DEFUN(bfd_generic_get_section_contents, (abfd, section, location, offset, count)
 {
     if (count == 0)
         return true;
-    if ((bfd_size_type)(offset+count) > section->size
+    if ((bfd_size_type)(offset+count) > section->_raw_size
         || bfd_seek(abfd,(file_ptr)( section->filepos + offset), SEEK_SET) == -1
         || bfd_read(location, (bfd_size_type)1, count, abfd) != count)
         return (false); /* on error */
@@ -579,7 +586,7 @@ DEFUN(bfd_generic_set_section_contents, (abfd, section, location, offset, count)
 {
     if (count == 0)
         return true;
-    if ((bfd_size_type)(offset+count) > section->size
+    if ((bfd_size_type)(offset+count) > bfd_get_section_size_after_reloc(section)
         || bfd_seek(abfd, (file_ptr)(section->filepos + offset), SEEK_SET) == -1
         || bfd_write(location, (bfd_size_type)1, count, abfd) != count)
         return (false); /* on error */
@@ -587,7 +594,7 @@ DEFUN(bfd_generic_set_section_contents, (abfd, section, location, offset, count)
 }
 
 /*
-INTERNAL FUNCTION
+INTERNAL_FUNCTION
 	bfd_log2
 
 DESCRIPTION

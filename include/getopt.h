@@ -1,5 +1,5 @@
-/* declarations for getopt
-   Copyright (C) 1989, 1990, 1991 Free Software Foundation, Inc.
+/* Declarations for getopt.
+   Copyright (C) 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,6 +14,9 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+#ifndef _GETOPT_H_
+#define _GETOPT_H_
 
 /* For communication from `getopt' to the caller.
    When `getopt' finds an option that takes an argument,
@@ -43,15 +46,16 @@ extern int optind;
 extern int opterr;
 
 /* Describe the long-named options requested by the application.
-   _GETOPT_LONG_OPTIONS is a vector of `struct option' terminated by an
-   element containing a name which is zero.
+   The LONG_OPTIONS argument to getopt_long or getopt_long_only is a vector
+   of `struct option' terminated by an element containing a name which is
+   zero.
 
    The field `has_arg' is:
-   0 if the option does not take an argument,
-   1 if the option requires an argument,
-   2 if the option takes an optional argument.
+   no_argument		(or 0) if the option does not take an argument,
+   required_argument	(or 1) if the option requires an argument,
+   optional_argument 	(or 2) if the option takes an optional argument.
 
-   If the field `flag' is nonzero, it points to a variable that is set
+   If the field `flag' is not NULL, it points to a variable that is set
    to the value given in the field `val' when the option is found, but
    left unchanged if the option is not found.
 
@@ -64,39 +68,40 @@ extern int opterr;
 
 struct option
 {
+#ifdef	__STDC__
+  const char *name;
+#else
   char *name;
-  int has_arg;
+#endif
+  enum
+    {
+      no_argument,
+      required_argument,
+      optional_argument
+    } has_arg;
   int *flag;
   int val;
 };
 
 #ifdef __STDC__
-extern const struct option *_getopt_long_options;
-#else
-extern struct option *_getopt_long_options;
-#endif
+extern int getopt (int argc, char *const *argv, const char *shortopts);
+extern int getopt_long (int argc, char *const *argv, const char *shortopts,
+		        const struct option *longopts, int *longind);
+extern int getopt_long_only (int argc, char *const *argv,
+			     const char *shortopts,
+		             const struct option *longopts, int *longind);
 
-/* If nonzero, '-' can introduce long-named options.
-   Set by getopt_long_only.  */
+/* Internal only.  Users should not call this directly.  */
+extern int _getopt_internal (int argc, char *const *argv,
+			     const char *shortopts,
+		             const struct option *longopts, int *longind,
+			     int long_only);
+#else /* not __STDC__ */
+extern int getopt ();
+extern int getopt_long ();
+extern int getopt_long_only ();
 
-extern int _getopt_long_only;
+extern int _getopt_internal ();
+#endif /* not __STDC__ */
 
-/* The index in GETOPT_LONG_OPTIONS of the long-named option found.
-   Only valid when a long-named option has been found by the most
-   recent call to `getopt'.  */
-
-extern int option_index;
-
-#ifdef __STDC__
-int getopt (int argc, char **argv, const char *shortopts);
-int getopt_long (int argc, char **argv, const char *shortopts,
-		 const struct option *longopts, int *longind);
-int getopt_long_only (int argc, char **argv, const char *shortopts,
-		      const struct option *longopts, int *longind);
-void envopt(int *pargc, char ***pargv, char *optstr);
-#else
-int getopt ();
-int getopt_long ();
-int getopt_long_only ();
-void envopt();
-#endif
+#endif /* _GETOPT_H_ */

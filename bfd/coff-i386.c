@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: coff-i386.c,v 1.14 1991/12/01 05:23:42 sac Exp $ */
+/* $Id: coff-i386.c,v 1.15 1992/01/24 22:43:55 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -61,7 +61,7 @@ static reloc_howto_type howto_table[] =
 #define I386 1			/* Customize coffcode.h */
 
 #define RTYPE2HOWTO(cache_ptr, dst) \
-	    cache_ptr->howto = howto_table + dst.r_type;
+	    cache_ptr->howto = howto_table + (dst)->r_type;
 
 #include "coffcode.h"
 

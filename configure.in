@@ -3,8 +3,8 @@
 # script appropriate for this directory.  For more information, check
 # any existing configure script.
 
-configdirs="libiberty bfd binutils byacc bison gcc readline glob ld gas gnulib clib gdb emacs ispell make grep diff rcs gdbm cvs prms"
-srctrigger=README
+configdirs="libiberty bfd binutils byacc bison gcc readline glob flex ld gas gnulib clib gdb emacs ispell make grep diff rcs gdbm cvs prms fileutils libg++"
+srctrigger=cfg-paper.texi
 srcname="gnu development package"
 
 # per-host:
@@ -13,8 +13,9 @@ srcname="gnu development package"
 
 case "${host_os}" in
 m88kbcs)	host_makefile_frag=config/mh-delta88;;
+sysv4*)		host_makefile_frag=config/mh-sysv4 ;;
 sysv* | irix*)	host_makefile_frag=config/mh-sysv ;;
-svr4)		host_makefile_frag=config/mh-svr4 ;;
+ultrix)		host_makefile_frag=config/mh-decstation ;;
 esac
 
 case "${host_vendor}" in

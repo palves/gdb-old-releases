@@ -46,7 +46,7 @@ struct artdata {
   char *extended_names;		/* clever intel extension */
 };
 
-#define bfd_ardata(bfd) ((struct artdata *) ((bfd)->tdata))
+#define bfd_ardata(bfd) ((bfd)->tdata.aout_ar_data)
 
 /* Goes in bfd's arelt_data slot */
 struct areltdata {

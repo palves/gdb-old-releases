@@ -35,7 +35,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <fcntl.h>
 
 #include <sys/param.h>
-#include <sys/dir.h>
 #include <signal.h>
 
 extern char *strerror();		/* strings corresponding to errno */
@@ -78,11 +77,11 @@ static int lmode_ours;
 # ifdef SHORT_PGRP
 static short pgrp_inferior;
 static short pgrp_ours;
-# else
+# else /* not def SHORT_PGRP */
 static int pgrp_inferior;
 static int pgrp_ours;
-# endif
-#else
+# endif /* not def SHORT_PGRP */
+#else /* not def TIOCGPGRP */
 static void (*sigint_ours) ();
 static void (*sigquit_ours) ();
 #endif /* TIOCGPGRP */
@@ -303,10 +302,12 @@ child_terminal_info (args, from_tty)
     return;
   }
 
+#ifdef TIOCGPGRP
   printf_filtered ("Inferior's terminal status (currently saved by GDB):\n");
 
   printf_filtered ("owner pgrp = %d, fcntl flags = 0x%x.\n",
 	  pgrp_inferior, tflags_inferior);
+#endif /* TIOCGPGRP */
 
 #ifdef HAVE_TERMIO
 

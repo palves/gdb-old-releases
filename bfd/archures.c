@@ -24,8 +24,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 SECTION
 	Architectures
 
-DESCRIPTION
-
 	BFD's idea of an architecture is implimented in
 	<<archures.c>>. BFD keeps one atom in a BFD describing the
 	architecture of the data attached to the BFD;  a pointer to a
@@ -106,7 +104,7 @@ DESCRIPTION
 
 
 
-/* $Id: archures.c,v 1.21 1991/12/04 18:30:29 sac Exp $ */
+/* $Id: archures.c,v 1.22 1991/12/08 00:55:40 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -155,16 +153,15 @@ bfd_arch_info_type   *bfd_arch_info_list;
 
 
 /*
-
 FUNCTION
 	bfd_printable_name
+
+SYNOPSIS
+	CONST char *bfd_printable_name(bfd *abfd);
 
 DESCRIPTION
 	Return a printable string representing the architecture and machine
 	from the pointer to the arch info structure 
-
-SYNOPSIS
-	CONST char *bfd_printable_name(bfd *abfd);
 
 */
 
@@ -181,14 +178,15 @@ DEFUN(bfd_printable_name, (abfd),
 FUNCTION
 	bfd_scan_arch
 
+SYNOPSIS
+	bfd_arch_info_type *bfd_scan_arch(CONST char *);
+
 DESCRIPTION
 	This routine is provided with a string and tries to work out
 	if bfd supports any cpu which could be described with the name
 	provided.  The routine returns a pointer to an arch_info
 	structure if a machine is found, otherwise NULL.
 
-SYNOPSIS
-	bfd_arch_info_type *bfd_scan_arch(CONST char *);
 */
 
 bfd_arch_info_type *
@@ -214,19 +212,17 @@ DEFUN(bfd_scan_arch,(string),
 FUNCTION
 	bfd_arch_get_compatible
 
-DESCRIPTION
+SYNOPSIS
+	CONST bfd_arch_info_type *bfd_arch_get_compatible(
+		CONST bfd *abfd,
+	        CONST bfd *bbfd);
 
+DESCRIPTION
 	This routine is used to determine whether two BFDs'
 	architectures and achine types are compatible.  It calculates
 	the lowest common denominator between the two architectures
 	and machine types implied by the BFDs and returns a pointer to
 	an arch_info structure describing the compatible machine.
-
-
-SYNOPSIS
-	CONST bfd_arch_info_type *bfd_arch_get_compatible(
-		CONST bfd *abfd,
-	        CONST bfd *bbfd);
 */
 
 CONST bfd_arch_info_type *
@@ -240,14 +236,15 @@ CONST    bfd *bbfd)
 
 
 /*
-INTERNAL
-
-SUBSECTION
+INTERNAL_DEFINITION
 	bfd_default_arch_struct
 
 DESCRIPTION
-	What bfds are seeded with 
-
+	The <<bfd_default_arch_struct>> is an item of
+	<<bfd_arch_info_type>> which has been initialized to a fairly
+	generic state.  A BFD starts life by pointing to this
+	structure, until the correct back end has determined the real
+	architecture of the file.
 
 .extern bfd_arch_info_type bfd_default_arch_struct;
 
@@ -280,20 +277,18 @@ bfd_arch_info_type *arg)
 }
 
 /*
-INTERNAL FUNCTION
+INTERNAL_FUNCTION
 	bfd_default_set_arch_mach
-
-DESCRIPTION
-	Set the architecture and machine type in a bfd. This finds the
-	correct pointer to structure and inserts it into the arch_info
-	pointer. 
-
 
 SYNOPSIS
 	boolean bfd_default_set_arch_mach(bfd *abfd,
 		enum bfd_architecture arch,
 		unsigned long mach);
 
+DESCRIPTION
+	Set the architecture and machine type in a bfd. This finds the
+	correct pointer to structure and inserts it into the arch_info
+	pointer. 
 */
 
 boolean DEFUN(bfd_default_set_arch_mach,(abfd, arch, mach),
@@ -342,12 +337,13 @@ boolean DEFUN(bfd_default_set_arch_mach,(abfd, arch, mach),
 FUNCTION
 	bfd_get_arch
 
+SYNOPSIS
+	enum bfd_architecture bfd_get_arch(bfd *abfd);
+
 DESCRIPTION
 	Returns the enumerated type which describes the supplied bfd's
 	architecture
 
-SYNOPSIS
-	enum bfd_architecture bfd_get_arch(bfd *abfd);
 */
 
 enum bfd_architecture DEFUN(bfd_get_arch, (abfd), bfd *abfd)
@@ -359,12 +355,12 @@ enum bfd_architecture DEFUN(bfd_get_arch, (abfd), bfd *abfd)
 FUNCTION
 	bfd_get_mach
 
+SYNOPSIS
+	unsigned long bfd_get_mach(bfd *abfd);
+
 DESCRIPTION
 	Returns the long type which describes the supplied bfd's
 	machine
-
-SYNOPSIS
-	unsigned long bfd_get_mach(bfd *abfd);
 */
 
 unsigned long  
@@ -377,11 +373,12 @@ DEFUN(bfd_get_mach, (abfd), bfd *abfd)
 FUNCTION
 	bfd_arch_bits_per_byte
 
+SYNOPSIS
+	unsigned int bfd_arch_bits_per_byte(bfd *abfd);
+
 DESCRIPTION
 	Returns the number of bits in one of the architectures bytes
 
-SYNOPSIS
-	unsigned int bfd_arch_bits_per_byte(bfd *abfd);
 */
 
 unsigned int DEFUN(bfd_arch_bits_per_byte, (abfd), bfd *abfd)
@@ -393,11 +390,11 @@ unsigned int DEFUN(bfd_arch_bits_per_byte, (abfd), bfd *abfd)
 FUNCTION
 	bfd_arch_bits_per_address
 
-DESCRIPTION
-	Returns the number of bits in one of the architectures addresses
-
 SYNOPSIS
 	unsigned int bfd_arch_bits_per_address(bfd *abfd);
+
+DESCRIPTION
+	Returns the number of bits in one of the architectures addresses
 */
 
 unsigned int DEFUN(bfd_arch_bits_per_address, (abfd), bfd *abfd)
@@ -443,17 +440,16 @@ static void EXFUN((*archures_init_table[]),()) =
 
 
 /*
-INTERNAL FUNCTION 
+INTERNAL_FUNCTION 
 	bfd_arch_init
+
+SYNOPSIS
+	void  bfd_arch_init(void);
 
 DESCRIPTION
 	This routine initializes the architecture dispatch table by
 	calling all installed architecture packages and getting them
 	to poke around.
-
-SYNOPSIS
-	void  bfd_arch_init(void);
-
 */
 
 void
@@ -470,15 +466,14 @@ DEFUN_VOID(bfd_arch_init)
 
 
 /*
-INTERNAL FUNCTION
+INTERNAL_FUNCTION
 	bfd_arch_linkin
-
-DESCRIPTION
-	Link the provided arch info structure into the list
 
 SYNOPSIS
 	void bfd_arch_linkin(bfd_arch_info_type *);
 
+DESCRIPTION
+	Link the provided arch info structure into the list
 */
 
 void DEFUN(bfd_arch_linkin,(ptr),
@@ -490,16 +485,16 @@ void DEFUN(bfd_arch_linkin,(ptr),
 
 
 /*
-INTERNAL FUNCTION 
+INTERNAL_FUNCTION 
 	bfd_default_compatible
-
-DESCRIPTION
-	The default function for testing for compatibility.
 
 SYNOPSIS
 	CONST bfd_arch_info_type *bfd_default_compatible
 	(CONST bfd_arch_info_type *a,
 	CONST bfd_arch_info_type *b);
+
+DESCRIPTION
+	The default function for testing for compatibility.
 */
 
 CONST bfd_arch_info_type *
@@ -520,16 +515,15 @@ DEFUN(bfd_default_compatible,(a,b),
 
 
 /*
-INTERNAL FUNCTION
+INTERNAL_FUNCTION
 	bfd_default_scan
-
-DESCRIPTION
-	The default function for working out whether this is an
-	architecture hit and a machine hit.
 
 SYNOPSIS
 	boolean bfd_default_scan(CONST struct bfd_arch_info *, CONST char *);
 
+DESCRIPTION
+	The default function for working out whether this is an
+	architecture hit and a machine hit.
 */
 
 boolean 
@@ -649,21 +643,17 @@ bfd *abfd)
 FUNCTION
 	bfd_lookup_arch
 
-DESCRIPTION
-
-	Look for the architecure info struct which matches the
-	arguments given. A machine of 0 will match the
-	machine/architecture structure which marks itself as the
-	default.
-
- 
 SYNOPSIS
 	bfd_arch_info_type *bfd_lookup_arch
 		(enum bfd_architecture
 		arch,
 		long machine);
 
-
+DESCRIPTION
+	Look for the architecure info struct which matches the
+	arguments given. A machine of 0 will match the
+	machine/architecture structure which marks itself as the
+	default.
 */
 
 bfd_arch_info_type * 
@@ -691,15 +681,15 @@ long machine)
 FUNCTION
 	bfd_printable_arch_mach
 
+SYNOPSIS
+	CONST char * bfd_printable_arch_mach
+		(enum bfd_architecture arch, unsigned long machine);
+
 DESCRIPTION
 	Return a printable string representing the architecture and
 	machine type. 
 
 	NB. The use of this routine is depreciated.
-
-SYNOPSIS
-	CONST char * bfd_printable_arch_mach
-		(enum bfd_architecture arch, unsigned long machine);
 */
 
 CONST char *

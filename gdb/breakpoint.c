@@ -314,7 +314,7 @@ read_memory_nobpt (memaddr, myaddr, len)
   
   ALL_BREAKPOINTS (b)
     {
-      if (b->address == NULL || !b->inserted)
+      if (b->address == 0 || !b->inserted)
 	continue;
       else if (b->address + memory_breakpoint_size <= memaddr)
 	/* The breakpoint is entirely before the chunk of memory
@@ -391,7 +391,7 @@ insert_breakpoints ()
   int disabled_breaks = 0;
 
   ALL_BREAKPOINTS (b)
-    if (b->address != NULL
+    if (b->address != 0
 	&& b->enable != disabled
 	&& ! b->inserted
 	&& ! b->duplicate)
@@ -444,7 +444,7 @@ remove_breakpoints ()
 #endif /* BREAKPOINT_DEBUG */
 
   ALL_BREAKPOINTS (b)
-    if (b->address != NULL && b->inserted)
+    if (b->address != 0 && b->inserted)
       {
 	val = target_remove_breakpoint(b->address, b->shadow_contents);
 	if (val)
@@ -642,7 +642,7 @@ bpstat_print (bs)
   if (!bs->print)
     return 0;
 
-  if (bs->breakpoint_at->address != NULL)
+  if (bs->breakpoint_at->address != 0)
     {
       /* I think the user probably only wants to see one breakpoint
 	 number, not all of them.  */
@@ -754,7 +754,7 @@ bpstat_stop_status (pc, frame_address)
 
       if (b->enable == disabled)
 	continue;
-      if (b->address != NULL && b->address != bp_addr)
+      if (b->address != 0 && b->address != bp_addr)
 	continue;
 
       bs = bpstat_alloc (b, bs);	/* Alloc a bpstat to explain stop */
@@ -923,13 +923,13 @@ breakpoint_1 (bnum, watchpoints)
   ALL_BREAKPOINTS (b)
     if (bnum == -1 || bnum == b->number)
       {
-	if (b->address == NULL && !watchpoints)
+	if (b->address == 0 && !watchpoints)
 	  {
 	    if (bnum == -1)
 	      continue;
 	    error ("That is a watchpoint, not a breakpoint.");
 	  }
-	if (b->address != NULL && watchpoints)
+	if (b->address != 0 && watchpoints)
 	  {
 	    if (bnum == -1)
 	      continue;
@@ -948,7 +948,7 @@ breakpoint_1 (bnum, watchpoints)
 	  }
 
 	printf_filtered ("#%-3d %c ", b->number, "nyod"[(int) b->enable]);
-	if (b->address == NULL) {
+	if (b->address == 0) {
 	  printf_filtered (" ");
 	  print_expression (b->exp, stdout);
 	} else {
@@ -1093,7 +1093,7 @@ check_duplicates (address)
   register struct breakpoint *b;
   register int count = 0;
 
-  if (address == NULL)		/* Watchpoints are uninteresting */
+  if (address == 0)		/* Watchpoints are uninteresting */
     return;
 
   ALL_BREAKPOINTS (b)
@@ -1130,7 +1130,7 @@ set_raw_breakpoint (sal)
   b->silent = 0;
   b->ignore_count = 0;
   b->commands = NULL;
-  b->frame = NULL;
+  b->frame = 0;
 
   /* Add this breakpoint to the end of the chain
      so that a list of breakpoints will come out in order
@@ -1221,23 +1221,19 @@ set_breakpoint (s, line, tempflag, addr_string)
   
   sal.symtab = s;
   sal.line = line;
-  sal.pc = find_line_pc (sal.symtab, sal.line);
-  if (sal.pc == 0)
-    error ("No line %d in file \"%s\".\n", sal.line, sal.symtab->filename);
-  else
-    {
-      describe_other_breakpoints (sal.pc);
+  sal.pc = 0;
+  resolve_sal_pc (&sal);			/* Might error out */
+  describe_other_breakpoints (sal.pc);
 
-      b = set_raw_breakpoint (sal);
-      set_breakpoint_count (breakpoint_count + 1);
-      b->number = breakpoint_count;
-      b->cond = 0;
-      b->addr_string = addr_string;
-      if (tempflag)
-	b->enable = temporary;
+  b = set_raw_breakpoint (sal);
+  set_breakpoint_count (breakpoint_count + 1);
+  b->number = breakpoint_count;
+  b->cond = 0;
+  b->addr_string = addr_string;
+  if (tempflag)
+    b->enable = temporary;
 
-      mention (b);
-    }
+  mention (b);
 }
 #endif
 
@@ -1263,7 +1259,6 @@ break_command_1 (arg, tempflag, from_tty)
   char *addr_end;
   
   int i;
-  CORE_ADDR pc;
 
   sals.sals = NULL;
   sals.nelts = 0;
@@ -1311,18 +1306,11 @@ break_command_1 (arg, tempflag, from_tty)
   if (! sals.nelts) 
     return;
 
+  /* Resolve all line numbers to PC's, and verify that conditions
+     can be parsed, before setting any breakpoints.  */
   for (i = 0; i < sals.nelts; i++)
     {
-      sal = sals.sals[i];
-      if (sal.pc == 0 && sal.symtab != 0)
-	{
-	  pc = find_line_pc (sal.symtab, sal.line);
-	  if (pc == 0)
-	    error ("No line %d in file \"%s\".",
-		   sal.line, sal.symtab->filename);
-	}
-      else 
-	pc = sal.pc;
+      resolve_sal_pc (&sals.sals[i]);
       
       while (arg && *arg)
 	{
@@ -1331,15 +1319,15 @@ break_command_1 (arg, tempflag, from_tty)
 	    {
 	      arg += 2;
 	      cond_start = arg;
-	      cond = parse_exp_1 (&arg, block_for_pc (pc), 0);
+	      cond = parse_exp_1 (&arg, block_for_pc (sals.sals[i].pc), 0);
 	      cond_end = arg;
 	    }
 	  else
 	    error ("Junk at end of arguments.");
 	}
-      sals.sals[i].pc = pc;
     }
 
+  /* Now set all the breakpoints.  */
   for (i = 0; i < sals.nelts; i++)
     {
       sal = sals.sals[i];
@@ -1371,6 +1359,24 @@ break_command_1 (arg, tempflag, from_tty)
   free (sals.sals);
 }
 
+/* Helper function for break_command_1 and disassemble_command.  */
+
+void
+resolve_sal_pc (sal)
+     struct symtab_and_line *sal;
+{
+  CORE_ADDR pc;
+
+  if (sal->pc == 0 && sal->symtab != 0)
+    {
+      pc = find_line_pc (sal->symtab, sal->line);
+      if (pc == 0)
+	error ("No line %d in file \"%s\".",
+	       sal->line, sal->symtab->filename);
+      sal->pc = pc;
+    }
+}
+
 void
 break_command (arg, from_tty)
      char *arg;
@@ -1399,7 +1405,7 @@ watch_command (arg, from_tty)
   struct block *exp_valid_block;
   struct value *val;
 
-  sal.pc = NULL;
+  sal.pc = 0;
   sal.symtab = NULL;
   sal.line = 0;
   
@@ -1456,12 +1462,7 @@ until_break_command (arg, from_tty)
   if (*arg)
     error ("Junk at end of arguments.");
   
-  if (sal.pc == 0 && sal.symtab != 0)
-    sal.pc = find_line_pc (sal.symtab, sal.line);
-  
-  if (sal.pc == 0)
-    error ("No line %d in file \"%s\".", sal.line, sal.symtab->filename);
-  
+  resolve_sal_pc (&sal);
   set_momentary_breakpoint (sal, selected_frame);
   
   /* Keep within the current frame */
@@ -1736,27 +1737,18 @@ catch_command_1 (arg, tempflag, from_tty)
   save_arg = arg;
   for (i = 0; i < sals.nelts; i++)
     {
-      sal = sals.sals[i];
-      if (sal.pc == 0 && sal.symtab != 0)
-	{
-	  pc = find_line_pc (sal.symtab, sal.line);
-	  if (pc == 0)
-	    error ("No line %d in file \"%s\".",
-		   sal.line, sal.symtab->filename);
-	}
-      else 
-	pc = sal.pc;
+      resolve_sal_pc (&sals.sals[i]);
       
       while (arg && *arg)
 	{
 	  if (arg[0] == 'i' && arg[1] == 'f'
 	      && (arg[2] == ' ' || arg[2] == '\t'))
-	    cond = parse_exp_1 ((arg += 2, &arg), block_for_pc (pc), 0);
+	    cond = parse_exp_1 ((arg += 2, &arg), 
+				block_for_pc (sals.sals[i].pc), 0);
 	  else
 	    error ("Junk at end of arguments.");
 	}
       arg = save_arg;
-      sals.sals[i].pc = pc;
     }
 
   for (i = 0; i < sals.nelts; i++)
@@ -1868,7 +1860,7 @@ clear_command (arg, from_tty)
 
       ALL_BREAKPOINTS (b)
 	while (b->next
-	       && b->next->address != NULL
+	       && b->next->address != 0
 	       && (sal.pc ? b->next->address == sal.pc
 		   : (b->next->symtab == sal.symtab
 		      && b->next->line_number == sal.line)))
@@ -1990,36 +1982,34 @@ breakpoint_re_set_one (bint)
   struct breakpoint *b = (struct breakpoint *)bint;  /* get past catch_errs */
   int i;
   struct symtabs_and_lines sals;
-  struct symtab_and_line sal;
   char *s;
+  enum enable save_enable;
 
-  if (b->address != NULL && b->addr_string != NULL)
+  if (b->address != 0 && b->addr_string != NULL)
     {
+      /* In case we have a problem, disable this breakpoint.  We'll restore
+	 its status if we succeed.  */
+      save_enable = b->enable;
+      b->enable = disabled;
+
       s = b->addr_string;
       sals = decode_line_1 (&s, 1, (struct symtab *)NULL, 0);
       for (i = 0; i < sals.nelts; i++)
 	{
-	  sal = sals.sals[i];
-	  
-	  b->symtab = sal.symtab;
-	  b->line_number = sal.line;
-	  if (sal.pc == 0 && sal.symtab != 0)
-	    {
-	      sal.pc = find_line_pc (sal.symtab, sal.line);
-	      if (sal.pc == 0)
-		error ("No line %d in file \"%s\".",
-		       sal.line, sal.symtab->filename);
-	    }
-	  b->address = sal.pc;
+	  resolve_sal_pc (&sals.sals[i]);
+	  b->symtab = sals.sals[i].symtab;
+	  b->line_number = sals.sals[i].line;
+	  b->address = sals.sals[i].pc;
 
 	  if (b->cond_string != NULL)
 	    {
 	      s = b->cond_string;
-	      b->cond = parse_exp_1 (&s, block_for_pc (sal.pc), 0);
+	      b->cond = parse_exp_1 (&s, block_for_pc (sals.sals[i].pc), 0);
 	    }
 	  
 	  check_duplicates (b->address);
 
+	  b->enable = save_enable;	/* Restore it, this worked. */
 	  mention (b);
 	}
       free (sals.sals);
@@ -2037,12 +2027,14 @@ void
 breakpoint_re_set ()
 {
   struct breakpoint *b;
+  static char message1[] = "Error in re-setting breakpoint %d:\n";
+  char message[sizeof (message1) + 30 /* slop */];
   
   ALL_BREAKPOINTS (b)
     {
       b->symtab = 0;		/* Be sure we don't point to old dead symtab */
-      (void) catch_errors (breakpoint_re_set_one, (char *) b, 
-			   "Error in re-setting breakpoint:\n");
+      sprintf (message, message1, b->number);	/* Format possible error msg */
+      (void) catch_errors (breakpoint_re_set_one, (char *) b, message);
     }
 
   /* Blank line to finish off all those mention() messages we just printed.  */

@@ -166,6 +166,21 @@ free_current_contents (location)
 {
   free (*location);
 }
+
+/* Provide a known function that does nothing, to use as a base for
+   for a possibly long chain of cleanups.  This is useful where we
+   use the cleanup chain for handling normal cleanups as well as dealing
+   with cleanups that need to be done as a result of a call to error().
+   In such cases, we may not be certain where the first cleanup is, unless
+   we have a do-nothing one to always use as the base. */
+
+/* ARGSUSED */
+void
+null_cleanup (arg)
+    char **arg;
+{
+}
+
 
 /* Provide a hook for modules wishing to print their own warning messages
    to set up the terminal state in a compatible way, without them having
@@ -210,7 +225,7 @@ warning (va_alist)
    and the remaining args are passed as arguments to it.  */
 
 /* VARARGS */
-void
+volatile void
 error (va_alist)
      va_dcl
 {
@@ -235,7 +250,7 @@ error (va_alist)
    The arguments are printed a la printf.  */
 
 /* VARARGS */
-void
+volatile void
 fatal (va_alist)
      va_dcl
 {

@@ -1,18 +1,16 @@
-Info file gdb.info, produced by Makeinfo, -*- Text -*- from input file
-gdb-all.texi.
-
-   gdb.info
+Info file ./gdb.info, produced by Makeinfo, -*- Text -*- from input
+file gdb-all.texi.
 
 START-INFO-DIR-ENTRY
 * Gdb: (gdb).                   The GNU debugger.
 END-INFO-DIR-ENTRY
-
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.00, December 1991, of `Using GDB: A Guide to the
-GNU Source-Level Debugger' for GDB Version 4.3.
+   This is Edition 4.01, January 1992, of `Using GDB: A Guide to the
+GNU Source-Level Debugger' for GDB Version 4.4.
 
-   Copyright (C) 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991 1992 Free Software Foundation,
+Inc.
 
    Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -43,6 +41,7 @@ type, otherwise an error occurs.  These checks prevent type mismatch
 errors from ever causing any run-time problems.  For example,
 
      1 + 2 => 3
+but
      error--> 1 + 2.3
 
    The second example fails because the `CARDINAL' 1 is not
@@ -66,8 +65,8 @@ which make little sense to evaluate anyway.
 instance, both Modula-2 and C require the arguments to arithmetical
 operators to be numbers.  In C, enumerated types and pointers can be
 represented as numbers, so that they are valid arguments to
-mathematical operators.  *Note Supported Languages: Support, for futher
-details on specific languages.
+mathematical operators.  *Note Supported Languages: Support, for
+further details on specific languages.
 
    GDB provides some additional commands for controlling the type
 checker:
@@ -158,12 +157,12 @@ File: gdb.info,  Node: Support,  Prev: Checks,  Up: Languages
 Supported Languages
 ===================
 
-   GDB 4.3 supports C, C++, and Modula-2.  The syntax for C and C++ is
-so closely related that GDB does not distinguish the two.  Some GDB
+   GDB 4 supports C, C++, and Modula-2.  The syntax for C and C++ is so
+closely related that GDB does not distinguish the two.  Some GDB
 features may be used in expressions regardless of the language you
 use: the GDB `@' and `::' operators, and the `{type}addr' construct
-(*note Expressions::.) can be used with the constructs of any of the
-supported languages.
+(*note Expressions: Expressions.) can be used with the constructs of
+any of the supported languages.
 
    The following sections detail to what degree each of these source
 languages is supported by GDB.  These sections are not meant to be
@@ -236,10 +235,10 @@ of increasing precedence:
      assigned.  Defined on scalar types.
 
 `OP='
-     Used in an expression of the form A OP`=' B, and translated to A
-     `=' A OP B.  OP`=' and `=' have the same precendence.  OP is any
-     one of the operators `|', `^', `&', `<<', `>>', `+', `-', `*',
-     `/', `%'.
+     Used in an expression of the form `A OP= B', and translated to
+     `A = A OP B'.  `OP=' and `=' have the same precendence.  OP is
+     any one of the operators `|', `^', `&', `<<', `>>', `+', `-',
+     `*', `/', `%'.
 
 `?:'
      The ternary operator.  `A ? B : C' can be thought of as:  if A
@@ -273,7 +272,8 @@ of increasing precedence:
      left shift, and right shift.  Defined on integral types.
 
 `@'
-     The GDB "artificial array" operator (*note Expressions::.).
+     The GDB "artificial array" operator (*note Expressions:
+     Expressions.).
 
 `+, -'
      Addition and subtraction.  Defined on integral types,
@@ -327,8 +327,8 @@ of increasing precedence:
      `class' types.
 
 `::'
-     The GDB scope operator (*note Expressions::.).  Same precedence as
-     `::', above.
+     The GDB scope operator (*note Expressions: Expressions.).  Same
+     precedence as `::', above.
 
 
 File: gdb.info,  Node: C Constants,  Next: Cplusplus expressions,  Prev: C Operators,  Up: C
@@ -341,8 +341,9 @@ following ways:
 
    * Integer constants are a sequence of digits.  Octal constants are
      specified by a leading `0' (ie. zero), and hexadecimal constants
-     by a leading `0x' or `0X'.  Constants may also end with an `l',
-     specifying that the constant should be treated as a `long' value.
+     by a leading `0x' or `0X'.  Constants may also end with a letter
+     `l', specifying that the constant should be treated as a `long'
+     value.
 
    * Floating point constants are a sequence of digits, followed by a
      decimal point, followed by a sequence of digits, and optionally
@@ -399,15 +400,15 @@ a significant subset of C++ expressions:
      values of reference variables are not displayed (unlike other
      variables); this avoids clutter, since references are often used
      for large structures.  The *address* of a reference variable is
-     always shown, unless you've specified `set print address off'.
+     always shown, unless you have specified `set print address off'.
 
   5. GDB supports the C++ name resolution operator `::'--your
      expressions can use it just as expressions in your program do. 
      Since one scope may be defined in another, you can use `::'
      repeatedly if necessary, for example in an expression like
      `SCOPE1::SCOPE2::NAME'.  GDB also allows resolving name scope by
-     reference to source files, in both C and C++ debugging; *note
-     Variables::..
+     reference to source files, in both C and C++ debugging (*note
+     Program Variables: Variables.).
 
 
 File: gdb.info,  Node: C Defaults,  Next: C Checks,  Prev: Cplusplus expressions,  Up: C
@@ -459,7 +460,8 @@ GDB and C
 or `class' will also be printed.  Otherwise, it will appear as `{...}'.
 
    The `@' operator aids in the debugging of dynamic arrays, formed
-with pointers and a memory allocation function.  (*note Expressions::.)
+with pointers and a memory allocation function.  (*note Expressions:
+Expressions.)
 
 
 File: gdb.info,  Node: Debugging C plus plus,  Prev: Debugging C,  Up: C
@@ -487,7 +489,7 @@ designed specifically for use with C++.  Here is a summary:
 
 `ptype TYPENAME'
      Print inheritance relationships as well as other information for
-     type TYPENAME.  *Note Symbols::.
+     type TYPENAME.  *Note Examining the Symbol Table: Symbols.
 
 `set print demangle'
 `show print demangle'
@@ -495,17 +497,17 @@ designed specifically for use with C++.  Here is a summary:
 `show print asm-demangle'
      Control whether C++ symbols display in their source form, both
      when displaying code as C++ source and when displaying
-     disassemblies.  *Note Print Settings::.
+     disassemblies.  *Note Print Settings: Print Settings.
 
 `set print object'
 `show print object'
      Choose whether to print derived (actual) or declared types of
-     objects.  *Note Print Settings::.
+     objects.  *Note Print Settings: Print Settings.
 
 `set print vtbl'
 `show print vtbl'
      Control the format for printing virtual function tables.  *Note
-     Print Settings::.
+     Print Settings: Print Settings.
 
 
 File: gdb.info,  Node: Modula-2,  Prev: C,  Up: Support
@@ -591,7 +593,8 @@ increasing precedence:
      Boolean conjuction.  Defined on boolean types.
 
 `@'
-     The GDB "artificial array" operator (*note Expressions::.).
+     The GDB "artificial array" operator (*note Expressions:
+     Expressions.).
 
 `+, -'
      Addition and subtraction on integral and floating-point types, or
@@ -771,10 +774,11 @@ ways:
      may also be expressed by their ordinal value (their ASCII value,
      usually) followed by a `C'.
 
-   * String constants consist of a sequence of characters enclosed by
-     a pair of like quotes, either single (`'') or double (`"'). 
-     Escape sequences in the style of C are also allowed.  *Note C
-     Constants::, for a brief explanation of escape sequences.
+   * String constants consist of a sequence of characters enclosed by a
+     pair of like quotes, either single (`'') or double (`"').  Escape
+     sequences in the style of C are also allowed.  *Note C and C++
+     Constants: C Constants, for a brief explanation of escape
+     sequences.
 
    * Enumerated constants consist of an enumerated identifier.
 
@@ -891,12 +895,12 @@ C and C++: `vtbl', `demangle', `asm-demangle', `object', and `union'.
 The first four apply to C++, and the last to C's `union' type, which
 has no direct analogue in Modula-2.
 
-   The `@' operator (*note Expressions::.), while available while
-using any language, is not useful with Modula-2.  Its intent is to aid
-the debugging of "dynamic arrays", which cannot be created in Modula-2
-as they can in C or C++.  However, because an address can be specified
-by an integral constant, the construct `{TYPE}ADREXP' is still useful.
- (*note Expressions::.)
+   The `@' operator (*note Expressions: Expressions.), while available
+while using any language, is not useful with Modula-2.  Its intent is
+to aid the debugging of "dynamic arrays", which cannot be created in
+Modula-2 as they can in C or C++.  However, because an address can be
+specified by an integral constant, the construct `{TYPE}ADREXP' is
+still useful.  (*note Expressions: Expressions.)
 
    In GDB scripts, the Modula-2 inequality operator `#' is interpreted
 as the beginning of a comment.  Use `<>' instead.
@@ -912,8 +916,8 @@ the symbols (names of variables, functions and types) defined in your
 program.  This information is inherent in the text of your program and
 does not change as your program executes.  GDB finds it in your
 program's symbol table, in the file indicated when you started GDB
-(*note File Options::.), or by one of the file-management commands
-(*note Commands to Specify Files: Files.).
+(*note Choosing Files: File Options.), or by one of the
+file-management commands (*note Commands to Specify Files: Files.).
 
 `info address SYMBOL'
      Describe where the data for SYMBOL is stored.  For a register
@@ -930,7 +934,7 @@ program's symbol table, in the file indicated when you started GDB
      Print the data type of expression EXP.  EXP is not actually
      evaluated, and any side-effecting operations (such as assignments
      or function calls) inside it do not take place.  *Note
-     Expressions::.
+     Expressions: Expressions.
 
 `whatis'
      Print the data type of `$', the last value in the value history.
@@ -949,7 +953,7 @@ program's symbol table, in the file indicated when you started GDB
 
           struct complex {double real; double imag;} v;
 
-          compare the output of the two commands:
+     compare the output of the two commands:
 
           (gdb) whatis v
           type = struct complex
@@ -959,7 +963,7 @@ program's symbol table, in the file indicated when you started GDB
               double imag;
           }
 
-          As with `whatis', using `ptype' without an argument refers to the
+     As with `whatis', using `ptype' without an argument refers to the
      type of `$', the last value in the value history.
 
 `info types REGEXP'
@@ -1053,26 +1057,27 @@ Assignment to Variables
 =======================
 
    To alter the value of a variable, evaluate an assignment expression. 
-*Note Expressions::.  For example,
+*Note Expressions: Expressions.  For example,
 
      print x=4
 
-would store the value 4 into the variable `x', and then print the
-value of the assignment expression (which is 4).  *Note Languages::,
-for more information on operators in supported languages.
+stores the value 4 into the variable `x', and then prints the value of
+the assignment expression (which is 4).  *Note Using GDB with
+Different Languages: Languages, for more information on operators in
+supported languages.
 
    If you are not interested in seeing the value of the assignment,
 use the `set' command instead of the `print' command.  `set' is really
 the same as `print' except that the expression's value is not printed
-and is not put in the value history (*note Value History::.).  The
-expression is evaluated only for its effects.
+and is not put in the value history (*note Value History: Value
+History.).  The expression is evaluated only for its effects.
 
    If the beginning of the argument string of the `set' command
 appears identical to a `set' subcommand, use the `set variable'
 command instead of just `set'.  This command is identical to `set'
 except for its lack of subcommands.  For example, a program might well
 have a variable `width'--which leads to an error if we try to set a
-new value with just `set width=13', as we might if `set width' didn't
+new value with just `set width=13', as we might if `set width' did not
 happen to be a GDB command:
 
      (gdb) whatis width
@@ -1087,16 +1092,16 @@ to actually set our program's variable `width' is
 
      (gdb) set var width=47
 
-   GDB allows more implicit conversions in assignments than C does;
-you can freely store an integer value into a pointer variable or vice
-versa, and any structure can be converted to any other structure that
-is the same length or shorter.
+   GDB allows more implicit conversions in assignments than C; you can
+freely store an integer value into a pointer variable or vice versa,
+and any structure can be converted to any other structure that is the
+same length or shorter.
 
    To store values into arbitrary places in memory, use the `{...}'
 construct to generate a value of specified type at a specified address
-(*note Expressions::.).  For example, `{int}0x83040' refers to memory
-location `0x83040' as an integer (which implies a certain size and
-representation in memory), and
+(*note Expressions: Expressions.).  For example, `{int}0x83040' refers
+to memory location `0x83040' as an integer (which implies a certain
+size and representation in memory), and
 
      set {int}0x83040 = 4
 
@@ -1141,8 +1146,8 @@ not start your program running; it only changes the address where it
      set $pc = 0x485
 
 causes the next `continue' command or stepping command to execute at
-address 0x485, rather than at the address where your program stopped. 
-*Note Continuing and Stepping::.
+address `0x485', rather than at the address where your program stopped. 
+*Note Continuing and Stepping: Continuing and Stepping.
 
    The most common occasion to use the `jump' command is to back up,
 perhaps with more breakpoints set, over a portion of a program that has
@@ -1193,8 +1198,8 @@ of functions.
    The `return' command does not resume execution; it leaves the
 program stopped in the state that would exist if the function had just
 returned.  In contrast, the `finish' command (*note Continuing and
-Stepping::.) resumes execution until the selected stack frame returns
-naturally.
+Stepping: Continuing and Stepping.) resumes execution until the
+selected stack frame returns naturally.
 
 
 File: gdb.info,  Node: Calling,  Next: Patching,  Prev: Returning,  Up: Altering
@@ -1232,7 +1237,7 @@ to turn on internal debugging flags, or even to make emergency repairs.
      files for both reading and writing; if you specify `set write
      off' (the default), GDB will open them read-only.
 
-     If you've already loaded a file, you must load it again (using
+     If you have already loaded a file, you must load it again (using
      the `exec-file' or `core-file' command) after changing `set
      write', for your new setting to take effect.
 
@@ -1245,6 +1250,11 @@ File: gdb.info,  Node: GDB Files,  Next: Targets,  Prev: Altering,  Up: Top
 
 GDB's Files
 ***********
+
+   GDB needs to know the file name of the program to be debugged, both
+in order to read its symbol table and in order to start your program. 
+To debug a core dump of a previous run, GDB must be told the file name
+of the core dump.
 
 * Menu:
 

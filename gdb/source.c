@@ -43,6 +43,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 extern void set_next_address ();
 extern char *basename ();
+extern char *index ();
 
 /* Path of directories to search for source files.
    Same format as the PATH environment variable's value.  */
@@ -231,7 +232,6 @@ mod_path (dirname, which_path)
 
   do
     {
-      extern char *index ();
       char *name = dirname;
       register char *p;
       struct stat st;
@@ -552,11 +552,16 @@ find_source_lines (s, desc)
   int nlines = 0;
   int lines_allocated = 1000;
   int *line_charpos = (int *) xmalloc (lines_allocated * sizeof (int));
+  long exec_mtime;
 
   if (fstat (desc, &st) < 0)
     perror_with_name (s->filename);
-  if (exec_bfd && bfd_get_mtime(exec_bfd) < st.st_mtime)
-    printf ("Source file is more recent than executable.\n");
+
+  if (exec_bfd) {
+    exec_mtime = bfd_get_mtime(exec_bfd);
+    if (exec_mtime && exec_mtime < st.st_mtime)
+      printf ("Source file is more recent than executable.\n");
+  }
 
 #ifdef BROKEN_LARGE_ALLOCA
   data = (char *) xmalloc (st.st_size);
@@ -897,11 +902,11 @@ list_command (arg, from_tty)
 	error ("No source file for address %s.", local_hex_string(sal.pc));
       sym = find_pc_function (sal.pc);
       if (sym)
-	printf ("%s is in %s (%s, line %d).\n",
+	printf ("%s is in %s (%s:%d).\n",
 		local_hex_string(sal.pc), 
 		SYMBOL_NAME (sym), sal.symtab->filename, sal.line);
       else
-	printf ("%s is in %s, line %d.\n",
+	printf ("%s is at %s:%d.\n",
 		local_hex_string(sal.pc), 
 		sal.symtab->filename, sal.line);
     }

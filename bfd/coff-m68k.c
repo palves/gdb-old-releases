@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: coff-m68k.c,v 1.15 1991/12/01 05:23:45 sac Exp $ */
+/* $Id: coff-m68k.c,v 1.16 1992/01/24 22:44:00 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -46,7 +46,7 @@ static reloc_howto_type howto_table[] =
 #define M68 1		/* Customize coffcode.h */
 
 #define RTYPE2HOWTO(internal, relocentry) \
-    (internal)->howto = ( howto_table + (relocentry).r_type - R_RELBYTE);
+    (internal)->howto = ( howto_table + (relocentry)->r_type - R_RELBYTE);
 
 #include "coffcode.h"
 

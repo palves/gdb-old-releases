@@ -2,3 +2,4 @@
 SYSV = -DSYSV
 RANLIB = echo >/dev/null
 BISON = yacc -Sm10400
+CC = gcc -posix

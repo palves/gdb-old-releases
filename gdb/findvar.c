@@ -129,7 +129,7 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
   if (optimized != NULL)
     *optimized = 0;
   addr = find_saved_register (frame, regnum);
-  if (addr != NULL)
+  if (addr != 0)
     {
       if (lval != NULL)
 	*lval = lval_memory;
@@ -295,17 +295,19 @@ write_register_bytes (regbyte, myaddr, len)
 }
 
 /* Return the contents of register REGNO, regarding it as an integer.  */
+/* FIXME, this loses when the REGISTER_VIRTUAL (REGNO) is true.  Also,
+   why is the return type CORE_ADDR rather than some integer type?  */
 
 CORE_ADDR
 read_register (regno)
      int regno;
 {
-  int reg;
+  REGISTER_TYPE reg;
+
   if (!register_valid[regno])
     target_fetch_registers (regno);
-  /* FIXME, this loses when REGISTER_RAW_SIZE (regno) != sizeof (int) */
-  reg = *(int *) &registers[REGISTER_BYTE (regno)];
-  SWAP_TARGET_AND_HOST (&reg, sizeof (int));
+  memcpy (&reg, &registers[REGISTER_BYTE (regno)], sizeof (REGISTER_TYPE));
+  SWAP_TARGET_AND_HOST (&reg, sizeof (REGISTER_TYPE));
   return reg;
 }
 
@@ -315,24 +317,27 @@ read_register (regno)
 #endif
 
 /* Store VALUE in the register number REGNO, regarded as an integer.  */
+/* FIXME, this loses when REGISTER_VIRTUAL (REGNO) is true.  Also, 
+   shouldn't the val arg be a LONGEST or something?  */
 
 void
 write_register (regno, val)
      int regno, val;
 {
+  REGISTER_TYPE reg;
+
   /* On the sparc, writing %g0 is a no-op, so we don't even want to change
      the registers array if something writes to this register.  */
   if (CANNOT_STORE_REGISTER (regno))
     return;
 
-  SWAP_TARGET_AND_HOST (&val, sizeof (int));
+  reg = val;
+  SWAP_TARGET_AND_HOST (&reg, sizeof (REGISTER_TYPE));
 
   target_prepare_to_store ();
 
   register_valid [regno] = 1;
-  /* FIXME, this loses when REGISTER_RAW_SIZE (regno) != sizeof (int) */
-  /* FIXME, this depends on REGISTER_BYTE (regno) being aligned for host */
-  *(int *) &registers[REGISTER_BYTE (regno)] = val;
+  memcpy (&registers[REGISTER_BYTE (regno)], &reg, sizeof (REGISTER_TYPE));
 
   target_store_registers (regno);
 }
@@ -658,18 +663,6 @@ locate_var_value (var, frame)
       || TYPE_CODE (type) == TYPE_CODE_FUNC)
     {
       addr = VALUE_ADDRESS (lazy_value);
-
-      /* C++: The "address" of a reference should yield the address
-       * of the object pointed to. So force an extra de-reference. */
-
-      if (TYPE_CODE (type) == TYPE_CODE_REF)
-	{
-	  char *buf = alloca (TYPE_LENGTH (type));
-	  read_memory (addr, buf, TYPE_LENGTH (type));
-	  addr = unpack_pointer (type, buf);
-	  type = TYPE_TARGET_TYPE (type);
-	}
-
       return value_from_longest (lookup_pointer_type (type), (LONGEST) addr);
     }
 

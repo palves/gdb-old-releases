@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: opncls.c,v 1.34 1991/11/30 21:41:53 sac Exp $ */
+/* $Id: opncls.c,v 1.39 1992/01/30 15:30:44 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -63,7 +63,9 @@ bfd *new_bfd()
   nbfd->sections = (asection *)NULL;
   nbfd->cacheable = false;
   nbfd->flags = NO_FLAGS;
-  nbfd->mtime_set = 0;
+  nbfd->mtime_set = false;
+
+  
   return nbfd;
 }
 
@@ -89,16 +91,15 @@ SECTION
 FUNCTION
 	bfd_openr
 
-DESCRIPTION
+SYNOPSIS
+        bfd *bfd_openr(CONST char *filename, CONST char*target);
 
-	Opens the file supplied (using <<fopen>>) with the target
+DESCRIPTION
+	This function opens the file supplied (using <<fopen>>) with the target
 	supplied, it returns a pointer to the created BFD.
 
 	If NULL is returned then an error has occured. Possible errors
 	are <<no_memory>>, <<invalid_target>> or <<system_call>> error.
-
-SYNOPSIS
-        bfd *bfd_openr(CONST char *filename, CONST char*target);
 */
 
 bfd *
@@ -145,6 +146,9 @@ DEFUN(bfd_openr, (filename, target),
 FUNCTION
          bfd_fdopenr
 
+SYNOPSIS
+         bfd *bfd_fdopenr(CONST char *filename, CONST char *target, int fd);
+
 DESCRIPTION
          bfd_fdopenr is to bfd_fopenr much like  fdopen is to fopen.
 	 It opens a BFD on a file already described by the @var{fd}
@@ -152,9 +156,6 @@ DESCRIPTION
 
          Possible errors are no_memory, invalid_target and system_call
 	 error.
-
-SYNOPSIS
-         bfd *bfd_fdopenr(CONST char *filename, CONST char *target, int fd);
 */
 
 bfd *
@@ -190,10 +191,10 @@ DEFUN(bfd_fdopenr,(filename, target, fd),
   }
 
 #ifdef FASCIST_FDOPEN
-  nbfd->iostream = (char *) fdopen (fd, "r"); 
+  nbfd->iostream = (char *) fdopen (fd, FOPEN_RB); 
 #else
   /* if the fd were open for read only, this still would not hurt: */
-  nbfd->iostream = (char *) fdopen (fd, "r+"); 
+  nbfd->iostream = (char *) fdopen (fd, FOPEN_RUB); 
 #endif
   if (nbfd->iostream == NULL) {
     (void) obstack_free (&nbfd->memory, (PTR)0);
@@ -226,9 +227,11 @@ DEFUN(bfd_fdopenr,(filename, target, fd),
   See comment by bfd_fdopenr before you try to modify this function. */
 
 /*
-
 FUNCTION
 	bfd_openw
+
+SYNOPSIS
+	bfd *bfd_openw(CONST char *filename, CONST char *target);
 
 DESCRIPTION
 	Creates a BFD, associated with file @var{filename}, using the
@@ -236,10 +239,6 @@ DESCRIPTION
 
 	Possible errors are system_call_error, no_memory,
 	invalid_target. 
-
-SYNOPSIS
-	bfd *bfd_openw(CONST char *filename, CONST char *target);
-
 */
 
 bfd *
@@ -280,6 +279,9 @@ DEFUN(bfd_openw,(filename, target),
 FUNCTION
 	bfd_close
 
+SYNOPSIS
+	boolean bfd_close(bfd *);
+
 DESCRIPTION
 
 	This function closes a BFD. If the BFD was open for writing,
@@ -291,10 +293,6 @@ DESCRIPTION
 
 RETURNS
 	<<true>> is returned if all is ok, otherwise <<false>>.
-
-SYNOPSIS
-	boolean bfd_close(bfd *);
-
 */
 
 
@@ -337,22 +335,23 @@ DEFUN(bfd_close,(abfd),
 FUNCTION
 	bfd_close_all_done
 
+SYNOPSIS
+	boolean bfd_close_all_done(bfd *);
+
 DESCRIPTION
-	This function closes a BFD. It differs from @code{bfd_close}
+	This function closes a BFD. It differs from <<bfd_close>>
 	since it does not complete any pending operations.  This
 	routine would be used if the application had just used BFD for
 	swapping and didn't want to use any of the writing code.
 
-	If the created file is executable, then @code{chmod} is called
+	If the created file is executable, then <<chmod>> is called
 	to mark it as such.
 
 	All memory attached to the BFD's obstacks is released. 
 
 RETURNS
-	@code{true} is returned if all is ok, otherwise @code{false}.
+	<<true>> is returned if all is ok, otherwise <<false>>.
 
-SYNOPSIS
-	boolean bfd_close_all_done(bfd *);
 */
 
 boolean
@@ -384,19 +383,48 @@ DEFUN(bfd_close_all_done,(abfd),
   return true;
 }
 
+
+/*
+FUNCTION	
+	bfd_alloc_size
+
+SYNOPSIS
+	bfd_size_type bfd_alloc_size(bfd *abfd);
+
+DESCRIPTION
+        Return the number of bytes in the obstacks connected to the
+	supplied BFD.
+
+*/
+
+bfd_size_type
+DEFUN(bfd_alloc_size,(abfd),
+      bfd *abfd)
+{
+  struct _obstack_chunk *chunk = abfd->memory.chunk;
+  size_t size = 0;
+  while (chunk) {
+    size += chunk->limit - &(chunk->contents[0]);
+    chunk = chunk->prev;
+  }
+  return size;
+}
+
+
+
 /*
 FUNCTION
 	bfd_create
 
-DESCRIPTION
+SYNOPSIS
+	bfd *bfd_create(CONST char *filename, bfd *template);
 
+DESCRIPTION
 	This routine creates a new BFD in the manner of
 	<<bfd_openw>>, but without opening a file. The new BFD
 	takes the target from the target used by @var{template}. The
-	format is always set to @code{bfd_object}. 
+	format is always set to <<bfd_object>>. 
 
-SYNOPSIS
-	bfd *bfd_create(CONST char *filename, bfd *template);
 */
 
 bfd *
@@ -418,9 +446,21 @@ DEFUN(bfd_create,(filename, template),
   return nbfd;
 }
 
-/* Memory allocation */
+/* 
+INTERNAL_FUNCTION
+	bfd_alloc_by_size_t
 
-DEFUN(PTR bfd_alloc_by_size_t,(abfd, size),
+SYNOPSIS
+	PTR bfd_alloc_by_size_t(bfd *abfd, size_t wanted);
+
+DESCRIPTION
+	This function allocates a block of memory in the obstack
+	attatched to <<abfd>> and returns a pointer to it.
+*/
+
+
+PTR 
+DEFUN(bfd_alloc_by_size_t,(abfd, size),
       bfd *abfd AND
       size_t size)
 {
@@ -466,34 +506,6 @@ DEFUN(PTR bfd_realloc,(abfd, old, size),
   memcpy(res, old, (size_t)size);
   return res;
 }
-
-/*
-FUNCTION	
-	bfd_alloc_size
-
-DESCRIPTION
-        Return the number of bytes in the obstacks connected to the
-	supplied BFD.
-
-
-SYNOPSIS
-	bfd_size_type bfd_alloc_size(bfd *abfd);
-*/
-
-bfd_size_type
-DEFUN( bfd_alloc_size,(abfd),
-      bfd *abfd)
-{
-  struct _obstack_chunk *chunk = abfd->memory.chunk;
-  size_t size = 0;
-  while (chunk) {
-    size += chunk->limit - &(chunk->contents[0]);
-    chunk = chunk->prev;
-  }
-  return size;
-}
-
-
 
 
 

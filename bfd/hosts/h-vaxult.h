@@ -21,6 +21,7 @@
 
 #define	HOST_TEXT_START_ADDR	USRTEXT
 #define	HOST_STACK_END_ADDR	USRSTACK
+#undef	HOST_BIG_ENDIAN_P
 
 /* EXACT TYPES */
 typedef char int8e_type;
@@ -37,3 +38,4 @@ typedef short int16_type;
 typedef unsigned short uint16_type;
 typedef int int32_type;
 typedef unsigned int uint32_type;
+#include "fopen-same.h"

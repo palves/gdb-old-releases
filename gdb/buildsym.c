@@ -808,6 +808,7 @@ end_symtab (end_addr, sort_pending, sort_linevec, objfile)
 
   last_source_file = 0;
   current_subfile = 0;
+  previous_stab_code = 0;
 
   return symtab;
 }
@@ -1063,7 +1064,7 @@ define_symbol (valu, string, desc, type)
 	    SYMBOL_TYPE (sym) = builtin_type_double;
 	    dbl_valu =
 	      (char *) obstack_alloc (symbol_obstack, sizeof (double));
-	    bcopy (&d, dbl_valu, sizeof (double));
+	    memcpy (dbl_valu, &d, sizeof (double));
 	    SWAP_TARGET_AND_HOST (dbl_valu, sizeof (double));
 	    SYMBOL_VALUE_BYTES (sym) = dbl_valu;
 	    SYMBOL_CLASS (sym) = LOC_CONST_BYTES;
@@ -1423,6 +1424,7 @@ cleanup_undefined_types ()
 
       case TYPE_CODE_STRUCT:
       case TYPE_CODE_UNION:
+      case TYPE_CODE_ENUM:
 	{
 	  /* Reasonable test to see if it's been defined since.  */
 	  if (TYPE_NFIELDS (*type) == 0)
@@ -1436,6 +1438,8 @@ cleanup_undefined_types ()
 		typename += 7;
 	      if (!strncmp (typename, "union ", 6))
 		typename += 6;
+	      if (!strncmp (typename, "enum ", 5))
+		typename += 5;
 
 	      for (ppt = file_symbols; ppt; ppt = ppt->next)
 		for (i = 0; i < ppt->nsyms; i++)
@@ -1447,7 +1451,7 @@ cleanup_undefined_types ()
 			&& (TYPE_CODE (SYMBOL_TYPE (sym)) ==
 			    TYPE_CODE (*type))
 			&& !strcmp (SYMBOL_NAME (sym), typename))
-		      bcopy (SYMBOL_TYPE (sym), *type, sizeof (struct type));
+		      memcpy (*type, SYMBOL_TYPE (sym), sizeof (struct type));
 		  }
 	    }
 	  else
@@ -1480,7 +1484,8 @@ cleanup_undefined_types ()
 
       default:
       badtype:
-	error ("GDB internal error.  cleanup_undefined_types with bad type.");
+	error ("GDB internal error.  cleanup_undefined_types with bad\
+ type %d.", TYPE_CODE (*type));
 	break;
     }
   }
@@ -1703,13 +1708,7 @@ read_type (pp)
 	type = dbx_alloc_type (typenums);
 	TYPE_CODE (type) = code;
 	TYPE_NAME (type) = type_name;
-	if (code == TYPE_CODE_STRUCT || code == TYPE_CODE_UNION)
-	  {
-	    TYPE_CPLUS_SPECIFIC (type)
-	      = (struct cplus_struct_type *) obstack_alloc (symbol_obstack, sizeof (struct cplus_struct_type));
-	    bzero (TYPE_CPLUS_SPECIFIC (type), sizeof (struct cplus_struct_type));
-	  }
-
+	INIT_CPLUS_SPECIFIC(type);
 	TYPE_FLAGS (type) |= TYPE_FLAG_STUB;
 
 	add_undefined_type (type);
@@ -1906,7 +1905,6 @@ read_struct_type (pp, type)
   struct next_fnfield
     {
       struct next_fnfield *next;
-      int visibility;			/* 0=public, 1=protected, 2=public */
       struct fn_field fn_field;
     };
 
@@ -1920,15 +1918,14 @@ read_struct_type (pp, type)
   struct nextfield *new;
   register char *p;
   int nfields = 0;
+  int non_public_fields = 0;
   register int n;
 
   register struct next_fnfieldlist *mainlist = 0;
   int nfn_fields = 0;
 
   TYPE_CODE (type) = TYPE_CODE_STRUCT;
-  TYPE_CPLUS_SPECIFIC (type)
-    = (struct cplus_struct_type *) obstack_alloc (symbol_obstack, sizeof (struct cplus_struct_type));
-  bzero (TYPE_CPLUS_SPECIFIC (type), sizeof (struct cplus_struct_type));
+  INIT_CPLUS_SPECIFIC(type);
 
   /* First comes the total size in bytes.  */
 
@@ -1956,6 +1953,8 @@ read_struct_type (pp, type)
       int via_virtual;
 
       *pp += 1;
+
+      ALLOCATE_CPLUS_STRUCT_TYPE(type);
 
       n_baseclasses = read_number (pp, ',');
       TYPE_FIELD_VIRTUAL_BITS (type) =
@@ -1985,6 +1984,7 @@ read_struct_type (pp, type)
 	    {
 	    case '0':
 	      via_public = 0;
+	      non_public_fields++;
 	      break;
 	    case '2':
 	      via_public = 2;
@@ -2082,6 +2082,8 @@ read_struct_type (pp, type)
 	      list->field.bitpos = read_number (pp, ';');
 	      /* This field is unpacked.  */
 	      list->field.bitsize = 0;
+	      list->visibility = 0;	/* private */
+	      non_public_fields++;
 	    }
 	  /* GNU C++ anonymous type.  */
 	  else if (*p == '_')
@@ -2109,11 +2111,13 @@ read_struct_type (pp, type)
 	    {
 	    case '0':
 	      list->visibility = 0;	/* private */
+	      non_public_fields++;
 	      *pp += 1;
 	      break;
 
  	    case '1':
  	      list->visibility = 1;	/* protected */
+	      non_public_fields++;
  	      *pp += 1;
  	      break;
 
@@ -2210,13 +2214,18 @@ read_struct_type (pp, type)
   TYPE_FIELDS (type) = (struct field *) obstack_alloc (symbol_obstack,
 					       sizeof (struct field) * nfields);
 
-  TYPE_FIELD_PRIVATE_BITS (type) =
-    (B_TYPE *) obstack_alloc (symbol_obstack, B_BYTES (nfields));
-  B_CLRALL (TYPE_FIELD_PRIVATE_BITS (type), nfields);
+  if (non_public_fields)
+    {
+      ALLOCATE_CPLUS_STRUCT_TYPE (type);
 
-  TYPE_FIELD_PROTECTED_BITS (type) =
-    (B_TYPE *) obstack_alloc (symbol_obstack, B_BYTES (nfields));
-  B_CLRALL (TYPE_FIELD_PROTECTED_BITS (type), nfields);
+      TYPE_FIELD_PRIVATE_BITS (type) =
+	  (B_TYPE *) obstack_alloc (symbol_obstack, B_BYTES (nfields));
+      B_CLRALL (TYPE_FIELD_PRIVATE_BITS (type), nfields);
+
+      TYPE_FIELD_PROTECTED_BITS (type) =
+	  (B_TYPE *) obstack_alloc (symbol_obstack, B_BYTES (nfields));
+      B_CLRALL (TYPE_FIELD_PROTECTED_BITS (type), nfields);
+    }
 
   /* Copy the saved-up fields into the field vector.  */
 
@@ -2244,6 +2253,7 @@ read_struct_type (pp, type)
 	 "unread" the name that has been read, so that we can
 	 start from the top.  */
 
+      ALLOCATE_CPLUS_STRUCT_TYPE (type);
       /* For each list of method lists... */
       do
 	{
@@ -2313,11 +2323,25 @@ read_struct_type (pp, type)
 	      *pp += 1;
 	      p = *pp;
 	      while (*p != ';') p++;
+
 	      /* If this is just a stub, then we don't have the
 		 real name here.  */
+	      if (TYPE_FLAGS (new_sublist->fn_field.type) & TYPE_FLAG_STUB)
+		new_sublist->fn_field.is_stub = 1;
 	      new_sublist->fn_field.physname = savestring (*pp, p - *pp);
 	      *pp = p + 1;
-	      new_sublist->visibility = *(*pp)++ - '0';
+
+	      /* Set this method's visibility fields.  */
+	      switch (*(*pp)++ - '0')
+		{
+		case 0:
+		  new_sublist->fn_field.is_private = 1;
+		  break;
+		case 1:
+		  new_sublist->fn_field.is_protected = 1;
+		  break;
+		}
+
 	      if (**pp == '\\') *pp = next_symbol_text ();
 	      switch (**pp)
 		{
@@ -2391,6 +2415,9 @@ read_struct_type (pp, type)
 		case '?':
 		  /* static member function.  */
 		  new_sublist->fn_field.voffset = VOFFSET_STATIC;
+		  if (strncmp (new_sublist->fn_field.physname,
+			       main_fn_name, strlen (main_fn_name)))
+		    new_sublist->fn_field.is_stub = 1;
 		  break;
 
 		default:
@@ -2417,22 +2444,8 @@ read_struct_type (pp, type)
 	  new_mainlist->fn_fieldlist.fn_fields =
 	    (struct fn_field *) obstack_alloc (symbol_obstack,
 					       sizeof (struct fn_field) * length);
-	  TYPE_FN_PRIVATE_BITS (new_mainlist->fn_fieldlist) =
-	    (B_TYPE *) obstack_alloc (symbol_obstack, B_BYTES (length));
-	  B_CLRALL (TYPE_FN_PRIVATE_BITS (new_mainlist->fn_fieldlist), length);
-
-	  TYPE_FN_PROTECTED_BITS (new_mainlist->fn_fieldlist) =
-	    (B_TYPE *) obstack_alloc (symbol_obstack, B_BYTES (length));
-	  B_CLRALL (TYPE_FN_PROTECTED_BITS (new_mainlist->fn_fieldlist), length);
-
 	  for (i = length; (i--, sublist); sublist = sublist->next)
-	    {
-	      new_mainlist->fn_fieldlist.fn_fields[i] = sublist->fn_field;
-	      if (sublist->visibility == 0)
-		B_SET (new_mainlist->fn_fieldlist.private_fn_field_bits, i);
-	      else if (sublist->visibility == 1)
-		B_SET (new_mainlist->fn_fieldlist.protected_fn_field_bits, i);
-	    }
+	    new_mainlist->fn_fieldlist.fn_fields[i] = sublist->fn_field;
 
 	  new_mainlist->fn_fieldlist.length = length;
 	  new_mainlist->next = mainlist;
@@ -2445,12 +2458,15 @@ read_struct_type (pp, type)
 
   *pp += 1;
 
-  TYPE_FN_FIELDLISTS (type) =
-    (struct fn_fieldlist *) obstack_alloc (symbol_obstack,
-				   sizeof (struct fn_fieldlist) * nfn_fields);
 
-  TYPE_NFN_FIELDS (type) = nfn_fields;
-  TYPE_NFN_FIELDS_TOTAL (type) = total_length;
+  if (nfn_fields)
+    {
+      TYPE_FN_FIELDLISTS (type) = (struct fn_fieldlist *)
+	    obstack_alloc (symbol_obstack,
+			   sizeof (struct fn_fieldlist) * nfn_fields);
+      TYPE_NFN_FIELDS (type) = nfn_fields;
+      TYPE_NFN_FIELDS_TOTAL (type) = total_length;
+    }
 
   {
     int i;
@@ -2459,8 +2475,10 @@ read_struct_type (pp, type)
 	TYPE_NFN_FIELDS_TOTAL (TYPE_BASECLASS (type, i));
   }
 
-  for (n = nfn_fields; mainlist; mainlist = mainlist->next)
-    TYPE_FN_FIELDLISTS (type)[--n] = mainlist->fn_fieldlist;
+  for (n = nfn_fields; mainlist; mainlist = mainlist->next) {
+    --n;                      /* Circumvent Sun3 compiler bug */
+    TYPE_FN_FIELDLISTS (type)[n] = mainlist->fn_fieldlist;
+  }
 
   if (**pp == '~')
     {
@@ -3141,7 +3159,7 @@ read_args (pp, end)
     {
       rval = (struct type **) xmalloc (n * sizeof (struct type *));
     }
-  bcopy (types, rval, n * sizeof (struct type *));
+  memcpy (rval, types, n * sizeof (struct type *));
   return rval;
 }
 

@@ -79,3 +79,4 @@ typedef unsigned short uint16_type;
 typedef int int32_type;
 typedef unsigned int uint32_type;
 
+#include "fopen-same.h"

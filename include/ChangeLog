@@ -1,3 +1,21 @@
+Thu Jan 30 01:18:42 1992  John Gilmore  (gnu at cygnus.com)
+
+	* bfd.h:  Remove comma from enum declaration.
+
+Mon Jan 27 22:01:13 1992  Steve Chamberlain  (sac at cygnus.com)
+
+	* bfd.h : new target entr, bfd_relax_section 
+
+Wed Dec 18 17:19:44 1991  Stu Grossman  (grossman at cygnus.com)
+
+	* bfd.h, ieee.h, opcode/m68k.h, opcode/sparc.h:  ANSIfy enums.
+
+Thu Dec 12 20:59:56 1991  John Gilmore  (gnu at cygnus.com)
+
+	* fopen-same.h, fopen-bin.h:  New files for configuring
+	whether fopen distinguishes binary files or not.  For use
+	by host-dependent config files.
+
 Sat Nov 30 20:46:43 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
 
 	* bfd.h: change the documentation format.

@@ -356,7 +356,7 @@ child_xfer_memory (memaddr, myaddr, len, write, target)
      char *myaddr;
      int len;
      int write;
-     struct target_ops target;		/* ignored */
+     struct target_ops *target;		/* ignored */
 {
   register int i;
   /* Round starting address down to longword boundary.  */

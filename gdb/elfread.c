@@ -84,13 +84,39 @@ DEFUN(elf_locate_sections, (abfd, sectp, ei),
   if (STREQ (sectp -> name, ".debug"))
     {
       ei -> dboffset = sectp -> filepos;
-      ei -> dbsize = sectp -> size;
+      ei -> dbsize = bfd_get_section_size_before_reloc (sectp);
     }
   else if (STREQ (sectp -> name, ".line"))
     {
       ei -> lnoffset = sectp -> filepos;
-      ei -> lnsize = sectp -> size;
+      ei -> lnsize = bfd_get_section_size_before_reloc (sectp);
     }
+}
+
+char *
+DEFUN(elf_interpreter, (abfd),
+      bfd *abfd)
+{
+  sec_ptr interp_sec;
+  unsigned size;
+  char *interp = NULL;
+
+  interp_sec = bfd_get_section_by_name (abfd, ".interp");
+  if (interp_sec)
+    {
+      size = bfd_section_size (abfd, interp_sec);
+      interp = alloca (size);
+      if (bfd_get_section_contents (abfd, interp_sec, interp, (file_ptr)0,
+				    size))
+	{
+	  interp = savestring (interp, size - 1);
+	}
+      else
+	{
+	  interp = NULL;
+	}
+    }
+  return (interp);
 }
 
 /*
@@ -117,16 +143,37 @@ NOTES
  */
 
 static void
-DEFUN(record_misc_function, (name, address), char *name AND CORE_ADDR address)
+DEFUN(record_misc_function, (name, address, mf_type),
+      char *name AND CORE_ADDR address AND enum misc_function_type mf_type)
 {
   prim_record_misc_function (obsavestring (name, strlen (name)), address,
-			     mf_unknown);
+			     mf_type);
 }
 
+/*
+
+LOCAL FUNCTION
+
+	elf_symtab_read -- read the symbol table of an ELF file
+
+SYNOPSIS
+
+	void elf_symtab_read (bfd *abfd, CORE_ADDR addr, int mainline)
+
+DESCRIPTION
+
+	Given an open bfd, a base address to relocate symbols to, and a
+	flag that specifies whether or not this bfd is for an executable
+	or not (may be shared library for example), add all the global
+	function and data symbols to the miscellaneous function vector.
+
+*/
+
 static void
-DEFUN (elf_symtab_read, (abfd, addr),
+DEFUN (elf_symtab_read, (abfd, addr, mainline),
        bfd *abfd AND
-       CORE_ADDR addr)
+       CORE_ADDR addr AND
+       int mainline)
 {
   unsigned int storage_needed;
   asymbol *sym;
@@ -134,6 +181,8 @@ DEFUN (elf_symtab_read, (abfd, addr),
   unsigned int number_of_symbols;
   unsigned int i;
   struct cleanup *back_to;
+  CORE_ADDR symaddr;
+  enum misc_function_type mf_type;
   
   storage_needed = get_symtab_upper_bound (abfd);
 
@@ -149,9 +198,30 @@ DEFUN (elf_symtab_read, (abfd, addr),
 	  /* Select global symbols that are defined in a specific section
 	     or are absolute. */
 	  if (sym -> flags & BSF_GLOBAL
-	      && ((sym -> section != NULL) || (sym -> flags & BSF_ABSOLUTE)))
+	      && (sym -> section == &bfd_abs_section))
 	    {
-	      record_misc_function ((char *) sym -> name, sym -> value);
+	      symaddr = sym -> value;
+	      if (!mainline)
+		{
+		  /* Relocate all symbols by base address */
+		  symaddr += addr;
+		}
+	      /* For non-absolute symbols, use the type of the section
+		 they are relative to, to intuit text/data.  Bfd provides
+		 no way of figuring this out for absolute symbols. */
+	      if (sym -> section && (sym -> section -> flags & SEC_CODE))
+		{
+		  mf_type = mf_text;
+		}
+	      else if (sym -> section && (sym -> section -> flags & SEC_DATA))
+		{
+		  mf_type = mf_data;
+		}
+	      else
+		{
+		  mf_type = mf_unknown;
+		}
+	      record_misc_function ((char *) sym -> name, symaddr, mf_type);
 	    }
 	}
       do_cleanups (back_to);
@@ -199,7 +269,7 @@ DEFUN(elf_symfile_read, (sf, addr, mainline),
 
   /* Process the normal ELF symbol table first. */
 
-  elf_symtab_read (abfd, addr);
+  elf_symtab_read (abfd, addr, mainline);
 
   /* Now process the DWARF debugging information, which is contained in
      special ELF sections.  We first have to find them... */
@@ -208,7 +278,6 @@ DEFUN(elf_symfile_read, (sf, addr, mainline),
   bfd_map_over_sections (abfd, elf_locate_sections, &ei);
   if (ei.dboffset && ei.lnoffset)
     {
-      addr = 0;	/* FIXME: force address base to zero for now */
       dwarf_build_psymtabs (fileno ((FILE *)(abfd -> iostream)),
 			    bfd_get_filename (abfd),
 			    addr, mainline,

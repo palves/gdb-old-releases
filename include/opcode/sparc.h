@@ -1,8 +1,9 @@
 
 /* Table of opcodes for the sparc.
-	Copyright (C) 1989, 1991 Free Software Foundation, Inc.
+	Copyright 1989, 1991, 1992 Free Software Foundation, Inc.
 
-This file is part of GAS, the GNU Assembler, and GDB, the GNU disassembler.
+This file is part of GAS, the GNU Assembler, GDB, the GNU debugger, and
+the GNU Binutils.
 
 GAS/GDB is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -32,14 +33,12 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.	*/
 enum sparc_architecture {
 	v6 = 0,
 	v7,
-	cypress,
 	v8,
 };
 
 static const char *architecture_pname[] = {
 	"v6",
 	"v7",
-	"cypress",
 	"v8",
 	NULL,
 };
@@ -89,6 +88,7 @@ Kinds of operands:
 	M	alternate space register (asr) in rs1
 	h	22 high bits.
 	i	13 bit Immediate.
+	n	22 bit immediate.
 	l	22 bit PC relative immediate.
 	L	30 bit PC relative immediate.
 	a	Annul.	The annul bit is set.
@@ -105,7 +105,7 @@ Kinds of operands:
 	y	Y register.
 
 The following chars are unused: (note: ,[] are used as punctuation)
-[nosxOX3450]
+[osxOX3450]
 
 */
 
@@ -692,32 +692,37 @@ cond ("bz",	"tz",   CONDZ, F_ALIAS), /* for e */
 
 
 
-#define brfc(opcode, mask, lose) \
- { opcode, (mask), ANNUL|(lose), "l",   F_DELAYED, v6 }, \
- { opcode, (mask)|ANNUL, (lose), ",a l", F_DELAYED, v6 }
 
 
-#define condfc(fop, cop, mask) \
-  brfc(fop, F2(0, 6)|COND(mask), F2(~0, ~6)|COND(~(mask))), \
-  brfc(cop, F2(0, 7)|COND(mask), F2(~0, ~7)|COND(~(mask))) \
 
-condfc("fb",	"cb",	 0x8),
-condfc("fba",	"cba",	 0x8),
-condfc("fbe",	"cb0",	 0x9),
-condfc("fbg",	"cb2",	 0x6),
-condfc("fbge",	"cb02",	 0xb),
-condfc("fbl",	"cb1",	 0x4),
-condfc("fble",	"cb01",	 0xd),
-condfc("fblg",	"cb12",	 0x2),
-condfc("fbn",	"cbn",	 0x0),
-condfc("fbne",	"cb123", 0x1),
-condfc("fbo",	"cb012", 0xf),
-condfc("fbu",	"cb3",	 0x7),
-condfc("fbue",	"cb03",	 0xa),
-condfc("fbug",	"cb23",	 0x5),
-condfc("fbuge",	"cb023", 0xc),
-condfc("fbul",	"cb13",	 0x3),
-condfc("fbule",	"cb013", 0xe),
+
+
+#define brfc(opcode, mask, lose, flags) \
+ { opcode, (mask), ANNUL|(lose), "l",    flags|F_DELAYED, v6 }, \
+ { opcode, (mask)|ANNUL, (lose), ",a l", flags|F_DELAYED, v6 }
+
+
+#define condfc(fop, cop, mask, flags) \
+  brfc(fop, F2(0, 6)|COND(mask), F2(~0, ~6)|COND(~(mask)), flags), \
+  brfc(cop, F2(0, 7)|COND(mask), F2(~0, ~7)|COND(~(mask)), flags) \
+
+condfc("fb",	"cb",	 0x8, 0),
+condfc("fba",	"cba",	 0x8, F_ALIAS),
+condfc("fbe",	"cb0",	 0x9, 0),
+condfc("fbg",	"cb2",	 0x6, 0),
+condfc("fbge",	"cb02",	 0xb, 0),
+condfc("fbl",	"cb1",	 0x4, 0),
+condfc("fble",	"cb01",	 0xd, 0),
+condfc("fblg",	"cb12",	 0x2, 0),
+condfc("fbn",	"cbn",	 0x0, 0),
+condfc("fbne",	"cb123", 0x1, 0),
+condfc("fbo",	"cb012", 0xf, 0),
+condfc("fbu",	"cb3",	 0x7, 0),
+condfc("fbue",	"cb03",	 0xa, 0),
+condfc("fbug",	"cb23",	 0x5, 0),
+condfc("fbuge",	"cb023", 0xc, 0),
+condfc("fbul",	"cb13",	 0x3, 0),
+condfc("fbule",	"cb013", 0xe, 0),
 
 #undef condfc
 #undef brfc
@@ -728,7 +733,7 @@ condfc("fbule",	"cb013", 0xe),
 { "jmp",	F3(2, 0x38, 1), F3(~2, ~0x38, ~1)|RD_G0,		"i+1", F_DELAYED, v6 }, /* jmpl i+rs1,%g0 */
 { "jmp",	F3(2, 0x38, 1), F3(~2, ~0x38, ~1)|RD_G0|RS1_G0,	"i", F_DELAYED, v6 }, /* jmpl %g0+i,%g0 */
 
-{ "nop",	F2(0, 4), F2(~0, ~4), "", 0, v6 }, /* sethi 0, %g0 */
+{ "nop",	F2(0, 4), 0xfeffffff, "", 0, v6 }, /* sethi 0, %g0 */
 
 { "set",	F2(0x0, 0x4), F2(~0x0, ~0x4), "Sh,d", F_ALIAS, v6 },
 
@@ -743,10 +748,10 @@ condfc("fbule",	"cb013", 0xe),
 
 { "tsubcc",	F3(2, 0x21, 0), F3(~2, ~0x21, ~0)|ASI(~0),	"1,2,d", 0, v6 },
 { "tsubcc",	F3(2, 0x21, 1), F3(~2, ~0x21, ~1),		"1,i,d", 0, v6 },
-{ "tsubcctv",	F3(2, 0x0b, 0), F3(~2, ~0x0b, ~0)|ASI(~0),	"1,2,d", 0, v6 },
-{ "tsubcctv",	F3(2, 0x0b, 1), F3(~2, ~0x0b, ~1),		"1,i,d", 0, v6 },
+{ "tsubcctv",	F3(2, 0x23, 0), F3(~2, ~0x23, ~0)|ASI(~0),	"1,2,d", 0, v6 },
+{ "tsubcctv",	F3(2, 0x23, 1), F3(~2, ~0x23, ~1),		"1,i,d", 0, v6 },
 
-{ "unimp",	F2(0x0, 0x0), 0xffffffff, "l", 0, v6 },
+{ "unimp",	F2(0x0, 0x0), 0xffc00000, "n", 0, v6 },
 
 { "iflush",	F3(2, 0x3b, 0), F3(~2, ~0x3b, ~0)|ASI(~0),	"1+2", 0, v6 },
 { "iflush",	F3(2, 0x3b, 1), F3(~2, ~0x3b, ~1),		"1+i", 0, v6 },
@@ -783,10 +788,7 @@ condfc("fbule",	"cb013", 0xe),
 { "fitod",	F3F(2, 0x34, 0x0c8), F3F(~2, ~0x34, ~0x0c8)|RS1_G0, "f,H", 0, v6 },
 { "fitos",	F3F(2, 0x34, 0x0c4), F3F(~2, ~0x34, ~0x0c4)|RS1_G0, "f,g", 0, v6 },
 
-{ "fitox",	F3F(2, 0x34, 0x0cc), F3F(~2, ~0x34, ~0x0cc)|RS1_G0, "f,g", 0, v6 }, /* collides in mneumonic with cypress */
- /* fitox collides in opf between cypress and v8, mneumonic between v6 and cypress */
-{ "fitox",	F3F(2, 0x34, 0x0cc), F3F(~2, ~0x34, ~0x0cc)|RS1_G0, "f,g", 0, cypress }, /* collides */
-{ "fitoq",	F3F(2, 0x34, 0x0cc), F3F(~2, ~0x34, ~0x0cc)|RS1_G0, "f,J", 0, v8 }, /* collides in opf with cypress */
+{ "fitoq",	F3F(2, 0x34, 0x0cc), F3F(~2, ~0x34, ~0x0cc)|RS1_G0, "f,J", 0, v8 },
 
 
 { "fdtoq",	F3F(2, 0x34, 0x0ce), F3F(~2, ~0x34, ~0x0ce)|RS1_G0, "B,J", 0, v8 },
@@ -797,26 +799,18 @@ condfc("fbule",	"cb013", 0xe),
 { "fstoq",	F3F(2, 0x34, 0x0cd), F3F(~2, ~0x34, ~0x0cd)|RS1_G0, "f,J", 0, v8 },
 
 
-{ "fxtos",	F3F(2, 0x34, 0x0c7), F3F(~2, ~0x34, ~0x0c7)|RS1_G0, "f,g", 0, v7 }, /* these collide on the mneumonic */
-{ "fxtos",	F3F(2, 0x34, 0x0c7), F3F(~2, ~0x34, ~0x0c7)|RS1_G0, "f,g", 0, cypress },
 
-{ "fdtox",	F3F(2, 0x34, 0x0ce), F3F(~2, ~0x34, ~0x0ce)|RS1_G0, "B,g", 0, cypress }, /* mneumonic collisions */
 
-{ "fstox",	F3F(2, 0x34, 0x0cd), F3F(~2, ~0x34, ~0x0cd)|RS1_G0, "f,g", 0, cypress },
 
 { "fqtoi",	F3F(2, 0x34, 0x0d3), F3F(~2, ~0x34, ~0x0d3)|RS1_G0, "R,g", 0, v8 },
-{ "fxtoi",	F3F(2, 0x34, 0x0d3), F3F(~2, ~0x34, ~0x0d3)|RS1_G0, "f,g", 0, cypress },
 
-{ "fxtod",	F3F(2, 0x34, 0x0cb), F3F(~2, ~0x34, ~0x0cb)|RS1_G0, "f,H", 0, cypress }, /* collide in opf & mneumonic */
 
 { "fdivd",	F3F(2, 0x34, 0x04e), F3F(~2, ~0x34, ~0x04e), "v,B,H", 0, v6 },
 { "fdivq",	F3F(2, 0x34, 0x04f), F3F(~2, ~0x34, ~0x04f), "V,R,J", 0, v8 },
 { "fdivs",	F3F(2, 0x34, 0x04d), F3F(~2, ~0x34, ~0x04d), "e,f,g", 0, v6 },
-{ "fdivx",	F3F(2, 0x34, 0x04f), F3F(~2, ~0x34, ~0x04f), "e,f,g", 0, cypress },
 { "fmuld",	F3F(2, 0x34, 0x04a), F3F(~2, ~0x34, ~0x04a), "v,B,H", 0, v6 },
 { "fmulq",	F3F(2, 0x34, 0x04b), F3F(~2, ~0x34, ~0x04b), "V,R,J", 0, v8 },
 { "fmuls",	F3F(2, 0x34, 0x049), F3F(~2, ~0x34, ~0x049), "e,f,g", 0, v6 },
-{ "fmulx",	F3F(2, 0x34, 0x04b), F3F(~2, ~0x34, ~0x04b), "e,f,g", 0, cypress },
 
 { "fdmulq",	F3F(2, 0x34, 0x06e), F3F(~2, ~0x34, ~0x06e), "v,B,J", 0, v8 },
 { "fsmuld",	F3F(2, 0x34, 0x069), F3F(~2, ~0x34, ~0x069), "e,f,H", 0, v8 },
@@ -824,7 +818,6 @@ condfc("fbule",	"cb013", 0xe),
 { "fsqrtd",	F3F(2, 0x34, 0x02a), F3F(~2, ~0x34, ~0x02a)|RS1_G0, "B,H", 0, v7 },
 { "fsqrtq",	F3F(2, 0x34, 0x02b), F3F(~2, ~0x34, ~0x02b)|RS1_G0, "R,J", 0, v8 },
 { "fsqrts",	F3F(2, 0x34, 0x029), F3F(~2, ~0x34, ~0x029)|RS1_G0, "f,g", 0, v7 },
-{ "fsqrtx",	F3F(2, 0x34, 0x02b), F3F(~2, ~0x34, ~0x02b)|RS1_G0, "f,g", 0, cypress },
 
 { "fabsq",	F3F(2, 0x34, 0x00b), F3F(~2, ~0x34, ~0x00b)|RS1_G0, "R,J", 0, v6 },
 { "fabss",	F3F(2, 0x34, 0x009), F3F(~2, ~0x34, ~0x009)|RS1_G0, "f,g", 0, v6 },
@@ -837,22 +830,18 @@ condfc("fbule",	"cb013", 0xe),
 { "faddd",	F3F(2, 0x34, 0x042), F3F(~2, ~0x34, ~0x042), "v,B,H", 0, v6 },
 { "faddq",	F3F(2, 0x34, 0x043), F3F(~2, ~0x34, ~0x043), "V,R,J", 0, v8 },
 { "fadds",	F3F(2, 0x34, 0x041), F3F(~2, ~0x34, ~0x041), "e,f,g", 0, v6 },
-{ "faddx",	F3F(2, 0x34, 0x043), F3F(~2, ~0x34, ~0x043), "e,f,g", 0, cypress },
 { "fsubd",	F3F(2, 0x34, 0x046), F3F(~2, ~0x34, ~0x046), "v,B,H", 0, v6 },
 { "fsubq",	F3F(2, 0x34, 0x047), F3F(~2, ~0x34, ~0x047), "V,R,J", 0, v8 },
 { "fsubs",	F3F(2, 0x34, 0x045), F3F(~2, ~0x34, ~0x045), "e,f,g", 0, v6 },
-{ "fsubx",	F3F(2, 0x34, 0x047), F3F(~2, ~0x34, ~0x047), "e,f,g", 0, cypress },
 
 #define CMPFCC(x)	(((x)&0x3)<<25)
 
 { "fcmpd",	          F3F(2, 0x35, 0x052),            F3F(~2, ~0x35, ~0x052)|RS1_G0, "v,B",   0, v6 },
 { "fcmped",	          F3F(2, 0x35, 0x056),            F3F(~2, ~0x35, ~0x056)|RS1_G0, "v,B",   0, v6 },
-{ "fcmpeq",	          F3F(2, 0x34, 0x057),            F3F(~2, ~0x34, ~0x057),	 "V,R,J", 0, v8 },
+{ "fcmpeq",	          F3F(2, 0x34, 0x057),            F3F(~2, ~0x34, ~0x057),	 "V,R", 0, v8 },
 { "fcmpes",	          F3F(2, 0x35, 0x055),            F3F(~2, ~0x35, ~0x055)|RS1_G0, "e,f",   0, v6 },
-{ "fcmpex",	          F3F(2, 0x35, 0x057),            F3F(~2, ~0x35, ~0x057)|RS1_G0, "e,f",   0, cypress },
-{ "fcmpq",	          F3F(2, 0x34, 0x053),            F3F(~2, ~0x34, ~0x053),	 "V,R,J", 0, v8 },
+{ "fcmpq",	          F3F(2, 0x34, 0x053),            F3F(~2, ~0x34, ~0x053),	 "V,R", 0, v8 },
 { "fcmps",	          F3F(2, 0x35, 0x051),            F3F(~2, ~0x35, ~0x051)|RS1_G0, "e,f",   0, v6 },
-{ "fcmpx",	          F3F(2, 0x35, 0x053),            F3F(~2, ~0x35, ~0x053)|RS1_G0, "e,f",   0, cypress },
 
 { "cpop1",	F3(2, 0x36, 0), F3(~2, ~0x36, ~1), "[1+2],d", 0, v6 },
 { "cpop2",	F3(2, 0x37, 0), F3(~2, ~0x37, ~1), "[1+2],d", 0, v6 },

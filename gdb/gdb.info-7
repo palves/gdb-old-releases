@@ -1,18 +1,16 @@
-Info file gdb.info, produced by Makeinfo, -*- Text -*- from input file
-gdb-all.texi.
-
-   gdb.info
+Info file ./gdb.info, produced by Makeinfo, -*- Text -*- from input
+file gdb-all.texi.
 
 START-INFO-DIR-ENTRY
 * Gdb: (gdb).                   The GNU debugger.
 END-INFO-DIR-ENTRY
-
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.00, December 1991, of `Using GDB: A Guide to the
-GNU Source-Level Debugger' for GDB Version 4.3.
+   This is Edition 4.01, January 1992, of `Using GDB: A Guide to the
+GNU Source-Level Debugger' for GDB Version 4.4.
 
-   Copyright (C) 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991 1992 Free Software Foundation,
+Inc.
 
    Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -43,7 +41,6 @@ Index
 * $_:                                   Convenience Vars.
 * $__:                                  Convenience Vars.
 * .:                                    M2 Scope.
-* :::                                   M2 Scope.
 * @:                                    Arrays.
 * # in Modula-2:                        GDB/M2.
 * $$:                                   Value History.
@@ -115,7 +112,9 @@ Index
 * checks, type:                         Checks.
 * clear:                                Delete Breaks.
 * clearing breakpoints, watchpoints:    Delete Breaks.
+* colon, doubled as scope operator:     M2 Scope.
 * colon-colon:                          Variables.
+* colon-colon:                          M2 Scope.
 * command files:                        Command Files.
 * command line editing:                 Editing.
 * commands:                             Break Commands.
@@ -173,8 +172,8 @@ Index
 * error on Valid Input:                 Bug Criteria.
 * examining data:                       Data.
 * examining memory:                     Memory.
-* exception handlers:                   Exception Handling.
 * exception handlers:                   Frame Info.
+* exception handlers:                   Exception Handling.
 * exec-file:                            Files.
 * executable file:                      Files.
 * exiting GDB:                          Leaving GDB.
@@ -193,8 +192,8 @@ Index
 * format options:                       Print Settings.
 * formatted output:                     Output formats.
 * forward-search:                       Search.
-* frame:                                Selection.
 * frame:                                Frames.
+* frame:                                Selection.
 * frame number:                         Frames.
 * frame pointer:                        Frames.
 * frameless execution:                  Frames.
@@ -243,8 +242,8 @@ Index
 * info share:                           Files.
 * info sharedlibrary:                   Files.
 * info signals:                         Signals.
-* info source:                          Show.
 * info source:                          Symbols.
+* info source:                          Show.
 * info sources:                         Symbols.
 * info stack:                           Backtrace.
 * info target:                          Files.

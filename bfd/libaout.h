@@ -22,7 +22,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    variants in a few routines, and otherwise share large masses of code.
    This means we only have to fix bugs in one place, most of the time.  */
 
-/* $Id: libaout.h,v 1.21 1991/11/22 16:45:05 gnu Exp $ */
+/* $Id: libaout.h,v 1.24 1992/01/24 22:43:22 sac Exp $ */
 
 #ifdef __STDC__
 #define CAT3(a,b,c) a##b##c
@@ -92,7 +92,7 @@ enum machine_type {
   M_29K = 101,
   M_HP200 = 200,	/* HP 200 (68010) BSD binary */
   M_HP300 = (300 % 256), /* HP 300 (68020+68881) BSD binary */
-  M_HPUX = (0x20c % 256),/* HP 200/300 HPUX binary */
+  M_HPUX = (0x20c % 256)/* HP 200/300 HPUX binary */
 };
 
 #define N_DYNAMIC(exec) ((exec).a_info & 0x8000000)
@@ -156,16 +156,21 @@ struct aoutdata {
   unsigned exec_bytes_size;
 };
 
-#define	adata(bfd)		((struct aoutdata *) ((bfd)->tdata))
-#define	exec_hdr(bfd)		(adata(bfd)->hdr)
-#define	obj_aout_symbols(bfd)	(adata(bfd)->symbols)
-#define	obj_textsec(bfd)	(adata(bfd)->textsec)
-#define	obj_datasec(bfd)	(adata(bfd)->datasec)
-#define	obj_bsssec(bfd)		(adata(bfd)->bsssec)
-#define	obj_sym_filepos(bfd)	(adata(bfd)->sym_filepos)
-#define	obj_str_filepos(bfd)	(adata(bfd)->str_filepos)
-#define	obj_reloc_entry_size(bfd) (adata(bfd)->reloc_entry_size)
-#define	obj_symbol_entry_size(bfd) (adata(bfd)->symbol_entry_size)
+struct  aout_data_struct {
+    struct aoutdata a;
+    struct internal_exec e;
+};
+
+#define	adata(bfd)		((bfd)->tdata.aout_data->a)
+#define	exec_hdr(bfd)		(adata(bfd).hdr)
+#define	obj_aout_symbols(bfd)	(adata(bfd).symbols)
+#define	obj_textsec(bfd)	(adata(bfd).textsec)
+#define	obj_datasec(bfd)	(adata(bfd).datasec)
+#define	obj_bsssec(bfd)		(adata(bfd).bsssec)
+#define	obj_sym_filepos(bfd)	(adata(bfd).sym_filepos)
+#define	obj_str_filepos(bfd)	(adata(bfd).str_filepos)
+#define	obj_reloc_entry_size(bfd) (adata(bfd).reloc_entry_size)
+#define	obj_symbol_entry_size(bfd) (adata(bfd).symbol_entry_size)
 
 /* We take the address of the first element of an asymbol to ensure that the
    macro is only ever applied to an asymbol */
@@ -228,33 +233,11 @@ PROTO(char *, aout_stab_name, (int code));
 #define	aout_64_get_section_contents	bfd_generic_get_section_contents
 #define	aout_64_close_and_cleanup	bfd_generic_close_and_cleanup
 
-/* Calculate the file positions of the parts of a newly read aout header */
-#define WORK_OUT_FILE_POSITIONS(abfd, execp)				\
-  obj_textsec (abfd)->size = N_TXTSIZE(*execp);				\
-  									\
-  /* The virtual memory addresses of the sections */			\
-  obj_textsec (abfd)->vma = N_TXTADDR(*execp);				\
-  obj_datasec (abfd)->vma = N_DATADDR(*execp);			 	\
-  obj_bsssec  (abfd)->vma = N_BSSADDR(*execp);				\
-  									\
-  /* The file offsets of the sections */				\
-  obj_textsec (abfd)->filepos = N_TXTOFF (*execp);			\
-  obj_datasec (abfd)->filepos = N_DATOFF (*execp);			\
-  									\
-  /* The file offsets of the relocation info */				\
-  obj_textsec (abfd)->rel_filepos = N_TRELOFF(*execp);			\
-  obj_datasec (abfd)->rel_filepos = N_DRELOFF(*execp);			\
-									\
-  /* The file offsets of the string table and symbol table.  */		\
-  obj_sym_filepos (abfd) = N_SYMOFF (*execp);				\
-  obj_str_filepos (abfd) = N_STROFF (*execp);				\
-
-
 #define WRITE_HEADERS(abfd, execp)					      \
       {									      \
 	if (abfd->flags & D_PAGED) 					      \
 	    {								      \
-	      execp->a_text = obj_textsec (abfd)->size;			      \
+	      execp->a_text = obj_textsec (abfd)->_raw_size;		      \
 	      /* Kludge to distinguish old- and new-style ZMAGIC.	      \
 	         The latter includes the exec header in the text size. */     \
 	      if (obj_textsec(abfd)->filepos == EXEC_BYTES_SIZE)	      \
@@ -263,7 +246,7 @@ PROTO(char *, aout_stab_name, (int code));
 	    } 								      \
 	else 								      \
 	    {								      \
-	      execp->a_text = obj_textsec (abfd)->size;			      \
+	      execp->a_text = obj_textsec (abfd)->_raw_size;		      \
 	      if (abfd->flags & WP_TEXT)				      \
 	        { N_SET_MAGIC (*execp, NMAGIC); }			      \
 	      else							      \
@@ -271,19 +254,19 @@ PROTO(char *, aout_stab_name, (int code));
 	    }								      \
 	if (abfd->flags & D_PAGED) 					      \
 	    {								      \
-	      data_pad = BFD_ALIGN(obj_datasec(abfd)->size, PAGE_SIZE)	      \
-		  - obj_datasec(abfd)->size;				      \
+	      data_pad = BFD_ALIGN(obj_datasec(abfd)->_raw_size, PAGE_SIZE) \
+	       - obj_datasec(abfd)->_raw_size;	   	      \
 	  								      \
-	      if (data_pad > obj_bsssec(abfd)->size)			      \
+	      if (data_pad > obj_bsssec(abfd)->_raw_size)		      \
 		execp->a_bss = 0;					      \
 	      else 							      \
-		execp->a_bss = obj_bsssec(abfd)->size - data_pad;	      \
-	      execp->a_data = obj_datasec(abfd)->size + data_pad;	      \
+		execp->a_bss = obj_bsssec(abfd)->_raw_size - data_pad;	      \
+	      execp->a_data = obj_datasec(abfd)->_raw_size + data_pad;	      \
 	    }								      \
 	else 								      \
 	    {								      \
-	      execp->a_data = obj_datasec (abfd)->size;			      \
-	      execp->a_bss = obj_bsssec (abfd)->size;			      \
+	      execp->a_data = obj_datasec (abfd)->_raw_size;			      \
+	      execp->a_bss = obj_bsssec (abfd)->_raw_size;			      \
 	    }								      \
     									      \
 	execp->a_syms = bfd_get_symcount (abfd) * EXTERNAL_NLIST_SIZE;	      \

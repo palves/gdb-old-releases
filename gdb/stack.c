@@ -872,7 +872,7 @@ record_selected_frame (frameaddrp, levelp)
      FRAME_ADDR *frameaddrp;
      int *levelp;
 {
-  *frameaddrp = selected_frame ? FRAME_FP (selected_frame) : NULL;
+  *frameaddrp = selected_frame ? FRAME_FP (selected_frame) : 0;
   *levelp = selected_frame_level;
 }
 

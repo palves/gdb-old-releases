@@ -117,6 +117,49 @@ struct sym_fns {
   struct objfile *objfile;
 };
 
+extern void extend_psymbol_list();
+
+/* Add any kind of symbol to a psymbol_allocation_list. */
+
+#define	ADD_PSYMBOL_VT_TO_LIST(NAME, NAMELENGTH, NAMESPACE, CLASS, LIST, VALUE, VT)\
+  do {		        						\
+    register struct partial_symbol *psym;				\
+    if ((LIST).next >= (LIST).list + (LIST).size)			\
+	   extend_psymbol_list (&(LIST));				\
+    psym = (LIST).next++;						\
+									\
+    SYMBOL_NAME (psym) = (char *) obstack_alloc (psymbol_obstack,	\
+						 (NAMELENGTH) + 1);	\
+    memcpy (SYMBOL_NAME (psym), (NAME), (NAMELENGTH));			\
+    SYMBOL_NAME (psym)[(NAMELENGTH)] = '\0';				\
+    SYMBOL_NAMESPACE (psym) = (NAMESPACE);				\
+    SYMBOL_CLASS (psym) = (CLASS);					\
+    VT (psym) = (VALUE); 						\
+  } while (0);
+
+#ifdef DEBUG
+
+/* Since one arg is a struct, we have to pass in a ptr and deref it (sigh) */
+
+#define	ADD_PSYMBOL_TO_LIST(name, namelength, namespace, class, list, value) \
+  add_psymbol_to_list (name, namelength, namespace, class, &list, value)
+
+#define	ADD_PSYMBOL_ADDR_TO_LIST(name, namelength, namespace, class, list, value) \
+  add_psymbol_addr_to_list (name, namelength, namespace, class, &list, value)
+
+#else	/* !DEBUG */
+
+/* Add a symbol with an integer value to a psymtab. */
+
+#define ADD_PSYMBOL_TO_LIST(name, namelength, namespace, class, list, value) \
+  ADD_PSYMBOL_VT_TO_LIST (name, namelength, namespace, class, list, value, SYMBOL_VALUE)
+
+/* Add a symbol with a CORE_ADDR value to a psymtab. */
+
+#define	ADD_PSYMBOL_ADDR_TO_LIST(name, namelength, namespace, class, list, value)\
+  ADD_PSYMBOL_VT_TO_LIST (name, namelength, namespace, class, list, value, SYMBOL_VALUE_ADDRESS)
+
+#endif	/* DEBUG */
 
 			/*   Functions   */
 
@@ -127,6 +170,7 @@ extern int  free_named_symtabs ();
 extern void fill_in_vptr_fieldno ();
 extern void add_symtab_fns ();
 extern void syms_from_objfile ();
+struct partial_symtab *start_psymtab_common();
 
 /* Functions for dealing with the misc "function" vector, really a misc
    address<->symbol mapping vector for things we don't have debug symbols

@@ -121,3 +121,4 @@ typedef struct {
 #define uint64_typeLOW(x) (uint32_type)(((x) & 0xffffffff))
 #define uint64_typeHIGH(x) (uint32_type)(((x) >> 32) & 0xffffffff)
 #endif
+#include "fopen-same.h"

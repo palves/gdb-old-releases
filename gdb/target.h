@@ -43,7 +43,7 @@ enum strata {
 	dummy_stratum,		/* The lowest of the low */
 	file_stratum,		/* Executable files, etc */
 	core_stratum,		/* Core dump files */
-	process_stratum,	/* Executing processes */
+	process_stratum		/* Executing processes */
 };
 
 struct target_ops {
@@ -233,11 +233,13 @@ extern struct target_ops	*current_target;
 
 #ifdef __STDC__
 /* Needs defs.h for CORE_ADDR */
+extern int target_read_string(CORE_ADDR memaddr, char *myaddr, int len);
 extern int target_read_memory(CORE_ADDR memaddr, char *myaddr, int len);
 extern int target_write_memory(CORE_ADDR memaddr, char *myaddr, int len);
 extern int target_xfer_memory(CORE_ADDR memaddr, char *myaddr, int len,
 			      int write);
 #else
+extern int target_read_string();
 extern int target_read_memory();
 extern int target_write_memory();
 extern int target_xfer_memory();

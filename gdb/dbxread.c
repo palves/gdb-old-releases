@@ -1,5 +1,5 @@
 /* Read dbx symbol tables and convert to internal format, for GDB.
-   Copyright (C) 1986-1991 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -98,7 +98,7 @@ extern double atof ();
 
 static void read_dbx_symtab ();
 static void init_psymbol_list ();
-static void process_one_symbol ();
+extern void process_one_symbol ();
 void start_subfile ();
 int hashname ();
 static struct pending *copy_pending ();
@@ -115,6 +115,11 @@ static void dbx_psymtab_to_symtab ();
 /* Macro for name of symbol to indicate a file compiled with gcc. */
 #ifndef GCC_COMPILED_FLAG_SYMBOL
 #define GCC_COMPILED_FLAG_SYMBOL "gcc_compiled."
+#endif
+
+/* Macro for name of symbol to indicate a file compiled with gcc2. */
+#ifndef GCC2_COMPILED_FLAG_SYMBOL
+#define GCC2_COMPILED_FLAG_SYMBOL "gcc2_compiled."
 #endif
 
 /* Define this as 1 if a pcc declaration of a char or short argument
@@ -561,7 +566,7 @@ fill_symbuf (sym_bfd)
    call this function to get the continuation.  */
 
 char *
-next_symbol_text ()
+dbx_next_symbol_text ()
 {
   if (symbuf_idx == symbuf_end)
     fill_symbuf (symfile_bfd);
@@ -656,57 +661,6 @@ free_bincl_list ()
   bincls_allocated = 0;
 }
 
-static struct partial_symtab *start_psymtab ();
-static void end_psymtab();
-
-#ifdef DEBUG
-/* This is normally a macro defined in read_dbx_symtab, but this
-   is a lot easier to debug.  */
-
-ADD_PSYMBOL_TO_PLIST(NAME, NAMELENGTH, NAMESPACE, CLASS, PLIST, VALUE)
-     char *NAME;
-     int NAMELENGTH;
-     enum namespace NAMESPACE;
-     enum address_class CLASS;
-     struct psymbol_allocation_list *PLIST;
-     unsigned long VALUE;
-{
-  register struct partial_symbol *psym;
-
-#define LIST *PLIST
-  do {		        						
-    if ((LIST).next >=					
-	(LIST).list + (LIST).size)			
-      {									
-	(LIST).list = (struct partial_symbol *)				
-	  xrealloc ((LIST).list,					
-		    ((LIST).size * 2					
-		     * sizeof (struct partial_symbol)));		
-	/* Next assumes we only went one over.  Should be good if	
-	   program works correctly */					
-	(LIST).next =							
-	  (LIST).list + (LIST).size;				
-	(LIST).size *= 2;				
-      }									
-    psym = (LIST).next++;						
-#undef LIST
-
-    SYMBOL_NAME (psym) = (char *) obstack_alloc (psymbol_obstack,	
-						 (NAMELENGTH) + 1);	
-    strncpy (SYMBOL_NAME (psym), (NAME), (NAMELENGTH));			
-    SYMBOL_NAME (psym)[(NAMELENGTH)] = '\0';				
-    SYMBOL_NAMESPACE (psym) = (NAMESPACE);				
-    SYMBOL_CLASS (psym) = (CLASS);				
-    SYMBOL_VALUE (psym) = (VALUE); 					
-  } while (0);
-}
-
-/* Since one arg is a struct, we have to pass in a ptr and deref it (sigh) */
-#define	ADD_PSYMBOL_TO_LIST(NAME, NAMELENGTH, NAMESPACE, CLASS,  LIST, VALUE) \
-       ADD_PSYMBOL_TO_PLIST(NAME, NAMELENGTH, NAMESPACE, CLASS, &LIST, VALUE)
-
-#endif /* DEBUG */
-
 /* Given pointers to an a.out symbol table in core containing dbx
    style data, setup partial_symtab's describing each source file for
    which debugging information is available.  NLISTLEN is the number
@@ -728,12 +682,10 @@ read_dbx_symtab (addr, objfile, stringtab, stringtab_size, nlistlen,
 {
   register struct internal_nlist *bufp;
   register char *namestring;
-  register struct partial_symbol *psym;
   int nsl;
   int past_first_source_file = 0;
   CORE_ADDR last_o_file_start = 0;
   struct cleanup *old_chain;
-  char *p;
   bfd *abfd;
 
   /* End of the text segment of the executable file.  */
@@ -783,6 +735,7 @@ read_dbx_symtab (addr, objfile, stringtab, stringtab_size, nlistlen,
   symfile_bfd = objfile->obfd;	/* For next_text_symbol */
   abfd = objfile->obfd;
   symbuf_end = symbuf_idx = 0;
+  next_symbol_text_func = dbx_next_symbol_text;
 
   for (symnum = 0; symnum < nlistlen; symnum++)
     {
@@ -821,581 +774,15 @@ read_dbx_symtab (addr, objfile, stringtab, stringtab_size, nlistlen,
   } else								\
     namestring = bufp->n_strx + stringtab
 
-/* Add a symbol with an integer value to a psymtab. */
-/* This is a macro unless we're debugging.  See above this function. */
-#ifndef DEBUG
-#  define ADD_PSYMBOL_TO_LIST(NAME, NAMELENGTH, NAMESPACE, CLASS, LIST, VALUE) \
- ADD_PSYMBOL_VT_TO_LIST(NAME, NAMELENGTH, NAMESPACE, CLASS, LIST, VALUE, \
-                        SYMBOL_VALUE)
-#endif /* DEBUG */
-
-/* Add a symbol with a CORE_ADDR value to a psymtab. */
-#define	ADD_PSYMBOL_ADDR_TO_LIST(NAME, NAMELENGTH, NAMESPACE, CLASS, LIST, VALUE) \
- ADD_PSYMBOL_VT_TO_LIST(NAME, NAMELENGTH, NAMESPACE, CLASS, LIST, VALUE, \
-                        SYMBOL_VALUE_ADDRESS)
-
-/* Add any kind of symbol to a psymtab. */
-#define	ADD_PSYMBOL_VT_TO_LIST(NAME, NAMELENGTH, NAMESPACE, CLASS, LIST, VALUE, VT)\
-  do {		        						\
-    if ((LIST).next >=							\
-	(LIST).list + (LIST).size)					\
-      {									\
-	(LIST).list = (struct partial_symbol *)				\
-	  xrealloc ((LIST).list,					\
-		    ((LIST).size * 2					\
-		     * sizeof (struct partial_symbol)));		\
-	/* Next assumes we only went one over.  Should be good if	\
-	   program works correctly */					\
-	(LIST).next =							\
-	  (LIST).list + (LIST).size;					\
-	(LIST).size *= 2;						\
-      }									\
-    psym = (LIST).next++;						\
-									\
-    SYMBOL_NAME (psym) = (char *) obstack_alloc (psymbol_obstack,	\
-						 (NAMELENGTH) + 1);	\
-    strncpy (SYMBOL_NAME (psym), (NAME), (NAMELENGTH));			\
-    SYMBOL_NAME (psym)[(NAMELENGTH)] = '\0';				\
-    SYMBOL_NAMESPACE (psym) = (NAMESPACE);				\
-    SYMBOL_CLASS (psym) = (CLASS);					\
-    VT (psym) = (VALUE); 						\
-  } while (0);
-
-/* End of macro definitions, now let's handle them symbols!  */
-
-      switch (bufp->n_type)
-	{
-	  /*
-	   * Standard, external, non-debugger, symbols
-	   */
-
-	case N_TEXT | N_EXT:
-	case N_NBTEXT | N_EXT:
-	case N_NBDATA | N_EXT:
-	case N_NBBSS | N_EXT:
-	case N_SETV | N_EXT:
-	case N_ABS | N_EXT:
-	case N_DATA | N_EXT:
-	case N_BSS | N_EXT:
-
-	  bufp->n_value += addr;		/* Relocate */
-
-	  SET_NAMESTRING();
-
-	bss_ext_symbol:
-	  record_misc_function (namestring, bufp->n_value,
-				bufp->n_type); /* Always */
-
-	  continue;
-
-	  /* Standard, local, non-debugger, symbols */
-
-	case N_NBTEXT:
-
-	  /* We need to be able to deal with both N_FN or N_TEXT,
-	     because we have no way of knowing whether the sys-supplied ld
-	     or GNU ld was used to make the executable.  Sequents throw
-	     in another wrinkle -- they renumbered N_FN.  */
-	case N_FN:
-	case N_FN_SEQ:
-	case N_TEXT:
-	  bufp->n_value += addr;		/* Relocate */
-	  SET_NAMESTRING();
-	  if ((namestring[0] == '-' && namestring[1] == 'l')
-	      || (namestring [(nsl = strlen (namestring)) - 1] == 'o'
-		  && namestring [nsl - 2] == '.'))
-	    {
-	      if (entry_point < bufp->n_value
-		  && entry_point >= last_o_file_start
-		  && addr == 0)		/* FIXME nogood nomore */
-		{
-		  startup_file_start = last_o_file_start;
-		  startup_file_end = bufp->n_value;
-		}
-	      if (past_first_source_file && pst
-		  /* The gould NP1 uses low values for .o and -l symbols
-		     which are not the address.  */
-		  && bufp->n_value > pst->textlow)
-		{
-		  end_psymtab (pst, psymtab_include_list, includes_used,
-			       symnum * symbol_size, bufp->n_value,
-			       dependency_list, dependencies_used,
-			       global_psymbols.next, static_psymbols.next);
-		  pst = (struct partial_symtab *) 0;
-		  includes_used = 0;
-		  dependencies_used = 0;
-		}
-	      else
-		past_first_source_file = 1;
-	      last_o_file_start = bufp->n_value;
-	    }
-	  continue;
-
-	case N_DATA:
-	  bufp->n_value += addr;		/* Relocate */
-	  SET_NAMESTRING ();
-	  /* Check for __DYNAMIC, which is used by Sun shared libraries. 
-	     Record it even if it's local, not global, so we can find it.
-	     Same with virtual function tables, both global and static.  */
-	  if ((namestring[8] == 'C' && (strcmp ("__DYNAMIC", namestring) == 0))
-	      || VTBL_PREFIX_P ((namestring+HASH_OFFSET)))
-	    {
-	      /* Not really a function here, but... */
-	      record_misc_function (namestring, bufp->n_value,
-				    bufp->n_type); /* Always */
-	  }
-	  continue;
-
-	case N_UNDF | N_EXT:
-	  if (bufp->n_value != 0) {
-	    /* This is a "Fortran COMMON" symbol.  See if the target
-	       environment knows where it has been relocated to.  */
-
-	    CORE_ADDR reladdr;
-
-	    SET_NAMESTRING();
-	    if (target_lookup_symbol (namestring, &reladdr)) {
-	      continue;		/* Error in lookup; ignore symbol for now.  */
-	    }
-	    bufp->n_type ^= (N_BSS^N_UNDF);	/* Define it as a bss-symbol */
-	    bufp->n_value = reladdr;
-	    goto bss_ext_symbol;
-	  }
-	  continue;	/* Just undefined, not COMMON */
-
-	    /* Lots of symbol types we can just ignore.  */
-
-	case N_UNDF:
-	case N_ABS:
-	case N_BSS:
-	case N_NBDATA:
-	case N_NBBSS:
-	  continue;
-
-	  /* Keep going . . .*/
-
-	  /*
-	   * Special symbol types for GNU
-	   */
-	case N_INDR:
-	case N_INDR | N_EXT:
-	case N_SETA:
-	case N_SETA | N_EXT:
-	case N_SETT:
-	case N_SETT | N_EXT:
-	case N_SETD:
-	case N_SETD | N_EXT:
-	case N_SETB:
-	case N_SETB | N_EXT:
-	case N_SETV:
-	  continue;
-
-	  /*
-	   * Debugger symbols
-	   */
-
-	case N_SO: {
-	  unsigned long valu = bufp->n_value;
-	  /* Symbol number of the first symbol of this file (i.e. the N_SO
-	     if there is just one, or the first if we have a pair).  */
-	  int first_symnum = symnum;
-	  
-	  /* End the current partial symtab and start a new one */
-
-	  SET_NAMESTRING();
-
-	  /* Peek at the next symbol.  If it is also an N_SO, the
-	     first one just indicates the directory.  */
-	  if (symbuf_idx == symbuf_end)
-	    fill_symbuf (abfd);
-	  bufp = &symbuf[symbuf_idx];
-	  /* n_type is only a char, so swapping swapping is irrelevant.  */
-	  if (bufp->n_type == (unsigned char)N_SO)
-	    {
-	      SWAP_SYMBOL (bufp, abfd);
-	      SET_NAMESTRING ();
-	      valu = bufp->n_value;
-	      symbuf_idx++;
-	      symnum++;
-	    }
-	  valu += addr;		/* Relocate */
-
-	  if (pst && past_first_source_file)
-	    {
-	      end_psymtab (pst, psymtab_include_list, includes_used,
-			   first_symnum * symbol_size, valu,
-			   dependency_list, dependencies_used,
-			   global_psymbols.next, static_psymbols.next);
-	      pst = (struct partial_symtab *) 0;
-	      includes_used = 0;
-	      dependencies_used = 0;
-	    }
-	  else
-	    past_first_source_file = 1;
-
-	  pst = start_psymtab (objfile, addr,
-			       namestring, valu,
-			       first_symnum * symbol_size,
-			       global_psymbols.next, static_psymbols.next);
-	  continue;
-	}
-
-	case N_BINCL:
-	  /* Add this bincl to the bincl_list for future EXCLs.  No
-	     need to save the string; it'll be around until
-	     read_dbx_symtab function returns */
-
-	  SET_NAMESTRING();
-
-	  add_bincl_to_list (pst, namestring, bufp->n_value);
-
-	  /* Mark down an include file in the current psymtab */
-
-	  psymtab_include_list[includes_used++] = namestring;
-	  if (includes_used >= includes_allocated)
-	    {
-	      char **orig = psymtab_include_list;
-
-	      psymtab_include_list = (char **)
-		alloca ((includes_allocated *= 2) *
-			sizeof (char *));
-	      bcopy (orig, psymtab_include_list,
-		     includes_used * sizeof (char *));
-	    }
-
-	  continue;
-
-	case N_SOL:
-	  /* Mark down an include file in the current psymtab */
-
-	  SET_NAMESTRING();
-
-	  /* In C++, one may expect the same filename to come round many
-	     times, when code is coming alternately from the main file
-	     and from inline functions in other files. So I check to see
-	     if this is a file we've seen before -- either the main
-	     source file, or a previously included file.
-
-	     This seems to be a lot of time to be spending on N_SOL, but
-	     things like "break c-exp.y:435" need to work (I
-	     suppose the psymtab_include_list could be hashed or put
-	     in a binary tree, if profiling shows this is a major hog).  */
-	  if (pst && !strcmp (namestring, pst->filename))
-	    continue;
-	  {
-	    register int i;
-	    for (i = 0; i < includes_used; i++)
-	      if (!strcmp (namestring, psymtab_include_list[i]))
-		{
-		  i = -1; 
-		  break;
-		}
-	    if (i == -1)
-	      continue;
-	  }
-
-	  psymtab_include_list[includes_used++] = namestring;
-	  if (includes_used >= includes_allocated)
-	    {
-	      char **orig = psymtab_include_list;
-
-	      psymtab_include_list = (char **)
-		alloca ((includes_allocated *= 2) *
-			sizeof (char *));
-	      bcopy (orig, psymtab_include_list,
-		     includes_used * sizeof (char *));
-	    }
-	  continue;
-
-	case N_LSYM:		/* Typedef or automatic variable. */
-	case N_STSYM:		/* Data seg var -- static  */
-	case N_LCSYM:		/* BSS      "  */
-	case N_NBSTS:           /* Gould nobase.  */
-	case N_NBLCS:           /* symbols.  */
-
-	  SET_NAMESTRING();
-
-	  p = (char *) strchr (namestring, ':');
-
-	  /* Skip if there is no :.  */
-	  if (!p) continue;
-
-	  switch (p[1])
-	    {
-	    case 'T':
-	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				   STRUCT_NAMESPACE, LOC_TYPEDEF,
-				   static_psymbols, bufp->n_value);
-	      if (p[2] == 't')
-		{
-		  /* Also a typedef with the same name.  */
-		  ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				       VAR_NAMESPACE, LOC_TYPEDEF,
-				       static_psymbols, bufp->n_value);
-		  p += 1;
-		}
-	      goto check_enum;
-	    case 't':
-	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_TYPEDEF,
-				   static_psymbols, bufp->n_value);
-	    check_enum:
-	      /* If this is an enumerated type, we need to
-		 add all the enum constants to the partial symbol
-		 table.  This does not cover enums without names, e.g.
-		 "enum {a, b} c;" in C, but fortunately those are
-		 rare.  There is no way for GDB to find those from the
-		 enum type without spending too much time on it.  Thus
-		 to solve this problem, the compiler needs to put out separate
-		 constant symbols ('c' N_LSYMS) for enum constants in
-		 enums without names, or put out a dummy type.  */
-
-	      /* We are looking for something of the form
-		 <name> ":" ("t" | "T") [<number> "="] "e"
-		 {<constant> ":" <value> ","} ";".  */
-
-	      /* Skip over the colon and the 't' or 'T'.  */
-	      p += 2;
-	      /* This type may be given a number.  Also, numbers can come
-		 in pairs like (0,26).  Skip over it.  */
-	      while ((*p >= '0' && *p <= '9')
-		     || *p == '(' || *p == ',' || *p == ')'
-		     || *p == '=')
-		p++;
-
-	      if (*p++ == 'e')
-		{
-		  /* We have found an enumerated type.  */
-		  /* According to comments in read_enum_type
-		     a comma could end it instead of a semicolon.
-		     I don't know where that happens.
-		     Accept either.  */
-		  while (*p && *p != ';' && *p != ',')
-		    {
-		      char *q;
-
-		      /* Check for and handle cretinous dbx symbol name
-			 continuation!  */
-		      if (*p == '\\')
-			p = next_symbol_text ();
-
-		      /* Point to the character after the name
-			 of the enum constant.  */
-		      for (q = p; *q && *q != ':'; q++)
-			;
-		      /* Note that the value doesn't matter for
-			 enum constants in psymtabs, just in symtabs.  */
-		      ADD_PSYMBOL_TO_LIST (p, q - p,
-					   VAR_NAMESPACE, LOC_CONST,
-					   static_psymbols, 0);
-		      /* Point past the name.  */
-		      p = q;
-		      /* Skip over the value.  */
-		      while (*p && *p != ',')
-			p++;
-		      /* Advance past the comma.  */
-		      if (*p)
-			p++;
-		    }
-		}
-
-	      continue;
-	    case 'c':
-	      /* Constant, e.g. from "const" in Pascal.  */
-	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_CONST,
-				   static_psymbols, bufp->n_value);
-	      continue;
-	    default:
-	      /* Skip if the thing following the : is
-	         not a letter (which indicates declaration of a local
-	         variable, which we aren't interested in).  */
-	      continue;
-	    }
-
-	case N_FUN:
-	case N_GSYM:		/* Global (extern) variable; can be
-				   data or bss (sigh).  */
-
-	/* Following may probably be ignored; I'll leave them here
-	   for now (until I do Pascal and Modula 2 extensions).  */
-
-	case N_PC:		/* I may or may not need this; I
-				   suspect not.  */
-	case N_M2C:		/* I suspect that I can ignore this here. */
-	case N_SCOPE:		/* Same.   */
-
-	  SET_NAMESTRING();
-
-	  p = (char *) strchr (namestring, ':');
-	  if (!p)
-	    continue;		/* Not a debugging symbol.   */
-
-
-
-	  /* Main processing section for debugging symbols which
-	     the initial read through the symbol tables needs to worry
-	     about.  If we reach this point, the symbol which we are
-	     considering is definitely one we are interested in.
-	     p must also contain the (valid) index into the namestring
-	     which indicates the debugging type symbol.  */
-
-	  switch (p[1])
-	    {
-	    case 'c':
-	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_CONST,
-				   static_psymbols, bufp->n_value);
-	      continue;
-	    case 'S':
-	      bufp->n_value += addr;		/* Relocate */
-	      ADD_PSYMBOL_ADDR_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_STATIC,
-				   static_psymbols, bufp->n_value);
-	      continue;
-	    case 'G':
-	      bufp->n_value += addr;		/* Relocate */
-	      /* The addresses in these entries are reported to be
-		 wrong.  See the code that reads 'G's for symtabs. */
-	      ADD_PSYMBOL_ADDR_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_STATIC,
-				   global_psymbols, bufp->n_value);
-	      continue;
-
-	    case 't':
-	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_TYPEDEF,
-				   static_psymbols, bufp->n_value);
-	      continue;
-
-	    case 'f':
-	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_BLOCK,
-				   static_psymbols, bufp->n_value);
-	      continue;
-
-	      /* Global functions were ignored here, but now they
-	         are put into the global psymtab like one would expect.
-		 They're also in the misc fn vector... 
-		 FIXME, why did it used to ignore these?  That broke
-		 "i fun" on these functions.  */
-	    case 'F':
-	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_BLOCK,
-				   global_psymbols, bufp->n_value);
-	      continue;
-
-	      /* Two things show up here (hopefully); static symbols of
-		 local scope (static used inside braces) or extensions
-		 of structure symbols.  We can ignore both.  */
-	    case 'V':
-	    case '(':
-	    case '0':
-	    case '1':
-	    case '2':
-	    case '3':
-	    case '4':
-	    case '5':
-	    case '6':
-	    case '7':
-	    case '8':
-	    case '9':
-	      continue;
-
-	    default:
-	      /* Unexpected symbol.  Ignore it; perhaps it is an extension
-		 that we don't know about.
-
-		 Someone says sun cc puts out symbols like
-		 /foo/baz/maclib::/usr/local/bin/maclib,
-		 which would get here with a symbol type of ':'.  */
-	      continue;
-	    }
-
-	case N_EXCL:
-
-	  SET_NAMESTRING();
-
-	  /* Find the corresponding bincl and mark that psymtab on the
-	     psymtab dependency list */
-	  {
-	    struct partial_symtab *needed_pst =
-	      find_corresponding_bincl_psymtab (namestring, bufp->n_value);
-
-	    /* If this include file was defined earlier in this file,
-	       leave it alone.  */
-	    if (needed_pst == pst) continue;
-
-	    if (needed_pst)
-	      {
-		int i;
-		int found = 0;
-
-		for (i = 0; i < dependencies_used; i++)
-		  if (dependency_list[i] == needed_pst)
-		    {
-		      found = 1;
-		      break;
-		    }
-
-		/* If it's already in the list, skip the rest.  */
-		if (found) continue;
-
-		dependency_list[dependencies_used++] = needed_pst;
-		if (dependencies_used >= dependencies_allocated)
-		  {
-		    struct partial_symtab **orig = dependency_list;
-		    dependency_list =
-		      (struct partial_symtab **)
-			alloca ((dependencies_allocated *= 2)
-				* sizeof (struct partial_symtab *));
-		    bcopy (orig, dependency_list,
-			   (dependencies_used
-			    * sizeof (struct partial_symtab *)));
-#ifdef DEBUG_INFO
-		    fprintf (stderr, "Had to reallocate dependency list.\n");
-		    fprintf (stderr, "New dependencies allocated: %d\n",
-			     dependencies_allocated);
-#endif
-		  }
-	      }
-	    else
-	      error ("Invalid symbol data: \"repeated\" header file not previously seen, at symtab pos %d.",
-		     symnum);
-	  }
-	  continue;
-
-	case N_EINCL:
-	case N_DSLINE:
-	case N_BSLINE:
-	case N_SSYM:		/* Claim: Structure or union element.
-				   Hopefully, I can ignore this.  */
-	case N_ENTRY:		/* Alternate entry point; can ignore. */
-	case N_MAIN:		/* Can definitely ignore this.   */
-	case N_CATCH:		/* These are GNU C++ extensions */
-	case N_EHDECL:		/* that can safely be ignored here. */
-	case N_LENG:
-	case N_BCOMM:
-	case N_ECOMM:
-	case N_ECOML:
-	case N_FNAME:
-	case N_SLINE:
-	case N_RSYM:
-	case N_PSYM:
-	case N_LBRAC:
-	case N_RBRAC:
-	case N_NSYMS:		/* Ultrix 4.0: symbol count */
-	case N_DEFD:		/* GNU Modula-2 */
-	  /* These symbols aren't interesting; don't worry about them */
-
-	  continue;
-
-	default:
-	  /* If we haven't found it yet, ignore it.  It's probably some
-	     new type we don't know about yet.  */
-	  complain (&unknown_symtype_complaint, local_hex_string(bufp->n_type));
-	  continue;
-	}
+#define CUR_SYMBOL_TYPE bufp->n_type
+#define CUR_SYMBOL_VALUE bufp->n_value
+#define DBXREAD_ONLY
+#define START_PSYMTAB(ofile,addr,fname,low,symoff,global_syms,static_syms)\
+  start_psymtab(ofile, addr, fname, low, symoff, global_syms, static_syms)
+#define END_PSYMTAB(pst,ilist,ninc,c_off,c_text,dep_list,n_deps)\
+  end_psymtab(pst,ilist,ninc,c_off,c_text,dep_list,n_deps)
+
+#include "partial-stab.h"
     }
 
   /* If there's stuff to be cleaned up, clean it up.  */
@@ -1411,11 +798,7 @@ read_dbx_symtab (addr, objfile, stringtab, stringtab_size, nlistlen,
     {
       end_psymtab (pst, psymtab_include_list, includes_used,
 		   symnum * symbol_size, end_of_text_addr,
-		   dependency_list, dependencies_used,
-		   global_psymbols.next, static_psymbols.next);
-      includes_used = 0;
-      dependencies_used = 0;
-      pst = (struct partial_symtab *) 0;
+		   dependency_list, dependencies_used);
     }
 
   free_bincl_list ();
@@ -1430,7 +813,7 @@ read_dbx_symtab (addr, objfile, stringtab, stringtab_size, nlistlen,
    (normal). */
 
 
-static struct partial_symtab *
+struct partial_symtab *
 start_psymtab (objfile, addr,
 	       filename, textlow, ldsymoff, global_syms, static_syms)
      struct objfile *objfile;
@@ -1442,35 +825,13 @@ start_psymtab (objfile, addr,
      struct partial_symbol *static_syms;
 {
   struct partial_symtab *result =
-    (struct partial_symtab *) obstack_alloc (psymbol_obstack,
-					     sizeof (struct partial_symtab));
+      start_psymtab_common(objfile, addr,
+			   filename, textlow, global_syms, static_syms);
 
-  result->addr = addr;
-
-  result->filename =
-    (char *) obstack_alloc (psymbol_obstack,
-			    strlen (filename) + 1);
-  strcpy (result->filename, filename);
-
-  result->textlow = textlow;
   result->read_symtab_private = (char *) obstack_alloc (psymbol_obstack,
 					       sizeof (struct symloc));
   LDSYMOFF(result) = ldsymoff;
-
-  result->readin = 0;
-  result->symtab = 0;
   result->read_symtab = dbx_psymtab_to_symtab;
-
-  result->globals_offset = global_syms - global_psymbols.list;
-  result->statics_offset = static_syms - static_psymbols.list;
-
-  result->n_global_syms = 0;
-  result->n_static_syms = 0;
-
-  /* Chain it to the list owned by the current object file.  */
-  result->objfile = objfile;
-  result->objfile_chain = objfile->psymtabs;
-  objfile->psymtabs = result;
 
   return result;
 }
@@ -1487,9 +848,8 @@ compare_psymbols (s1, s2)
     return st1[0] - st2[0];
   if (st1[1] - st2[1])
     return st1[1] - st2[1];
-  return strcmp (st1 + 1, st2 + 1);
+  return strcmp (st1 + 2, st2 + 2);
 }
-
 
 /* Close off the current usage of a partial_symbol table entry.  This
    involves setting the correct number of includes (with a realloc),
@@ -1502,10 +862,9 @@ compare_psymbols (s1, s2)
    Then the partial symtab is put on the global list.
    *** List variables and peculiarities of same. ***
    */
-static void
+void
 end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
-	     capping_text, dependency_list, number_dependencies,
-	     capping_global, capping_static)
+	     capping_text, dependency_list, number_dependencies)
      struct partial_symtab *pst;
      char **include_list;
      int num_includes;
@@ -1513,17 +872,18 @@ end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
      CORE_ADDR capping_text;
      struct partial_symtab **dependency_list;
      int number_dependencies;
-     struct partial_symbol *capping_global, *capping_static;
+/*     struct partial_symbol *capping_global, *capping_static;*/
 {
   int i;
 
-  LDSYMLEN(pst) = capping_symbol_offset - LDSYMOFF(pst);
+  if (capping_symbol_offset != -1)
+      LDSYMLEN(pst) = capping_symbol_offset - LDSYMOFF(pst);
   pst->texthigh = capping_text;
 
   pst->n_global_syms =
-    capping_global - (global_psymbols.list + pst->globals_offset);
+    global_psymbols.next - (global_psymbols.list + pst->globals_offset);
   pst->n_static_syms =
-    capping_static - (static_psymbols.list + pst->statics_offset);
+    static_psymbols.next - (static_psymbols.list + pst->statics_offset);
 
   pst->number_of_dependencies = number_dependencies;
   if (number_dependencies)
@@ -1531,7 +891,7 @@ end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
       pst->dependencies = (struct partial_symtab **)
 	obstack_alloc (psymbol_obstack,
 		       number_dependencies * sizeof (struct partial_symtab *));
-      bcopy (dependency_list, pst->dependencies,
+      memcpy (pst->dependencies, dependency_list,
 	     number_dependencies * sizeof (struct partial_symtab *));
     }
   else
@@ -1756,6 +1116,8 @@ dbx_psymtab_to_symtab (pst)
       /* FIXME POKING INSIDE BFD DATA STRUCTURES */
       symbol_size = obj_symbol_entry_size (sym_bfd);
 
+      next_symbol_text_func = dbx_next_symbol_text;
+
       /* FIXME, this uses internal BFD variables.  See above in
 	 dbx_symbol_file_open where the macro is defined!  */
       psymtab_to_symtab_1 (pst, stringtab, stsize,
@@ -1831,8 +1193,8 @@ read_ofile_symtab (objfile, stringtab, stringtab_size, sym_offset,
 
       processing_gcc_compilation =
 	(bufp->n_type == N_TEXT
-	 && !strcmp (namestring, GCC_COMPILED_FLAG_SYMBOL));
-      /* FIXME!!!  Check for gcc2_compiled... */
+	 && (strcmp (namestring, GCC_COMPILED_FLAG_SYMBOL) == 0
+	     || strcmp(namestring, GCC2_COMPILED_FLAG_SYMBOL) == 0));
     }
   else
     {
@@ -1866,63 +1228,21 @@ read_ofile_symtab (objfile, stringtab, stringtab_size, sym_offset,
 	{
 	  /* N_CATCH is not fixed up by the linker, and unfortunately,
 	     there's no other place to put it in the .stab map.  */
-	  bufp->n_value += text_offset + offset;
+	  bufp->n_value += text_offset - offset;
 	}
-      else {
-        type &= ~N_EXT;		/* Ignore external-bit */
-        if (type == N_TEXT || type == N_DATA || type == N_BSS)
-	  bufp->n_value += offset;
-        type = bufp->n_type;
-      }
 
       SET_NAMESTRING ();
 
       if (type & N_STAB) {
-	/* Check for a pair of N_SO symbols, which give both a new
-	   source file name (second) and its directory (first).  */
-	if (type == (unsigned char)N_SO) {
-	  /* Save the outer values */
-	  short bufp_n_desc = bufp->n_desc;
-	  unsigned long valu = bufp->n_value;
-
-	  if (symbuf_idx == symbuf_end)
-	    fill_symbuf (abfd);
-	  bufp = &symbuf[symbuf_idx];
-	  if (bufp->n_type == (unsigned char)N_SO) {
-	    char *namestring1 = namestring;
-
-	    SWAP_SYMBOL (bufp, abfd);
-	    bufp->n_value += offset;		/* Relocate */
-	    symbuf_idx++;
-	    symnum++;
-	    SET_NAMESTRING ();
-
-	    /* No need to check PCC_SOL_BROKEN, on the assumption that
-	       such broken PCC's don't put out N_SO pairs.  */
-	    if (last_source_file)
-	      (void)end_symtab (bufp->n_value, 0, 0, objfile);
-	    start_symtab (namestring, namestring1, bufp->n_value);
-	  } else {
-	    /* N_SO without a following N_SO */
-	    process_one_symbol(type, bufp_n_desc, valu, namestring);
-	    /* our_objfile is an implicit parameter.  */
-	  }
-	} else {
-
-	  /* Ordinary symbol
-
-		HERE IS WHERE THE REAL WORK GETS DONE!
-							  */
 	  process_one_symbol (type, bufp->n_desc, bufp->n_value,
-			      namestring);
+			      namestring, offset);
 	  /* our_objfile is an implicit parameter.  */
-
-	}
       }
       /* We skip checking for a new .o or -l file; that should never
          happen in this routine. */
       else if (type == N_TEXT
-	       && !strcmp (namestring, GCC_COMPILED_FLAG_SYMBOL))
+	       && (strcmp (namestring, GCC_COMPILED_FLAG_SYMBOL) == 0
+		   || strcmp (namestring, GCC2_COMPILED_FLAG_SYMBOL) == 0))
 	/* I don't think this code will ever be executed, because
 	   the GCC_COMPILED_FLAG_SYMBOL usually is right before
 	   the N_SO symbol which starts this source file.
@@ -1970,16 +1290,31 @@ hashname (name)
   if (total < 0) total += (1000 << 6);
   return total % HASHSIZE;
 }
-
 
-static void
-process_one_symbol (type, desc, valu, name)
+/* This handles a single symbol from the symbol-file, building symbols
+   into a GDB symtab.  It takes these arguments and an implicit argument.
+
+   TYPE is the type field of the ".stab" symbol entry.
+   DESC is the desc field of the ".stab" entry.
+   VALU is the value field of the ".stab" entry.
+   NAME is the symbol name, in our address space.
+   OFFSET is the amount by which this object file was relocated 
+	  when it was loaded into memory.  All symbols that refer
+	  to memory locations need to be offset by this amount.
+
+   The implicit argument is:
+   OUR_OBJFILE is the object file from which we are reading symbols.
+ 	       It is used in end_symtab.  */
+
+void
+process_one_symbol (type, desc, valu, name, offset)
      int type, desc;
      CORE_ADDR valu;
      char *name;
+     int offset;
 {
 #ifndef SUN_FIXED_LBRAC_BUG
-  /* This records the last pc address we've seen.  We depend on their being
+  /* This records the last pc address we've seen.  We depend on there being
      an SLINE or FUN or SO before the first LBRAC, since the variable does
      not get reset in between reads of different symbol files.  */
   static CORE_ADDR last_pc_address;
@@ -2006,16 +1341,23 @@ process_one_symbol (type, desc, valu, name)
     {
     case N_FUN:
     case N_FNAME:
+#if 0
+/* It seems that the Sun ANSI C compiler (acc) replaces N_FUN with N_GSYM and
+   N_STSYM with a type code of f or F.  Can't enable this until we get some
+   stuff straightened out with psymtabs. */
+
+    case N_GSYM:
+    case N_STSYM:
+#endif /* 0 */
+
+      valu += offset;		/* Relocate for dynamic loading */
+
       /* Either of these types of symbols indicates the start of
 	 a new function.  We must process its "name" normally for dbx,
 	 but also record the start of a new lexical context, and possibly
 	 also the end of the lexical context for the previous function.  */
       /* This is not always true.  This type of symbol may indicate a
          text segment variable.  */
-
-#ifndef SUN_FIXED_LBRAC_BUG
-      last_pc_address = valu;	/* Save for SunOS bug circumcision */
-#endif
 
       colon_pos = strchr (name, ':');
       if (!colon_pos++
@@ -2024,6 +1366,10 @@ process_one_symbol (type, desc, valu, name)
 	  define_symbol (valu, name, desc, type);
 	  break;
 	}
+
+#ifndef SUN_FIXED_LBRAC_BUG
+      last_pc_address = valu;	/* Save for SunOS bug circumcision */
+#endif
 
       within_function = 1;
       if (context_stack_depth > 0)
@@ -2035,7 +1381,7 @@ process_one_symbol (type, desc, valu, name)
 	}
       /* Stack must be empty now.  */
       if (context_stack_depth != 0)
-	complain (lbrac_unmatched_complaint, symnum);
+	complain (&lbrac_unmatched_complaint, symnum);
 
       new = push_context (0, valu);
       new->name = define_symbol (valu, name, desc, type);
@@ -2043,19 +1389,16 @@ process_one_symbol (type, desc, valu, name)
 
     case N_CATCH:
       /* Record the address at which this catch takes place.  */
-      define_symbol (valu, name, desc, type);
-      break;
-
-    case N_EHDECL:
-      /* Don't know what to do with these yet.  */
-      error ("action uncertain for eh extensions");
+      define_symbol (valu+offset, name, desc, type);
       break;
 
     case N_LBRAC:
       /* This "symbol" just indicates the start of an inner lexical
 	 context within a function.  */
 
-#if !defined (BLOCK_ADDRESS_ABSOLUTE)
+#if defined (BLOCK_ADDRESS_ABSOLUTE)
+      valu += offset;		/* Relocate for dynamic loading */
+#else
       /* On most machines, the block addresses are relative to the
 	 N_SO, the linker did not relocate them (sigh).  */
       valu += last_source_start_addr;
@@ -2075,7 +1418,9 @@ process_one_symbol (type, desc, valu, name)
       /* This "symbol" just indicates the end of an inner lexical
 	 context that was started with N_LBRAC.  */
 
-#if !defined (BLOCK_ADDRESS_ABSOLUTE)
+#if defined (BLOCK_ADDRESS_ABSOLUTE)
+      valu += offset;		/* Relocate for dynamic loading */
+#else
       /* On most machines, the block addresses are relative to the
 	 N_SO, the linker did not relocate them (sigh).  */
       valu += last_source_start_addr;
@@ -2083,12 +1428,13 @@ process_one_symbol (type, desc, valu, name)
 
       new = pop_context();
       if (desc != new->depth)
-	complain (lbrac_mismatch_complaint, symnum);
+	complain (&lbrac_mismatch_complaint, symnum);
 
       /* Some compilers put the variable decls inside of an
          LBRAC/RBRAC block.  This macro should be nonzero if this
 	 is true.  DESC is N_DESC from the N_RBRAC symbol.
-	 GCC_P is true if we've detected the GCC_COMPILED_SYMBOL.  */
+	 GCC_P is true if we've detected the GCC_COMPILED_SYMBOL
+	 or the GCC2_COMPILED_SYMBOL.  */
 #if !defined (VARIABLES_INSIDE_BLOCK)
 #define VARIABLES_INSIDE_BLOCK(desc, gcc_p) 0
 #endif
@@ -2133,6 +1479,7 @@ process_one_symbol (type, desc, valu, name)
     case N_FN:
     case N_FN_SEQ:
       /* This kind of symbol indicates the start of an object file.  */
+      valu += offset;		/* Relocate for dynamic loading */
       break;
 
     case N_SO:
@@ -2140,6 +1487,8 @@ process_one_symbol (type, desc, valu, name)
 	 for one source file.
 	 Finish the symbol table of the previous source file
 	 (if any) and start accumulating a new symbol table.  */
+      valu += offset;		/* Relocate for dynamic loading */
+
 #ifndef SUN_FIXED_LBRAC_BUG
       last_pc_address = valu;	/* Save for SunOS bug circumcision */
 #endif
@@ -2153,15 +1502,32 @@ process_one_symbol (type, desc, valu, name)
 	}
 #endif
       if (last_source_file)
-	(void)end_symtab (valu, 0, 0);
+	{
+	  /* Check if previous symbol was also an N_SO (with some
+	     sanity checks).  If so, that one was actually the directory
+	     name, and the current one is the real file name.
+	     Patch things up. */	   
+	  if (previous_stab_code == N_SO
+	      && current_subfile && current_subfile->dirname == NULL
+	      && current_subfile->name != NULL
+	      && current_subfile->name[strlen(current_subfile->name)-1] == '/')
+	    {
+	      current_subfile->dirname = current_subfile->name;
+	      current_subfile->name = obsavestring (name, strlen (name));
+	      break;
+	    }
+	  (void)end_symtab (valu, 0, 0);
+	}
       start_symtab (name, NULL, valu);
       break;
+
 
     case N_SOL:
       /* This type of symbol indicates the start of data for
 	 a sub-source-file, one whose contents were copied or
 	 included in the compilation of the main source file
 	 (whose name was given in the N_SO symbol.)  */
+      valu += offset;		/* Relocate for dynamic loading */
       start_subfile (name, NULL);
       break;
 
@@ -2183,6 +1549,7 @@ process_one_symbol (type, desc, valu, name)
       /* This type of "symbol" really just records
 	 one line-number -- core-address correspondence.
 	 Enter it in the line list for this symbol table.  */
+      valu += offset;		/* Relocate for dynamic loading */
 #ifndef SUN_FIXED_LBRAC_BUG
       last_pc_address = valu;	/* Save for SunOS bug circumcision */
 #endif
@@ -2219,15 +1586,53 @@ process_one_symbol (type, desc, valu, name)
 	break;
       }
 
-    case N_ECOML:
-    case N_LENG:
-    case N_DEFD:		/* GNU Modula-2 symbol */
+    /* The following symbol types need to have the offset added to their
+       value; then we process symbol definitions in the name.  */
+    case N_STSYM:		/* Global symbol */
+    case N_LCSYM:		/* Local symbol */
+    case N_DSLINE:		/* Source line number, data seg */
+    case N_BSLINE:		/* Source line number, bss seg */
+    /*   N_BROWS:	overlaps with N_BSLINE */
+    case N_ENTRY:		/* Alternate entry point */
+      valu += offset;		/* Relocate for dynamic loading */
+      /* FALL THROUGH */
+
+    /* The following symbol types don't need the address field relocated,
+       since it is either unused, or is absolute.  */
+    case N_GSYM:		/* Global variable */
+    case N_NSYMS:		/* Number of symbols (ultrix) */
+    case N_NOMAP:		/* No map?  (ultrix) */
+    case N_RSYM:		/* Register variable */
+    case N_DEFD:		/* Modula-2 GNU module dependency */
+    case N_SSYM:		/* Struct or union element */
+    case N_LSYM:		/* Local symbol in stack */
+    case N_PSYM:		/* Parameter variable */
+    case N_LENG:		/* Length of preceding symbol type */
+      if (name)
+	define_symbol (valu, name, desc, type);
       break;
 
+    /* The following symbol types we don't know how to process.  Handle
+       them in a "default" way, but complain to people who care.  */
     default:
+    case N_EHDECL:		/* Exception handler name */
+    case N_MAIN:		/* Name of main routine (not used in C) */
+    case N_PC:			/* Global symbol in Pascal */
+    case N_M2C:			/* Modula-2 compilation unit */
+    /*   N_MOD2:	overlaps with N_EHDECL */
+    case N_SCOPE:		/* Modula-2 scope information */
+    case N_ECOML:		/* End common (local name) */
+    case N_NBTEXT:		/* Gould Non-Base-Register symbols??? */
+    case N_NBDATA:
+    case N_NBBSS:
+    case N_NBSTS:
+    case N_NBLCS:
+      complain (&unknown_symtype_complaint, local_hex_string(type));
       if (name)
 	define_symbol (valu, name, desc, type);
     }
+
+  previous_stab_code = type;
 }
 
 /* Copy a pending list, used to record the contents of a common

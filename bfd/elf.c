@@ -100,16 +100,17 @@ typedef struct
    in the bfd structure.  This information is different for ELF core files
    and other ELF files. */
 
-typedef struct
+typedef struct elf_core_tdata_struct
 {
   void *prstatus;		/* The raw /proc prstatus structure */
   void *prpsinfo;		/* The raw /proc prpsinfo structure */
 } elf_core_tdata;
 
-#define core_prpsinfo(bfd) (((elf_core_tdata *)((bfd)->tdata))->prpsinfo)
-#define core_prstatus(bfd) (((elf_core_tdata *)((bfd)->tdata))->prstatus)
+#define core_prpsinfo(bfd) (((bfd)->tdata.elf_core_data) -> prpsinfo)
+#define core_prstatus(bfd) (((bfd)->tdata.elf_core_data) -> prstatus)
 
-typedef struct
+
+typedef struct elf_obj_tdata_struct
 {
   file_ptr symtab_filepos;	/* Offset to start of ELF symtab section */
   long symtab_filesz;		/* Size of ELF symtab section */
@@ -117,7 +118,7 @@ typedef struct
   long strtab_filesz;		/* Size of ELF string tbl section */
 } elf_obj_tdata;
 
-#define elf_tdata(bfd)		((elf_obj_tdata *) ((bfd) -> tdata))
+#define elf_tdata(bfd)		((bfd) -> tdata.elf_obj_data)
 #define elf_symtab_filepos(bfd)	(elf_tdata(bfd) -> symtab_filepos)
 #define elf_symtab_filesz(bfd)	(elf_tdata(bfd) -> symtab_filesz)
 #define elf_strtab_filepos(bfd)	(elf_tdata(bfd) -> strtab_filepos)
@@ -141,8 +142,8 @@ DEFUN(elf_swap_symbol_in,(abfd, src, dst),
 }
 
 
-/* Translate an ELF header in external format into an ELF header in internal
-   format. */
+/* Translate an ELF file header in external format into an ELF file header in
+   internal format. */
 
 static void
 DEFUN(elf_swap_ehdr_in,(abfd, src, dst),
@@ -150,7 +151,7 @@ DEFUN(elf_swap_ehdr_in,(abfd, src, dst),
       Elf_External_Ehdr *src AND
       Elf_Internal_Ehdr *dst)
 {
-  bcopy (src -> e_ident, dst -> e_ident, EI_NIDENT);
+  memcpy (dst -> e_ident, src -> e_ident, EI_NIDENT);
   dst -> e_type = bfd_h_get_16 (abfd, (bfd_byte *) src -> e_type);
   dst -> e_machine = bfd_h_get_16 (abfd, (bfd_byte *) src -> e_machine);
   dst -> e_version = bfd_h_get_32 (abfd, (bfd_byte *) src -> e_version);
@@ -222,8 +223,9 @@ DEFUN(bfd_section_from_shdr, (abfd, hdr, shstrtab),
 
   name = hdr -> sh_name ? shstrtab + hdr -> sh_name : "unnamed";
   newsect = bfd_make_section (abfd, name);
+  if (!newsect) return false;
   newsect -> vma = hdr -> sh_addr;
-  newsect -> size = hdr -> sh_size;
+  newsect -> _raw_size = hdr -> sh_size;
   if (!(hdr -> sh_type == SHT_NOBITS))
     {
       newsect -> filepos = hdr -> sh_offset;
@@ -244,6 +246,10 @@ DEFUN(bfd_section_from_shdr, (abfd, hdr, shstrtab),
   if (hdr -> sh_flags & SHF_EXECINSTR)
     {
       newsect -> flags |= SEC_CODE;	/* FIXME: may only contain SOME code */
+    }
+  else
+    {
+      newsect -> flags |= SEC_DATA;
     }
   if (hdr -> sh_type == SHT_SYMTAB)
     {
@@ -294,7 +300,7 @@ DEFUN(bfd_section_from_phdr, (abfd, hdr, index),
   (void) strcpy (name, namebuf);
   newsect = bfd_make_section (abfd, name);
   newsect -> vma = hdr -> p_vaddr;
-  newsect -> size = hdr -> p_filesz;
+  newsect -> _raw_size = hdr -> p_filesz;
   newsect -> filepos = hdr -> p_offset;
   newsect -> flags |= SEC_HAS_CONTENTS;
   if (hdr -> p_type == PT_LOAD)
@@ -320,7 +326,7 @@ DEFUN(bfd_section_from_phdr, (abfd, hdr, index),
       (void) strcpy (name, namebuf);
       newsect = bfd_make_section (abfd, name);
       newsect -> vma = hdr -> p_vaddr + hdr -> p_filesz;
-      newsect -> size = hdr -> p_memsz - hdr -> p_filesz;
+      newsect -> _raw_size = hdr -> p_memsz - hdr -> p_filesz;
       if (hdr -> p_type == PT_LOAD)
 	{
 	  newsect -> flags |= SEC_ALLOC;
@@ -352,13 +358,13 @@ DEFUN(bfd_prstatus,(abfd, descdata, descsz, filepos),
   if (descsz == sizeof (prstatus_t))
     {
       newsect = bfd_make_section (abfd, ".reg");
-      newsect -> size = sizeof (gregset_t);
+      newsect -> _raw_size = sizeof (gregset_t);
       newsect -> filepos = filepos + (long) (((prstatus_t *)0) -> pr_reg);
       newsect -> flags = SEC_ALLOC | SEC_HAS_CONTENTS;
       newsect -> alignment_power = 2;
       if ((core_prstatus (abfd) = bfd_alloc (abfd, descsz)) != NULL)
 	{
-	  bcopy (descdata, core_prstatus (abfd), descsz);
+	  memcpy (core_prstatus (abfd), descdata, descsz);
 	}
     }
 }
@@ -395,7 +401,7 @@ DEFUN(bfd_fpregset,(abfd, descdata, descsz, filepos),
   if (descsz == sizeof (fpregset_t))
     {
       newsect = bfd_make_section (abfd, ".reg2");
-      newsect -> size = sizeof (fpregset_t);
+      newsect -> _raw_size = sizeof (fpregset_t);
       newsect -> filepos = filepos;
       newsect -> flags = SEC_ALLOC | SEC_HAS_CONTENTS;
       newsect -> alignment_power = 2;
@@ -414,7 +420,7 @@ char *
 DEFUN(elf_core_file_failing_command, (abfd),
      bfd *abfd)
 {
-#if HAVE_PROCFS
+#ifdef HAVE_PROCFS
   if (core_prpsinfo (abfd))
     {
       prpsinfo_t *p = core_prpsinfo (abfd);
@@ -440,7 +446,7 @@ static int
 DEFUN(elf_core_file_failing_signal, (abfd),
       bfd *abfd)
 {
-#if HAVE_PROCFS
+#ifdef HAVE_PROCFS
   if (core_prstatus (abfd))
     {
       return (((prstatus_t *)(core_prstatus (abfd))) -> pr_cursig);
@@ -460,8 +466,10 @@ DEFUN(elf_core_file_matches_executable_p, (core_bfd, exec_bfd),
       bfd *core_bfd AND
       bfd *exec_bfd)
 {
+#ifdef HAVE_PROCFS
   char *corename;
   char *execname;
+#endif
 
   /* First, xvecs must match since both are ELF files for the same target. */
 
@@ -471,7 +479,7 @@ DEFUN(elf_core_file_matches_executable_p, (core_bfd, exec_bfd),
       return (false);
     }
 
-#if HAVE_PROCFS
+#ifdef HAVE_PROCFS
 
   /* If no prpsinfo, just return true.  Otherwise, grab the last component
      of the exec'd pathname from the prpsinfo. */
@@ -581,7 +589,7 @@ DEFUN(elf_corefile_note, (abfd, hdr),
 	  if (sectname != NULL)
 	    {
 	      newsect = bfd_make_section (abfd, sectname);
-	      newsect -> size = i_note.descsz;
+	      newsect -> _raw_size = i_note.descsz;
 	      newsect -> filepos = filepos;
 	      newsect -> flags = SEC_ALLOC | SEC_HAS_CONTENTS;
 	      newsect -> alignment_power = 2;
@@ -594,8 +602,40 @@ DEFUN(elf_corefile_note, (abfd, hdr),
     {
       free (buf);
     }
+  return true;
+  
 }
 
+
+/* Read a specified number of bytes at a specified offset in an ELF
+   file, into a newly allocated buffer, and return a pointer to the 
+   buffer. */
+
+static char *
+DEFUN(elf_read, (abfd, offset, size),
+      bfd	*abfd AND
+      long	offset AND
+      int	size)
+{
+  char *buf;
+
+  if ((buf = bfd_alloc (abfd, size)) == NULL)
+    {
+      bfd_error = no_memory;
+      return (NULL);
+    }
+  if (bfd_seek (abfd, offset, SEEK_SET) == -1)
+    {
+      bfd_error = system_call_error;
+      return (NULL);
+    }
+  if (bfd_read ((PTR) buf, size, 1, abfd) != size)
+    {
+      bfd_error = system_call_error;
+      return (NULL);
+    }
+  return (buf);
+}
 
 /* Begin processing a given object.
 
@@ -614,6 +654,7 @@ DEFUN (elf_object_p, (abfd), bfd *abfd)
   int shindex;
   char *shstrtab;		/* Internal copy of section header stringtab */
   int shstrtabsize;		/* Size of section header string table */
+  Elf_Off offset;		/* Temp place to stash file offsets */
   
   /* Read in the ELF header in external format.  */
 
@@ -655,10 +696,12 @@ wrong:
   /* Switch xvec to match the specified byte order.  */
   switch (x_ehdr.e_ident[EI_DATA]) {
   case ELFDATA2MSB:			/* Big-endian */ 
-    abfd->xvec = &elf_big_vec;
+    if (!abfd->xvec->header_byteorder_big_p)
+      goto wrong;
     break;
   case ELFDATA2LSB:			/* Little-endian */
-    abfd->xvec = &elf_little_vec;
+    if (abfd->xvec->header_byteorder_big_p)
+      goto wrong;
     break;
   case ELFDATANONE:			/* No data encoding specified */
   default:				/* Unknown data encoding specified */
@@ -668,7 +711,9 @@ wrong:
   /* Allocate an instance of the elf_obj_tdata structure and hook it up to
      the tdata pointer in the bfd. */
 
-  if ((abfd -> tdata = bfd_zalloc (abfd, sizeof (elf_obj_tdata))) == NULL)
+  if ((abfd -> tdata.elf_obj_data = 
+       (elf_obj_tdata*) bfd_zalloc (abfd, sizeof (elf_obj_tdata))) 
+      == NULL)
     {
       bfd_error = no_memory;
       return (NULL);
@@ -726,22 +771,12 @@ wrong:
      will need the base pointer to this table later. */
 
   shstrtabsize = i_shdr[i_ehdr.e_shstrndx].sh_size;
-  if ((shstrtab = bfd_alloc (abfd, shstrtabsize)) == NULL)
+  offset = i_shdr[i_ehdr.e_shstrndx].sh_offset;
+  if ((shstrtab = elf_read (abfd, offset, shstrtabsize)) == NULL)
     {
-      bfd_error = no_memory;
       return (NULL);
     }
-  if (bfd_seek (abfd, i_shdr[i_ehdr.e_shstrndx].sh_offset, SEEK_SET) == -1)
-    {
-      bfd_error = system_call_error;
-      return (NULL);
-    }
-  if (bfd_read ((PTR) shstrtab, shstrtabsize, 1, abfd) != shstrtabsize)
-    {
-      bfd_error = system_call_error;
-      return (NULL);
-    }
-  
+
   /* Once all of the section headers have been read and converted, we
      can start processing them.  Note that the first section header is
      a dummy placeholder entry, so we ignore it.
@@ -762,6 +797,10 @@ wrong:
 	  elf_strtab_filesz(abfd) = (i_shdr + hdr -> sh_link) -> sh_size;
 	}
     }
+
+  /* Remember the entry point specified in the ELF file header. */
+
+  bfd_get_start_address (abfd) = i_ehdr.e_entry;
 
   return (abfd->xvec);
 }
@@ -849,7 +888,9 @@ wrong:
   /* Allocate an instance of the elf_core_tdata structure and hook it up to
      the tdata pointer in the bfd. */
 
-  if ((abfd -> tdata = bfd_zalloc (abfd, sizeof (elf_core_tdata))) == NULL)
+  if ((abfd -> tdata.elf_core_data =
+       (elf_core_tdata *) bfd_zalloc (abfd, sizeof (elf_core_tdata))) 
+      == NULL)
     {
       bfd_error = no_memory;
       return (NULL);
@@ -902,6 +943,10 @@ wrong:
 	  elf_corefile_note (abfd, i_phdr + phindex);
 	}
     }
+
+  /* Remember the entry point specified in the ELF file header. */
+
+  bfd_get_start_address (abfd) = i_ehdr.e_entry;
 
   return (abfd->xvec);
 }
@@ -965,20 +1010,9 @@ DEFUN (elf_slurp_symbol_table, (abfd), bfd *abfd)
      long as the bfd is in use, since we will end up setting up pointers
      into it for the names of all the symbols. */
 
-  if (bfd_seek (abfd, elf_strtab_filepos (abfd), SEEK_SET) == -1)
+  strtab = elf_read (abfd, elf_strtab_filepos(abfd), elf_strtab_filesz(abfd));
+  if (strtab == NULL)
     {
-      bfd_error = system_call_error;
-      return (false);
-    }
-  if ((strtab = bfd_alloc (abfd, elf_strtab_filesz (abfd))) == NULL)
-    {
-      bfd_error = system_call_error;
-      return (false);
-    }
-  if (bfd_read ((PTR) strtab, elf_strtab_filesz (abfd), 1, abfd) !=
-      elf_strtab_filesz (abfd))
-    {
-      bfd_error = system_call_error;
       return (false);
     }
 
@@ -1023,11 +1057,11 @@ DEFUN (elf_slurp_symbol_table, (abfd), bfd *abfd)
 	    }
 	  else if (i_sym.st_shndx == SHN_ABS)
 	    {
-	      sym -> flags |= BSF_ABSOLUTE;
+/*	      sym -> flags |= BSF_ABSOLUTE; OBSOLETE */
 	    }
 	  else if (i_sym.st_shndx == SHN_COMMON)
 	    {
-	      sym -> flags |= BSF_FORT_COMM;
+	      sym -> section = &bfd_com_section;
 	    }
 	  switch (ELF_ST_BIND (i_sym.st_info))
 	    {
@@ -1126,13 +1160,22 @@ DEFUN (elf_get_symtab, (abfd, alocation),
 }
 
 static asymbol *
-elf_make_empty_symbol(abfd)
-bfd            *abfd;
+DEFUN (elf_make_empty_symbol, (abfd),
+       bfd *abfd)
 {
-  fprintf (stderr, "elf_make_empty_symbol unimplemented\n");
-  fflush (stderr);
-  abort ();
-  return (NULL);
+  elf_symbol_type *new;
+
+  new = (elf_symbol_type *) bfd_zalloc (abfd, sizeof (elf_symbol_type));
+  if (new == NULL)
+    {
+      bfd_error = no_memory;
+      return (NULL);
+    }
+  else
+    {
+      new -> symbol.the_bfd = abfd;
+      return (&new -> symbol);
+    }
 }
 
 static void 
@@ -1230,7 +1273,9 @@ DEFUN (elf_sizeof_headers, (abfd, reloc),
 #define elf_bfd_debug_info_start	bfd_void
 #define elf_bfd_debug_info_end		bfd_void
 #define elf_bfd_debug_info_accumulate	(PROTO(void,(*),(bfd*, struct sec *))) bfd_void
-
+#define elf_bfd_get_relocated_section_contents \
+ bfd_generic_get_relocated_section_contents
+#define elf_bfd_relax_section bfd_generic_relax_section
 bfd_target elf_big_vec =
 {
   /* name: identify kind of target */

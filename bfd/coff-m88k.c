@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: coff-m88k.c,v 1.21 1991/12/01 05:23:47 sac Exp $ */
+/* $Id: coff-m88k.c,v 1.23 1992/01/24 22:44:02 sac Exp $ */
 
 #define M88 1		/* Customize various include files */
 #include "bfd.h"
@@ -28,12 +28,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "coff/m88k.h"
 #include "coff/internal.h"
 #include "libcoff.h"
-
+#undef HOWTO_PREPARE
 /* Provided the symbol, returns the value reffed */
 #define HOWTO_PREPARE(relocation, symbol) 	\
   {						\
   if (symbol != (asymbol *)NULL) {		\
-    if (symbol->flags & BSF_FORT_COMM) {	\
+    if (symbol->section == &bfd_com_section) {	\
       relocation = 0;				\
     }						\
     else {					\
@@ -56,7 +56,7 @@ asymbol *symbol_in AND
 unsigned char *data AND
 asection *ignore_input_section)
 {
-  long relocation;
+  long relocation = 0;
   bfd_vma addr = reloc_entry->address;
   long x = bfd_get_16(abfd, (bfd_byte *)data + addr);
 
@@ -89,9 +89,9 @@ static reloc_howto_type howto_table[] =
 /* Code to turn an external r_type into a pointer to an entry in the
    above howto table */
 #define RTYPE2HOWTO(cache_ptr, dst)					\
-	    if (dst.r_type >= R_PCR16L && dst.r_type <= R_VRT32) {	\
-		cache_ptr->howto = howto_table + dst.r_type - R_PCR16L;	\
-		cache_ptr->addend += dst.r_offset << 16;		\
+	    if ((dst)->r_type >= R_PCR16L && (dst)->r_type <= R_VRT32) {\
+		cache_ptr->howto = howto_table + (dst)->r_type - R_PCR16L;\
+		cache_ptr->addend += (dst)->r_offset << 16;		\
 	    }								\
 	    else {							\
 		BFD_ASSERT(0);						\

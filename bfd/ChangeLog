@@ -1,6 +1,242 @@
+Fri Jan 31 01:34:45 1992  Stu Grossman  (grossman at cygnus.com)
+
+	* ieee.c:  Change type of envi[] to unsigned char.
+
+	* configure.in:  fix vax ultrix configuration.
+
+	* elf.c (bfd_section_from_shdr):  Deal with null return from
+	bfd_make_section().  (elf_object_p):  Select endianess properly.
+
+Fri Jan 31 01:19:55 1992  John Gilmore  (gnu at cygnus.com)
+
+	* hosts/h-tahoe.h, h-vaxbsd.h:  Fix stack in core files.
+
+Thu Jan 30 23:51:07 1992  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  host-aout.c doesn't depend on aout-params.h.
+	* aout-target.h:  Use TARGET_BIG_ENDIAN_P to set up vector.
+	* host-aout.c:  Don't use aout-params.h; configure these systems
+	in their xm files, not in a randomly generated file.
+	* hosts/h-hp300bsd.h, h-tahoe.h, h-vaxbsd.h, h-vaxult.h:
+	Specify byte order.
+	* hosts/h-vaxbsd.h:  Define the form of exec and core files.
+
+Thu Jan 30 13:02:41 1992  Per Bothner  (bothner at cygnus.com)
+
+	* config/mt-tahoe, config/mt-vax:  Change DEFAULT_VECTOR to
+	host_aout_vec here as well.
+
+Thu Jan 30 11:41:45 1992  Stu Grossman  (grossman at cygnus.com)
+
+	* host-aout.c:  Change TARGETNAME to "a.out" to be compatible with
+	gdb.  config/mt-hp300bsd:  Change DEFAULT_VECTOR to host_aout_vec
+	to prevent undefined symbol.
+
+Thu Jan 30 07:26:53 1992  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	Various lints found on PersSony
+	* aoutx.h: cast an enum 
+	* coff-a29k.c: many ints in reloc structure turned to enum
+	* coffcode.h: more enums
+	* cpu-h8300.c: more enums
+	* opncls.c: more enums
+
+Thu Jan 30 01:19:56 1992  John Gilmore  (gnu at cygnus.com)
+
+	* configure.in:  Make Tahoe configuration work again.
+	* bfd-in.h:  Remove trailing comma from enum declaration.
+	* ieee.c:  Can't put byte values >0x7F into a signed char.
+
+Tue Jan 28 21:10:51 1992  Fred Fish  (fnf at cygnus.com)
+
+	* Makefile.in:  Add dependencies for various coff-*.o files.
+
+	* elf.c:  Remove extraneous paren from core_prpsinfo and
+	core_prpstatus macros, rename core_prpstatus to core_prstatus.
+	Replace references to old section "size" member with new
+	"_raw_size" member.  Implement elf_make_empty_symbol, which
+	is now used.
+
+Tue Jan 28 14:51:40 1992  Stu Grossman  (grossman at cygnus.com)
+
+	* trad-core.c, bfd.c, ../include/bfd.h:  Various fixes for PMAX
+	core reading.
+
+Tue Jan 28 10:46:32 1992  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* coffcode.h (bfd_coff_relax_section): now static.
+	(bfd_coff_get_relocated_section_contents): various type lints.
+
+Mon Jan 27 19:44:08 1992  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	New entry point in the transfer vector - bfd_relax_section.
+
+	* aout-target.h: add to vector, call generic_relax
+	* bfd-in.h: add to vector
+	* bfd.c: add #define for vector
+	* bout.c: add to vector, call generic_relax
+	* coffcode.h: add to vector, also now has coff specific relax code
+	for the relaxable H8/300 relocs. Also clean up abs section cruft.
+	* elf.c: call generic_relax
+	* ieee.c: call new vector, clean up some bugs due to the creation
+	of bfd_abs_section
+	* libbfd.h: add bfd_generic_relax_section EXFUN
+	* oasys.c: call generic_relax
+	* reloc.c: implement generic_relax
+	* seclet.c: moved much of this into coffcode.h
+	* srec.c: call generic_relax
+	* targets.c: define new transfer vector
+
+	
+
+Fri Jan 24 14:40:17 1992  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* everything: now modified to use smaller reloc type. Self hosts
+	on sun3 & sun4.
+
+Sat Jan 18 17:00:16 1992  Fred Fish  (fnf at cygnus.com)
+
+	* config/mh-stratus, config/mt-i860-elf, hosts/h-stratus:
+	New files for stratus.
+
+	* configure.in:  Add configuration fragments for stratus.
+
+Wed Jan 15 10:02:43 1992  Fred Fish  (fnf at cygnus.com)
+
+	* aoutx.h (NAME(aout,find_nearest_line)): Declare various filename
+	variables as CONST since they are set to point to a const char
+	string.  Fixes compiler complaints.
+
+Fri Jan 10 17:44:53 1992  Fred Fish  (fnf at cygnus.com)
+
+	* hosts/h-amix.h hosts/h-i386v4.h:  Change abort() to a function
+	returning void.
+
+Fri Jan 10 14:33:32 1992  Per Bothner  (bothner at cygnus.com)
+
+	* aoutx.h (NAME(aout,find_nearest_line)):  Recognize N_SOL
+	symbols, so that we can emit the correct file name even
+	if it's an include file.
+
+Thu Jan  2 16:43:34 1992  John Gilmore  (gnu at cygnus.com)
+
+	* coff-i960.c:  Add COFF_SWAP_TABLE to little_vec as well as big_vec.
+	(Reported by john@labtam.labtam.oz.au (John Carey)).
+
+Wed Jan  1 04:23:06 1992  Fred Fish  (fnf at cygnus.com)
+
+	* elf.c:  Change all '#if HAVE_PROCFS' to '#ifdef HAVE_PROCFS'.
+
+	* config/mh-amix, config/mh-i386v4:  Remove HDEFINES that was
+	being used to -DHAVE_PROCFS.
+
+	* hosts/h-amix, hosts/h-i386v4:  Add '#define HAVE_PROCFS'.  Move
+	'#include "fopen-same.h"' to end of file to match other h-* files.
+
+Fri Dec 20 12:06:17 1991  Fred Fish  (fnf at cygnus.com)
+
+	* configure.in:  Change svr4 references to sysv4.  Add case
+	"unknown" for target vendor and infer some targets based
+	on the specified operating system.
+
+Wed Dec 18 17:17:59 1991  Stu Grossman  (grossman at cygnus.com)
+
+	* bfd-in.h, libaout.h:  ANSIfy enums.
+
+Wed Dec 18 16:12:25 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* archive.c (normalize): created version for VMS which removes the
+	VMS directory crap from the front and end of a filename, eg turn
+	[-.foo]bar.obj;123 into bar.obj
+	(bfd_construct_extended_name_table): now writes index into an
+	extended name table in decimal - the same base used to read an
+	extended name table.
+
+Wed Dec 18 14:40:39 1991  Per Bothner  (bothner at cygnus.com)
+
+	* aout-encap.c:  Fix to use aout-target.h.
+	* aoutf1.h:  Use standard MY_object_p and MY_callback
+	in aout-target.h.  Remove target-specific versions.
+	* host-aout.c:  Re-write to use aout-target.h.
+	* gen-aout.c:  New files use with host-aout.c to generate
+	host-specific a.out-related parameters.
+	* Makefile.in:  host-aout.o depends on aout-params.h, which is
+	generated by gen-aout.
+	* aout-target.h:  Make a little more flexible.
+	* libaout.h, aout-target.h:  Removed WORK_OUT_FILE_POSTIONS
+	macro.  Instead, inline it in aout-target.h.
+	* newsos3.c:  Define N_SHARED_LIB(x) as 0 to avoid
+	a gcc -Wall warning.
+	* archive.c:  Add missing commas in DEFUN macro (2 places).
+	* elf.c, coffcode.h, aoutf1.h:  Use ANSI functions instead of
+	Berkeley ones, now that libiberty has them:
+	bcopy->memcpy, bzero->memset, bcmp->memcmp.
+	* aoutx.h:  Various touch-ups:  Re-formatting, fix a cast,
+	remove unused variable.
+
+Tue Dec 17 19:48:59 1991  Fred Fish  (fnf at cygnus.com)
+
+	* elf.c (elf_core_file_matches_executable_p):  Enclose corename
+	and execname inside HAVE_PROCFS ifdef since they are unused
+	when it is not defined.
+
+Mon Dec 16 12:00:10 1991  Fred Fish  (fnf at cygnus.com)
+
+	* elf.c:  Flag all sections as either code or data.  We can't
+	be sure what they are anyway, since ELF doesn't fit the
+	traditional model of text+data+bss very well.  Add new local
+	function elf_read() to simplify code.  Record entry point in
+	the bfd structure.
+
+Thu Dec 12 21:01:22 1991  John Gilmore  (gnu at cygnus.com)
+
+	* hosts/h-*.h:  Configure fopen using ../include/fopen-*.h
+	rather than N copies of the same lines.
+
+Wed Dec 11 16:39:45 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* cpu-h8300.c: disassemble branch displacements correctly
+	* coff-h8300.c: put reloc offsets out in 32bits
+
+	* makefile.dos, configdj.bat: New files from DJ
+	* cache.c: fopen with new macros is needed for DOS.
+	* ieee.c: environ renamed to envi to stop an include file
+	conflict.
+	* opncls.c, coff-rs6000.c: more fopens with macros.
+
+Tue Dec 10 04:07:24 1991  K. Richard Pixley  (rich at rtl.cygnus.com)
+
+	* Makefile.in: infodir belongs in datadir.
+
+Sat Dec  7 16:39:23 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	 * Makefile.in: fix where docdir lives
+
+	 * aoutx.h, archive.c, archures.c, bfd.c, cache.c, coff-m88k.c,
+	 coffcode.h, core.c, ctor.c, elf.c, format.c, ieee.c, init.c,
+	 libbfd.c, libbfd.h, libcoff.h, opncls.c, reloc.c, section.c,
+	 srec.c, syms.c, targets.c : all new documentation and lint
+	 removal.
+
+
 Sat Dec  7 07:22:09 1991  John Gilmore  (gnu at cygnus.com)
 
 	* coffcode.h, srec.c:  Lint.
+
+Fri Dec  6 22:58:48 1991  K. Richard Pixley  (rich at rtl.cygnus.com)
+
+	* Makefile.in: install using INSTALL_DATA, added standards.text
+	  support.
+
+	* configure.in: mark directory as target dependent.  configure
+	  nows works in objdir always so make file existence checks
+	  against ${srcdir}.
+
+Thu Dec  5 22:46:19 1991  K. Richard Pixley  (rich at rtl.cygnus.com)
+
+	* Makefile.in: idestdir and ddestdir go away.  Added copyrights
+	  and shift gpl to v2.  Added ChangeLog if it didn't exist. docdir
+	  and mandir now keyed off datadir by default.
 
 Wed Dec  4 10:14:17 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
 

@@ -1,4 +1,5 @@
 /* Amiga Unix host system */
+
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
@@ -16,8 +17,9 @@
 #define SEEK_CUR 1
 
 #define POSIX_UTIME
+#define HAVE_PROCFS	/* This host has /proc support */
 
-extern PROTO(int,  abort,(void));
+extern PROTO(void, abort,(void));
 extern PROTO(int,  close,(int));
 extern PROTO(void, exit,(int));
 extern PROTO(int,  fclose,(FILE*));
@@ -60,3 +62,5 @@ typedef short int16_type;
 typedef unsigned short uint16_type;
 typedef int int32_type;
 typedef unsigned int uint32_type;
+
+#include "fopen-same.h"

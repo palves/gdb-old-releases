@@ -1,7 +1,3 @@
 # Host configuration for SVR4.
 AR_FLAGS = cq
 RANLIB = echo
-# Define HAVE_PROCFS if the host has /proc support, particularly the
-# include files for prstatus, prpsinfo, and fpregset structures.  This
-# is used by the core file support code.
-HDEFINES = -DHAVE_PROCFS

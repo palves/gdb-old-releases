@@ -1,18 +1,16 @@
-Info file gdb.info, produced by Makeinfo, -*- Text -*- from input file
-gdb-all.texi.
-
-   gdb.info
+Info file ./gdb.info, produced by Makeinfo, -*- Text -*- from input
+file gdb-all.texi.
 
 START-INFO-DIR-ENTRY
 * Gdb: (gdb).                   The GNU debugger.
 END-INFO-DIR-ENTRY
-
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.00, December 1991, of `Using GDB: A Guide to the
-GNU Source-Level Debugger' for GDB Version 4.3.
+   This is Edition 4.01, January 1992, of `Using GDB: A Guide to the
+GNU Source-Level Debugger' for GDB Version 4.4.
 
-   Copyright (C) 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991 1992 Free Software Foundation,
+Inc.
 
    Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -139,12 +137,12 @@ Breakpoints, Watchpoints, and Exceptions
 ========================================
 
    A "breakpoint" makes your program stop whenever a certain point in
-your program is reached.  For each breakpoint, you can add various
+the program is reached.  For each breakpoint, you can add various
 conditions to control in finer detail whether your program will stop. 
 You can set breakpoints with the `break' command and its variants
 (*note Setting Breakpoints: Set Breaks.), to specify the place where
 your program should stop by line number, function name or exact address
-in your program.  In languages with exception handling (such as GNU
+in the program.  In languages with exception handling (such as GNU
 C++), you can also set breakpoints where an exception is raised (*note
 Breakpoints and Exceptions: Exception Handling.).
 
@@ -273,9 +271,9 @@ Setting Breakpoints
      the last breakpoint listed (*note Examining Memory: Memory.). 
      The equivalent command for watchpoints is `info watch'.
 
-   GDB allows you to set any number of breakpoints at the same place
-in your program.  There is nothing silly or meaningless about this. 
-When the breakpoints are conditional, this is even useful (*note Break
+   GDB allows you to set any number of breakpoints at the same place in
+your program.  There is nothing silly or meaningless about this.  When
+the breakpoints are conditional, this is even useful (*note Break
 Conditions: Conditions.).
 
 
@@ -399,7 +397,7 @@ address.
 `delete [breakpoints] [BNUMS...]'
      Delete the breakpoints or watchpoints of the numbers specified as
      arguments.  If no argument is specified, delete all breakpoints
-     (GDB asks confirmation, unless you've `set confirm off').  You
+     (GDB asks confirmation, unless you have `set confirm off').  You
      can abbreviate this command as `d'.
 
 
@@ -462,7 +460,7 @@ Set Breaks.), breakpoints that you set are initially enabled;
 subsequently, they become disabled or enabled only when you use one of
 the commands above.  (The command `until' can set and delete a
 breakpoint of its own, but it will not change the state of your other
-breakpoints; *note Continuing and Stepping::..)
+breakpoints; *note Continuing and Stepping: Continuing and Stepping..)
 
 
 File: gdb.info,  Node: Conditions,  Next: Break Commands,  Prev: Disabling,  Up: Breakpoints
@@ -473,9 +471,9 @@ Break Conditions
    The simplest sort of breakpoint breaks every time your program
 reaches a specified place.  You can also specify a "condition" for a
 breakpoint.  A condition is just a Boolean expression in your
-programming language (*note Expressions::.).  A breakpoint with a
-condition evaluates the expression each time your program reaches it,
-and the program stops only if the condition is *true*.
+programming language (*note Expressions: Expressions.).  A breakpoint
+with a condition evaluates the expression each time your program
+reaches it, and your program stops only if the condition is *true*.
 
    This is the converse of using assertions for program validation; in
 that situation, you want to stop when the assertion is violated--that
@@ -515,7 +513,7 @@ condition on a watchpoint.
      for syntactic correctness, and to determine whether symbols in it
      have referents in the context of your breakpoint.  GDB does not
      actually evaluate EXPRESSION at the time the `condition' command
-     is given, however.  *Note Expressions::.
+     is given, however.  *Note Expressions: Expressions.
 
 `condition BNUM'
      Remove the condition from breakpoint number BNUM.  It becomes an
@@ -648,12 +646,12 @@ the breakpoint condition rather than in commands.  For example
 
      condition 5  (x = y + 4), 0
 
-specifies a condition expression (*note Expressions::.) that will
-change `x' as needed, then always have the value zero so your program
-will not stop.  No input is lost here, because GDB evaluates break
-conditions without changing the terminal modes.  When you want to have
-nontrivial conditions for performing the side effects, the operators
-`&&', `||' and `?...:' may be useful.
+specifies a condition expression (*note Expressions: Expressions.)
+that will change `x' as needed, then always have the value zero so your
+program will not stop.  No input is lost here, because GDB evaluates
+break conditions without changing the terminal modes.  When you want
+to have nontrivial conditions for performing the side effects, the
+operators `&&', `||' and `?...:' may be useful.
 
 
 File: gdb.info,  Node: Breakpoint Menus,  Next: Error in Breakpoints,  Prev: Break Commands,  Up: Breakpoints
@@ -730,7 +728,7 @@ source code, or one machine instruction (depending on what particular
 command you use).  Either when continuing or when stepping, your
 program may stop even sooner, due to a breakpoint or to a signal.  (If
 due to a signal, you may want to use `handle', or use `signal 0' to
-resume execution.  *Note Signals::.)
+resume execution.  *Note Signals: Signals.)
 
 `continue [IGNORE-COUNT]'
      Resume program execution, at the address where your program last
@@ -819,7 +817,7 @@ variables that are interesting, until you see the problem happen.
           (gdb) until
           195             for ( ; argc > 0; NEXTARG) {
 
-          This happened because, for execution efficiency, the compiler had
+     This happened because, for execution efficiency, the compiler had
      generated code for the loop closure test at the end, rather than
      the start, of the loop--even though the test in a C `for'-loop is
      written before the body of the loop.  The `until' command appeared
@@ -1191,30 +1189,5 @@ selected stack frame.
      other exception handlers, visit the associated frame (using the
      `up', `down', or `frame' commands); then type `info catch'. 
      *Note Breakpoints and Exceptions: Exception Handling.
-
-
-File: gdb.info,  Node: Source,  Next: Data,  Prev: Stack,  Up: Top
-
-Examining Source Files
-**********************
-
-   GDB can print parts of your program's source, since the debugging
-information recorded in your program tells GDB what source files were
-used to build it.  When your program stops, GDB spontaneously prints
-the line where it stopped.  Likewise, when you select a stack frame
-(*note Selecting a Frame: Selection.), GDB prints the line where
-execution in that frame has stopped.  You can print other portions of
-source files by explicit command.
-
-   If you use GDB through its GNU Emacs interface, you may prefer to
-use Emacs facilities to view source; *note Using GDB under GNU Emacs:
-Emacs..
-
-* Menu:
-
-* List::                        Printing Source Lines
-* Search::                      Searching Source Files
-* Source Path::                 Specifying Source Directories
-* Machine Code::                Source and Machine Code
 
 

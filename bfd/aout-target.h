@@ -1,4 +1,4 @@
-/* Define a target vector for a variant of a.out.
+/* Define a target vector and some small routines for a variant of a.out.
    Copyright (C) 1990-1991 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -17,37 +17,61 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#ifndef MY_object_p
-/* Finish up the reading of an a.out file header */
+/* Set parameters about this a.out file that are machine-dependent.
+   This routine is called from some_aout_object_p just before it returns.  */
 static bfd_target *
 DEFUN(MY(callback),(abfd),
       bfd *abfd)
 {
   struct internal_exec *execp = exec_hdr (abfd);
   
-  WORK_OUT_FILE_POSITIONS(abfd, execp) ;
-  
-  /* Determine the architecture and machine type of the object file.
-   */
-  bfd_default_set_arch_mach(abfd, DEFAULT_ARCH, 0);
+/* Calculate the file positions of the parts of a newly read aout header */
+  obj_textsec (abfd)->_raw_size = N_TXTSIZE(*execp);
 
-  adata(abfd)->page_size = PAGE_SIZE;
-#ifdef SEGMENT_SIZE
-  adata(abfd)->segment_size = SEGMENT_SIZE;
+  /* The virtual memory addresses of the sections */
+  obj_textsec (abfd)->vma = N_TXTADDR(*execp);
+  obj_datasec (abfd)->vma = N_DATADDR(*execp);
+  obj_bsssec  (abfd)->vma = N_BSSADDR(*execp);
+
+  /* The file offsets of the sections */
+  obj_textsec (abfd)->filepos = N_TXTOFF (*execp);
+  obj_datasec (abfd)->filepos = N_DATOFF (*execp);
+
+  /* The file offsets of the relocation info */
+  obj_textsec (abfd)->rel_filepos = N_TRELOFF(*execp);
+  obj_datasec (abfd)->rel_filepos = N_DRELOFF(*execp);
+
+  /* The file offsets of the string table and symbol table.  */
+  obj_sym_filepos (abfd) = N_SYMOFF (*execp);
+  obj_str_filepos (abfd) = N_STROFF (*execp);
+  
+  /* Determine the architecture and machine type of the object file.  */
+#ifdef SET_ARCH_MACH
+  SET_ARCH_MACH(abfd, *execp);
 #else
-  adata(abfd)->segment_size = PAGE_SIZE;
+  bfd_default_set_arch_mach(abfd, DEFAULT_ARCH, 0);
 #endif
-  adata(abfd)->exec_bytes_size = EXEC_BYTES_SIZE;
+
+  adata(abfd).page_size = PAGE_SIZE;
+#ifdef SEGMENT_SIZE
+  adata(abfd).segment_size = SEGMENT_SIZE;
+#else
+  adata(abfd).segment_size = PAGE_SIZE;
+#endif
+  adata(abfd).exec_bytes_size = EXEC_BYTES_SIZE;
 
   return abfd->xvec;
 }
+
+#ifndef MY_object_p
+/* Finish up the reading of an a.out file header */
 
 static bfd_target *
 DEFUN(MY(object_p),(abfd),
      bfd *abfd)
 {
-  struct external_exec exec_bytes;
-  struct internal_exec exec;
+  struct external_exec exec_bytes;	/* Raw exec header from file */
+  struct internal_exec exec;		/* Cleaned-up exec header */
   bfd_target *target;
 
   if (bfd_read ((PTR) &exec_bytes, 1, EXEC_BYTES_SIZE, abfd)
@@ -61,7 +85,7 @@ DEFUN(MY(object_p),(abfd),
   if (N_BADMAG (exec)) return 0;
 
   NAME(aout,swap_exec_header_in)(abfd, &exec_bytes, &exec);
-  target = aout_32_some_aout_object_p (abfd, &exec, MY(callback));
+  target = NAME(aout,some_aout_object_p) (abfd, &exec, MY(callback));
 
 #ifdef ENTRY_CAN_BE_ZERO
   /* The NEWSOS3 entry-point is/was 0, which (amongst other lossage)
@@ -95,13 +119,13 @@ DEFUN(MY(mkobject),(abfd),
 {
   if (NAME(aout,mkobject)(abfd) == false)
     return false;
-  adata(abfd)->page_size = PAGE_SIZE;
+  adata(abfd).page_size = PAGE_SIZE;
 #ifdef SEGMENT_SIZE
-  adata(abfd)->segment_size = SEGMENT_SIZE;
+  adata(abfd).segment_size = SEGMENT_SIZE;
 #else
-  adata(abfd)->segment_size = PAGE_SIZE;
+  adata(abfd).segment_size = PAGE_SIZE;
 #endif
-  adata(abfd)->exec_bytes_size = EXEC_BYTES_SIZE;
+  adata(abfd).exec_bytes_size = EXEC_BYTES_SIZE;
   return true;
 }
 #define MY_mkobject MY(mkobject)
@@ -146,7 +170,7 @@ DEFUN(MY(write_object_contents),(abfd),
 #define	MY_truncate_arname		bfd_bsd_truncate_arname
 #endif
 
-/* We don't support core files yet.  FIXME.  */
+/* No core file defined here -- configure in trad-core.c separately.  */
 #ifndef	MY_core_file_failing_command
 #define	MY_core_file_failing_command _bfd_dummy_core_file_failing_command
 #endif
@@ -254,8 +278,13 @@ bfd_target MY(vec) =
 {
   TARGETNAME,		/* name */
   bfd_target_aout_flavour,
-  true,				/* target byte order */
-  true,				/* target headers byte order */
+#ifdef TARGET_IS_BIG_ENDIAN_P
+  true,				/* target byte order (big) */
+  true,				/* target headers byte order (big) */
+#else
+  false,			/* target byte order (little) */
+  false,			/* target headers byte order (little) */
+#endif
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
@@ -302,5 +331,7 @@ bfd_target MY(vec) =
   MY_sizeof_headers,
   MY_bfd_debug_info_start,
   MY_bfd_debug_info_end,
-  MY_bfd_debug_info_accumulate
+  MY_bfd_debug_info_accumulate,
+  bfd_generic_get_relocated_section_contents,
+  bfd_generic_relax_section
 };

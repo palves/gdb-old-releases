@@ -21,7 +21,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Object file tdata; access macros */
 
-#define coff_data(bfd)		((coff_data_type *) ((bfd)->tdata))
+#define coff_data(bfd)		((bfd)->tdata.coff_obj_data)
 #define exec_hdr(bfd)		(coff_data(bfd)->hdr)
 #define obj_symbols(bfd)	(coff_data(bfd)->symbols)
 #define	obj_sym_filepos(bfd)	(coff_data(bfd)->sym_filepos)

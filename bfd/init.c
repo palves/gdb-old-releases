@@ -27,18 +27,21 @@ static boolean initialized = false;
 /*
 SECTION
 	Initialization
+
+	This is the initialization section
+
 */
 
 /*
 FUNCTION
 	bfd_init
 
-FUNCTION
-	This routine must be called before any other bfd function to
-	initialize magical internal data structures.
-
 SYNOPSIS
 	void bfd_init(void);
+
+DESCRIPTION
+	This routine must be called before any other bfd function to
+	initialize magical internal data structures.
 */
 
 void DEFUN_VOID(bfd_init)
@@ -47,12 +50,14 @@ void DEFUN_VOID(bfd_init)
     initialized = true;
 
     bfd_arch_init();
+    bfd_section_init();
+    
   }
 }
 
 
 /*
-INTERNAL FUNCTION
+INTERNAL_FUNCTION
 	bfd_check_init
 
 DESCRIPTION

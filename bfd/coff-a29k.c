@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: coff-a29k.c,v 1.12 1991/12/01 07:37:33 sac Exp $ */
+/* $Id: coff-a29k.c,v 1.14 1992/01/30 15:30:34 sac Exp $ */
 
 #define A29K 1
 
@@ -45,7 +45,9 @@ asymbol *symbol;
   long relocation = 0;
 
   if (symbol != (asymbol *)NULL) {              
-    if (symbol->flags & BSF_FORT_COMM) {        
+      if (symbol->section == &bfd_com_section) 
+      {
+	
       relocation = 0;                           
     } else {                                      
       relocation = symbol->value;               
@@ -83,7 +85,7 @@ DEFUN(a29k_reloc,(abfd, reloc_entry, symbol_in, data, input_section),
     r_type = reloc_entry->howto->type;
 
     /* FIXME: Do we need to check for partial linking here */
-    if (symbol_in && (symbol_in->flags & BSF_UNDEFINED)) 
+    if (symbol_in && (symbol_in->section == &bfd_und_section))
     {
 	/* Keep the state machine happy in case we're called again */
 	if (r_type == R_IHIHALF) 
@@ -211,20 +213,21 @@ DEFUN(a29k_reloc,(abfd, reloc_entry, symbol_in, data, input_section),
 
 /*FIXME: I'm not real sure about this table */
 #define NA	0	/* Obsolete fields, via the documentation */
+#define NAB false
 static reloc_howto_type howto_table[] = 
 {
-  {R_ABS,     0, 3, NA, false, NA, NA, true,a29k_reloc,"ABS",     true, 0xffffffff,0xffffffff, false},
+  {R_ABS,     0, 3, NA, false, NA, NAB, true,a29k_reloc,"ABS",     true, 0xffffffff,0xffffffff, false},
   {1},  {2},  {3},   {4},  {5},  {6},  {7},  {8},  {9}, {10},
   {11}, {12}, {13}, {14}, {15}, {16}, {17}, {18}, {19}, {20},
   {21}, {22}, {23},
-  {R_IREL,    0, 3, NA, true,  NA, NA, true,a29k_reloc,"IREL",    true, 0xffffffff,0xffffffff, false},
-  {R_IABS,    0, 3, NA, false, NA, NA, true,a29k_reloc,"IABS",    true, 0xffffffff,0xffffffff, false},
-  {R_ILOHALF, 0, 3, NA, true,  NA, NA, true,a29k_reloc,"ILOHALF", true, 0x0000ffff,0x0000ffff, false},
-  {R_IHIHALF, 0, 3, NA, true,  NA, NA, true,a29k_reloc,"IHIHALF", true, 0xffff0000,0xffff0000, false},
-  {R_IHCONST, 0, 3, NA, true,  NA, NA, true,a29k_reloc,"IHCONST", true, 0xffff0000,0xffff0000, false},
-  {R_BYTE,    0, 0, NA, false, NA, NA, true,a29k_reloc,"BYTE",    true, 0x000000ff,0x000000ff, false},
-  {R_HWORD,   0, 1, NA, false, NA, NA, true,a29k_reloc,"HWORD",   true, 0x0000ffff,0x0000ffff, false},
-  {R_WORD,    0, 2, NA, false, NA, NA, true,a29k_reloc,"WORD",    true, 0xffffffff,0xffffffff, false},
+  {R_IREL,    0, 3, NA, true,  NA, NAB, true,a29k_reloc,"IREL",    true, 0xffffffff,0xffffffff, false},
+  {R_IABS,    0, 3, NA, false, NA, NAB, true,a29k_reloc,"IABS",    true, 0xffffffff,0xffffffff, false},
+  {R_ILOHALF, 0, 3, NA, true,  NA, NAB, true,a29k_reloc,"ILOHALF", true, 0x0000ffff,0x0000ffff, false},
+  {R_IHIHALF, 0, 3, NA, true,  NA, NAB, true,a29k_reloc,"IHIHALF", true, 0xffff0000,0xffff0000, false},
+  {R_IHCONST, 0, 3, NA, true,  NA, NAB, true,a29k_reloc,"IHCONST", true, 0xffff0000,0xffff0000, false},
+  {R_BYTE,    0, 0, NA, false, NA, NAB, true,a29k_reloc,"BYTE",    true, 0x000000ff,0x000000ff, false},
+  {R_HWORD,   0, 1, NA, false, NA, NAB, true,a29k_reloc,"HWORD",   true, 0x0000ffff,0x0000ffff, false},
+  {R_WORD,    0, 2, NA, false, NA, NAB, true,a29k_reloc,"WORD",    true, 0xffffffff,0xffffffff, false},
 };
 #undef NA
 
@@ -233,7 +236,7 @@ static reloc_howto_type howto_table[] =
 #define RELOC_PROCESSING(relent, reloc, symbols, abfd, section) \
  reloc_processing(relent, reloc, symbols, abfd, section)
 
-void DEFUN(reloc_processing,(relent,reloc, symbols, abfd, section) ,
+static void DEFUN(reloc_processing,(relent,reloc, symbols, abfd, section) ,
 	   arelent *relent AND
 	   struct internal_reloc *reloc AND
 	   asymbol **symbols AND
@@ -266,7 +269,7 @@ void DEFUN(reloc_processing,(relent,reloc, symbols, abfd, section) ,
 	  relent->addend = 0;			
       }			
       relent->address-= section->vma;
-      relent->section = 0;
+/*      relent->section = 0;*/
   }
 }
 

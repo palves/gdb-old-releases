@@ -1,5 +1,5 @@
 /* Getopt for GNU.
-   Copyright (C) 1987, 88, 89, 90, 91 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 90, 91, 1992 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -15,13 +15,18 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#ifdef	LIBC
+/* For when compiled as part of the GNU C library.  */
+#include <ansidecl.h>
+#endif
+
 #include "getopt.h"
 
 #ifndef __STDC__
 #define const
 #endif
 
-#if defined(STDC_HEADERS) || defined(__GNU_LIBRARY__)
+#if defined(STDC_HEADERS) || defined(__GNU_LIBRARY__) || defined (LIBC)
 #include <stdlib.h>
 #else /* STDC_HEADERS or __GNU_LIBRARY__ */
 char *getenv ();
@@ -34,46 +39,30 @@ char *getenv ();
 int
 getopt_long (argc, argv, options, long_options, opt_index)
      int argc;
-     char **argv;
+     char *const *argv;
      const char *options;
      const struct option *long_options;
      int *opt_index;
 {
-  int val;
-
-  /* For strict POSIX compatibility, we must turn off long options.  */
-  if (getenv ("POSIX_ME_HARDER") == 0)
-    _getopt_long_options = long_options;
-  val = getopt (argc, argv, options);
-  if (val == 0 && opt_index != NULL)
-    *opt_index = option_index;
-  return val;
+  return _getopt_internal (argc, argv, options, long_options, opt_index, 0);
 }
 
-/* Like getopt_long, but '-' as well as '+' can indicate a long option.
-   If an option that starts with '-' doesn't match a long option,
+/* Like getopt_long, but '-' as well as '--' can indicate a long option.
+   If an option that starts with '-' (not '--') doesn't match a long option,
    but does match a short option, it is parsed as a short option
    instead. */
 
 int 
 getopt_long_only (argc, argv, options, long_options, opt_index)
      int argc;
-     char **argv;
+     char *const *argv;
      const char *options;
      const struct option *long_options;
      int *opt_index;
 {
-  int val;
-
-  _getopt_long_options = long_options;
-  _getopt_long_only = 1;
-  val = getopt (argc, argv, options);
-  if (val == 0 && opt_index != NULL)
-    *opt_index = option_index;
-  return val;
+  return _getopt_internal (argc, argv, options, long_options, opt_index, 1);
 }
 
-
 #ifdef TEST
 
 #include <stdio.h>
@@ -89,7 +78,6 @@ main (argc, argv)
   while (1)
     {
       int this_option_optind = optind ? optind : 1;
-      char *name = '\0';
       int option_index = 0;
       static struct option long_options[] =
       {
@@ -110,7 +98,7 @@ main (argc, argv)
       switch (c)
 	{
 	case 0:
-	  printf ("option %s", (long_options[option_index]).name);
+	  printf ("option %s", long_options[option_index].name);
 	  if (optarg)
 	    printf (" with arg %s", optarg);
 	  printf ("\n");
@@ -142,6 +130,10 @@ main (argc, argv)
 
 	case 'c':
 	  printf ("option c with value `%s'\n", optarg);
+	  break;
+
+	case 'd':
+	  printf ("option d with value `%s'\n", optarg);
 	  break;
 
 	case '?':

@@ -59,6 +59,9 @@ extern struct context_stack *push_context ();
 extern void record_line ();
 extern void start_symtab ();
 extern struct symbol *define_symbol ();
+extern struct partial_symtab *start_psymtab ();
+extern void end_psymtab();
+
 
 /* Convert stab register number (from `r' declaration) to a gdb REGNUM.  */
 
@@ -218,6 +221,11 @@ extern CORE_ADDR startup_file_end;	/* From blockframe.c */
 
 EXTERN unsigned char processing_gcc_compilation;
 
+/* The type code that process_one_symbol saw on its previous invocation.
+   Used to detect pairs of N_SO symbols. */
+
+EXTERN int previous_stab_code;
+
 /* Setup a define to deal cleanly with the underscore problem */
 
 #ifdef NAMES_HAVE_UNDERSCORE
@@ -294,3 +302,11 @@ struct subfile_stack
 };
 
 EXTERN struct subfile_stack *subfile_stack;
+
+extern struct complaint unknown_symtype_complaint;
+
+#define next_symbol_text() (*next_symbol_text_func)()
+
+/* Function to invoke get the next symbol.  Return the symbol name. */
+
+EXTERN char * (*next_symbol_text_func)();

@@ -38,7 +38,7 @@ enum m68k_architecture {
 	m68000up = (m68000 | m68010up),
 
 	mfloat = (m68881 | m68882 | m68040),
-	mmmu   = (m68851 | m68030 | m68040),
+	mmmu   = (m68851 | m68030 | m68040)
 }; /* enum m68k_architecture */
 
  /* note that differences in addressing modes that aren't distinguished

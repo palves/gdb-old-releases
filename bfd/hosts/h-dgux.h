@@ -25,3 +25,4 @@ extern PROTO(void, bzero,(char *, int));
 
 
 
+#include "fopen-same.h"

@@ -22,17 +22,19 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 SECTION
 	File Formats
 
-DESCRIPTION
 	A format is a BFD concept of high level file contents. The
 	formats supported by BFD are: 
 
 	o bfd_object
+
 	The BFD may contain data, symbols, relocations and debug info.
 
 	o bfd_archive
+
 	The BFD contains other BFDs and an optional index.
 
 	o bfd_core
+
 	The BFD contains the result of an executable core dump.
 
 
@@ -49,6 +51,9 @@ extern bfd_target *default_vector[];
 /*
 FUNCTION
 	bfd_check_format
+
+SYNOPSIS
+	boolean bfd_check_format(bfd *abfd, bfd_format format);
 
 DESCRIPTION
 	This routine is supplied a BFD and a format. It attempts to
@@ -79,8 +84,6 @@ DESCRIPTION
 	o file_ambiguously_recognized 
 	more than one backend recognised the file format.
 
-SYNOPSIS
-	boolean bfd_check_format(bfd *abfd, bfd_format format);
 */
 
 boolean
@@ -168,14 +171,15 @@ DEFUN(bfd_check_format,(abfd, format),
 FUNCTION
 	bfd_set_format
 
+SYNOPSIS
+	boolean bfd_set_format(bfd *, bfd_format);
+
 DESCRIPTION
 	This function sets the file format of the supplied BFD to the
 	format requested. If the target set in the BFD does not
 	support the format requested, the format is illegal or the BFD
 	is not open for writing than an error occurs.
 
-SYNOPSIS
-	boolean bfd_set_format(bfd *, bfd_format);
 */
 
 boolean
@@ -210,14 +214,14 @@ DEFUN(bfd_set_format,(abfd, format),
 FUNCTION
 	bfd_format_string
 
+SYNOPSIS
+	CONST char *bfd_format_string(bfd_format);
+
 DESCRIPTION
 	This function takes one argument, and enumerated type
 	(bfd_format) and returns a pointer to a const string
-	"invalid", "object", "archive", "core" or "unknown" depending
-	upon the value of the enumeration.
-
-SYNOPSIS
-	CONST char *bfd_format_string(bfd_format);
+	<<invalid>>, <<object>>, <<archive>>, <<core>> or <<unknown>>
+	depending upon the value of the enumeration.
 */
 
 CONST char *

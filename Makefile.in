@@ -16,59 +16,1547 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #
-# Last Mod Thu Nov 14 03:17:05 PST 1991, by rich@cygnus.com
-#
-# $Id: Makefile.in,v 1.74 1991/11/22 21:47:07 gnu Exp $
 
 srcdir = .
 
-idestdir = /usr/local
-ddestdir = $(idestdir)
+prefix = /usr/local
 
-SHELL=/bin/sh
+datadir = $(prefix)/lib
+bindir = $(prefix)/bin
+libdir = $(prefix)/lib
+mandir = $(datadir)/man
+man1dir = $(mandir)/man1
+man2dir = $(mandir)/man2
+man3dir = $(mandir)/man3
+man4dir = $(mandir)/man4
+man5dir = $(mandir)/man5
+man6dir = $(mandir)/man6
+man7dir = $(mandir)/man7
+man8dir = $(mandir)/man8
+man9dir = $(mandir)/man9
+infodir = $(datadir)/info
+includedir = $(prefix)/include
+docdir = $(datadir)/doc
 
-RANLIB = ranlib
+SHELL = /bin/sh
+
+INSTALL = install -c
+INSTALL_PROGRAM = $(INSTALL)
+INSTALL_DATA = $(INSTALL)
+
 AR = ar
-AR_FLAGS = cq
+AR_FLAGS = qc
+RANLIB = ranlib
 
 BISON = `if [ -d $(unsubdir)/../bison ] ; \
-	then echo \`pwd\`/$(unsubdir)/../bison$(subdir)/bison -y -L \`pwd\`/$(unsubdir)/../bison$(subdir)/ ; \
-	else echo yacc ; fi`
+	then echo \`pwd\`/$(unsubdir)/../bison$(subdir)/bison -L \`pwd\`/$(unsubdir)/../bison$(subdir)/ -y ; \
+	else echo bison -y ; fi`
 
-MAKEINFO = `if [ -d $(unsubdir)/../texinfo/C ] ; \
+MAKEINFO = makeinfo
+FRESHMAKEINFO = `if [ -d $(unsubdir)/../texinfo/C ] ; \
 	then echo \`pwd\`/$(unsubdir)/../texinfo/C$(subdir)/makeinfo ; \
 	else echo echo ; fi`
 
 #\`(cd $(srcdir)/bison ; \\`pwd\\`)\`
-SUBDIRS = libiberty readline bfd gdb binutils ld gas gcc gnulib clib
+SUBDIRS = libiberty readline bfd gdb binutils ld gas gcc libg++ gnulib clib
 OTHERS = 
 
 ALL = all.normal
-INSTALL_HEADERS = install-headers
-INSTALL_FIXED_INCLUDES = install-fixed-includes
+INSTALL_TARGET = install.all
 
 ### for debugging
 #GCCVERBOSE=-v
 
+
 #### host and target specific makefile fragments come in here.
 ###
 
+.PHONY: all info install-info clean-info
+
 all:	$(ALL)
-all-info: force
-	$(MAKE) subdir_do DO=all-info "DODIRS=$(SUBDIRS)"
 
-install-info: dir.info install-info-dirs force
+info:	cfg-paper.info
+	$(MAKE) subdir_do DO=info "DODIRS=$(SUBDIRS)"
+
+clean-info:
+	$(MAKE) subdir_do DO=clean-info "DODIRS=$(SUBDIRS)"
+	rm -f cfg-paper.info
+
+cfg-paper.info: cfg-paper.texi
+	$(MAKEINFO) -o cfg-paper.info $(srcdir)/cfg-paper.texi
+
+configure.info: configure.texi
+	$(MAKEINFO) -o configure.info $(srcdir)/configure.texi
+
+install-info: install-info-dirs force
 	$(MAKE) subdir_do DO=install-info "DODIRS=$(SUBDIRS)"
-	$(MAKE) install-dir.info
+	$(INSTALL_DATA) cfg-paper.info $(infodir)/cfg-paper.info
+	$(MAKE) dir.info install-dir.info
 
-all.normal:
-	$(MAKE) subdir_do DO=all "DODIRS=$(SUBDIRS) $(OTHERS)"
+install-dir.info:
+	$(INSTALL_DATA) dir.info $(infodir)/dir.info
 
-./fixed-includes:
-	if [ -d ./fixed-includes ] ; then rm -rf ./fixed-includes ; else true ; fi
-	mkdir ./fixed-includes
-	$(srcdir)/gcc/fixincludes `pwd`/fixed-includes
+# clib prms
+#	all-gnulib
+all.normal: all-bison all-byacc all-flex all-ld \
+	all-gcc all-gas all-binutils \
+	all-libg++ all-gdb all-make all-cvs all-emacs all-ispell all-fileutils
+all.cross: all-bison all-ld all-gnulib all-gdb
+#	$(MAKE) subdir_do DO=all "DODIRS=$(SUBDIRS) $(OTHERS)"
 
+clean: clean-libiberty clean-bfd clean-binutils \
+	clean-bison clean-byacc clean-flex clean-ld clean-gas \
+	clean-gcc clean-gnulib clean-readline clean-glob clean-gdb \
+	clean-make clean-diff clean-grep clean-rcs clean-gdbm \
+	clean-cvs clean-emacs clean-ispell clean-fileutils
+	rm -rf *.a TEMP errs core *.o *~ \#* TAGS *.E
+
+install: $(INSTALL_TARGET) $(srcdir)/configure.man
+	$(INSTALL_DATA) $(srcdir)/configure.man $(man1dir)/configure.1
+
+install.all: install-dirs install-libiberty \
+	install-binutils install-bison install-byacc install-flex \
+	install-ld install-gas install-gcc install-gnulib \
+	install-readline install-glob install-gdb install-make \
+	install-cvs install-emacs install-ispell install-fileutils
+install.cross: install-dirs install-libiberty install-binutils install-bison \
+	install-byacc install-ld install-gas install-gnulib \
+	install-readline install-glob install-gdb
+
+### libiberty
+.PHONY: all-libiberty just-libiberty
+all-libiberty: just-libiberty
+just-libiberty: force
+	if [ -d $(unsubdir)/libiberty ] ; then \
+		(cd $(unsubdir)/libiberty$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-libiberty: force
+	if [ -d $(unsubdir)/libiberty ] ; then \
+		(cd $(unsubdir)/libiberty$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-libiberty: force
+	if [ -d $(unsubdir)/libiberty ] ; then \
+		(cd $(unsubdir)/libiberty$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### texinfo
+.PHONY: all-texinfo just-texinfo
+all-texinfo: just-texinfo
+just-texinfo: just-libiberty force
+	if [ -d $(unsubdir)/texinfo ] ; then \
+		(cd $(unsubdir)/texinfo$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-texinfo: force
+	if [ -d $(unsubdir)/texinfo ] ; then \
+		(cd $(unsubdir)/texinfo$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-texinfo: force
+	if [ -d $(unsubdir)/texinfo ] ; then \
+		(cd $(unsubdir)/texinfo$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### bfd
+.PHONY: all-bfd just-bfd
+all-bfd: just-bfd
+just-bfd: force
+	if [ -d $(unsubdir)/bfd ] ; then \
+		(cd $(unsubdir)/bfd$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-bfd: force
+	if [ -d $(unsubdir)/bfd ] ; then \
+		(cd $(unsubdir)/bfd$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-bfd: force
+	if [ -d $(unsubdir)/bfd ] ; then \
+		(cd $(unsubdir)/bfd$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### binutils
+.PHONY: all-binutils just-binutils
+all-binutils: just-binutils
+just-binutils: just-libiberty just-bfd force
+	if [ -d $(unsubdir)/binutils ] ; then \
+		(cd $(unsubdir)/binutils$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-binutils: force
+	if [ -d $(unsubdir)/binutils ] ; then \
+		(cd $(unsubdir)/binutils$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-binutils: force
+	if [ -d $(unsubdir)/binutils ] ; then \
+		(cd $(unsubdir)/binutils$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### byacc
+.PHONY: all-byacc just-byacc
+all-byacc: just-byacc
+just-byacc: force
+	if [ -d $(unsubdir)/byacc ] ; then \
+		(cd $(unsubdir)/byacc$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-byacc: force
+	if [ -d $(unsubdir)/byacc ] ; then \
+		(cd $(unsubdir)/byacc$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-byacc: force
+	if [ -d $(unsubdir)/byacc ] ; then \
+		(cd $(unsubdir)/byacc$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### bison
+.PHONY: all-bison just-bison
+all-bison: just-bison
+just-bison: just-libiberty force
+	if [ -d $(unsubdir)/bison ] ; then \
+		(cd $(unsubdir)/bison$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-bison: force
+	if [ -d $(unsubdir)/bison ] ; then \
+		(cd $(unsubdir)/bison$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-bison: force
+	if [ -d $(unsubdir)/bison ] ; then \
+		(cd $(unsubdir)/bison$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### gcc
+.PHONY: all-gcc just-gcc
+all-gcc: just-gcc
+#just-gcc: just-libiberty just-bison just-gnulib1 force
+just-gcc: just-libiberty just-bison force
+	if [ -d $(unsubdir)/gcc ] ; then \
+		(cd $(unsubdir)/gcc$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-gcc: force
+	if [ -d $(unsubdir)/gcc ] ; then \
+		(cd $(unsubdir)/gcc$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-gcc:
+	if [ -d $(unsubdir)/gcc ] ; then \
+		(cd $(unsubdir)/gcc$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### readline
+.PHONY: all-readline just-readline
+all-readline: just-readline
+just-readline: force
+	if [ -d $(unsubdir)/readline ] ; then \
+		(cd $(unsubdir)/readline$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-readline: force
+	if [ -d $(unsubdir)/readline ] ; then \
+		(cd $(unsubdir)/readline$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-readline: force
+	if [ -d $(unsubdir)/readline ] ; then \
+		(cd $(unsubdir)/readline$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### glob
+.PHONY: all-glob just-glob
+all-glob: just-glob
+just-glob: force
+	if [ -d $(unsubdir)/glob ] ; then \
+		(cd $(unsubdir)/glob$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-glob: force
+	if [ -d $(unsubdir)/glob ] ; then \
+		(cd $(unsubdir)/glob$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-glob: force
+	if [ -d $(unsubdir)/glob ] ; then \
+		(cd $(unsubdir)/glob$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### gas
+.PHONY: all-gas just-gas
+all-gas: just-gas
+just-gas: just-libiberty just-bfd force
+	if [ -d $(unsubdir)/gas ] ; then \
+		(cd $(unsubdir)/gas$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-gas: force
+	if [ -d $(unsubdir)/gas ] ; then \
+		(cd $(unsubdir)/gas$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-gas: force
+	if [ -d $(unsubdir)/gas ] ; then \
+		(cd $(unsubdir)/gas$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### ld
+.PHONY: all-ld just-ld
+all-ld: just-ld
+just-ld: just-libiberty just-bfd just-bison force
+	if [ -d $(unsubdir)/ld ] ; then \
+		(cd $(unsubdir)/ld$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-ld: force
+	if [ -d $(unsubdir)/ld ] ; then \
+		(cd $(unsubdir)/ld$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-ld: force
+	if [ -d $(unsubdir)/ld ] ; then \
+		(cd $(unsubdir)/ld$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### gnulib (and gnulib1)
+.PHONY: all-gnulib just-gnulib1 just-gnulib
+just-gnulib1: all-gas all-binutils force
+	if [ -d $(unsubdir)/gnulib ] ; then \
+		(cd $(unsubdir)/gnulib$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			gnulib1.a) ; \
+	else \
+		true ; \
+	fi
+
+clean-gnulib1: force
+	if [ -d $(unsubdir)/gnulib ] ; then \
+		(cd $(unsubdir)/gnulib$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean-gnulib1) ; \
+	else \
+		true ; \
+	fi
+
+install-gnulib1: force
+	echo gnulib1 is a component, not an installable target
+
+all-gnulib: just-gnulib
+just-gnulib: all-gcc all-gas all-binutils force
+	true
+	if [ -d $(unsubdir)/gnulib ] ; then \
+		(cd $(unsubdir)/gnulib$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-gnulib: force
+	if [ -d $(unsubdir)/gnulib ] ; then \
+		(cd $(unsubdir)/gnulib$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-gnulib: force
+	if [ -d $(unsubdir)/gnulib ] ; then \
+		(cd $(unsubdir)/gnulib$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### gdb
+.PHONY: all-gdb just-gdb
+all-gdb: just-gdb
+just-gdb: just-bfd just-libiberty just-readline just-glob just-bison force
+	if [ -d $(unsubdir)/gdb ] ; then \
+		(cd $(unsubdir)/gdb$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-gdb: force
+	if [ -d $(unsubdir)/gdb ] ; then \
+		(cd $(unsubdir)/gdb$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-gdb: force
+	if [ -d $(unsubdir)/gdb ] ; then \
+		(cd $(unsubdir)/gdb$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### make
+.PHONY: all-make just-make
+all-make: just-make
+just-make: all-libiberty force
+	if [ -d $(unsubdir)/make ] ; then \
+		(cd $(unsubdir)/make$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-make: force
+	if [ -d $(unsubdir)/make ] ; then \
+		(cd $(unsubdir)/make$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-make: force
+	if [ -d $(unsubdir)/make ] ; then \
+		(cd $(unsubdir)/make$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### diff
+.PHONY: all-diff just-diff
+all-diff: just-diff
+just-diff: force
+	if [ -d $(unsubdir)/diff ] ; then \
+		(cd $(unsubdir)/diff$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-diff: force
+	if [ -d $(unsubdir)/diff ] ; then \
+		(cd $(unsubdir)/diff$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-diff: force
+	if [ -d $(unsubdir)/diff ] ; then \
+		(cd $(unsubdir)/diff/$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### grep
+.PHONY: all-grep just-grep
+all-grep: just-grep
+just-grep: force
+	if [ -d $(unsubdir)/grep ] ; then \
+		(cd $(unsubdir)/grep$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-grep: force
+	if [ -d $(unsubdir)/grep ] ; then \
+		(cd $(unsubdir)/grep$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-grep: force
+	if [ -d $(unsubdir)/grep ] ; then \
+		(cd $(unsubdir)/grep$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### rcs
+.PHONY: all-rcs just-rcs
+all-rcs: just-rcs
+just-rcs: just-diff just-grep force
+	if [ -d $(unsubdir)/rcs ] ; then \
+		(cd $(unsubdir)/rcs$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-rcs: force
+	if [ -d $(unsubdir)/rcs ] ; then \
+		(cd $(unsubdir)/rcs$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-rcs: install-grep install-diff force
+	if [ -d $(unsubdir)/rcs ] ; then \
+		(cd $(unsubdir)/rcs$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### gdbm
+.PHONY: all-gdbm just-gdbm
+all-gdbm: just-gdbm
+just-gdbm: force
+	if [ -d $(unsubdir)/gdbm ] ; then \
+		(cd $(unsubdir)/gdbm$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-gdbm: force
+	if [ -d $(unsubdir)/gdbm ] ; then \
+		(cd $(unsubdir)/gdbm$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-gdbm: force
+	if [ -d $(unsubdir)/gdbm ] ; then \
+		(cd $(unsubdir)/gdbm$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### cvs
+.PHONY: all-cvs just-cvs
+all-cvs: just-cvs just-rcs just-grep just-diff
+just-cvs: just-gdbm force
+	if [ -d $(unsubdir)/cvs ] ; then \
+		(cd $(unsubdir)/cvs$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-cvs: clean-gdbm force
+	if [ -d $(unsubdir)/cvs ] ; then \
+		(cd $(unsubdir)/cvs$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-cvs: install-rcs install-gdbm force
+	if [ -d $(unsubdir)/cvs ] ; then \
+		(cd $(unsubdir)/cvs$(subdir); \
+		$(MAKE) \
+			"bindir=$(bindir)" \
+			"mandir=$(man1dir)" \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### emacs
+.PHONY: all-emacs just-emacs
+all-emacs: just-emacs
+just-emacs: force
+	if [ -d $(unsubdir)/emacs ] ; then \
+		(cd $(unsubdir)/emacs$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-emacs: force
+	if [ -d $(unsubdir)/emacs ] ; then \
+		(cd $(unsubdir)/emacs$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-emacs: install-rcs install-gdbm force
+	if [ -d $(unsubdir)/emacs ] ; then \
+		(cd $(unsubdir)/emacs$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### ispell
+.PHONY: all-ispell just-ispell
+all-ispell: just-ispell
+just-ispell: all-emacs force
+	if [ -d $(unsubdir)/ispell ] ; then \
+		(cd $(unsubdir)/ispell$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-ispell: force
+	if [ -d $(unsubdir)/ispell ] ; then \
+		(cd $(unsubdir)/ispell$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-ispell: install-rcs install-gdbm force
+	if [ -d $(unsubdir)/ispell ] ; then \
+		(cd $(unsubdir)/ispell$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### flex
+.PHONY: all-flex just-flex
+all-flex: just-flex
+just-flex: force
+	if [ -d $(unsubdir)/flex ] ; then \
+		(cd $(unsubdir)/flex$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-flex: force
+	if [ -d $(unsubdir)/flex ] ; then \
+		(cd $(unsubdir)/flex$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-flex: force
+	if [ -d $(unsubdir)/flex ] ; then \
+		(cd $(unsubdir)/flex$(subdir); \
+		$(MAKE) \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### fileutils
+.PHONY: all-fileutils just-fileutils
+all-fileutils: just-fileutils
+just-fileutils: force
+	if [ -d $(unsubdir)/fileutils ] ; then \
+		(cd $(unsubdir)/fileutils$(subdir); \
+		$(MAKE) \
+			"prefix=$(prefix)" \
+			"datadir=$(datadir)" \
+			"mandir=$(mandir)" \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-fileutils: force
+	if [ -d $(unsubdir)/fileutils ] ; then \
+		(cd $(unsubdir)/fileutils$(subdir); \
+		$(MAKE) \
+			"prefix=$(prefix)" \
+			"datadir=$(datadir)" \
+			"mandir=$(mandir)" \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-fileutils: force
+	if [ -d $(unsubdir)/fileutils ] ; then \
+		(cd $(unsubdir)/fileutils$(subdir); \
+		$(MAKE) \
+			"prefix=$(prefix)" \
+			"datadir=$(datadir)" \
+			"mandir=$(mandir)" \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### libg++
+.PHONY: all-libg++ just-libg++
+all-libg++: just-gcc just-libg++
+# NOTE!  We have added GXX= and XTRAFLAGS to the $(MAKE) line!!!
+# Do not clone this one.
+just-libg++: force
+	if [ -d $(unsubdir)/libg++ ] ; then \
+		(cd $(unsubdir)/libg++$(subdir); \
+		$(MAKE) \
+			GXX=`cd $(unsubdir)/..$(subdir); pwd`"/gcc/gcc -B"`cd $(unsubdir)/..$(subdir);pwd`"/gcc/" \
+			"XTRAFLAGS=-I"`cd $(unsubdir)/..$(subdir); pwd`/gcc/include\
+			"prefix=$(prefix)" \
+			"datadir=$(datadir)" \
+			"mandir=$(mandir)" \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			all) ; \
+	else \
+		true ; \
+	fi
+
+clean-libg++: force
+	if [ -d $(unsubdir)/libg++ ] ; then \
+		(cd $(unsubdir)/libg++$(subdir); \
+		$(MAKE) \
+			"prefix=$(prefix)" \
+			"datadir=$(datadir)" \
+			"mandir=$(mandir)" \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			clean) ; \
+	else \
+		true ; \
+	fi
+
+install-libg++: force
+	if [ -d $(unsubdir)/libg++ ] ; then \
+		(cd $(unsubdir)/libg++$(subdir); \
+		$(MAKE) \
+			"prefix=$(prefix)" \
+			"datadir=$(datadir)" \
+			"mandir=$(mandir)" \
+			"against=$(against)" \
+			"AR=$(AR)" \
+			"AR_FLAGS=$(AR_FLAGS)" \
+			"CC=$(CC)" \
+			"RANLIB=$(RANLIB)" \
+			"LOADLIBES=$(LOADLIBES)" \
+			"LDFLAGS=$(LDFLAGS)" \
+			"BISON=$(BISON)" \
+			"MAKEINFO=$(MAKEINFO)" \
+			install) ; \
+	else \
+		true ; \
+	fi
+
+### other supporting targets
 # this is a bad hack.
 all.xclib:	all.normal
 	if [ -d clib ] ; then \
@@ -90,8 +1578,8 @@ subdir_do: force
 				$(MAKE) \
 					"against=$(against)" \
 					"AR=$(AR)" \
-					"CC=$(CC)" \
 					"AR_FLAGS=$(AR_FLAGS)" \
+					"CC=$(CC)" \
 					"RANLIB=$(RANLIB)" \
 					"LOADLIBES=$(LOADLIBES)" \
 					"LDFLAGS=$(LDFLAGS)" \
@@ -103,29 +1591,29 @@ subdir_do: force
 	fi ; \
 	done
 
-bootstrap: ./fixed-includes
-	$(MAKE) all all-info
+bootstrap:
+	$(MAKE) all info
 	$(MAKE) stage1
 	$(MAKE) pass "stagepass=stage1"
 	$(MAKE) stage2
 	$(MAKE) pass "stagepass=stage2"
 	$(MAKE) comparison
 
-bootstrap2: ./fixed-includes
+bootstrap2:
 	$(MAKE) pass "stagepass=stage1"
 	$(MAKE) stage2
 	$(MAKE) pass "stagepass=stage2"
 	$(MAKE) comparison
 
-bootstrap3: ./fixed-includes
+bootstrap3:
 	$(MAKE) pass "stagepass=stage2"
 	$(MAKE) comparison
 
-pass: ./fixed-includes
+pass:
 	cp $(srcdir)/gcc/gstdarg.h $(unsubdir)/gas$(subdir)/stdarg.h
-	$(MAKE) subdir_do "DO=all all-info" "DODIRS=$(SUBDIRS)" \
+	$(MAKE) subdir_do "DO=all info" "DODIRS=$(SUBDIRS)" \
 		"CC=`pwd`/$(unsubdir)/gcc$(subdir)/$(stagepass)/gcc \
-		-O $(GCCVERBOSE) -I`pwd`/fixed-includes \
+		-O $(GCCVERBOSE) -I`pwd`/$(unsubdir)/gcc$(subdir)/include \
 		-B`pwd`/$(unsubdir)/gcc$(subdir)/$(stagepass)/ \
 		-B`pwd`/$(unsubdir)/gas$(subdir)/$(stagepass)/ \
 		-B`pwd`/$(unsubdir)/ld$(subdir)/$(stagepass)/" \
@@ -138,16 +1626,16 @@ pass: ./fixed-includes
 		-B`pwd`/$(unsubdir)/ld$(subdir)/$(stagepass)/"
 
 
-stage1: ./fixed-includes
+stage1:
 	$(MAKE) subdir_do DO=stage1 "DODIRS=$(SUBDIRS)"
 
-stage2: ./fixed-includes
+stage2:
 	$(MAKE) subdir_do DO=stage2 "DODIRS=$(SUBDIRS)"
 
-stage3: ./fixed-includes
+stage3:
 	$(MAKE) subdir_do DO=stage3 "DODIRS=$(SUBDIRS)"
 
-stage4: ./fixed-includes
+stage4:
 	$(MAKE) subdir_do DO=stage4 "DODIRS=$(SUBDIRS)"
 
 against=stage2
@@ -159,69 +1647,45 @@ de-stage2:; $(MAKE) subdir_do DO=de-stage2 "DODIRS=$(SUBDIRS)"
 de-stage3:; $(MAKE) subdir_do DO=de-stage3 "DODIRS=$(SUBDIRS)"
 de-stage4:; $(MAKE) subdir_do DO=de-stage4 "DODIRS=$(SUBDIRS)"
 
-clean:
-	rm -rf *.a TEMP errs core *.o *~ \#* TAGS *.E
-	$(MAKE) subdir_do DO=clean "DODIRS=$(SUBDIRS) $(OTHERS)"
-
-install: install-no-fixincludes $(INSTALL_FIXED_INCLUDES)
-
-install-no-fixincludes: install-dirs $(INSTALL_HEADERS)
-	$(MAKE) subdir_do DO=install "DODIRS=$(SUBDIRS) $(OTHERS)"
-
 # The "else true" stuff is for Ultrix; the shell returns the exit code
 # of the "if" command, if no commands are run in the "then" or "else" part,
 # causing Make to quit.
 
 MAKEDIRS= \
-	$(ddestdir) \
-	$(ddestdir)/bin \
-	$(ddestdir)/include \
-	$(ddestdir)/lib \
-	$(ddestdir)/lib/emacs \
-	$(idestdir) \
-	$(idestdir)/lib \
-	$(idestdir)/doc \
-	$(idestdir)/man \
-	$(idestdir)/man/man1 \
-	$(idestdir)/man/man5
+	$(prefix) \
+	$(bindir) \
+	$(libdir) \
+	$(includedir) \
+	$(datadir) \
+	$(docdir) \
+	$(mandir) \
+	$(man1dir) \
+	$(man5dir)
+
+#	$(man2dir) \
+#	$(man3dir) \
+#	$(man4dir) \
+#	$(man6dir) \
+#	$(man7dir) \
+#	$(man8dir)
 
 install-dirs: force
 	for i in $(MAKEDIRS) ; do \
 		echo Making $$i... ; \
-		if [ -d $$i ] ; then true ; else mkdir $$i ; fi ; \
+		if [ -d $$i ] ; then true ; else mkdir $$i || exit 1 ; fi ; \
 	done
 
 MAKEINFODIRS= \
-	$(idestdir) \
-	$(idestdir)/info
+	$(prefix) \
+	$(infodir)
 
 install-info-dirs: force
-	for i in $(MAKEINFODIRS) ; do \
-		echo Making $$i... ; \
-		if [ -d $$i ] ; then true ; else mkdir $$i ; fi ; \
-	done
-
-install-headers:
-	if [ -d $(unsubdir)/gcc$(subdir) ] ; then \
-		(cd  $(unsubdir)/gcc$(subdir) ; \
-				$(MAKE) install-dir) ; \
-	else true; \
-	fi
-
-install-fixed-includes: force
-	if [ -d $(unsubdir)/gcc$(subdir) ] ; then \
-		(cd  $(unsubdir)/gcc$(subdir) ; \
-				$(MAKE) install-fixed-includes) ; \
-	else true; \
-	fi
-
-install-dir.info-in-place: force
-	rdir=`cd $(srcdir)/texinfo ; pwd` \
-	&& cd $(idestdir)/info \
-	&& ($${rdir}/gen-info-dir `pwd`) > dir
+	if [ -d $(prefix) ] ; then true ; else mkdir $(prefix) ; fi
+	if [ -d $(datadir) ] ; then true ; else mkdir $(datadir) ; fi
+	if [ -d $(infodir) ] ; then true ; else mkdir $(infodir) ; fi
 
 dir.info: force
-	$(srcdir)/texinfo/gen-info-dir . > dir.info.new
+	$(srcdir)/texinfo/gen-info-dir $(infodir) > dir.info.new
 	mv -f dir.info.new dir.info
 
 etags tags: TAGS
@@ -252,8 +1716,8 @@ Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
 #
 # Build GDB distributions that contain BFD, Include, Libiberty, Readline, etc
 
-DEVO_SUPPORT= README DOC.configure Makefile.in configure configure.in \
-	config.sub config
+DEVO_SUPPORT= README cfg-paper.texi Makefile.in configure configure.in \
+	config.sub config configure.man
 GDB_SUPPORT_DIRS= bfd include libiberty readline glob
 GDB_SUPPORT_FILES= $(GDB_SUPPORT_DIRS) texinfo/fsf/texinfo.tex
 
@@ -279,11 +1743,11 @@ make-gdb.tar.Z: $(DEVO_SUPPORT) $(GDB_SUPPORT_DIRS) gdb texinfo/fsf/texinfo.tex
 		ln -s ../$$i . ; \
 	done)
 	# Put only one copy (four hard links) of COPYING in the tar file.
-	rm 			    proto-toplev/bfd/COPYING
+	rm                          proto-toplev/bfd/COPYING
 	ln proto-toplev/gdb/COPYING proto-toplev/bfd/COPYING
-	rm 			    proto-toplev/include/COPYING
+	rm                          proto-toplev/include/COPYING
 	ln proto-toplev/gdb/COPYING proto-toplev/include/COPYING
-	rm 			    proto-toplev/readline/COPYING
+	rm                          proto-toplev/readline/COPYING
 	ln proto-toplev/gdb/COPYING proto-toplev/readline/COPYING
 	# Take out texinfo from configurable dirs
 	rm proto-toplev/configure.in
@@ -291,6 +1755,12 @@ make-gdb.tar.Z: $(DEVO_SUPPORT) $(GDB_SUPPORT_DIRS) gdb texinfo/fsf/texinfo.tex
 	# Take out glob from buildable dirs
 	rm proto-toplev/Makefile.in
 	sed '/^SUBDIRS =/s/glob //' <Makefile.in >proto-toplev/Makefile.in
+	# Take out texinfo from buildable dirs
+	cp proto-toplev/Makefile.in temp.$$
+	sed '/^all\.normal: /s/all-texinfo //' <temp.$$ >temp1.$$
+	sed '/^clean: /s/clean-texinfo //' <temp1.$$ >temp.$$
+	sed '/^install\.all: /s/install-texinfo //' <temp.$$ >proto-toplev/Makefile.in
+	rm temp.$$ temp1.$$
 	mkdir proto-toplev/texinfo
 	mkdir proto-toplev/texinfo/fsf
 	ln -s ../../../texinfo/fsf/texinfo.tex proto-toplev/texinfo/fsf/

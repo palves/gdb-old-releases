@@ -291,23 +291,36 @@ xfer_memory (memaddr, myaddr, len, write, target)
 #endif				/* REG_STACK_SEGMENT */
 #endif FIXME
 
-static void
-exec_files_info ()
+void
+print_section_info (t, abfd)
+  struct target_ops *t;
+  bfd *abfd;
 {
   struct section_table *p;
 
-  printf_filtered ("\t`%s', ", bfd_get_filename(exec_bfd));
+  printf_filtered ("\t`%s', ", bfd_get_filename(abfd));
   wrap_here ("        ");
-  printf_filtered ("file type %s.\n", bfd_get_target(exec_bfd));
+  printf_filtered ("file type %s.\n", bfd_get_target(abfd));
 
-  for (p = exec_ops.sections; p < exec_ops.sections_end; p++) {
+  for (p = t->sections; p < t->sections_end; p++) {
     printf_filtered ("\t%s", local_hex_string_custom (p->addr, "08"));
     printf_filtered (" - %s", local_hex_string_custom (p->endaddr, "08"));
     if (info_verbose)
       printf_filtered (" @ %s",
 		       local_hex_string_custom (p->sec_ptr->filepos, "08"));
-    printf_filtered (" is %s\n", bfd_section_name (exec_bfd, p->sec_ptr));
+    printf_filtered (" is %s", bfd_section_name (p->bfd, p->sec_ptr));
+    if (p->bfd != abfd) {
+      printf_filtered (" in %s", bfd_get_filename (p->bfd));
+    }
+    printf_filtered ("\n");
   }
+}
+
+static void
+exec_files_info (t)
+  struct target_ops *t;
+{
+  print_section_info (t, exec_bfd);
 }
 
 static void

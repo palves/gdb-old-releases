@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: targets.c,v 1.46 1991/12/04 07:39:59 gnu Exp $ */
+/* $Id: targets.c,v 1.52 1992/01/28 06:01:30 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -67,14 +67,15 @@ DESCRIPTION
 	<<bfd_check_format>> on the BFD with a suggested format. The
 	routine returns <<true>> when the application guesses right.
 @menu
-* bfd_target::
+@* bfd_target::
 @end menu
 */
 
 
 /*
 
-@node bfd_target,  , Targets, Targets
+INODE
+	bfd_target,  , Targets, Targets
 
 SUBSECTION
 	bfd_target
@@ -266,7 +267,8 @@ Symbols and reloctions
 .  SDEF (void, _bfd_debug_info_start, (bfd *));
 .  SDEF (void, _bfd_debug_info_end, (bfd *));
 .  SDEF (void, _bfd_debug_info_accumulate, (bfd *, struct sec  *));
-
+.  SDEF (bfd_byte *, _bfd_get_relocated_section_contents, (bfd*,struct bfd_seclet_struct *));
+.  SDEF (boolean,_bfd_relax_section,(bfd *, struct sec *, struct symbol_cache_entry **));
 Special entry points for gdb to swap in coff symbol table parts
 
 .  SDEF(void, _bfd_coff_swap_aux_in,(

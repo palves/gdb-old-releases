@@ -21,13 +21,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
 #include "symtab.h"
-#include "sparc-opcode.h"
+#include "opcode/sparc.h"
 #include "gdbcore.h"
 #include "string.h"
 #include "target.h"
-
-extern void qsort ();
-
 
 extern char *reg_names[];
 #define	freg_names	(&reg_names[4 * 8])
@@ -37,29 +34,29 @@ union sparc_insn
     unsigned long int code;
     struct
       {
-	unsigned int OP:2;
-#define	op	ldst.OP
-	unsigned int RD:5;
-#define	rd	ldst.RD
+	unsigned int anop:2;
+#define	op	ldst.anop
+	unsigned int anrd:5;
+#define	rd	ldst.anrd
 	unsigned int op3:6;
-	unsigned int RS1:5;
-#define	rs1	ldst.RS1
+	unsigned int anrs1:5;
+#define	rs1	ldst.anrs1
 	unsigned int i:1;
-	unsigned int ASI:8;
-#define	asi	ldst.ASI
-	unsigned int RS2:5;
-#define	rs2	ldst.RS2
+	unsigned int anasi:8;
+#define	asi	ldst.anasi
+	unsigned int anrs2:5;
+#define	rs2	ldst.anrs2
 #define	shcnt	rs2
       } ldst;
     struct
       {
-	unsigned int OP:2, RD:5, op3:6, RS1:5, i:1;
+	unsigned int anop:2, anrd:5, op3:6, anrs1:5, i:1;
 	unsigned int IMM13:13;
 #define	imm13	IMM13.IMM13
       } IMM13;
     struct
       {
-	unsigned int OP:2;
+	unsigned int anop:2;
 	unsigned int a:1;
 	unsigned int cond:4;
 	unsigned int op2:3;
@@ -69,9 +66,9 @@ union sparc_insn
 #define	imm22	disp22
     struct
       {
-	unsigned int OP:2;
-	unsigned int DISP30:30;
-#define	disp30	call.DISP30
+	unsigned int anop:2;
+	unsigned int adisp30:30;
+#define	disp30	call.adisp30
       } call;
   };
 
@@ -93,8 +90,15 @@ is_delayed_branch (insn)
 }
 
 static int opcodes_sorted = 0;
+extern void qsort ();
 
-/* Print one instruction from MEMADDR on STREAM.  */
+/* Print one instruction from MEMADDR on STREAM.
+
+   We suffix the instruction with a comment that gives the absolute
+   address involved, as well as its symbolic form, if the instruction
+   is preceded by a findable `sethi' and it either adds an immediate
+   displacement to that register, or it is an `add' or `or' instruction
+   on that register.  */
 int
 print_insn (memaddr, stream)
      CORE_ADDR memaddr;
@@ -128,9 +132,10 @@ print_insn (memaddr, stream)
 	     field of the opcode table.  */
 	  int found_plus = 0;
 	  
-	  /* Do we have an 'or' instruction where rs1 is the same
+	  /* Do we have an `add' or `or' instruction where rs1 is the same
 	     as rsd, and which has the i bit set?  */
-	  if (opcode->match == 0x80102000
+	  if ((opcode->match == 0x80102000 || opcode->match == 0x80002000)
+	  /*			  (or)				 (add)  */
 	      && insn.rs1 == insn.rd)
 	    imm_added_to_rs1 = 1;
 
@@ -191,14 +196,20 @@ print_insn (memaddr, stream)
 
 #define	freg(n)	fprintf_filtered (stream, "%%%s", freg_names[n])
 		  case 'e':
+		  case 'v':	/* double/even */
+		  case 'V':	/* quad/multiple of 4 */
 		    freg (insn.rs1);
 		    break;
 
 		  case 'f':
+		  case 'B':	/* double/even */
+		  case 'R':	/* quad/multiple of 4 */
 		    freg (insn.rs2);
 		    break;
 
 		  case 'g':
+		  case 'H':	/* double/even */
+		  case 'J':	/* quad/multiple of 4 */
 		    freg (insn.rd);
 		    break;
 #undef	freg
@@ -231,6 +242,7 @@ print_insn (memaddr, stream)
 		      /* Check to see whether we have a 1+i, and take
 			 note of that fact.
 
+			 FIXME: No longer true/relavant ???
 			 Note: because of the way we sort the table,
 			 we will be matching 1+i rather than i+1,
 			 so it is OK to assume that i is after +,
@@ -359,7 +371,6 @@ print_insn (memaddr, stream)
   return sizeof (insn);
 }
 
-
 /* Compare opcodes A and B.  */
 
 static int
@@ -423,11 +434,16 @@ compare_opcodes (a, b)
       return alias_diff;
   }
 
-  /* Except for the above aliases, two "identical" instructions had
+  /* Except for aliases, two "identical" instructions had
      better have the same opcode.  This is a sanity check on the table.  */
-  if (0 != strcmp (op0->name, op1->name))
-      fprintf (stderr, "Internal error: bad sparc-opcode.h: \"%s\" == \"%s\"\n",
-	op0->name, op1->name);
+  i = strcmp (op0->name, op1->name);
+  if (i)
+      if (op0->flags & F_ALIAS) /* If they're both aliases, be arbitrary. */
+	  return i;
+      else
+	  fprintf (stderr,
+		   "Internal error: bad sparc-opcode.h: \"%s\" == \"%s\"\n",
+		   op0->name, op1->name);
 
   /* Fewer arguments are preferred.  */
   {

@@ -201,6 +201,8 @@ value_x_binop (arg1, arg2, op, otherop)
   char tstr[13];
   int static_memfuncp;
 
+  COERCE_REF (arg1);
+  COERCE_REF (arg2);
   COERCE_ENUM (arg1);
   COERCE_ENUM (arg2);
 

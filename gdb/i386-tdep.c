@@ -25,10 +25,27 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* helper functions for tm-i386.h */
 
-/* stdio style buffering to minimize calls to ptrace */
+/* Stdio style buffering was used to minimize calls to ptrace, but this
+   buffering did not take into account that the code section being accessed
+   may not be an even number of buffers long (even if the buffer is only
+   sizeof(int) long).  In cases where the code section size happened to
+   be a non-integral number of buffers long, attempting to read the last
+   buffer would fail.  Simply using target_read_memory and ignoring errors,
+   rather than read_memory, is not the correct solution, since legitimate
+   access errors would then be totally ignored.  To properly handle this
+   situation and continue to use buffering would require that this code
+   be able to determine the minimum code section size granularity (not the
+   alignment of the section itself, since the actual failing case that
+   pointed out this problem had a section alignment of 4 but was not a
+   multiple of 4 bytes long), on a target by target basis, and then
+   adjust it's buffer size accordingly.  This is messy, but potentially
+   feasible.  It probably needs the bfd library's help and support.  For
+   now, the buffer size is set to 1.  (FIXME -fnf) */
+
+#define CODESTREAM_BUFSIZ 1	/* Was sizeof(int), see note above. */
 static CORE_ADDR codestream_next_addr;
 static CORE_ADDR codestream_addr;
-static unsigned char codestream_buf[sizeof (int)];
+static unsigned char codestream_buf[CODESTREAM_BUFSIZ];
 static int codestream_off;
 static int codestream_cnt;
 
@@ -42,12 +59,12 @@ static unsigned char
 codestream_fill (peek_flag)
 {
   codestream_addr = codestream_next_addr;
-  codestream_next_addr += sizeof (int);
+  codestream_next_addr += CODESTREAM_BUFSIZ;
   codestream_off = 0;
-  codestream_cnt = sizeof (int);
+  codestream_cnt = CODESTREAM_BUFSIZ;
   read_memory (codestream_addr,
 	       (unsigned char *)codestream_buf,
-	       sizeof (int));
+	       CODESTREAM_BUFSIZ);
   
   if (peek_flag)
     return (codestream_peek());
@@ -58,7 +75,8 @@ codestream_fill (peek_flag)
 static void
 codestream_seek (place)
 {
-  codestream_next_addr = place & -sizeof (int);
+  codestream_next_addr = place / CODESTREAM_BUFSIZ;
+  codestream_next_addr *= CODESTREAM_BUFSIZ;
   codestream_cnt = 0;
   codestream_fill (1);
   while (codestream_tell() != place)
@@ -254,7 +272,7 @@ i386_get_frame_setup (pc)
 
 int
 i386_frame_num_args (fi)
-     struct frame_info fi;
+     struct frame_info *fi;
 {
   int retpc;						
   unsigned char op;					
@@ -269,7 +287,7 @@ i386_frame_num_args (fi)
        nameless arguments.  */
     return -1;
 
-  pfi = get_prev_frame_info ((fi));			
+  pfi = get_prev_frame_info (fi);			
   if (pfi == 0)
     {
       /* Note:  this can happen if we are looking at the frame for
@@ -477,7 +495,7 @@ i386_pop_frame ()
 
     The actual structure passed through the ioctl interface is, of course,
     naturally machine dependent, and is different for each set of registers.
-    For the m68k for example, the general register set is typically defined
+    For the i386 for example, the general register set is typically defined
     by:
 
 	typedef int gregset_t[19];		(in <sys/regset.h>)
@@ -574,15 +592,7 @@ fpregset_t *fpregsetp;
 {
   register int regno;
   
-#if 0  /* FIXME: This is the m68k version for reference */
-  for (regno = FP0_REGNUM ; regno < FPC_REGNUM ; regno++)
-    {
-      supply_register (regno, (char *) &(fpregsetp -> f_fpregs[regno][0]));
-    }
-  supply_register (FPC_REGNUM, (char *) &(fpregsetp -> f_pcr));
-  supply_register (FPS_REGNUM, (char *) &(fpregsetp -> f_psr));
-  supply_register (FPI_REGNUM, (char *) &(fpregsetp -> f_fpiaddr));
-#endif
+  /* FIXME: see m68k-tdep.c for an example, for the m68k. */
 }
 
 /*  Given a pointer to a floating point register set in /proc format
@@ -600,29 +610,7 @@ int regno;
   char *from;
   extern char registers[];
 
-#if 0  /* FIXME: This is the m68k version for reference */
-  for (regi = FP0_REGNUM ; regi < FPC_REGNUM ; regi++)
-    {
-      if ((regno == -1) || (regno == regi))
-	{
-	  from = (char *) &registers[REGISTER_BYTE (regi)];
-	  to = (char *) &(fpregsetp -> f_fpregs[regi][0]);
-	  bcopy (from, to, REGISTER_RAW_SIZE (regno));
-	}
-    }
-  if ((regno == -1) || (regno == FPC_REGNUM))
-    {
-      fpregsetp -> f_pcr = *(int *) &registers[REGISTER_BYTE (FPC_REGNUM)];
-    }
-  if ((regno == -1) || (regno == FPS_REGNUM))
-    {
-      fpregsetp -> f_psr = *(int *) &registers[REGISTER_BYTE (FPS_REGNUM)];
-    }
-  if ((regno == -1) || (regno == FPI_REGNUM))
-    {
-      fpregsetp -> f_fpiaddr = *(int *) &registers[REGISTER_BYTE (FPI_REGNUM)];
-    }
-#endif
+  /* FIXME: see m68k-tdep.c for an example, for the m68k. */
 }
 
 #endif	/* defined (FP0_REGNUM) */

@@ -1,18 +1,16 @@
-Info file gdb.info, produced by Makeinfo, -*- Text -*- from input file
-gdb-all.texi.
-
-   gdb.info
+Info file ./gdb.info, produced by Makeinfo, -*- Text -*- from input
+file gdb-all.texi.
 
 START-INFO-DIR-ENTRY
 * Gdb: (gdb).                   The GNU debugger.
 END-INFO-DIR-ENTRY
-
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.00, December 1991, of `Using GDB: A Guide to the
-GNU Source-Level Debugger' for GDB Version 4.3.
+   This is Edition 4.01, January 1992, of `Using GDB: A Guide to the
+GNU Source-Level Debugger' for GDB Version 4.4.
 
-   Copyright (C) 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991 1992 Free Software Foundation,
+Inc.
 
    Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -39,13 +37,13 @@ GDB, the GNU symbolic debugger
 
    This file describes GDB, the GNU symbolic debugger.
 
-   This is Edition 4.00, December 1991, for GDB Version 4.3.
+   This is Edition 4.01, January 1992, for GDB Version 4.4.
 
 * Menu:
 
 * Summary::                     Summary of GDB
 * New Features::                New features since GDB version 3.5
-* Sample Session::              A sample GDB session
+* Sample Session::              A Sample GDB session
 * Invocation::                  Getting in and out of GDB
 * Commands::                    GDB commands
 * Running::                     Running programs under GDB
@@ -256,7 +254,7 @@ Reporting Bugs in GDB
 
 Installing GDB
 
-* Subdirectories::              Configuration subdirectories
+* Separate Objdir::             Compiling GDB in another directory
 * Config Names::                Specifying names for hosts and targets
 * configure Options::           Summary of options for configure
 * Formatting Documentation::    How to format and print GDB documentation
@@ -334,11 +332,12 @@ account.
      unfairly omitted from this list, we would like to add your names!
 
    So that they may not regard their long labor as thankless, we
-particularly thank those who shepherded GDB through major releases:
-John Gilmore (releases 4.3, 4.2, 4.1, 4.0); Jim Kingdon (releases 3.9,
-3.5, 3.4, 3.3); and Randy Smith (releases 3.2, 3.1, 3.0).  As major
-maintainer of GDB for some period, each contributed significantly to
-the structure, stability, and capabilities of the entire debugger.
+particularly thank those who shepherded GDB through major releases: Stu
+Grossman and John Gilmore (release 4.4), John Gilmore (releases 4.3,
+4.2, 4.1, 4.0, and 3.9); Jim Kingdon (releases 3.5, 3.4, 3.3); and
+Randy Smith (releases 3.2, 3.1, 3.0).  As major maintainer of GDB for
+some period, each contributed significantly to the structure,
+stability, and capabilities of the entire debugger.
 
    Richard Stallman, assisted at various times by Pete TerMaat, Chris
 Hanson, and Richard Mlynarik, handled releases through 2.8.
@@ -349,11 +348,11 @@ Clark wrote the GNU C++ demangler.  Early work on C++ was by Peter
 TerMaat (who also did much general update work leading to release 3.0).
 
    GDB 4 uses the BFD subroutine library to examine multiple
-object-file formats; BFD was a joint project of V. Gumby
+object-file formats; BFD was a joint project of David V. 
 Henkel-Wallace, Rich Pixley, Steve Chamberlain, and John Gilmore.
 
-   David Johnson wrote the original COFF support; Pace Willison did the
-original support for encapsulated COFF.
+   David Johnson wrote the original COFF support; Pace Willison did
+the original support for encapsulated COFF.
 
    Adam de Boor and Bradley Davis contributed the ISI Optimum V
 support.  Per Bothner, Noboyuki Hikichi, and Alessandro Forin
@@ -450,11 +449,10 @@ New Features since GDB version 3.5
      GDB now has preliminary support for the GNU Modula-2 compiler,
      currently under development at the State University of New York at
      Buffalo.  Coordinated development of both GDB and the GNU Modula-2
-     compiler will continue through the fall of 1991 and into 1992. 
-     Other Modula-2 compilers are currently not supported, and
-     attempting to debug programs compiled with them will likely
-     result in an error as the symbol table of the executable is read
-     in.
+     compiler will continue into 1992.  Other Modula-2 compilers are
+     currently not supported, and attempting to debug programs
+     compiled with them will likely result in an error as the symbol
+     table of the executable is read in.
 
 *Command Rationalization*
      Many GDB commands have been renamed to make them easier to
@@ -469,7 +467,7 @@ New Features since GDB version 3.5
      libraries.
 
 *Reference Card*
-     GDB 4 has a reference card; *Note Formatting Documentation:: for
+     GDB 4 has a reference card.  *Note Formatting Documentation:: for
      instructions on printing it.
 
 *Work in Progress*
@@ -521,7 +519,7 @@ Let's use GDB to try to see what's going on.
       the conditions.
      There is absolutely no warranty for GDB; type "show warranty"
      for details.
-     GDB 4.3, Copyright 1991 Free Software Foundation, Inc...
+     GDB 4.4, Copyright 1992 Free Software Foundation, Inc...
      (gdb)
 
 GDB reads only enough symbol data to know where to find the rest when
@@ -706,8 +704,8 @@ File: gdb.info,  Node: Invoking GDB,  Next: Leaving GDB,  Prev: Invocation,  Up:
 Starting GDB
 ============
 
-   Invoke GDB with the shell command `gdb'.  Once started, it reads
-commands from the terminal until you tell it to exit.
+   Start GDB with the shell command `gdb'.  Once it's running, GDB
+reads commands from the terminal until you tell it to exit.
 
    You can run `gdb' with no arguments or options; but the most usual
 way to start GDB is with one argument or two, specifying an executable
@@ -796,11 +794,11 @@ them, so long as enough of the option is present to be unambiguous.
 
 File: gdb.info,  Node: Mode Options,  Prev: File Options,  Up: Invoking GDB
 
-   You can run GDB in various alternative modes--for example, in batch
-mode or quiet mode.
-
 Choosing Modes
 --------------
+
+   You can run GDB in various alternative modes--for example, in batch
+mode or quiet mode.
 
 `-nx'
 `-n'
@@ -826,7 +824,7 @@ Choosing Modes
 
           Program exited normally.
 
-          (which is ordinarily issued whenever a program running under GDB
+     (which is ordinarily issued whenever a program running under GDB
      control terminates) is not issued when running in batch mode.
 
 `-cd=DIRECTORY'
@@ -868,9 +866,9 @@ to GDB command level.  It is safe to type the interrupt character at
 any time because GDB does not allow it to take effect until a time
 when it is safe.
 
-   If you've been using GDB to control an attached process or device,
-you can release it with the `detach' command; *note Debugging an
-Already-Running Process: Attach...
+   If you have been using GDB to control an attached process or
+device, you can release it with the `detach' command; *note Debugging
+an Already-Running Process: Attach...
 
 
 File: gdb.info,  Node: Shell Commands,  Prev: Leaving GDB,  Up: Invocation
@@ -1016,7 +1014,7 @@ sub-commands.  *Note Index::.
      This command (abbreviated `i') is for describing the state of your
      program; for example, it can list the arguments given to your
      program (`info args'), the registers currently in use (`info
-     registers'), or the breakpoints you've set (`info breakpoints'). 
+     registers'), or the breakpoints you have set (`info breakpoints'). 
      You can get a complete list of the `info' sub-commands with
      `help info'.
 
@@ -1053,6 +1051,8 @@ File: gdb.info,  Node: Running,  Next: Stopping,  Prev: Commands,  Up: Top
 
 Running Programs Under GDB
 **************************
+
+   To debug a program, you must run it under GDB.
 
 * Menu:
 
@@ -1109,7 +1109,7 @@ Starting your Program
      Use the `run' command to start your program under GDB.  You must
      first specify the program name (except on VxWorks) with an
      argument to GDB (*note Getting In and Out of GDB: Invocation.),
-     or using the `file' or `exec-file' command (*note Commands to
+     or by using the `file' or `exec-file' command (*note Commands to
      Specify Files: Files.).
 
    If you are running your program in an execution environment that
@@ -1130,7 +1130,7 @@ The arguments.
      is used to pass the arguments, so that you may use normal
      conventions (such as wildcard expansion or variable substitution)
      in describing the arguments.  In Unix systems, you can control
-     which shell is used with the `SHELL' environment variable.  *Note
+     which shell is used with the `SHELL' environment variable. *Note
      Your Program's Arguments: Arguments.
 
 The environment.
@@ -1161,7 +1161,7 @@ The standard input and output.
 immediately.  *Note Stopping and Continuing: Stopping, for discussion
 of how to arrange for your program to stop.  Once your program has
 been started by the `run' command (and then stopped), you may evaluate
-expressions that involve calls to functions in the inferior, using the
+expressions that involve calls to functions in your program, using the
 `print' or `call' commands.  *Note Examining Data: Data.
 
    If the modification time of your symbol file has changed since the
@@ -1244,7 +1244,7 @@ over again.
 
           set env USER = foo
 
-          tells a Unix program, when subsequently run, that its user is
+     tells a Unix program, when subsequently run, that its user is
      named `foo'.  (The spaces around `=' are used for clarity here;
      they are not actually required.)
 

@@ -201,7 +201,7 @@ enum exp_opcode
   /* OP_TYPE is for parsing types, and used with the "ptype" command
      so we can look up types that are qualified by scope, either with
      the GDB "::" operator, or the Modula-2 '.' operator. */
-  OP_TYPE,
+  OP_TYPE
 };
 
 union exp_element
@@ -217,7 +217,7 @@ union exp_element
 
 struct expression
 {
-  struct language_defn *language_defn;	/* The language it was entered in */
+  const struct language_defn *language_defn;  /* language it was entered in */
   int nelts;
   union exp_element elts[1];
 };

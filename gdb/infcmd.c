@@ -355,8 +355,7 @@ jump_command (arg, from_tty)
   if (sal.symtab == 0 && sal.pc == 0)
     error ("No source file has been specified.");
 
-  if (sal.pc == 0)
-    sal.pc = find_line_pc (sal.symtab, sal.line);
+  resolve_sal_pc (&sal);			/* May error out */
 
   {
     struct symbol *fn = get_frame_function (get_current_frame ());
@@ -366,9 +365,6 @@ jump_command (arg, from_tty)
 		    sal.line, SYMBOL_NAME (fn)))
       error ("Not confirmed.");
   }
-
-  if (sal.pc == 0)
-    error ("No line %d in file \"%s\".", sal.line, sal.symtab->filename);
 
   addr = ADDR_BITS_SET (sal.pc);
 

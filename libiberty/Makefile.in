@@ -1,47 +1,99 @@
 #
+# Makefile
+#   Copyright (C) 1990, 1991 Cygnus Support
+#
+# This file is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+#
+
+#
 # Makefile for libiberty directory
 #
 
 srcdir = .
 
-TARGETLIB = libiberty.a
-RANLIB = ranlib
+prefix = /usr/local
+
+bindir = $(prefix)/bin
+datadir = $(prefix)/lib
+libdir = $(prefix)/lib
+mandir = $(datadir)/man
+man1dir = $(mandir)/man1
+man2dir = $(mandir)/man2
+man3dir = $(mandir)/man3
+man4dir = $(mandir)/man4
+man5dir = $(mandir)/man5
+man6dir = $(mandir)/man6
+man7dir = $(mandir)/man7
+man8dir = $(mandir)/man8
+man9dir = $(mandir)/man9
+infodir = $(datadir)/info
+includedir = $(prefix)/include
+docdir = $(datadir)/doc
+
+SHELL = /bin/sh
+
+INSTALL = install -c
+INSTALL_PROGRAM = $(INSTALL)
+INSTALL_DATA = $(INSTALL)
+
 AR = ar
-AR_FLAGS = crv
+AR_FLAGS = qv
+BISON = bison
+MAKEINFO = makeinfo
+RANLIB = ranlib
+
+TARGETLIB = libiberty.a
+
 MINUS_G = -g
 CFLAGS = $(MINUS_G) -I. -I$(srcdir)/../include $(HDEFINES)
 
-# NEEDED_OBJECTS is overridden by config/mh-default,
-# and also the recursive make in the rule for $(TARGETLIB).
-NEEDED_OBJECTS=$(HOST_OFILES)
+# HOST_OFILES contains the list of objects that should be in the
+# library (in addition to the REQUIRED_OFILES and EXTRA_OFILES).
+# A configuration may override this with a fixed list a object files
+# names (hard to maintain), or some other way to generate a list.
+HOST_OFILES=`cat needed-list`
 
+# Extra targets that the top-level target depends on.
+# Specifically, what needs to be made before HOST_OFILES can be used.
+# Can be empty if HOST_OFILES is just a list of file names.
+DO_ALSO = needed-list
+
+# A configuration can specify extra .o files that should be included,
+# even if they are in libc. (Perhaps the libc version is buggy.)
+EXTRA_OFILES = 
+
+all:	$(TARGETLIB)
+
+#### Host, target, and site specific Makefile fragments come in here.
+###
 
 # The default target just invokes make recursively.
 # However, the automatic configuration (in config/mh_default).
 # first causes it to figure out the objects missing in libc.
-all:	$(TARGETLIB)
-all-info:
-install-info:
-
-#### Host and target-dependent makefile fragments come in here.
-### End of host and target-dependent makefile fragments.
-
-srcdir = .
-ddestdir = /usr/local
-
-libdir = $(ddestdir)/lib
+info install-info clean-info:
 
 # NOTE: If you add new files to the library, edit 'functions.def'.
 CFILES = basename.c bcmp.c bcopy.c bzero.c getopt.c getopt1.c getpagesize.c \
-	getcwd.c index.c insque.c obstack.c rindex.c spaces.c strdup.c \
-	strerror.c strstr.c strtol.c strtoul.c vfork.c \
-	vfprintf.c vprintf.c vsprintf.c sigsetmask.c concat.c
+	getcwd.c index.c insque.c obstack.c rindex.c spaces.c \
+	memcmp.c memcpy.c memmove.c memset.c strchr.c strrchr.c \
+	strdup.c strerror.c strstr.c strtol.c strtoul.c vfork.c \
+	vfprintf.c vprintf.c vsprintf.c sigsetmask.c concat.c fdmatch.c \
+	argv.c
 # These are always included in the library.
-REQUIRED_OFILES = basename.o getopt.o getopt1.o obstack.o spaces.o concat.o
-OPTIONAL_OFILES = bcmp.o bcopy.o bzero.o getpagesize.o \
-	getcwd.o index.o insque.o rindex.o strdup.o \
-	strerror.o strstr.o strtol.o strtoul.o vfork.o \
-	vfprintf.o vprintf.o vsprintf.o  sigsetmask.o
+REQUIRED_OFILES = basename.o getopt.o getopt1.o obstack.o spaces.o concat.o \
+	fdmatch.o argv.o
 
 # Do we want/need any config overrides?
 #	 
@@ -49,7 +101,7 @@ OPTIONAL_OFILES = bcmp.o bcopy.o bzero.o getpagesize.o \
 STAGESTUFF = $(TARGETLIB) *.o
 
 install: all
-	cp $(TARGETLIB) $(libdir)/$(TARGETLIB).n
+	$(INSTALL_DATA) $(TARGETLIB) $(libdir)/$(TARGETLIB).n
 	$(RANLIB) $(libdir)/$(TARGETLIB).n
 	mv -f $(libdir)/$(TARGETLIB).n $(libdir)/$(TARGETLIB)
 
@@ -59,32 +111,33 @@ install: all
 # a list of .o files.
 
 needed-list: $(srcdir)/dummy.c $(EXTRA_OFILES) needed.awk
-	-($(CC) $(CFLAGS) $(LDFLAGS) $(srcdir)/dummy.c $(EXTRA_OFILES) $(LOADLIBES)) >errors 2>&1 || true
+	$(CC) $(CFLAGS) -c $(srcdir)/dummy.c
+	-($(CC) $(LDFLAGS) dummy.o $(EXTRA_OFILES) $(LOADLIBES)) >errors 2>&1 || true
 	awk -f needed.awk <errors >needed-list
 	-rm -f a.out errors dummy.o
 
 # Generate an awk script that looks for functions in functions.def
 
 needed.awk: $(srcdir)/functions.def
-	echo "#*** Automatically generated from $(srcdir)/functions.def"\
-	  "- DO NOT EDIT ***" >needed.awk
+	echo "# !Automatically generated from $(srcdir)/functions.def"\
+	  "- DO NOT EDIT!" >needed.awk
 	grep '^DEF(' < $(srcdir)/functions.def \
 	    | sed -e '/DEF/s|DEF.\([^,]*\).*|/\1/ { printf \" \1\.o" }|' \
 	    >>needed.awk
 
 RULE1 = $(TARGETLIB)
-$(RULE1): $(REQUIRED_OFILES) $(HOST_OFILES)
-	$(MAKE) RULE1=not-needed RULE2=$(TARGETLIB) \
-	     NEEDED_OBJECTS="$(NEEDED_OBJECTS)"\
+$(RULE1): $(REQUIRED_OFILES) $(DO_ALSO) .always.
+	$(MAKE) RULE1=not-used RULE2=$(TARGETLIB) \
+	     HOST_OFILES="$(HOST_OFILES)"\
 	    "CC=$(CC)" "CFLAGS=$(CFLAGS)" \
 	    "AR=$(AR)" "AR_FLAGS=$(AR_FLAGS)" "RANLIB=$(RANLIB)"
 
 # Rule invoked by recursive make in $(RULE1).
 RULE2 = not-used
-$(RULE2): $(REQUIRED_OFILES) $(NEEDED_OBJECTS) $(EXTRA_OFILES)
+$(RULE2): $(REQUIRED_OFILES) $(HOST_OFILES) $(EXTRA_OFILES)
 	rm -rf $(TARGETLIB)
 	$(AR) $(AR_FLAGS) $(TARGETLIB) \
-	  $(REQUIRED_OFILES) $(NEEDED_OBJECTS) $(EXTRA_OFILES)
+	  $(REQUIRED_OFILES) $(HOST_OFILES) $(EXTRA_OFILES)
 	$(RANLIB) $(TARGETLIB)
 
 .always.:
@@ -93,20 +146,20 @@ $(RULE2): $(REQUIRED_OFILES) $(NEEDED_OBJECTS) $(EXTRA_OFILES)
 .PHONEY: all etags tags ls clean stage1 stage2 .always.
 
 stage1: force
-	- mkdir stage1
-	- mv -f $(STAGESTUFF) stage1
+	-mkdir stage1
+	-mv -f $(STAGESTUFF) stage1
 
 stage2: force
-	- mkdir stage2
-	- mv -f $(STAGESTUFF) stage2
+	-mkdir stage2
+	-mv -f $(STAGESTUFF) stage2
 
 stage3: force
-	- mkdir stage3
-	- mv -f $(STAGESTUFF) stage3
+	-mkdir stage3
+	-mv -f $(STAGESTUFF) stage3
 
 stage4: force
-	- mkdir stage4
-	- mv -f $(STAGESTUFF) stage4
+	-mkdir stage4
+	-mv -f $(STAGESTUFF) stage4
 
 against=stage2
 
@@ -114,20 +167,20 @@ comparison: force
 	for i in *.o ; do cmp $$i $(against)/$$i || exit 1 ; done
 
 de-stage1: force
-	- (cd stage1 ; mv -f * ..)
-	- rmdir stage1
+	-(cd stage1 ; mv -f * ..)
+	-rmdir stage1
 
 de-stage2: force
-	- (cd stage2 ; mv -f * ..)
-	- rmdir stage2
+	-(cd stage2 ; mv -f * ..)
+	-rmdir stage2
 
 de-stage3: force
-	- (cd stage3 ; mv -f * ..)
-	- rmdir stage3
+	-(cd stage3 ; mv -f * ..)
+	-rmdir stage3
 
 de-stage4: force
-	- (cd stage4 ; mv -f * ..)
-	- rmdir stage4
+	-(cd stage4 ; mv -f * ..)
+	-rmdir stage4
 
 etags tags: TAGS
 

@@ -447,7 +447,7 @@ rs6000coff_core_file_matches_executable_p (core_bfd, exec_bfd)
 
   /* Use bfd_xxx routines, rather than O/S primitives, do error checking!!
   								FIXMEmgo */
-  fd = fopen (core_bfd->filename, "r");
+  fd = fopen (core_bfd->filename, FOPEN_RB);
 
   fread (&coredata, sizeof (struct core_dump), 1, fd);
   fseek (fd, (long)coredata.c_tab, 0);

@@ -69,7 +69,7 @@ typedef struct {
   bfd *abfd;
 } common_header_type ;
 
-typedef struct 
+typedef struct ieee_data_struct
 {
   common_header_type h;
   boolean read_symbols;
@@ -118,7 +118,8 @@ typedef struct {
   bfd *abfd;
 } ieee_ar_obstack_type;
 
-typedef struct {
+typedef struct ieee_ar_data_struct 
+{
   common_header_type h;
   ieee_ar_obstack_type *elements;
   
@@ -127,7 +128,7 @@ typedef struct {
 
 } ieee_ar_data_type;
 
-#define ieee_data(abfd) ((ieee_data_type *)(abfd)->tdata)
-#define ieee_ar_data(abfd) ((ieee_ar_data_type *)(abfd)->tdata)
+#define IEEE_DATA(abfd) ((abfd)->tdata.ieee_data)
+#define IEEE_AR_DATA(abfd) ((abfd)->tdata.ieee_ar_data)
 
 #define ptr(abfd) (ieee_data(abfd)->input_p)

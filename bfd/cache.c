@@ -22,7 +22,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 SECTION
 	File Caching
 
-DESCRIPTION
 	The file caching mechanism is embedded within BFD and allows
 	the application to open as many BFDs as it wants without
 	regard to the underlying operating system's file descriptor
@@ -36,15 +35,15 @@ DESCRIPTION
 
 */
 
-/* $Id: cache.c,v 1.12 1991/11/30 22:33:23 sac Exp $ */
+/* $Id: cache.c,v 1.15 1991/12/12 01:23:17 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
 
 /*
-INTERNAL FUNCTION
-	BFD_CACHE_MAX_OPEN
+INTERNAL_FUNCTION
+	BFD_CACHE_MAX_OPEN macro
 
 DESCRIPTION
 	The maxiumum number of files which the cache will keep open at
@@ -61,22 +60,22 @@ static bfd *cache_sentinel;	/* Chain of BFDs with active fds we've
 				   opened */
 
 /*
-INTERNAL FUNCTION
+INTERNAL_FUNCTION
 	bfd_last_cache
+
+SYNOPSIS
+	extern bfd *bfd_last_cache;
 
 DESCRIPTION
 	Zero, or a pointer to the topmost BFD on the chain.  This is
 	used by the <<bfd_cache_lookup>> macro in @file{libbfd.h} to
 	determine when it can avoid a function call.
-
-.extern bfd *bfd_last_cache;
-
 */
 
 bfd *bfd_last_cache;
 
 /*
- * INTERNAL FUNCTION
+ * INTERNAL_FUNCTION
  * 	bfd_cache_lookup
  *
  * DESCRIPTION
@@ -156,14 +155,14 @@ DEFUN(insert,(x,y),
 
 
 /*
-INTERNAL FUNCTION
+INTERNAL_FUNCTION
 	bfd_cache_init
-
-DESCRIPTION
-	Initialize a BFD by putting it on the cache LRU.
 
 SYNOPSIS
 	void  bfd_cache_init (bfd *);
+
+DESCRIPTION
+	Initialize a BFD by putting it on the cache LRU.
 */
 
 void
@@ -175,7 +174,7 @@ DEFUN(bfd_cache_init,(abfd),
 
 
 /*
-INTERNAL FUNCTION
+INTERNAL_FUNCTION
 	bfd_cache_close
 
 DESCRIPTION
@@ -197,7 +196,7 @@ DEFUN(bfd_cache_close,(abfd),
 }
 
 /*
-INTERNAL FUNCTION
+INTERNAL_FUNCTION
 	bfd_open_file
 
 DESCRIPTION
@@ -222,18 +221,18 @@ DEFUN(bfd_open_file, (abfd),
   switch (abfd->direction) {
   case read_direction:
   case no_direction:
-    abfd->iostream = (char *) fopen(abfd->filename, "r");
+    abfd->iostream = (char *) fopen(abfd->filename, FOPEN_RB);
     break;
   case both_direction:
   case write_direction:
     if (abfd->opened_once == true) {
-      abfd->iostream = (char *) fopen(abfd->filename, "r+");
+      abfd->iostream = (char *) fopen(abfd->filename, FOPEN_RUB);
       if (!abfd->iostream) {
-	abfd->iostream = (char *) fopen(abfd->filename, "w+");
+	abfd->iostream = (char *) fopen(abfd->filename, FOPEN_WUB);
       }
     } else {
       /*open for creat */
-      abfd->iostream = (char *) fopen(abfd->filename, "w");
+      abfd->iostream = (char *) fopen(abfd->filename, FOPEN_WB);
       abfd->opened_once = true;
     }
     break;
@@ -247,7 +246,7 @@ DEFUN(bfd_open_file, (abfd),
 }
 
 /*
-INTERNAL FUNCTION
+INTERNAL_FUNCTION
 	bfd_cache_lookup_worker
 
 DESCRIPTION

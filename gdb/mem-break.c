@@ -32,11 +32,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    machines, breakpoints are handled by the target environment and we
    don't have to worry about them here.  */
 
-static char break_insn[] = BREAKPOINT;
+static unsigned char break_insn[] = BREAKPOINT;
 
 /* This is only to check that BREAKPOINT fits in BREAKPOINT_MAX bytes.  */
 
-static char check_break_insn_size[BREAKPOINT_MAX] = BREAKPOINT;
+static unsigned char check_break_insn_size[BREAKPOINT_MAX] = BREAKPOINT;
 
 /* Insert a breakpoint on machines that don't have any better breakpoint
    support.  We read the contents of the target location and stash it,

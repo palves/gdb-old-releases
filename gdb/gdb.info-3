@@ -1,18 +1,16 @@
-Info file gdb.info, produced by Makeinfo, -*- Text -*- from input file
-gdb-all.texi.
-
-   gdb.info
+Info file ./gdb.info, produced by Makeinfo, -*- Text -*- from input
+file gdb-all.texi.
 
 START-INFO-DIR-ENTRY
 * Gdb: (gdb).                   The GNU debugger.
 END-INFO-DIR-ENTRY
-
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.00, December 1991, of `Using GDB: A Guide to the
-GNU Source-Level Debugger' for GDB Version 4.3.
+   This is Edition 4.01, January 1992, of `Using GDB: A Guide to the
+GNU Source-Level Debugger' for GDB Version 4.4.
 
-   Copyright (C) 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991 1992 Free Software Foundation,
+Inc.
 
    Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -30,6 +28,31 @@ manual into another language, under the above conditions for modified
 versions, except that the section entitled "GNU General Public
 License" may be included in a translation approved by the Free
 Software Foundation instead of in the original English.
+
+
+File: gdb.info,  Node: Source,  Next: Data,  Prev: Stack,  Up: Top
+
+Examining Source Files
+**********************
+
+   GDB can print parts of your program's source, since the debugging
+information recorded in your program tells GDB what source files were
+used to build it.  When your program stops, GDB spontaneously prints
+the line where it stopped.  Likewise, when you select a stack frame
+(*note Selecting a Frame: Selection.), GDB prints the line where
+execution in that frame has stopped.  You can print other portions of
+source files by explicit command.
+
+   If you use GDB through its GNU Emacs interface, you may prefer to
+use Emacs facilities to view source; *note Using GDB under GNU Emacs:
+Emacs..
+
+* Menu:
+
+* List::                        Printing Source Lines
+* Search::                      Searching Source Files
+* Source Path::                 Specifying Source Directories
+* Machine Code::                Source and Machine Code
 
 
 File: gdb.info,  Node: List,  Next: Search,  Prev: Source,  Up: Source
@@ -151,9 +174,8 @@ file for a regular expression.
 `search REGEXP'
      The command `forward-search REGEXP' checks each line, starting
      with the one following the last line listed, for a match for
-     REGEXP.  It lists the line that is found.  You can abbreviate the
-     command name as `fo'.  The synonym `search REGEXP' is also
-     supported.
+     REGEXP.  It lists the line that is found.  You can use synonym
+     `search REGEXP' or abbreviate the command name as `fo'.
 
 `reverse-search REGEXP'
      The command `reverse-search REGEXP' checks each line, starting
@@ -236,15 +258,14 @@ range of addresses as machine instructions.
      ways understood by the `list' command (*note Printing Source
      Lines: List.).
 
-   For example, we can use `info line' to inquire on where the object
-code for the first line of function `m4_changequote' lies:
+   For example, we can use `info line' to discover the location of the
+object code for the first line of function `m4_changequote':
 
      (gdb) info line m4_changecom
      Line 895 of "builtin.c" starts at pc 0x634c and ends at 0x6350.
 
 We can also inquire (using `*ADDR' as the form for LINESPEC) what
 source line covers a particular address:
-
      (gdb) info line *0x63ff
      Line 926 of "builtin.c" starts at pc 0x63e4 and ends at 0x6404.
 
@@ -289,7 +310,7 @@ Examining Data
    The usual way to examine data in your program is with the `print'
 command (abbreviated `p'), or its synonym `inspect'.  It evaluates and
 prints the value of an expression of the language your program is
-written in (*note Languages::.).
+written in (*note Using GDB with Different Languages: Languages.).
 
 `print EXP'
 `print /F EXP'
@@ -301,8 +322,9 @@ written in (*note Languages::.).
 `print'
 `print /F'
      If you omit EXP, GDB displays the last value again (from the
-     "value history"; *note Value History::.).  This allows you to
-     conveniently inspect the same value in an alternative format.
+     "value history"; *note Value History: Value History.).  This
+     allows you to conveniently inspect the same value in an
+     alternative format.
 
    A more low-level way of examining data is with the `x' command.  It
 examines data in memory at a specified address and prints it in a
@@ -310,7 +332,7 @@ specified format.  *Note Examining Memory: Memory.
 
    If you are interested in information about types, or about how the
 fields of a struct or class are declared, use the `ptype EXP' command
-rather than `print'. *Note Symbols::.
+rather than `print'. *Note Examining the Symbol Table: Symbols.
 
 * Menu:
 
@@ -356,11 +378,11 @@ languages:
 
 `@'
      `@' is a binary operator for treating parts of memory as arrays. 
-     *Note Arrays::, for more information.
+     *Note Artificial Arrays: Arrays, for more information.
 
 `::'
      `::' allows you to specify a variable in terms of the file or
-     function where it is defined.  *Note Variables::.
+     function where it is defined.  *Note Program Variables: Variables.
 
 `{TYPE} ADDR'
      Refers to an object of type TYPE stored at address ADDR in
@@ -456,9 +478,9 @@ you can print the contents of `array' with
 with `@' in this way behave just like other arrays in terms of
 subscripting, and are coerced to pointers when used in expressions. 
 Artificial arrays most often appear in expressions via the value
-history (*note Value History::.), after printing one out.)
+history (*note Value History: Value History.), after printing one out.)
 
-   Sometimes the artificial array mechanism isn't quite enough; in
+   Sometimes the artificial array mechanism is not quite enough; in
 moderately complex data structures, the elements of interest may not
 actually be adjacent--for example, if you are interested in the values
 of pointers in an array.  One useful work-around in this situation is
@@ -467,7 +489,7 @@ Convenience Vars.) as a counter in an expression that prints the first
 interesting value, and then repeat that expression via RET.  For
 instance, suppose you have an array `dtab' of pointers to structures,
 and you are interested in the values of a field `fv' in each
-structure.  Here's an example of what you might type:
+structure.  Here is an example of what you might type:
 
      set $i = 0
      p dtab[$i++]->fv
@@ -542,52 +564,58 @@ File: gdb.info,  Node: Memory,  Next: Auto Display,  Prev: Output formats,  Up: 
 Examining Memory
 ================
 
+   You can use the command `x' (for "examine") to examine memory in
+any of several formats, independently of your program's data types.
+
 `x/NFU ADDR'
 `x ADDR'
 `x'
-     You can use the command `x' (for `examine') to examine memory in
-     any of several formats, independently of your program's data
-     types.  N, F, and U are all optional parameters to specify how
-     much memory to display, and how to format it; ADDR is an
-     expression giving the address where you want to start displaying
-     memory.  If you use defaults for NFU, you need not type the slash
-     `/'.  Several commands set convenient defaults for ADDR.
+     Use the command `x' to examine memory.
 
-   N, the repeat count, is a decimal integer; the default is 1.  It
-specifies how much memory (counting by units U) to display.
+   N, F, and U are all optional parameters that specify how much
+memory to display and how to format it; ADDR is an expression giving
+the address where you want to start displaying memory.  If you use
+defaults for NFU, you need not type the slash `/'.  Several commands
+set convenient defaults for ADDR.
 
-   F, the display format, is one of the formats used by `print', or
-`s' (null-terminated string) or `i' (machine instruction).  The
-default is `x' (hexadecimal) initially, or the format from the last
-time you used either `x' or `print'.
+N, the repeat count
+     The repeat count is a decimal integer; the default is 1.  It
+     specifies how much memory (counting by units U) to display.
 
-   U, the unit size, is any of
+F, the display format
+     The display format is one of the formats used by `print', or `s'
+     (null-terminated string) or `i' (machine instruction).  The
+     default is `x' (hexadecimal) initially, or the format from the
+     last time you used either `x' or `print'.
 
-`b'
-     Bytes.
+U, the unit size
+     The unit size is any of
+    `b'
+          Bytes.
 
-`h'
-     Halfwords (two bytes).
+    `h'
+          Halfwords (two bytes).
 
-`w'
-     Words (four bytes).  This is the initial default.
+    `w'
+          Words (four bytes).  This is the initial default.
 
-`g'
-     Giant words (eight bytes).
+    `g'
+          Giant words (eight bytes).
 
-Each time you specify a unit size with `x', that size becomes the
-default unit the next time you use `x'.  (For the `s' and `i' formats,
-the unit size is ignored and is normally not written.)
+     Each time you specify a unit size with `x', that size becomes the
+     default unit the next time you use `x'.  (For the `s' and `i'
+     formats, the unit size is ignored and is normally not written.)
 
-   ADDR is the address where you want GDB to begin displaying memory. 
-The expression need not have a pointer value (though it may); it is
-always interpreted as an integer address of a byte of memory.  *Note
-Expressions:: for more information on expressions.  The default for
-ADDR is usually just after the last address examined--but several
-other commands also set the default address: `info breakpoints' (to
-the address of the last breakpoint listed), `info line' (to the
-starting address of a line), and `print' (if you use it to display a
-value from memory).
+ADDR, starting display address
+     ADDR is the address where you want GDB to begin displaying
+     memory.  The expression need not have a pointer value (though it
+     may); it is always interpreted as an integer address of a byte of
+     memory.  *Note Expressions: Expressions, for more information on
+     expressions.  The default for ADDR is usually just after the last
+     address examined--but several other commands also set the default
+     address: `info breakpoints' (to the address of the last
+     breakpoint listed), `info line' (to the starting address of a
+     line), and `print' (if you use it to display a value from memory).
 
    For example, `x/3uh 0x54320' is a request to display three halfwords
 (`h') of memory, formatted as unsigned decimal integers (`u'),
@@ -609,7 +637,7 @@ inspecting machine instructions; *note Machine Code::..
 
    All the defaults for the arguments to `x' are designed to make it
 easy to continue scanning memory with minimal specifications each time
-you use `x'.  For example, after you've inspected three machine
+you use `x'.  For example, after you have inspected three machine
 instructions with `x/3i ADDR', you can inspect the next seven with
 just `x/7'.  If you use RET to repeat the `x' command, the repeat
 count N is used again; the other arguments default as for successive
@@ -655,7 +683,7 @@ otherwise it uses `print'.
 
 `display EXP'
      Add the expression EXP to the list of expressions to display each
-     time your program stops.  *Note Expressions::.
+     time your program stops.  *Note Expressions: Expressions.
 
      `display' will not repeat if you press RET again after using it.
 
@@ -793,7 +821,7 @@ These settings are useful for debugging programs in any language:
           $1 = {next = 0x0, flags = {sweet = 1, sour = 1}, meat \
           = 0x54 "Pork"}
 
-          This is the default format.
+     This is the default format.
 
 `show print pretty'
      Show which format GDB will use to print structures.
@@ -839,11 +867,11 @@ These settings are useful for debugging programs in any language:
           
           struct thing foo = {Tree, {Acorn}};
 
-          with `set print union on' in effect `p foo' would print
+     with `set print union on' in effect `p foo' would print
 
           $1 = {it = Tree, form = {tree = Acorn, bug = Cocoon}}
 
-          and with `set print union off' in effect it would print
+     and with `set print union off' in effect it would print
 
           $1 = {it = Tree, form = {...}}
 
@@ -965,13 +993,13 @@ Convenience Variables
 hold on to a value and refer to it later.  These variables exist
 entirely within GDB; they are not part of your program, and setting a
 convenience variable has no direct effect on further execution of your
-program.  That's why you can use them freely.
+program.  That is why you can use them freely.
 
    Convenience variables are prefixed with `$'.  Any name preceded by
 `$' can be used for a convenience variable, unless it is one of the
 predefined machine-specific register names (*note Registers::.). 
 (Value history references, in contrast, are *numbers* preceded by `$'.
- *Note Value History::.)
+ *Note Value History: Value History.)
 
    You can save a value in a convenience variable with an assignment
 expression, just as you would set a variable in your program.  Example:

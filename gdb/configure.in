@@ -1,6 +1,8 @@
 configdirs="doc"
 srcname="GDB"
 srctrigger=main.c
+target_dependent=true
+
 # per-host:
 
 # map host info into gdb names.
@@ -20,7 +22,7 @@ m68k)
 	cbm)
 		case ${host_os} in
 		amigados)	gdb_host=amigados ;;
-		svr4)		gdb_host=amix ;;
+		sysv4*)		gdb_host=amix ;;
 		esac
 		;;
 
@@ -77,6 +79,10 @@ mips)
 	esac
 	;;
 
+i860)
+	gdb_host=stratus
+	;;
+
 i386)
 	case "${host_vendor}" in
 	sun)	gdb_host=sun386 ;;
@@ -84,9 +90,10 @@ i386)
 	sequent)	gdb_host=symmetry ;;
 	*)
 		case "${host_os}" in
-		sysv)	gdb_host=i386v ;;
 		sysv32)	gdb_host=i386v32 ;;
-		svr4)	gdb_host=i386v4 ;;
+		sysv4*)	gdb_host=i386v4 ;;
+		sysv*)	gdb_host=i386v ;;
+		scosysv*) gdb_host=i386sco ;;
 		mach)	gdb_host=i386mach ;;
 		esac
 		;;
@@ -134,13 +141,13 @@ arm | vax | merlin | none | np1 | pn | pyramid | tahoe)
 esac
 
 
-if [ ! -f config/mh-${gdb_host} ]; then
+if [ ! -f ${srcdir}/config/mh-${gdb_host} ]; then
 	echo '***' "Gdb does not support host ${host}" 1>&2
 	exit 1
 fi
 
 #  We really shouldn't depend on there being a space after XM_FILE= ...
-hostfile=`awk '$1 == "XM_FILE=" { print $2 }' <config/mh-${gdb_host}`
+hostfile=`awk '$1 == "XM_FILE=" { print $2 }' <${srcdir}/config/mh-${gdb_host}`
 
 # per-target:
 
@@ -153,7 +160,7 @@ m68k)
 	cbm)
 		case ${target_os} in
 		amigados)	gdb_host=amigados ;;
-		svr4)		gdb_target=amix ;;
+		sysv4*)		gdb_target=amix ;;
 		esac
 		;;
 	hp)
@@ -233,6 +240,12 @@ sparc)
 	esac
 	;;
 
+h8300)
+	gdb_target=h8300hms 
+	;;
+
+i860)	gdb_target=stratus
+	;;
 
 i386)
 	case "${target_vendor}" in
@@ -241,9 +254,10 @@ i386)
 	sequent)	gdb_target=symmetry ;;
 	*)
 		case "${target_os}" in
-		sysv)	gdb_target=i386v ;;
 		sysv32)	gdb_target=i386v32 ;;
-		svr4)	gdb_target=i386v4 ;;
+		scosysv3*) gdb_target=i386v32 ;;
+		sysv4*)	gdb_target=i386v4 ;;
+		sysv*)	gdb_target=i386v ;;
 		mach)	gdb_target=i386mach ;;
 		coff)	gdb_target=i386v ;;
 		aout)	gdb_target=i386aout ;;
@@ -275,18 +289,18 @@ rs6000)
 
 esac
 
-if [ ! -f config/mt-${gdb_target} ]; then
+if [ ! -f ${srcdir}/config/mt-${gdb_target} ]; then
 	echo '***' "Gdb does not support target ${target}" 1>&2
 	exit 1
 fi
 
 if [ -z "${removing}" ] ; then
-	cat config/mh-${gdb_host} config/mt-${gdb_target} | awk '$1 == "#msg" {
+	cat ${srcdir}/config/mh-${gdb_host} ${srcdir}/config/mt-${gdb_target} | awk '$1 == "#msg" {
 		print substr($0,6)}'
 fi
 
 #  We really shouldn't depend on there being a space after TM_FILE= ...
-targetfile=`awk '$1 == "TM_FILE=" { print $2 }' <config/mt-${gdb_target}`
+targetfile=`awk '$1 == "TM_FILE=" { print $2 }' <${srcdir}/config/mt-${gdb_target}`
 
 host_makefile_frag=config/mh-${gdb_host}
 target_makefile_frag=config/mt-${gdb_target}

@@ -114,7 +114,7 @@ typedef enum ieee_record
   ieee_value_record_enum = 0xe2c9,
 ieee_nn_record = 0xf0,
   ieee_weak_external_reference_enum= 0xf4,
-  ieee_repeat_data_enum = 0xf7,
+  ieee_repeat_data_enum = 0xf7
 } ieee_record_enum_type;
 		 
 

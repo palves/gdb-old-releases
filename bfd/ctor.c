@@ -25,7 +25,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 SECTION
 	Constructors
 
-DESCRIPTION
 	Classes in C++ have 'constructors' and 'destructors'.  These
 	are functions which are called automatically by the language
 	whenever data of a class is created or destroyed.  Class data
@@ -92,8 +91,14 @@ DESCRIPTION
 
 
 /*
-INTERNAL FUNCTION
+INTERNAL_FUNCTION
 	bfd_constructor_entry 
+
+SYNOPSIS
+	void bfd_constructor_entry(bfd *abfd, 
+		asymbol **symbol_ptr_ptr,
+		CONST char*type);
+
 
 DESCRIPTION
 	This function is called with an a symbol describing the
@@ -103,11 +108,6 @@ DESCRIPTION
 	called "CTOR" or "DTOR" or whatever if the bfd doesn't already
 	have one, and grow a relocation table for the entry points as
 	they accumulate.
-
-SYNOPSIS
-	void bfd_constructor_entry(bfd *abfd, 
-		asymbol **symbol_ptr_ptr,
-		CONST char*type);
 
 */
 
@@ -132,18 +132,18 @@ void DEFUN(bfd_constructor_entry,(abfd, symbol_ptr_ptr, type),
        arelent_chain *reloc = (arelent_chain *)bfd_alloc(abfd,
 							 sizeof(arelent_chain));
 
-       reloc->relent.section = (asection *)NULL;
+/*       reloc->relent.section = (asection *)NULL;*/
        reloc->relent.addend = 0;
 
        reloc->relent.sym_ptr_ptr = symbol_ptr_ptr;
        reloc->next = rel_section->constructor_chain;
        rel_section->constructor_chain = reloc;
-       reloc->relent.address = rel_section->size;
+       reloc->relent.address = rel_section->_cooked_size;
        /* ask the cpu which howto to use */
        reloc->relent.howto =
 	bfd_reloc_type_lookup(abfd->arch_info,
 			      BFD_RELOC_CTOR);
-       rel_section->size += sizeof(int *);
+       rel_section->_cooked_size += sizeof(int *);
        rel_section->reloc_count++;
    }
 

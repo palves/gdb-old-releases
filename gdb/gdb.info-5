@@ -1,18 +1,16 @@
-Info file gdb.info, produced by Makeinfo, -*- Text -*- from input file
-gdb-all.texi.
-
-   gdb.info
+Info file ./gdb.info, produced by Makeinfo, -*- Text -*- from input
+file gdb-all.texi.
 
 START-INFO-DIR-ENTRY
 * Gdb: (gdb).                   The GNU debugger.
 END-INFO-DIR-ENTRY
-
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.00, December 1991, of `Using GDB: A Guide to the
-GNU Source-Level Debugger' for GDB Version 4.3.
+   This is Edition 4.01, January 1992, of `Using GDB: A Guide to the
+GNU Source-Level Debugger' for GDB Version 4.4.
 
-   Copyright (C) 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991 1992 Free Software Foundation,
+Inc.
 
    Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -37,14 +35,9 @@ File: gdb.info,  Node: Files,  Next: Symbol Errors,  Prev: GDB Files,  Up: GDB F
 Commands to Specify Files
 =========================
 
-   GDB needs to know the file name of the program to be debugged, both
-in order to read its symbol table and in order to start your program. 
-To debug a core dump of a previous run, GDB must be told the file name
-of the core dump.
-
-   The usual way to specify the executable and core dump file names is
-with the command arguments given when you start GDB, as discussed in
-*note Getting In and Out of GDB: Invocation..
+   The usual way to specify executable and core dump file names is with
+the command arguments given when you start GDB, (*note Getting In and
+Out of GDB: Invocation..
 
    Occasionally it is necessary to change to a different file during a
 GDB session.  Or you may run GDB and forget to specify the files you
@@ -56,12 +49,10 @@ are useful.
      symbols and for the contents of pure memory.  It is also the
      program executed when you use the `run' command.  If you do not
      specify a directory and the file is not found in GDB's working
-     directory,
-
-     GDB uses the environment variable `PATH' as a list of directories
-     to search, just as the shell does when looking for a program to
-     run.  You can change the value of this variable, for both GDB and
-     your program, using the `path' command.
+     directory, GDB uses the environment variable `PATH' as a list of
+     directories to search, just as the shell does when looking for a
+     program to run.  You can change the value of this variable, for
+     both GDB and your program, using the `path' command.
 
 `file'
      `file' with no argument makes GDB discard any information it has
@@ -95,7 +86,7 @@ are useful.
      actually read the symbol table in full right away.  Instead, it
      scans the symbol table quickly to find which source files and
      which symbols are present.  The details are read later, one
-     source file at a time, when they are needed.
+     source file at a time, as they are needed.
 
      The purpose of this two-stage reading strategy is to make GDB
      start up faster.  For the most part, it is invisible except for
@@ -105,7 +96,7 @@ are useful.
      and Messages: Messages/Warnings.)
 
      When the symbol table is stored in COFF format, `symbol-file' does
-     read the symbol table data in full right away.  We haven't
+     read the symbol table data in full right away.  We have not
      implemented the two-stage strategy for COFF yet.
 
      When GDB is configured for a particular environment, it will
@@ -129,7 +120,7 @@ are useful.
      running under GDB.  So, if you have been running your program and
      you wish to debug a core file instead, you must kill the
      subprocess in which the program is running.  To do this, use the
-     `kill' command (*note Kill Process::.).
+     `kill' command (*note Killing the Child Process: Kill Process.).
 
 `load FILENAME'
      Depending on what remote debugging facilities are configured into
@@ -170,10 +161,11 @@ are useful.
 `info files'
 `info target'
      `info files' and `info target' are synonymous; both print the
-     current targets (*note Targets::.), including the names of the
-     executable and core dump files currently in use by GDB, and the
-     files from which symbols were loaded.  The command `help targets'
-     lists all possible targets rather than current ones.
+     current targets (*note Specifying a Debugging Target: Targets.),
+     including the names of the executable and core dump files
+     currently in use by GDB, and the files from which symbols were
+     loaded.  The command `help targets' lists all possible targets
+     rather than current ones.
 
    All file-specifying commands allow both absolute and relative file
 names as arguments.  GDB always converts the file name to an absolute
@@ -182,7 +174,7 @@ path name and remembers it that way.
    GDB supports the SunOS shared library format.  GDB automatically
 loads symbol definitions from shared libraries when you use the `run'
 command, or when you examine a core file.  (Before you issue the `run'
-command, GDB won't understand references to a function in a shared
+command, GDB will not understand references to a function in a shared
 library, however--unless you are debugging a core file).
 
 `info share'
@@ -208,8 +200,8 @@ Errors Reading Symbol Files
    While reading a symbol file, GDB will occasionally encounter
 problems, such as symbol types it does not recognize, or known bugs in
 compiler output.  By default, GDB does not notify you of such
-problems, since they're relatively common and primarily of interest to
-people debugging compilers.  If you are interested in seeing
+problems, since they are relatively common and primarily of interest
+to people debugging compilers.  If you are interested in seeing
 information about ill-constructed symbol tables, you can either ask
 GDB to print only one message about each such type of problem, no
 matter how many times the problem occurs; or you can ask GDB to print
@@ -288,14 +280,14 @@ Specifying a Debugging Target
 *****************************
 
    A "target" is the execution environment occupied by your program. 
-Often, GDB runs in the same host environment as your program you are
-debugging; in that case, the debugging target is specified as a side
-effect when you use the `file' or `core' commands.  When you need more
-flexibility--for example, running GDB on a physically separate host,
-or controlling a standalone system over a serial port or a realtime
-system over a TCP/IP connection--you can use the `target' command to
-specify one of the target types configured for GDB (*note Target
-Commands::.).
+Often, GDB runs in the same host environment as your program; in that
+case, the debugging target is specified as a side effect when you use
+the `file' or `core' commands.  When you need more flexibility--for
+example, running GDB on a physically separate host, or controlling a
+standalone system over a serial port or a realtime system over a
+TCP/IP connection--you can use the `target' command to specify one of
+the target types configured for GDB (*note Commands for Managing
+Targets: Target Commands.).
 
 * Menu:
 
@@ -331,9 +323,9 @@ requesting memory addresses refer to that target; addresses in an
 active core file or executable file target are obscured while the
 process target is active.
 
-   Use the `core-file', and `exec-file' commands to select a new core
+   Use the `core-file' and `exec-file' commands to select a new core
 file or executable target (*note Commands to Specify Files: Files.). 
-To specify as a target a process that's already running, use the
+To specify as a target a process that is already running, use the
 `attach' command (*note Debugging an Already-Running Process:
 Attach..).
 
@@ -379,24 +371,25 @@ GDB configuration):
 `target remote DEV'
      Remote serial target in GDB-specific protocol.  The argument DEV
      specifies what serial device to use for the connection (e.g. 
-     `/dev/ttya'). *Note Remote::.
+     `/dev/ttya'). *Note Remote Debugging: Remote.
 
 `target amd-eb DEV SPEED PROG'
      Remote PC-resident AMD EB29K board, attached over serial lines. 
      DEV is the serial device, as for `target remote'; SPEED allows
      you to specify the linespeed; and PROG is the name of the program
-     to be debugged, as it appears to DOS on the PC.  *Note EB29K
-     Remote::.
+     to be debugged, as it appears to DOS on the PC.  *Note GDB with a
+     Remote EB29K: EB29K Remote.
 
 `target nindy DEVICENAME'
      An Intel 960 board controlled by a Nindy Monitor.  DEVICENAME is
      the name of the serial device to use for the connection, e.g. 
-     `/dev/ttya'.  *Note i960-Nindy Remote::.
+     `/dev/ttya'.  *Note GDB with a Remote i960 (Nindy): i960-Nindy
+     Remote.
 
 `target vxworks MACHINENAME'
      A VxWorks system, attached via TCP/IP.  The argument MACHINENAME
-     is the target system's machine name or IP address.  *Note VxWorks
-     Remote::.
+     is the target system's machine name or IP address.  *Note GDB and
+     VxWorks: VxWorks Remote.
 
    Different targets are available on different configurations of GDB;
 your configuration may have more or fewer targets.
@@ -406,12 +399,6 @@ File: gdb.info,  Node: Remote,  Prev: Target Commands,  Up: Targets
 
 Remote Debugging
 ================
-
-* Menu:
-
-* i960-Nindy Remote::		GDB with a Remote i960 (Nindy)
-* EB29K Remote::		GDB with a Remote EB29K
-* VxWorks Remote::		GDB and VxWorks
 
    If you are trying to debug a program running on a machine that
 cannot run GDB in the usual way, it is often useful to use remote
@@ -456,6 +443,12 @@ command.
    Other remote targets may be available in your configuration of GDB;
 use `help targets' to list them.
 
+* Menu:
+
+* i960-Nindy Remote::		GDB with a Remote i960 (Nindy)
+* EB29K Remote::		GDB with a Remote EB29K
+* VxWorks Remote::		GDB and VxWorks
+
 
 File: gdb.info,  Node: i960-Nindy Remote,  Next: EB29K Remote,  Prev: Remote,  Up: Remote
 
@@ -472,7 +465,7 @@ tell GDB how to connect to the 960 in several ways:
    * By responding to a prompt on startup;
 
    * By using the `target' command at any point during your GDB
-     session.  *Note Target Commands::.
+     session.  *Note Commands for Managing Targets: Target Commands.
 
 * Menu:
 
@@ -496,7 +489,7 @@ Respond to the prompt with whatever suffix (after `/dev/tty')
 identifies the serial port you want to use.  You can, if you choose,
 simply start up with no Nindy connection by responding to the prompt
 with an empty line.  If you do this, and later wish to attach to Nindy,
-use `target' (*note Target Commands::.).
+use `target' (*note Commands for Managing Targets: Target Commands.).
 
 
 File: gdb.info,  Node: Nindy Options,  Next: Nindy reset,  Prev: Nindy Startup,  Up: i960-Nindy Remote
@@ -536,7 +529,7 @@ Nindy-960 board attached:
           *Warning:* Many target systems do not have the hardware that
           this requires; it only works with a few boards.
 
-        The standard `-b' option controls the line speed used on the serial
+   The standard `-b' option controls the line speed used on the serial
 port.
 
 
@@ -607,7 +600,7 @@ look something like the following:
 
 Your system may define a different name where our example uses
 `/dev/ttya' as the argument to `tip'.  The communications parameters,
-including what port to use, are associated with the `tip' argument in
+including which port to use, are associated with the `tip' argument in
 the "remote" descriptions file--normally the system table
 `/etc/remote'.
 
@@ -653,10 +646,11 @@ to take over.
    For this example, we've assumed what is probably the most convenient
 way to make sure the same 29K program is on both the PC and the Unix
 system: a PC/NFS connection that establishes "drive `G:'" on the PC as
-a file system on the Unix host.  If you don't have PC/NFS or something
-similar connecting the two systems, you must arrange some other
-way--perhaps floppy-disk transfer--of getting the 29K program from the
-Unix system to the PC; GDB will *not* download it over the serial line.
+a file system on the Unix host.  If you do not have PC/NFS or
+something similar connecting the two systems, you must arrange some
+other way--perhaps floppy-disk transfer--of getting the 29K program
+from the Unix system to the PC; GDB will *not* download it over the
+serial line.
 
 
 File: gdb.info,  Node: gdb-EB29K,  Next: Remote Log,  Prev: Comms (EB29K),  Up: EB29K Remote
@@ -682,7 +676,7 @@ our example this is simply `MYFOO', but in general it can include a
 DOS path, and depending on your transfer mechanism may not resemble
 the name on the Unix side.
 
-   At this point, you can set any breakpoints you wish; when you're
+   At this point, you can set any breakpoints you wish; when you are
 ready to see your program run on the 29K board, use the GDB command
 `run'.
 
@@ -725,11 +719,11 @@ executed on the VxWorks target.  These routines are included in the
 VxWorks library `rdb.a' and are incorporated into the system image
 when source-level debugging is enabled in the VxWorks configuration.
 
-   You can define `INCLUDE_RDB' in the VxWorks configuration file
-`configAll.h' to include the RDB interface routines and spawn the
-source debugging task `tRdbTask' when VxWorks is booted.  For more
-information on configuring and remaking VxWorks, see the `VxWorks
-Programmer's Guide'.
+   If you wish, you can define `INCLUDE_RDB' in the VxWorks
+configuration file `configAll.h' to include the RDB interface routines
+and spawn the source debugging task `tRdbTask' when VxWorks is booted.
+ For more information on configuring and remaking VxWorks, see the
+manufacturer's manual.
 
    Once you have included the RDB interface in your VxWorks system
 image and set your Unix execution search path to find GDB, you are
@@ -765,8 +759,8 @@ network.  To connect to a target whose host name is "`tt'", type:
    GDB will then attempt to read the symbol tables of any object
 modules loaded into the VxWorks target since it was last booted.  GDB
 locates these files by searching the directories listed in the command
-search path (*note Environment::.); if it fails to find an object
-file, it will display a message such as:
+search path (*note Your Program's Environment: Environment.); if it
+fails to find an object file, it will display a message such as:
 
      prog.o: No such file or directory.
 
@@ -822,9 +816,9 @@ as follows:
 
      (gdb) attach TASK
 
-   where TASK is the VxWorks hexadecimal task ID.  The task can be
-running or suspended when you attach to it.  If running, it will be
-suspended at the time of attachment.
+where TASK is the VxWorks hexadecimal task ID.  The task can be running
+or suspended when you attach to it.  If running, it will be suspended
+at the time of attachment.
 
 
 File: gdb.info,  Node: Controlling GDB,  Next: Sequences,  Prev: Targets,  Up: Top
@@ -834,7 +828,8 @@ Controlling GDB
 
    You can alter many aspects of GDB's interaction with you by using
 the `set' command.  For commands controlling how GDB displays data,
-*note Print Settings::.; other settings are described here.
+*note Print Settings: Print Settings.; other settings are described
+here.
 
 * Menu:
 
@@ -1013,7 +1008,7 @@ both input and output with the `set radix' command.
           set radix 10.
           set radix 0xa
 
-          will set the base to decimal.  On the other hand, `set radix 10'
+     will set the base to decimal.  On the other hand, `set radix 10'
      will leave the radix unchanged no matter what it was.
 
 `show radix'
@@ -1028,7 +1023,7 @@ Optional Warnings and Messages
    By default, GDB is silent about its inner workings.  If you are
 running on a slow machine, you may want to use the `set verbose'
 command.  It will make GDB tell you when it does a lengthy internal
-operation, so you won't think it has crashed.
+operation, so you will not think it has crashed.
 
    Currently, the messages controlled by `set verbose' are those which
 announce that the symbol table for a source file is being read (*note
@@ -1046,7 +1041,8 @@ Commands to Specify Files: Files., in the description of the command
 
    By default, if GDB encounters bugs in the symbol table of an object
 file, it is silent; but if you are debugging a compiler, you may find
-this information useful (*note Symbol Errors::.).
+this information useful (*note Errors Reading Symbol Files: Symbol
+Errors.).
 
 `set complaints LIMIT'
      Permits GDB to output LIMIT complaints about each type of unusual
@@ -1089,7 +1085,7 @@ modules:
      an object file with a particular name is seen again.
 
 `set symbol-reloading off'
-     Do Not replace symbol definitions when re-encountering object
+     Do not replace symbol definitions when re-encountering object
      files of the same name.  This is the default state; if you are
      not running on a system that permits automatically relinking
      modules, you should leave `symbol-reloading' off, since otherwise
@@ -1181,8 +1177,9 @@ last command, as it would from the terminal.
 "init files".  These are files named `.gdbinit'.  GDB reads the init
 file (if any) in your home directory and then the init file (if any)
 in the current working directory.  (The init files are not executed if
-you use the `-nx' option; *note Mode Options::..)  You can also
-request the execution of a command file with the `source' command:
+you use the `-nx' option; *note Choosing Modes: Mode Options..)  You
+can also request the execution of a command file with the `source'
+command:
 
 `source FILENAME'
      Execute the command file FILENAME.
@@ -1210,13 +1207,13 @@ want.
 
 `echo TEXT'
      Print TEXT.  Nonprinting characters can be included in TEXT using
-     C escape sequences, such as `\n' to print a newline.  No newline
-     will be printed unless you specify one. In addition to the
+     C escape sequences, such as `\n' to print a newline.  *No newline
+     will be printed unless you specify one.* In addition to the
      standard C escape sequences, a backslash followed by a space
      stands for a space.  This is useful for outputting a string with
      spaces at the beginning or the end, since leading and trailing
-     spaces are otherwise trimmed from all arguments.  Thus, to print
-     ` and foo = ', use the command `echo \ and foo = \ '.
+     spaces are otherwise trimmed from all arguments.  To print ` and
+     foo = ', use the command `echo \ and foo = \ '.
 
      A backslash at the end of TEXT can be used, as in C, to continue
      the command onto subsequent lines.  For example,
@@ -1225,7 +1222,7 @@ want.
           which is continued\n\
           onto several lines.\n
 
-          produces the same output as
+     produces the same output as
 
           echo This is some text\n
           echo which is continued\n
@@ -1234,8 +1231,8 @@ want.
 `output EXPRESSION'
      Print the value of EXPRESSION and nothing but that value: no
      newlines, no `$NN = '.  The value is not entered in the value
-     history either.  *Note Expressions:: for more information on
-     expressions.
+     history either.  *Note Expressions: Expressions, for more
+     information on expressions.
 
 `output/FMT EXPRESSION'
      Print the value of EXPRESSION in format FMT.  You can use the
@@ -1250,11 +1247,11 @@ want.
 
           printf (STRING, EXPRESSIONS...);
 
-          For example, you can print two values in hex like this:
+     For example, you can print two values in hex like this:
 
           printf "foo, bar-foo = 0x%x, 0x%x\n", foo, bar-foo
 
-          The only backslash-escape sequences that you can use in the format
+     The only backslash-escape sequences that you can use in the format
      string are the simple ones that consist of backslash followed by a
      letter.
 

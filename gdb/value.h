@@ -38,7 +38,7 @@ enum lval_type {
   /* In a register series in a frame not the current one, which may have been
      partially saved or saved in different places (otherwise would be
      lval_register or lval_memory).  */
-  lval_reg_frame_relative,
+  lval_reg_frame_relative
 };
 
 struct value

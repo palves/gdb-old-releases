@@ -651,12 +651,19 @@ CORE_ADDR mips_skip_prologue(pc)
     struct symbol *f;
     struct block *b;
     unsigned long inst;
+    int offset;
 
     /* For -g modules and most functions anyways the
-       first instruction adjusts the stack. */
-    inst = read_memory_integer(pc, 4);
-    if ((inst & 0xffff0000) == 0x27bd0000)
-	return pc + 4;
+       first instruction adjusts the stack.
+       But we allow some number of stores before the stack adjustment.
+       (These are emitted by varags functions compiled by gcc-2.0. */
+    for (offset = 0; offset < 100; offset += 4) {
+	inst = read_memory_integer(pc + offset, 4);
+	if ((inst & 0xffff0000) == 0x27bd0000) /* addiu $sp,$sp,offset */
+	    return pc + offset + 4;
+	if ((inst & 0xFFE00000) != 0xAFA00000) /* sw reg,n($sp) */
+	    break;
+    }
 
     /* Well, it looks like a frameless. Let's make sure.
        Note that we are not called on the current PC,

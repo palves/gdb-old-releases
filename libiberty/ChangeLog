@@ -1,3 +1,89 @@
+Thu Jan 30 22:48:41 1992  Stu Grossman  (grossman at cygnus.com)
+
+	* getopt.c (_getopt_internal):  Fix usage of enum has_arg.
+
+Mon Jan 20 18:53:23 1992  Stu Grossman  (grossman at cygnus.com)
+
+ 	* getopt.c, getopt1.c, ../include/getopt.h:  Get latest versions.
+
+Sat Jan 18 16:53:01 1992  Fred Fish  (fnf at cygnus.com)
+
+	* argv.c:  New file to build and destroy standard argument
+	vectors from a command string.
+
+	* Makefile.in:  Add argv.c and argv.o to appropriate macros.
+
+Fri Dec 20 12:12:57 1991  Fred Fish  (fnf at cygnus.com)
+
+	* configure.in:  Change svr4 references to sysv4.
+
+	* rindex.c:  Declare return type of externally used function
+	strrchr().
+
+Thu Dec 19 18:35:03 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  Remove "***" in normal output, since Make produces
+	this on errors, and it's convenient to search for.
+
+Tue Dec 17 23:21:30 1991  Per Bothner  (bothner at cygnus.com)
+
+	* memcmp.c, memcpy.c, memmove.c, memset.c, strchr.c, strrchr.c:
+	New ANSI functions.  The old non-ANSI functions (such as bcopy)
+	should be avoided.
+	* bcopy.c:  Fix to correctly handle overlapping regions.
+	* index.c, rindex.c:  Re-write in terms of strchr() and strrchr().
+	* functions.def:  Add the new functions.
+	* functions.def:  Add 4th parameter to DEF macro,
+	an ansidecl.h-style prototype.
+	* dummy.c:  Use expanded DEF macro to create a dummy function
+	call, with correct parameter types.  (This avoids some
+	complaints from gcc about predefined builtins.)
+
+	Move the functionality of config/mh-default into Makefile.in.
+	This avoid duplication, and simplifies things slightly.
+	* Makefile.in:  Tweak so we don't need config/mh-default.
+	* README:  Update.
+	* configure.in:  No longer need config/mh-default.
+	* config/mh-default:  Deleted.
+	* config/mh-sysv:  Remove lines copied from old mh-default.
+
+Tue Dec 17 05:46:46 1991  John Gilmore  (gnu at cygnus.com)
+
+	* fdmatch.c (fdmatch):  Don't compare st_rdev, which is for
+	'mknod' device numbers.
+
+Mon Dec 16 12:25:34 1991  Fred Fish  (fnf at cygnus.com)
+
+	* fdmatch.c, Makefile.in:  Add new function that takes two
+	open file descriptors and returns nonzero if they refer to
+	the same file, zero otherwise.  (used in gdb)
+
+Wed Dec 11 17:40:39 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
+	From DJ:
+	* msdos.c: stub functions for dos.
+	* makefile.dos, configdj.bat: new.
+	* getopt.c: Don't include alloca-conf.h in a GO32 world.
+	
+
+Tue Dec 10 04:14:49 1991  K. Richard Pixley  (rich at rtl.cygnus.com)
+
+	* Makefile.in: infodir belongs in datadir.
+
+Fri Dec  6 23:26:45 1991  K. Richard Pixley  (rich at rtl.cygnus.com)
+
+	* Makefile.in: remove spaces following hyphens because bsd make
+	  can't cope.  added standards.text support.  install using
+	  INSTALL_DATA.
+
+	* configure.in: remove commontargets as it is no longer a
+	  recognized hook.
+
+Thu Dec  5 22:46:46 1991  K. Richard Pixley  (rich at rtl.cygnus.com)
+
+	* Makefile.in: idestdir and ddestdir go away.  Added copyrights
+	  and shift gpl to v2.  Added ChangeLog if it didn't exist. docdir
+	  and mandir now keyed off datadir by default.
+
 Fri Nov 22 19:15:29 1991  John Gilmore  (gnu at cygnus.com)
 
 	* Makefile.in:  find-needed.awk does not fit in 14 chars.

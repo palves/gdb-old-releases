@@ -15,6 +15,7 @@ coredep.c\
 exec.c\
 gould-pinsn.c\
 gould-xdep.c\
+h8300-tdep.c\
 hp300ux-xdep.c\
 i386-pinsn.c\
 i386-tdep.c\
@@ -42,6 +43,7 @@ pyr-tdep.c\
 pyr-xdep.c\
 remote-adapt.c\
 remote-eb.c\
+remote-hms.c\
 remote-mm.c\
 remote-nindy.c\
 remote-vx.c\
@@ -82,6 +84,7 @@ tm-arm.h\
 tm-bigmips.h\
 tm-convex.h\
 tm-delta88.h\
+tm-h8300.h\
 tm-hp300bsd.h\
 tm-hp300hpux.h\
 tm-i386v-g.h\
@@ -99,6 +102,7 @@ tm-pn.h\
 tm-pyr.h\
 tm-rs6000.h\
 tm-sparc.h\
+tm-stratus.h\
 tm-sun2.h\
 tm-sun2os4.h\
 tm-sun3.h\
@@ -139,6 +143,7 @@ xm-pyr.h\
 xm-rs6000.h\
 xm-rtbsd.h\
 xm-sparc.h\
+xm-stratus.h\
 xm-sun2.h\
 xm-sun3.h\
 xm-sun386.h\
@@ -182,6 +187,7 @@ ALLCONFIG=\
 ./config/mh-pyramid\
 ./config/mh-rs6000\
 ./config/mh-rtbsd\
+./config/mh-stratus\
 ./config/mh-sun2os3\
 ./config/mh-sun2os4\
 ./config/mh-sun3\
@@ -207,6 +213,7 @@ ALLCONFIG=\
 ./config/mt-convex\
 ./config/mt-decstation\
 ./config/mt-delta88\
+./config/mt-h8300hms\
 ./config/mt-hp300bsd\
 ./config/mt-hp300hpux\
 ./config/mt-i386aout\
@@ -230,6 +237,7 @@ ALLCONFIG=\
 ./config/mt-pn\
 ./config/mt-pyramid\
 ./config/mt-rs6000\
+./config/mt-stratus\
 ./config/mt-sun2os3\
 ./config/mt-sun2os4\
 ./config/mt-sun3\

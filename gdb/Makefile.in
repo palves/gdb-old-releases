@@ -1,4 +1,4 @@
-##Copyright (C) 1989-1991 Free Software Foundation, Inc.
+##Copyright (C) 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
 
 # This file is part of GDB.
 
@@ -16,15 +16,45 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
+prefix = /usr/local
+
+bindir = $(prefix)/bin
+datadir = $(prefix)/lib
+libdir = $(prefix)/lib
+mandir = $(datadir)/man
+man1dir = $(mandir)/man1
+man2dir = $(mandir)/man2
+man3dir = $(mandir)/man3
+man4dir = $(mandir)/man4
+man5dir = $(mandir)/man5
+man6dir = $(mandir)/man6
+man7dir = $(mandir)/man7
+man8dir = $(mandir)/man8
+man9dir = $(mandir)/man9
+infodir = $(datadir)/info
+includedir = $(prefix)/include
+docdir = $(datadir)/doc
+
+SHELL = /bin/sh
+
+INSTALL = install -c
+INSTALL_PROGRAM = $(INSTALL)
+INSTALL_DATA = $(INSTALL)
+
+AR = ar
+AR_FLAGS = qv
+RANLIB = ranlib
+
+# Flags that describe where you can find the termcap library.
+# This can be overridden in the host Makefile fragment file.
+TERMCAP = -ltermcap
+
+#### Host, target, and site specific Makefile fragments come in here.
+###
+
 # Host and target-dependent makefile fragments come in here.
 ####
 # End of host and target-dependent makefile fragments
-
-# Destination directory of the software tree build
-ddestdir = /usr/local
-
-# Place to install binaries in the destination tree. 
-bindir=$(ddestdir)/bin
 
 # System V: If you compile gdb with a compiler which uses the coff
 # encapsulation feature (this is a function of the compiler used, NOT
@@ -52,7 +82,6 @@ BISON=bison -y
 BISONFLAGS=
 YACC=$(BISON) $(BISONFLAGS)
 # YACC=yacc
-SHELL=/bin/sh
 MAKE=make
 
 # Documentation (gdb.dvi) needs either GNU m4 or SysV m4; 
@@ -106,7 +135,10 @@ MINUS_G=-g
 GLOBAL_CFLAGS = ${MINUS_G} ${TM_CFLAGS} ${XM_CFLAGS}
 #PROFILE_CFLAGS = -pg
 
-CFLAGS = ${GLOBAL_CFLAGS} ${PROFILE_CFLAGS} ${MALLOC_CFLAGS} ${INCLUDE_CFLAGS}
+# CFLAGS is the aggregate of several individual *_CFLAGS macros.
+# USER_CFLAGS is specifically reserved for setting from the command line
+# when running make.  I.E.  "make USER_CFLAGS=-Wmissing-prototypes".
+CFLAGS = ${GLOBAL_CFLAGS} ${PROFILE_CFLAGS} ${MALLOC_CFLAGS} ${INCLUDE_CFLAGS} ${USER_CFLAGS}
 # None of the things in CFLAGS will do any harm, and on some systems
 #  (e.g. SunOS4) it is important to use the M_CFLAGS.
 LDFLAGS = $(CFLAGS)
@@ -114,10 +146,6 @@ LDFLAGS = $(CFLAGS)
 # Where is the "-liberty" library, containing getopt and obstack?
 LIBIBERTY_DIR = ${srcdir}/../libiberty
 LIBIBERTY = $(unsubdir)/../libiberty${subdir}/libiberty.a
-
-# Flags that describe where you can find the termcap library.
-# You may need to make other arrangements for USG.
-TERMCAP = -ltermcap
 
 # The config/mh-* file must define REGEX and REGEX1 on USG machines.
 # If your sysyem is missing alloca(), or, more likely, it's there but
@@ -133,7 +161,7 @@ CDEPS = ${XM_CDEPS} ${TM_CDEPS} ${BFD_LIB} ${LIBIBERTY} ${RL_LIB}
 ADD_FILES = ${REGEX} ${ALLOCA}  ${GNU_MALLOC} ${XM_ADD_FILES} ${TM_ADD_FILES}
 ADD_DEPS = ${REGEX1} ${ALLOCA1} ${GNU_MALLOC} ${XM_ADD_FILES} ${TM_ADD_FILES}
 
-VERSION = 4.3
+VERSION = 4.4
 DIST=gdb
 
 LINT=/usr/5bin/lint
@@ -194,27 +222,15 @@ SFILES_KGDB  = $(SFILES) stuff.c kdb-start.c
 # Header files that are not named in config/* Makefile fragments go here.
 HFILES=	breakpoint.h buildsym.h command.h defs.h environ.h \
 	expression.h frame.h gdbcmd.h gdbcore.h \
-	ieee-float.h inferior.h minimon.h \
+	ieee-float.h inferior.h minimon.h partial-stab.h \
 	signals.h signame.h symfile.h symtab.h \
-	target.h terminal.h tm-68k.h tm-i960.h tm-sunos.h tm-svr4.h \
-	xm-m68k.h xm-svr4.h language.h parser-defs.h value.h
-
-# Header files for machine opcode tables.
-# when OPCODE_DIR changes to ../include, remove the whole $(OPCODES)
-# business, since they will be put into the GDB release files by somebody else.
-OPCODE_DIR =
-OPCODES = $(OPCODE_DIR)pn-opcode.h  $(OPCODE_DIR)np1-opcode.h \
-	$(OPCODE_DIR)sparc-opcode.h $(OPCODE_DIR)vax-opcode.h \
-	$(OPCODE_DIR)m68k-opcode.h  $(OPCODE_DIR)ns32k-opcode.h \
-	$(OPCODE_DIR)convx-opcode.h $(OPCODE_DIR)pyr-opcode.h \
-	$(OPCODE_DIR)mips-opcode.h  $(OPCODE_DIR)am29k-opcode.h \
-	$(OPCODE_DIR)arm-opcode.h   $(OPCODE_DIR)m88k-opcode.h \
-	$(OPCODE_DIR)tahoe-opcode.h $(OPCODE_DIR)rs6k-opcode.h
+	target.h terminal.h tm-68k.h tm-i960.h tm-sunos.h tm-sysv4.h \
+	xm-m68k.h xm-sysv4.h language.h parser-defs.h value.h
 
 REMOTE_EXAMPLES = m68k-stub.c i386-stub.c rem-multi.shar
 
 MALLOCSRC = gmalloc.c mcheck.c mtrace.c mtrace.awk \
-	    ansidecl.h gmalloc.h
+	    gmalloc.h
 
 POSSLIBS_MAINDIR = regex.c regex.h alloca.c $(MALLOCSRC)
 POSSLIBS = $(POSSLIBS_MAINDIR)
@@ -222,7 +238,7 @@ POSSLIBS = $(POSSLIBS_MAINDIR)
 TESTS = testbpt.c testfun.c testrec.c testreg.c testregs.c
 
 OTHERS = Makefile.in depend alldeps.mak createtags munch configure.in \
-	 ChangeLog ChangeLog-3.x gdb.1 refcard.ps \
+	 ChangeLog ChangeLog-9091 ChangeLog-3.x gdb.1 refcard.ps \
 	 README TODO TAGS WHATS.NEW Projects \
 	 .gdbinit COPYING $(YYFILES) \
 	 copying.c Convex.notes copying.awk \
@@ -239,9 +255,9 @@ INFOFILES = gdb.info*
 DEPFILES= ${TDEPFILES} ${XDEPFILES}
 
 SOURCES=$(SFILES) $(ALLDEPFILES) $(YYFILES)
-TAGFILES = $(SOURCES) ${HFILES} ${OPCODES} ${ALLPARAM} ${POSSLIBS} 
+TAGFILES = $(SOURCES) ${HFILES} ${ALLPARAM} ${POSSLIBS} 
 TAGFILES_MAINDIR = $(SFILES_MAINDIR) $(ALLDEPFILES_MAINDIR) \
-             ${HFILES} ${OPCODES} ${ALLPARAM} ${POSSLIBS_MAINDIR} 
+             ${HFILES} ${ALLPARAM} ${POSSLIBS_MAINDIR} 
 TARFILES = ${TAGFILES_MAINDIR} ${OTHERS} ${REMOTE_EXAMPLES}
 
 OBS = main.o blockframe.o breakpoint.o findvar.o stack.o source.o \
@@ -276,19 +292,20 @@ YYOBJ = c-exp.tab.o m2-exp.tab.o
 
 all: gdb
 	$(MAKE) subdir_do DO=all "DODIRS=$(SUBDIRS)"
-all-info: force
-	$(MAKE) subdir_do DO=all-info "DODIRS=$(SUBDIRS)"
+info: force
+	$(MAKE) subdir_do DO=info "DODIRS=$(SUBDIRS)"
 install-info: force
 	$(MAKE) subdir_do DO=install-info "DODIRS=$(SUBDIRS)"
+clean-info: force
+	$(MAKE) subdir_do DO=clean-info "DODIRS=$(SUBDIRS)"
 
 gdb.z:gdb.1
-	nroff -man gdb.1 | col -b > gdb.t 
+	nroff -man $(srcdir)/gdb.1 | col -b > gdb.t 
 	pack gdb.t ; rm -f gdb.t
 	mv gdb.t.z gdb.z
 	
-install: gdb gdb.z
-	cp gdb $(bindir)/gdb.new
-	mv $(bindir)/gdb.new $(bindir)/gdb
+install: gdb 
+	$(INSTALL_PROGRAM) gdb $(bindir)/gdb
 	$(M_INSTALL)
 	$(MAKE) subdir_do DO=install "DODIRS=$(SUBDIRS)"
 
@@ -477,7 +494,7 @@ setup-to-dist: force_update
 	rm -f depend
 	$(MAKE) $(MFLAGS) depend
 	../configure none
-	(cd doc; $(MAKE) $(MFLAGS) rdl-apps.texi gdbVN.m4)
+	(cd doc; $(MAKE) $(MFLAGS) gdbVN.m4)
 	$(MAKE) $(MFLAGS) gdb.info
 	$(MAKE) $(MFLAGS) refcard.ps
 
@@ -539,8 +556,8 @@ subdir_do: force
 				$(MAKE) \
 					"against=$(against)" \
 					"AR=$(AR)" \
-					"CC=$(CC)" \
 					"AR_FLAGS=$(AR_FLAGS)" \
+					"CC=$(CC)" \
 					"RANLIB=$(RANLIB)" \
 					"BISON=$(BISON)" $(DO)) ; then true ; \
 			else exit 1 ; fi ; \
@@ -592,28 +609,26 @@ force:
 # Documentation!
 # GDB QUICK REFERENCE (TeX dvi file, CM fonts)
 refcard.dvi: $(srcdir)/doc/refcard.tex
-	( cd $(srcdir)/doc; $(MAKE) refcard.dvi )
-	mv $(srcdir)/doc/refcard.dvi .
+	( cd $(unsubdir)/doc; $(MAKE) refcard.dvi )
+	mv $(unsubdir)/doc/refcard.dvi .
 
 # GDB QUICK REFERENCE (PostScript output, common PS fonts)
 refcard.ps: $(srcdir)/doc/refcard.tex
-	( cd $(srcdir)/doc; $(MAKE) refcard.ps )
-	mv $(srcdir)/doc/refcard.ps .
+	( cd $(unsubdir)/doc; $(MAKE) refcard.ps )
+	mv $(unsubdir)/doc/refcard.ps .
 
 # GDB MANUAL: TeX dvi file
-gdb.dvi: $(srcdir)/doc/gdb-all.texi $(srcdir)/doc/rdl-apps.texi
-	( cd $(srcdir)/doc; $(MAKE) M4=$(M4) gdb.dvi )
-	mv $(srcdir)/doc/gdb.dvi .
+gdb.dvi: $(unsubdir)/doc/gdb-all.texi
+	( cd $(unsubdir)/doc; $(MAKE) M4=$(M4) gdb.dvi )
+	mv $(unsubdir)/doc/gdb.dvi .
 
 # GDB MANUAL: info file
-gdb.info: $(srcdir)/doc/gdb-all.texi
-	( cd $(srcdir)/doc; $(MAKE) M4=$(M4) gdb.info )
-	mv $(srcdir)/doc/gdb.info* .
+gdb.info: $(unsubdir)/doc/gdb-all.texi
+	( cd $(unsubdir)/doc; $(MAKE) M4=$(M4) gdb.info )
+	mv $(unsubdir)/doc/gdb.info* .
 
-$(srcdir)/doc/gdb-all.texi:
+$(unsubdir)/doc/gdb-all.texi:
 	(cd $(srcdir)/doc; $(MAKE) M4=$(M4) gdb-all.texi)
-$(srcdir)/doc/rdl-apps.texi:
-	(cd $(srcdir)/doc; $(MAKE) rdl-apps.texi)
 
 # Make copying.c from COPYING
 copying.c: ${srcdir}/COPYING ${srcdir}/copying.awk

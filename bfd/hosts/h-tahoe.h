@@ -21,7 +21,8 @@
 #define	HOST_MACHINE_ARCH	bfd_arch_tahoe
 
 #define	HOST_TEXT_START_ADDR	0
-#define	HOST_STACK_END_ADDR	KERNBASE
+#define	HOST_STACK_END_ADDR	(KERNBASE - (UPAGES * NBPG))
+#define	HOST_BIG_ENDIAN_P
 
 /* EXACT TYPES */
 typedef char int8e_type;
@@ -38,3 +39,4 @@ typedef short int16_type;
 typedef unsigned short uint16_type;
 typedef int int32_type;
 typedef unsigned int uint32_type;
+#include "fopen-same.h"

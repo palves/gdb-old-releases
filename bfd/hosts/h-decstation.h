@@ -24,6 +24,7 @@
 #define	HOST_DATA_START_ADDR		USRDATA
 #define	HOST_STACK_END_ADDR		USRSTACK
 
+#include "fopen-same.h"
 
 /* EXACT TYPES */
 typedef char int8e_type;

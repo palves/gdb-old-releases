@@ -1,5 +1,5 @@
 /* Top level `main' program for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -388,15 +388,19 @@ main (argc, argv)
     static struct option long_options[] =
       {
 	{"quiet", 0, &quiet, 1},
+	{"q", 0, &quiet, 1},
 	{"nx", 0, &inhibit_gdbinit, 1},
+	{"n", 0, &inhibit_gdbinit, 1},
 	{"batch", 0, &batch, 1},
 	{"epoch", 0, &epoch_interface, 1},
 	{"fullname", 0, &frame_file_full_name, 1},
+	{"f", 0, &frame_file_full_name, 1},
 	{"help", 0, &print_help, 1},
 	{"se", 1, 0, 10},
 	{"symbols", 1, 0, 's'},
 	{"s", 1, 0, 's'},
 	{"exec", 1, 0, 'e'},
+	{"e", 1, 0, 'e'},
 	{"core", 1, 0, 'c'},
 	{"c", 1, 0, 'c'},
 	{"command", 1, 0, 'x'},
@@ -404,6 +408,7 @@ main (argc, argv)
 	{"directory", 1, 0, 'd'},
 	{"cd", 1, 0, 11},
 	{"tty", 1, 0, 't'},
+	{"baud", 1, 0, 'b'},
 	{"b", 1, 0, 'b'},
 /* Allow machine descriptions to add more options... */
 #ifdef ADDITIONAL_OPTIONS
@@ -414,6 +419,8 @@ main (argc, argv)
 
     while (1)
       {
+	int option_index;
+
 	c = getopt_long_only (argc, argv, "",
 			      long_options, &option_index);
 	if (c == EOF)
@@ -743,7 +750,7 @@ execute_command (p, from_tty)
   register struct cmd_list_element *c;
   register struct command_line *cmdlines;
   register enum language flang;
-  static struct language_defn *saved_language = 0;
+  static const struct language_defn *saved_language = 0;
   static int warned = 0;
 
   free_all_values ();
@@ -795,7 +802,7 @@ execute_command (p, from_tty)
   {
     if (language_mode == language_mode_auto) {
       if (saved_language)
-	language_info ();
+	language_info (1);	/* Print what changed.  */
     }
     saved_language = current_language;
     warned = 0;

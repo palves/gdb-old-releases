@@ -78,5 +78,6 @@ typedef struct _oasys_data {
   file_ptr first_data_record;
 } oasys_data_type;
 
-#define oasys_data(abfd)	((oasys_data_type *)(abfd)->tdata)
-#define oasys_ar_data(abfd)	((oasys_ar_data_type *)(abfd)->tdata)
+#define OASYS_DATA(abfd)	((abfd)->tdata.oasys_obj_data)
+#define OASYS_AR_DATA(abfd)	((abfd)->tdata.oasys_ar_data)
+

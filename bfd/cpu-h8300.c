@@ -65,7 +65,7 @@ DEFUN_VOID(bfd_h8_disassemble_init)
        that the count is the same s the length */
     for (i = 0; p->data.nib[i] != E; i++) ;
     if (i & 1) abort();
-    if (i/2 != p->length) abort();
+    p->length = i/2;
   }
   for (i = 0; i < 256; i++) 
       {
@@ -118,6 +118,8 @@ FILE *stream)
 	if ((int)looking_for != thisnib) goto fail;
 	break;
       case ABS16SRC:
+      case ABS16OR8SRC:
+      case ABS16ORREL8SRC:
       case ABS16DST:
       case DISPSRC:
       case DISPDST:
@@ -222,6 +224,9 @@ FILE *stream)
 	  break;
 	case ABS8SRC:
 	case ABS16SRC:
+	case ABS16OR8SRC:
+	case ABS16ORREL8SRC:
+	case ABS16OR8DST:
 	case ABS16DST:
 	case ABS8DST:
 	  fprintf(stream, "@0x%x", (unsigned)abs);
@@ -231,7 +236,7 @@ FILE *stream)
 	  break;
 	case DISP8:
 	  fprintf(stream, ".%s%d (%x)",(char)abs>0 ? "+" :"", (char)abs,
-		  addr + (char)abs);
+		  addr + (char)abs + 2);
 	  break;
 	case DISPSRC:
 	case DISPDST:
@@ -263,7 +268,7 @@ PTR file)
   static boolean init;
   if (!init) {
     bfd_h8_disassemble_init();
-    init= 1;
+    init= true;
   }
 
   return   bfd_h8_disassemble(addr, (bfd_byte *)data, file);
@@ -357,17 +362,17 @@ asection *ignore_input_section)
 }
 
 
+
 static reloc_howto_type howto_16
-  = NEWHOWTO(howto16_callback,"abs16",1,0,0);
+  = NEWHOWTO(howto16_callback,"abs16",1,false,false);
 static reloc_howto_type howto_8
-  = NEWHOWTO(howto8_callback,"abs8",0,0,0);
+  = NEWHOWTO(howto8_callback,"abs8",0,false,false);
 
 static reloc_howto_type howto_8_FFnn
-  = NEWHOWTO(howto8_FFnn_callback,"ff00+abs8",0,0,0);
+  = NEWHOWTO(howto8_FFnn_callback,"ff00+abs8",0,false,false);
 
 static reloc_howto_type howto_8_pcrel
-  = NEWHOWTO(howto8_pcrel_callback,"pcrel8",0,1,1);
-
+  = NEWHOWTO(howto8_pcrel_callback,"pcrel8",0,false,true);
 
 
 static CONST struct reloc_howto_struct *

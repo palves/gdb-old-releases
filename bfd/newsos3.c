@@ -25,6 +25,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define MY(OP) CAT(newsos3_,OP)
 #define TARGETNAME "a.out-newsos3"
 #define ENTRY_CAN_BE_ZERO
+#define N_SHARED_LIB(x) 0 /* Avoids warning when compiled with -Wall. */
 #define DEFAULT_ARCH bfd_arch_m68k
 #define TARGET_IS_BIG_ENDIAN_P
 #define N_HEADER_IN_TEXT(x) 0

@@ -78,47 +78,41 @@ struct external_exec
 #define N_HEADER_IN_TEXT(x) (((x).a_entry & (PAGE_SIZE-1)) >= EXEC_BYTES_SIZE)
 #endif
 
+#ifndef N_SHARED_LIB
+#define N_SHARED_LIB(x) ((x).a_entry < TEXT_START_ADDR)
+#endif
+
 #ifndef N_TXTADDR
 #define N_TXTADDR(x) \
-    ( (N_MAGIC(x) != ZMAGIC)? \
-        0:					/* object file or NMAGIC */\
-        ((x).a_entry < TEXT_START_ADDR)? \
-	    0:					/* shared lib */\
-	(N_HEADER_IN_TEXT(x)  ?	\
-	    TEXT_START_ADDR + EXEC_BYTES_SIZE:	/* no padding */\
+    (N_MAGIC(x) != ZMAGIC ? 0 :	/* object file or NMAGIC */\
+     N_SHARED_LIB(x) ? 0 :	\
+     N_HEADER_IN_TEXT(x)  ?	\
+	    TEXT_START_ADDR + EXEC_BYTES_SIZE :	/* no padding */\
 	    TEXT_START_ADDR			/* a page of padding */\
-        )	\
     )
 #endif
 
 /* Offset in an a.out of the start of the text section. */
 
 #define N_TXTOFF(x)	\
-    ( (N_MAGIC(x) != ZMAGIC)? \
-            EXEC_BYTES_SIZE:			/* object file or NMAGIC */\
-        ((x).a_entry < TEXT_START_ADDR)? \
-	    0:					/* shared lib */\
-	(N_HEADER_IN_TEXT(x)  ?	\
-	    EXEC_BYTES_SIZE:			/* no padding */\
+    (N_MAGIC(x) != ZMAGIC ? EXEC_BYTES_SIZE : /* object file or NMAGIC */\
+     N_SHARED_LIB(x) ? 0 : \
+     N_HEADER_IN_TEXT(x) ?	\
+	    EXEC_BYTES_SIZE :			/* no padding */\
 	    PAGE_SIZE				/* a page of padding */\
-        )	\
     )
 
 /* Size of the text section.  It's always as stated, except that we
    offset it to `undo' the adjustment to N_TXTADDR and N_TXTOFF
-   for NMAGIC/ZMAGIC files that nominally include the exec header
+   for ZMAGIC files that nominally include the exec header
    as part of the first page of text.  (BFD doesn't consider the
    exec header to be part of the text segment.)  */
 
 #define	N_TXTSIZE(x) \
-    ( (N_MAGIC(x) != ZMAGIC)? \
-            (x).a_text:				/* object file or NMAGIC */\
-        ((x).a_entry < TEXT_START_ADDR)? \
-	    (x).a_text:				/* shared lib */\
-	(N_HEADER_IN_TEXT(x)  ?	\
+    ((N_MAGIC(x) != ZMAGIC || N_SHARED_LIB(x)) ? (x).a_text : \
+     N_HEADER_IN_TEXT(x)  ?	\
 	    (x).a_text - EXEC_BYTES_SIZE:	/* no padding */\
 	    (x).a_text				/* a page of padding */\
-        )	\
     )
 
 /* The address of the data segment in virtual memory.

@@ -218,7 +218,7 @@ check_stub_type(type)
       sym = lookup_symbol (name, 0, STRUCT_NAMESPACE, 0, 
 			   (struct symtab **)NULL);
       if (sym)
-	bcopy (SYMBOL_TYPE(sym), type, sizeof (struct type));
+	memcpy (type, SYMBOL_TYPE(sym), sizeof (struct type));
     }
 }
 
@@ -233,6 +233,7 @@ gdb_mangle_name (type, i, j)
   struct fn_field *f = TYPE_FN_FIELDLIST1 (type, i);
   struct fn_field *method = &f[j];
   char *field_name = TYPE_FN_FIELDLIST_NAME (type, i);
+  int is_constructor = strcmp(field_name, TYPE_NAME (type)) == 0;
 
   /* Need a new type prefix.  */
   char *strchr ();
@@ -243,7 +244,7 @@ gdb_mangle_name (type, i, j)
   int len = strlen (newname);
 
   sprintf (buf, "__%s%s%d", const_prefix, volatile_prefix, len);
-  mangled_name_len = (strlen (field_name)
+  mangled_name_len = ((is_constructor ? 0 : strlen (field_name))
 			  + strlen (buf) + len
 			  + strlen (TYPE_FN_FIELD_PHYSNAME (f, j))
 			  + 1);
@@ -265,7 +266,10 @@ gdb_mangle_name (type, i, j)
   else
     {
       mangled_name = (char *)xmalloc (mangled_name_len);
-      strcpy (mangled_name, TYPE_FN_FIELDLIST_NAME (type, i));
+      if (is_constructor)
+	mangled_name[0] = '\0';
+      else
+	strcpy (mangled_name, field_name);
     }
   strcat (mangled_name, buf);
   strcat (mangled_name, newname);
@@ -577,6 +581,9 @@ check_stub_method (type, i, j)
   struct type **argtypes;
   struct type *mtype;
 
+  if (demangled_name == NULL)
+    error ("Internal: Cannot demangle mangled name `%s'.", mangled_name);
+
   /* Now, read in the parameters that define this type.  */
   argtypetext = strchr (demangled_name, '(') + 1;
   p = argtypetext;
@@ -636,6 +643,7 @@ check_stub_method (type, i, j)
   TYPE_DOMAIN_TYPE (mtype) = type;
   TYPE_ARG_TYPES (mtype) = argtypes;
   TYPE_FLAGS (mtype) &= ~TYPE_FLAG_STUB;
+  TYPE_FN_FIELD_STUB (f, j) = 0;
 }
 
 /* Given a type TYPE, return a type of functions that return that type.
@@ -1030,7 +1038,7 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
   /* Now search all per-file blocks for static mangled symbols.
      Do the symtabs first, then check the psymtabs.  */
 
-  if (namespace ==  VAR_NAMESPACE)
+  if (namespace == VAR_NAMESPACE)
     {
       for (s = symtab_list; s; s = s->next)
 	{
@@ -1460,10 +1468,10 @@ find_pc_line (pc, notcurrent)
 	  best_pc = prev_pc;
 	  best_line = prev_line;
 	  best_symtab = s;
-	  if (i < len)
+	  /* If another line is in the linetable, and its PC is closer
+	     than the best_end we currently have, take it as best_end.  */
+	  if (i < len && (best_end == 0 || best_end > item->pc))
 	    best_end = item->pc;
-	  else
-	    best_end = 0;
 	}
       /* Is this file's first line closer than the first lines of other files?
 	 If so, record this file, and its first line, as best alternate.  */
@@ -1487,9 +1495,12 @@ find_pc_line (pc, notcurrent)
       val.symtab = best_symtab;
       val.line = best_line;
       val.pc = best_pc;
-      val.end = (best_end ? best_end
-		   : (alt_pc ? alt_pc
-		      : BLOCK_END (BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK))));
+      if (best_end && (alt_pc == 0 || best_end < alt_pc))
+	val.end = best_end;
+      else if (alt_pc)
+	val.end = alt_pc;
+      else
+	val.end = BLOCK_END (BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK));
     }
   return val;
 }
@@ -1704,7 +1715,7 @@ operator_chars (p, end)
  */
 
 int
-find_methods(t, name, physnames, sym_arr)
+find_methods (t, name, physnames, sym_arr)
      struct type *t;
      char *name;
      char **physnames;
@@ -1756,7 +1767,7 @@ find_methods(t, name, physnames, sym_arr)
 		 --field_counter)
 	      {
 		char *phys_name;
-		if (TYPE_FLAGS (TYPE_FN_FIELD_TYPE (f, field_counter)) & TYPE_FLAG_STUB)
+		if (TYPE_FN_FIELD_STUB (f, field_counter))
 		  check_stub_method (t, method_counter, field_counter);
 		phys_name = TYPE_FN_FIELD_PHYSNAME (f, field_counter);
 		physnames[i1] = (char*) alloca (strlen (phys_name) + 1);
@@ -2685,12 +2696,7 @@ init_type (code, length, uns, name)
 
   /* C++ fancies.  */
   if (code == TYPE_CODE_STRUCT || code == TYPE_CODE_UNION)
-    {
-      TYPE_CPLUS_SPECIFIC (type)
-	= (struct cplus_struct_type *) xmalloc (sizeof (struct cplus_struct_type));
-      TYPE_NFN_FIELDS (type) = 0;
-      TYPE_N_BASECLASSES (type) = 0;
-    }
+    INIT_CPLUS_SPECIFIC(type);
   return type;
 }
 

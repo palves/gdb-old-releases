@@ -35,7 +35,7 @@ extern int stop_after_trap;
 
 typedef enum
 {
-  Error, not_branch, bicc, bicca, ba, baa, ticc, ta,
+  Error, not_branch, bicc, bicca, ba, baa, ticc, ta
 } branch_type;
 
 /* Simulate single-step ptrace call for sun4.  Code written by Gary

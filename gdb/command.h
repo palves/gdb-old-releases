@@ -24,7 +24,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 typedef enum cmd_types {
   not_set_cmd,
   set_cmd,
-  show_cmd,
+  show_cmd
 } cmd_types;
 
 /* Types of "set" or "show" command.  */
@@ -47,7 +47,7 @@ typedef enum var_types {
   var_filename,
   /* ZeroableInteger.  *VAR is an int.  Like Unsigned Integer except
      that zero really means zero.  */
-  var_zinteger,
+  var_zinteger
 } var_types;
 
 /* This structure records one command'd definition.  */

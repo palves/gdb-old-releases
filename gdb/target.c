@@ -29,6 +29,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "bfd.h"
 #include "symfile.h"
 
+extern int errno;
+
 extern int memory_insert_breakpoint(), memory_remove_breakpoint();
 extern void host_convert_to_virtual(), host_convert_from_virtual();
 
@@ -384,6 +386,48 @@ pop_target ()
     push_target (&dummy_target);
 }
 
+#define MIN(A, B) (((A) <= (B)) ? (A) : (B))
+
+/* target_read_string -- read a null terminated string from MEMADDR in target.
+   The read may also be terminated early by getting an error from target_xfer_
+   memory.
+   LEN is the size of the buffer pointed to by MYADDR.  Note that a terminating
+   null will only be written if there is sufficient room.  The return value is
+   is the number of bytes (including the null) actually transferred.
+*/
+
+int
+target_read_string (memaddr, myaddr, len)
+     CORE_ADDR memaddr;
+     char *myaddr;
+     int len;
+{
+  int tlen, origlen, offset, i;
+  char buf[4];
+
+  origlen = len;
+
+  while (len > 0)
+    {
+      tlen = MIN (len, 4 - (memaddr & 3));
+      offset = memaddr & 3;
+
+      if (target_xfer_memory (memaddr & ~3, buf, 4, 0))
+	return origlen - len;
+
+      for (i = 0; i < tlen; i++)
+	{
+	  *myaddr++ = buf[i + offset];
+	  if (buf[i + offset] == '\000')
+	    return (origlen - len) + i + 1;
+	}
+
+      memaddr += tlen;
+      len -= tlen;
+    }
+  return origlen;
+}
+
 /* Move memory to or from the targets.  Iterate until all of it has
    been moved, if necessary.  The top target gets priority; anything
    it doesn't want, is offered to the next one down, etc.  Note the
@@ -451,7 +495,10 @@ target_xfer_memory (memaddr, myaddr, len, write)
 	     read zeros if reading, or do nothing if writing.  Return error. */
 	  if (!write)
 	    bzero (myaddr, len);
-	  return EIO;
+	  if (errno == 0)
+	    return EIO;
+	  else
+	    return errno;
 	}
 bump:
       memaddr += res;

@@ -282,11 +282,13 @@ void
 supply_fpregset (fpregsetp)
 fpregset_t *fpregsetp;
 {
-  register int regno;
+  register int regi;
+  char *from;
   
-  for (regno = FP0_REGNUM ; regno < FPC_REGNUM ; regno++)
+  for (regi = FP0_REGNUM ; regi < FPC_REGNUM ; regi++)
     {
-      supply_register (regno, (char *) &(fpregsetp -> f_fpregs[regno][0]));
+      from = (char *) &(fpregsetp -> f_fpregs[regi-FP0_REGNUM][0]);
+      supply_register (regi, from);
     }
   supply_register (FPC_REGNUM, (char *) &(fpregsetp -> f_pcr));
   supply_register (FPS_REGNUM, (char *) &(fpregsetp -> f_psr));
@@ -313,7 +315,7 @@ int regno;
       if ((regno == -1) || (regno == regi))
 	{
 	  from = (char *) &registers[REGISTER_BYTE (regi)];
-	  to = (char *) &(fpregsetp -> f_fpregs[regi][0]);
+	  to = (char *) &(fpregsetp -> f_fpregs[regi-FP0_REGNUM][0]);
 	  bcopy (from, to, REGISTER_RAW_SIZE (regno));
 	}
     }

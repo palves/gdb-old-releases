@@ -417,9 +417,7 @@ struct internal_reloc
 #define R_RELBYTE	017
 #define R_RELWORD	020
 
-#define R_PCRBYTE	022
-#define R_PCRWORD	023
-#define R_PCRLONG	024
+
 
 #define R_PCR16L 128
 #define R_PCR26L 129
@@ -437,3 +435,9 @@ struct internal_reloc
 #define R_GETPA		(0x1e)
 #define R_TAGWORD	(0x1f)
 #define R_JUMPTARG	0x20	/* strange 29k 00xx00xx reloc */
+#define R_MOVB1    0x41    /* Special h8 16bit or 8 bit reloc for  mov.b */
+#define R_MOVB2    0x42    /* Special h8 opcode for 8bit which could
+			      be 16 */
+#define R_JMP1     0x43    /* Special h8 16bit jmp which could be
+			      pcrel */
+#define R_JMP2 0x44 /* a branch which used to be a jmp */

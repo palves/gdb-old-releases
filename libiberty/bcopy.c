@@ -1,4 +1,4 @@
-/* Emulate bcopy using memcpy.
+/* bcopy -- copy memory regions of arbitary length
    Copyright (C) 1991 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
@@ -32,11 +32,6 @@ DESCRIPTION
 	region pointed to by OUT.
 
 BUGS
-
-	Note that bcopy semantics guarantee that memory regions can overlap
-	and they are still handled correctly.  This version does not implement
-	this feature, but so far no users require it.
-
 	Significant speed improvements can be made in some cases by
 	implementing copies of multiple bytes simultaneously, or unrolling
 	the copy loop.
@@ -44,12 +39,18 @@ BUGS
 */
 
 void
-bcopy (in, out, length)
-  char *in, *out;
-  int length;
+bcopy (src, dest, len)
+  register char *src, *dest;
+  int len;
 {
-  while (length-- > 0)
+  if (dest < src)
+    while (len--)
+      *dest++ = *src++;
+  else
     {
-      *out++ = *in++;
+      char *lasts = src + (len-1);
+      char *lastd = dest + (len-1);
+      while (len--)
+        *(char *)lastd-- = *(char *)lasts--;
     }
 }

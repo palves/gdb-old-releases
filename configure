@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Configuration script
-#   Copyright (C) 1988, 1990, 1991 Free Software Foundation, Inc.
+#   Copyright (C) 1988, 1990, 1991, 1992 Free Software Foundation, Inc.
 
 #This file is part of GNU.
 
@@ -19,8 +19,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-# $Id: configure,v 1.74 1991/12/04 10:51:27 gnu Exp $
-
 # Please email any bugs, comments, and/or additions to this file to:
 # configure@cygnus.com
 
@@ -33,9 +31,10 @@
 # 	config.status is removed.
 #
 
-export PATH || (echo "OOPS, this isn't sh.  Desperation time.  I will feed myself to sh."; sh $0 $argv; kill $$)
+# NOTE: This script contains support for a Cygnus experimental feature, called
+# +subdirs, which is currently, tentatively, de-supported.
 
-#set -e
+export PATH || (echo "OOPS, this isn't sh.  Desperation time.  I will feed myself to sh."; sh $0 $argv; kill $$)
 
 remove=rm
 hard_link=ln
@@ -50,26 +49,30 @@ symbolic_link='ln -s'
 
 Makefile=Makefile
 Makefile_in=Makefile.in
-ansi=
 arguments=$*
 commontargets=
 configdirs=
-ddestdir=
+datadir=
+datadiroption=
 defaulttargets=
-destdir=
 fatal=
-hostsubdir=
-idestdir=
-next_ddestdir=
-next_destdir=
-next_idestdir=
-next_objdir=
+floating_point=default
+gas=default
+hosts=
+#hostsubdir=
+#namesubdir=
+next_prefix=
+next_host=
+#next_namesubdir=
+#next_objdir=
 next_site=
+next_srcdir=
 next_target=
 next_tmpdir=
 norecursion=
-objdir=
-objdiroption=
+#objdir=
+#objdiroption=
+prefix=/usr/local
 progname=
 recurring=
 removing=
@@ -77,151 +80,13 @@ srcdir=
 srctrigger=
 target=
 targets=
-targetsubdir=
+#targetsubdir=
+undefinedargs=
 verbose=
-# or maybe grab from gcc/version.c
-version_path=
-next_version_path=
-for arg in $*;
-do
-	# handle things that might have args following as separate words
-	if [ -n "${next_ddestdir}" ] ; then ddestdir=${arg} ; next_ddestdir=
-	elif [ -n "${next_destdir}" ] ; then destdir=${arg} ; next_destdir= ; ddestdir=${destdir} ; idestdir=${destdir}
-	elif [ -n "${next_idestdir}" ] ; then idestdir=${arg} ; next_idestdir=
-	elif [ -n "${next_objdir}" ] ; then objdir=${arg} ; next_objdir=
-	elif [ -n "${next_version_path}" ] ; then version_path=${arg} ; next_version_path=
-	elif [ -n "${next_site}" ] ; then site=${arg} ; next_site=
-	elif [ -n "${next_target}" ] ; then
-		next_target=
-		if [ -n "${targets}" ] ; then
-			subdirs="+subdirs"
-		fi
+version="$Revision: 1.91 $"
+x11=default
 
-		newtargets="${targets} ${arg}"
-		targets="${newtargets}"
-
-	elif [ -n "${next_tmpdir}" ] ; then
-		next_tmpdir=
-		tmpdiroption="+tmpdir=${arg}"
-		TMPDIR=${arg}
-
-	else
-		case ${arg} in
-		-ansi | +a*)
-			ansi=true
-			clib=clib
-			;;
-		-version_path= | +version_path= )
-			next_version_path=yes
-			;;
-		-version_path=* | +version_path=* )
-			version_path=`echo ${arg} | sed 's/[+-]v[a-z_]*=//'`
-			;;
-		-ddestdir=* | +ddestdir=* | +ddestdi=* | +ddestd=* | +ddest=* | +ddes=* | +dde=* | +dd=*)
-			ddestdir=`echo ${arg} | sed 's/[+-]dd[a-z]*=//'`
-			;;
-		-ddestdir | +ddestdir | +ddestdi | +ddestd | +ddest | +ddes | +dde | +dd)
-			next_ddestdir=yes
-			;;
-		-destdir=* | +destdir=* | +destdi=* | +destd=* | +dest=* | +des=* | +de=*)
-			destdir=`echo ${arg} | sed 's/[+-]d[a-z]*=//'`
-			ddestdir=${destdir}
-			idestdir=${destdir}
-			;;
-		-destdir | +destdir | +destdi | +destd | +dest | +des | +de)
-			next_destdir=yes
-			;;
-		-gas | +g*)
-			gas=yes
-			;;
-		-help | +h*)
-			fatal=true
-			;;
-		-idestdir=* | +idestdir=* | +idestdi=* | +idestd=* | +idest=* | +ides=* | +ide=* | +id=*)
-			idestdir=`echo ${arg} | sed 's/[+-]id[a-z]*=//'`
-			;;
-		-idestdir | +idestdir | +idestdi | +idestd | +idest | +ides | +ide | +id)
-			next_idestdir=yes
-			;;
-		-languages=* | +languages=* | +language=* | +languag=* \
-			| +langua=* | +langu=* | +lang=* | +lan=* | +la=* \
-			| +l=*)
-			languages="${languages} `echo ${arg} | sed 's/[+-]l[a-z]*=//'`"
-			;;
-		-nfp | +nf*)
-			nfp=yes
-			;;
-		-norecursion | +no*)
-			norecursion=true
-			;;
-		-objdir=* | +objdir=* | +objdi=* | +objd=* | +obj=* | +ob=* | +o=*)
-			objdiroption=${arg}
-			objdir=`echo ${arg} | sed 's/[+-]o[a-z]*=//'`
-			;;
-		-objdir | +objdir | +objdi | +objd | +obj | +ob | +o)
-			next_objdir=yes
-			;;
-		-recurring | +recurring | +recurrin | +recurri | +recurr | +recur | +recu | +rec | +re)
-			recurring=true
-			arguments=`echo ${arguments} | sed "s:${arg}::"`
-			;;
-		-rm | +rm)
-			removing=${arg}
-			;;
-		-site=* | +site=* | +sit=* | +si=*)
-			site=`echo ${arg} | sed 's/[+-]s[a-z]*=//'`
-			;;
-		-site | +site | +sit | +si)
-			next_site=yes
-			;;
-	#	-srcdir=* | +srcdir=* | +srcdi=* | +srcd=* | +src=* | +sr=*)
-	#		srcdir=`echo ${arg} | sed 's/[+-]s[a-z]*=//'`
-	#		;;
-		-subdirs | +su*)
-			subdirs=${arg}
-			;;
-		-target=* | +target=* | +targe=* | +targ=* | +tar=* | +ta=*)
-			if [ -n "${targets}" ] ; then
-				subdirs="+subdirs"
-			fi
-
-			newtargets="${targets} `echo ${arg} | sed 's/[+-]t[a-z]*=//'`"
-			targets="${newtargets}"
-			;;
-		-target | +target | +targe | +targ | +tar | +ta)
-			next_target=yes
-			;;
-		-tmpdir=* | +tmpdir=* | +tmpdi=* | +tmpd=* | +tmp=* | +tm=*)
-			tmpdiroption=${arg}
-			TMPDIR=`echo ${arg} | sed 's/[+-]t[a-z]*=//'`
-			;;
-		-tmpdir | +tmpdir | +tmpdi | +tmpd | +tmp | +tm)
-			next_tmpdir=yes
-			;;
-		-v | -verbose | +v)
-			verbose=${arg}
-			;;
-		-* | +*)
-			(echo ;
-			echo "Unrecognized option: \"${arg}\"". ;
-			echo) 1>&2
-			fatal=true
-			;;
-		*)
-			if [ -n "${hosts}" ] ; then
-				subdirs="+subdirs"
-			fi
-
-			newhosts="${hosts} ${arg}"
-			hosts=${newhosts}
-			;;
-		esac
-	fi
-done
-
-if [ -n "${verbose}" ] ; then
-	echo $0 $*
-fi
+NO_EDIT="This file was generated automatically by configure.  Do not edit."
 
 ## this is a little touchy and won't always work, but...
 ##
@@ -235,34 +100,208 @@ fi
 ## path.
 ##
 
+PWD=`pwd`
+
 if (echo $0 | grep '^/' > /dev/null) ; then
 	progname=$0
+elif (echo $0 | grep '/' > /dev/null) ; then
+	progname=${PWD}/$0
 else
-	if (echo $0 | grep '/' > /dev/null) ; then
-		progname=`pwd`/$0
+	progname=$0
+	PATH=$PATH:${PWD} ; export PATH
+fi
+
+for arg in $*;
+do
+	# handle things that might have args following as separate words
+	if [ -n "${next_prefix}" ] ; then prefix=${arg} ; prefixoption="-prefix=${prefix}" ; next_prefix=
+	elif [ -n "${next_datadir}" ] ; then datadir=${arg} ; datadiroption="-datadir=${datadir}" ; next_datadir=
+#	elif [ -n "${next_namesubdir}" ] ; then \
+#		namesubdir=${arg} ; namesubdiroption="--namesubdir=${namesubdir}" ; next_namesubdir=
+#	elif [ -n "${next_objdir}" ] ; then objdir=${arg} ; objdiroption="--objdir=${objdir}" ; next_objdir=
+	elif [ -n "${next_site}" ] ; then site=${arg} ; next_site=
+	elif [ -n "${next_srcdir}" ] ; then srcdir=${arg} ; next_srcdir=		
+	elif [ -n "${next_target}" ] ; then
+		next_target=
+		if [ -z "${targets}" ] ; then
+			newtargets="${targets} ${arg}"
+			targets="${newtargets}"
+		else
+			echo '***' Can only configure for one target at a time.
+			fatal=yes
+		fi
+	elif [ -n "${next_tmpdir}" ] ; then
+		next_tmpdir=
+		tmpdiroption="--tmpdir=${arg}"
+		TMPDIR=${arg}
+
 	else
-		progname=$0
-		PATH=$PATH:`pwd` ; export PATH
+		case ${arg} in
+		-datadir=* | --datadir=* | --datadi=* | --datad=* | --data=* | --dat=* | --da=* | --d=*)
+			datadir=`echo ${arg} | sed 's/^[-a-z]*=//'`
+			datadiroption=${arg}
+			;;
+		-datadir | --datadir | --datadi | --datad | --data | --dat | --da | --d)
+			next_datadir=yes
+			;;
+		-gas | --g*)
+			gas=yes
+			;;
+		-help | --he*)
+			fatal=true
+			;;
+		-host=* | --host=* | --hos=* | --ho=*)
+#			if [ -n "${hosts}" ] ; then
+#				subdirs="--subdirs"
+#			fi
+
+			if [ -z "${hosts}" ] ; then
+				newhosts="${hosts} `echo ${arg} | sed 's/^[-a-z]*=//'`"
+				hosts="${newhosts}"
+			else
+				echo '***' Can only configure for one host at a time.
+				fatal=yes
+			fi
+			;;
+#		-namesubdir | --namesubdir | --namesubdi | --namesubd | --namesub | --namesu | --names | --name | --nam | --na)
+#			next_namesubdir=yes
+#			;;
+#		-namesubdir=* | --namesubdir=* | --namesubdi=* | --namesubd=* | --namesub=* | --namesu=* | --names=* | --name=* | --nam=* | --na=*)
+#			namesubdir=`echo ${arg} | sed 's/^[-a-z]*=//'`
+#			namesubdiroption=${arg}
+#			;;
+		-nfp | --nf*)
+			floating_point=no
+			;;
+		-norecursion | --no*)
+			norecursion=true
+			;;
+#		-objdir=* | --objdir=* | --objdi=* | --objd=* | --obj=* | --ob=* | --o=*)
+#			objdiroption=${arg}
+#			objdir=`echo ${arg} | sed 's/^[-a-z]*=//'`
+#			;;
+#		-objdir | --objdir | --objdi | --objd | --obj | --ob | --o)
+#			next_objdir=yes
+#			;;
+		-prefix=* | --prefix=* | --prefi=* | --pref=* | --pre=* | --pr=* | --p=*)
+			prefix=`echo ${arg} | sed 's/^[-a-z]*=//'`
+			prefixoption=${arg}
+			;;
+		-prefix | --prefix | --prefi | --pref | --pre | --pr | --p)
+			next_prefix=yes
+			;;
+		-recurring | --recurring | --recurrin | --recurri | --recurr | --recur | --recu | --rec | --re)
+			recurring=true
+			arguments=`echo ${arguments} | sed "s:${arg}::"`
+			;;
+		-rm | --rm)
+			removing=${arg}
+			;;
+		-site=* | --site=* | --sit=* | --si=*)
+			site=`echo ${arg} | sed 's/^[-a-z]*=//'`
+			;;
+		-site | --site | --sit | --si)
+			next_site=yes
+			;;
+		-srcdir=* | --srcdir=* | --srcdi=* | --srcd=* | --src=* | --sr=*)
+			srcdir=`echo ${arg} | sed 's/^[-a-z]*=//'`
+			;;
+		-srcdir | --srcdir | --srcdi | --srcd | --src | --sr)
+			next_srcdir=yes
+			;;
+#		-subdirs | --su*)
+#			subdirs=${arg}
+#			;;
+		-target=* | --target=* | --targe=* | --targ=* | --tar=* | --ta=*)
+#			if [ -n "${targets}" ] ; then
+#				subdirs="--subdirs"
+#			fi
+
+			if [ -z "${targets}" ] ; then
+				newtargets="${targets} `echo ${arg} | sed 's/^[-a-z]*=//'`"
+				targets="${newtargets}"
+			else
+				echo '***' Can only configure for one target at a time.
+				fatal=yes
+			fi
+			;;
+		-target | --target | --targe | --targ | --tar | --ta)
+			next_target=yes
+			;;
+		-tmpdir=* | --tmpdir=* | --tmpdi=* | --tmpd=* | --tmp=* | --tm=*)
+			tmpdiroption=${arg}
+			TMPDIR=`echo ${arg} | sed 's/^[-a-z]*=//'`
+			;;
+		-tmpdir | --tmpdir | --tmpdi | --tmpd | --tmp | --tm)
+			next_tmpdir=yes
+			;;
+		-v | -verbose | --v)
+			verbose=${arg}
+			;;
+		-version | -V | --version | --V)
+			echo "This is Cygnus Configure version" `echo ${version} | sed 's/[ $:]//g'`
+			exit 0
+			;;
+		-x | --x) ;;
+		-* | --*)
+			(echo ;
+			echo "Unrecognized option: \"${arg}\"". ;
+			echo) 1>&2
+			fatal=true
+			;;
+		*)
+#			if [ -n "${hosts}" ] ; then
+#				subdirs="--subdirs"
+#			fi
+
+			if [ -z "${undefs}" ] ; then
+				newundefs="${undefs} ${arg}"
+				undefs=${newundefs}
+			else
+				echo '***' Can only configure for one host and one target at a time.
+				fatal=yes
+			fi
+			;;
+		esac
 	fi
-fi
+done
 
-configsub=`echo ${progname} | sed 's/configure$/config.sub/'`
+# process host and target
+if [ -z "${fatal}" ] ; then
+#	# Complain if an arg is missing
+#	if [ -z "${hosts}" ] ; then
+#		(echo ;
+#		echo "configure: No HOST specified." ;
+#		echo) 1>&2
+#		fatal=true
+#	fi
 
-if ${configsub} none >/dev/null 2>&1 ; then
-	true
-else
-	echo '***' cannot find config.sub.
-	echo 1
-fi
+### This is a bit twisted.
+### * if all three are specified, this is an error.
+### * if we have neither hosts, nor unadorned args, this is an error.
+### * if no hosts are specified, then the unadorned args are hosts, but if
+### there were none, this is an error.
+### * if no targets are specified, then the unadorned args are targets, but if
+### there were no unadorned args, then the hosts are also targets.
 
-# process host and target only if not removing.
-if [ -z "${removing}" -a -z "${fatal}" ] ; then
-	# Complain if an arg is missing
-	if [ -z "${hosts}" ] ; then
-		(echo ;
-		echo "configure: No HOST specified." ;
-		echo) 1>&2
-		fatal=true
+	if [ -n "${hosts}" -a -n "${targets}" -a -n "${undefs}" ] ; then
+		echo '***' Can only configure for one host and one target at a time.
+		fatal=yes
+	elif [ -z "${hosts}" -a -z "${undefs}" ] ; then
+		echo '***' You must tell me for which host you want to configure.
+		fatal=yes
+	else
+		if [ -z "${hosts}" ] ; then
+			hosts=${undefs}
+		fi
+
+		if [ -z "${targets}" ] ; then
+			if [ -n "${undefs}" ] ; then
+				targets=${undefs}
+			else
+				targets=${hosts}
+			fi
+		fi
 	fi
 fi
 
@@ -270,29 +309,26 @@ if [ -n "${fatal}" -o "${hosts}" = "help" ] ; then
 	(echo "Usage: configure HOST" ;
 	echo ;
 	echo "Options: [defaults in brackets]" ;
-	echo " +ansi		configure w/ANSI library. [no ansi lib]" ;
-	echo " +ddestdir=MYDIR	configure for installation host dependent files" ;
-	echo "			into MYDIR. [\"/usr/local\"]" ;
-	echo " +idestdir=MYDIR	configure for installation host independent files" ;
-	echo "			into MYDIR. [\"/usr/local\"]" ;
-	echo " +destdir=MYDIR	configure for installation of both host dependent and" ;
-	echo "			host independent files into MYDIR. [\"/usr/local\"]" ;
-	echo " +gas		configure the compilers for use with gas. [native as]" ;
-	echo " +help		print this message. [normal config]" ;
-	echo " +lang=LANG	configure to build LANG. [gcc]" ;
-	echo " +nfp		configure the compilers default to soft floating point. [hard float]" ;
-	echo " +norecursion	configure this directory only. [recurse]" ;
-	echo " +objdir=ODIR	configure in a parallel tree rooted in ODIR. [rooted in \".\"]" ;
-	echo " +rm		remove this configuration. [build a configuration]" ;
-	echo " +site		configure with site specific makefile" ;
+	echo " -datadir=MYDIR	configure for installation of host dependent files into MYDIR. [\"/usr/local\"]" ;
+	echo " -gas		configure the compilers for use with gas. [native as]" ;
+	echo " -help		print this message. [normal config]" ;
+	echo " -lang=LANG	configure to build LANG. [gcc]" ;
+	echo " -nfp		configure the compilers default to soft floating point. [hard float]" ;
+	echo " -norecursion	configure this directory only. [recurse]" ;
+#	echo " -objdir=ODIR	configure in a parallel tree rooted in ODIR. [rooted in \".\"]" ;
+	echo " -prefix=MYDIR	configure for installation of host dependent files into MYDIR. [\"/usr/local\"]" ;
+	echo " -rm		remove this configuration. [build a configuration]" ;
+	echo " -site		configure with site specific makefile" ;
+	echo " -srcdir=DIR	find the sources in DIR. [\".\" or \"..\"]" ;
 # This is correctly aligned in the output, even though it isn't here.
-	echo " +subdirs	configure in subdirectories.  [in source directories]" ;
-	echo " +target=TARGET	configure for TARGET.  [TARGET = HOST]" ;
-	echo " +tmpdir=TMPDIR	create temporary files in TMPDIR.  [ TMPDIR = \"/tmp\" ]" ;
+#	echo " -subdirs	configure in subdirectories.  [in source directories]" ;
+	echo " -target=TARGET	configure for TARGET.  [TARGET = HOST]" ;
+	echo " -tmpdir=TMPDIR	create temporary files in TMPDIR.  [ TMPDIR = \"/tmp\" ]" ;
 	echo ;
 	echo "Where HOST and TARGET are something like \"vax\", \"sun3\", \"encore\", etc." ;
-	echo "Asking for more than one \"+target\" implies \"+subdirs\".  Any other" ;
-	echo "options given will apply to all targets.") 1>&2
+#	echo "Asking for more than one \"--target\" implies \"--subdirs\".  Any other" ;
+#	echo "options given will apply to all targets."
+	) 1>&2
 
 	if [ -r config.status ] ; then
 		cat config.status
@@ -301,41 +337,54 @@ if [ -n "${fatal}" -o "${hosts}" = "help" ] ; then
 	exit 1
 fi
 
-### break up configure.in.
-if [ -r configure.in ] ; then
-	if [ -z "`grep '^# per\-host:' configure.in`" ] ; then
-		echo '***' `pwd`/configure.in has no "per-host:" line. 1>&2
-		exit 1
-	fi
+configsub=`echo ${progname} | sed 's/configure$/config.sub/'`
 
-	if [ -z "`grep '^# per\-target:' configure.in`" ] ; then
-		echo '***' `pwd`/configure.in has no "per-target:" line. 1>&2
-		exit 1
-	fi
-
-	if [ -z "${TMPDIR}" ] ; then
-		TMPDIR=/tmp ; export TMPDIR
-	fi
-
-	# keep this filename short for &%*%$*# 14 char file names
-	tmpfile=${TMPDIR}/cONf$$
-	trap "rm -f ${tmpfile}.com ${tmpfile}.tgt ${tmpfile}.hst ${tmpfile}.pos" 0
-
-	# split configure.in into common, per-host, per-target,
-	# and post-target parts.  Post-target is optional.
-	sed -e '/^# per\-host:/,$d' configure.in > ${tmpfile}.com
-	sed -e '1,/^# per\-host:/d' -e '/^# per\-target:/,$d' configure.in > ${tmpfile}.hst
-	if grep '^# post-target:' configure.in >/dev/null ; then
-	  sed -e '1,/^# per\-target:/d' -e '/^# post\-target:/,$d' configure.in > ${tmpfile}.tgt
-	  sed -e '1,/^# post\-target:/d' configure.in > ${tmpfile}.pos
-	else
-	  sed -e '1,/^# per\-target:/d' configure.in > ${tmpfile}.tgt
-	  echo >${tmpfile}.pos
-	fi
-
+if (${configsub} `echo ${hosts} | sed -e 's/ .*//'`) >/dev/null 2>&1 ; then
+	true
 else
-	echo '***' No configure.in in `pwd`
+	echo '***' cannot find config.sub.
 	exit 1
+fi
+
+if [ -z "${srcdir}" ] ; then
+	if [ -r configure.in ] ; then
+		srcdir=.
+	else
+		echo '***' "Can't find configure.in.  Try using -srcdir=some_dir"
+		exit 1
+	fi
+fi
+
+
+### break up ${srcdir}/configure.in.
+if [ -z "`grep '^# per\-host:' ${srcdir}/configure.in`" ] ; then
+	echo '***' ${srcdir}/configure.in has no "per-host:" line. 1>&2
+	exit 1
+fi
+
+if [ -z "`grep '^# per\-target:' ${srcdir}/configure.in`" ] ; then
+	echo '***' ${srcdir}/configure.in has no "per-target:" line. 1>&2
+	exit 1
+fi
+
+if [ -z "${TMPDIR}" ] ; then
+	TMPDIR=/tmp ; export TMPDIR
+fi
+
+# keep this filename short for &%*%$*# 14 char file names
+tmpfile=${TMPDIR}/cONf$$
+trap "rm -f ${tmpfile}.com ${tmpfile}.tgt ${tmpfile}.hst ${tmpfile}.pos" 0
+
+# split ${srcdir}/configure.in into common, per-host, per-target,
+# and post-target parts.  Post-target is optional.
+sed -e '/^# per\-host:/,$d' ${srcdir}/configure.in > ${tmpfile}.com
+sed -e '1,/^# per\-host:/d' -e '/^# per\-target:/,$d' ${srcdir}/configure.in > ${tmpfile}.hst
+if grep '^# post-target:' ${srcdir}/configure.in >/dev/null ; then
+  sed -e '1,/^# per\-target:/d' -e '/^# post\-target:/,$d' ${srcdir}/configure.in > ${tmpfile}.tgt
+  sed -e '1,/^# post\-target:/d' ${srcdir}/configure.in > ${tmpfile}.pos
+else
+  sed -e '1,/^# per\-target:/d' ${srcdir}/configure.in > ${tmpfile}.tgt
+  echo >${tmpfile}.pos
 fi
 
 ### do common part of configure.in
@@ -344,7 +393,7 @@ fi
 
 # some sanity checks on configure.in
 if [ -z "${srctrigger}" ] ; then
-	echo '***' srctrigger not set in `pwd`/configure.in.
+	echo '***' srctrigger not set in ${PWD}/configure.in.
 	exit 1
 fi
 
@@ -386,85 +435,88 @@ for host in ${hosts} ; do
 
 		. ${tmpfile}.tgt
 
-		hostsubdir=H-${host_alias}
-		targetsubdir=T-${target_alias}
+		if [ "${host_alias}" = "${target_alias}" ] ; then
+			subdirname=H-${host_alias}
+		else
+			subdirname=X-${host_alias}-${target_alias}
+		fi
+
+		if [ -n "${namesubdir}" ] ; then
+			subdirname=${namesubdir}
+		fi
 
 		if [ -n "${removing}" ] ; then
-			if [ -n "${objdir}" ] ; then
-				echo '***' +rm not supported for +objdir.  Just \"rm -rf ${objdir}\" by hand.
-				exit 1
-			fi
+#			if [ -n "${objdir}" ] ; then
+#				echo '***' --rm not supported for --objdir.  Just \"rm -rf ${objdir}\" by hand.
+#				exit 1
+#			fi
 
-			if [ -n "${subdirs}" ] ; then
-				if [ -d "${hostsubdir}" ] ; then
-					rm -rf ${hostsubdir}/${targetsubdir}
-
-					if [ -z "`(ls ${hostsubdir}) 2>&1 | grep T- | grep -v T-independent`" ] ; then
-						rm -rf ${hostsubdir}
-					fi
-				else
-					echo Warning: no `pwd`/${hostsubdir} to remove.
-				fi
-			else
+#			if [ -n "${subdirs}" ] ; then
+#				if [ -d "${subdirname}" ] ; then
+#					rm -rf ${hostsubdir}
+#				else
+#					echo Warning: no ${PWD}/${hostsubdir} to remove.
+#				fi
+#			else
 				rm -f ${Makefile} config.status ${links}
-			fi
+#			fi
 		else
-			if [ -n "${objdir}" ]; then
-				srcdir=`pwd`
-				cd ${objdir}
-			fi
+#			if [ -n "${objdir}" ]; then
+#				srcdir=${PWD}
+#				cd ${objdir}
+#			fi
 
-			if [ -n "${subdirs}" ] ; then
-				# check for existing status before allowing forced subdirs.
-				if [ -f ${Makefile} ] ; then
-					echo '***' "${Makefile} already exists in source directory.  `pwd` not configured." 1>&2
-					exit 1
-				fi
-
-				if [ ! -d ${hostsubdir} ] ; then mkdir ${hostsubdir} ; fi
-				cd ${hostsubdir}
-
-				if [ ! -d ${targetsubdir} ] ; then
-					if [ -z "${commontargets}" ] ; then
-						mkdir ${targetsubdir}
-					else
-						if [ ! -d T-independent ] ; then
-							mkdir T-independent
-						fi
-
-						${symbolic_link} T-independent ${targetsubdir}
-					fi # if target independent
-				fi # if no target dir yet
-
-				cd ${targetsubdir}
-
-				if [ -z "${srcdir}" ] ; then
-					srcdir=../..
-				fi
-			else
-				# if not subdir builds, then make sure none exist.
-				if [ "`echo H-*`" != "H-*" ] ; then
-					echo '***' "Configured subdirs exist.  `pwd` not configured." 1>&2
-					exit 1
-				else
-					true
-				fi
-			fi
+#			if [ -n "${subdirs}" ] ; then
+#				# check for existing status before allowing forced subdirs.
+#				if [ -f ${Makefile} ] ; then
+#					echo '***' "${Makefile} already exists in source directory.  ${PWD} not configured." 1>&2
+#					exit 1
+#				fi
+#
+#				# use a subdir common to all targets for this host iff: this is a cross AND
+#				# this tool does not claim to be target dependent AND we have not been asked to name the subdir.
+#				if [ ${host_alias} != ${target_alias} -a -z "${target_dependent}" -a -z "${namesubdiroption}" ]
+#				then
+#					if [ ! -d H-${host_alias} ] ; then mkdir H-${host_alias} ; fi
+#
+#					if (${symbolic_link} ${subdirname} H-${host_alias} 2> /dev/null) ; then
+#						true
+#					else # just give up. they lose.
+#						rmdir H-${host_alias}
+#						if [ ! -d ${subdirname} ] ; then mkdir ${subdirname} ; fi
+#					fi
+#				elif [ ! -d ${subdirname} ] ; then
+#					mkdir ${subdirname}
+#				fi
+#
+#				cd ${subdirname}
+#
+#				if [ -z "${srcdir}" ] ; then
+#					srcdir=..
+#				fi
+#			elif [ "`echo H-*`" != "H-*" -a "`echo X-*`" != "X-*" ] ; then
+#				# if not subdir builds, then make sure none exist.
+#				# We might miss if there are explicitly named subdirs.
+#				echo '***' "Configured subdirs exist.  ${PWD} not configured." 1>&2
+#				exit 1
+#			else
+#				true
+#			fi
 
 			# Find the source files, if location was not specified.
 			if [ -z "${srcdir}" ] ; then
 				srcdirdefaulted=1
 				srcdir=.
-				if [ -n "${srctrigger}" -a ! -r ${srctrigger} ] ; then
+				if [ ! -r ${srctrigger} ] ; then
 					srcdir=..
 				fi
 			fi
 
-			if [ -n "${srctrigger}" -a ! -r ${srcdir}/${srctrigger} ] ; then
+			if [ ! -r ${srcdir}/${srctrigger} ] ; then
 				if [ -z "${srcdirdefaulted}" ] ; then
-					echo '***' "${progname}: Can't find ${srcname} sources in `pwd`/${srcdir}" 1>&2
+					echo '***' "${progname}: Can't find ${srcname} sources in ${PWD}/${srcdir}" 1>&2
 				else
-					echo '***' "${progname}: Can't find ${srcname} sources in `pwd`/. or `pwd`/.." 1>&2
+					echo '***' "${progname}: Can't find ${srcname} sources in ${PWD}/. or ${PWD}/.." 1>&2
 				fi
 
 				echo '***' \(At least ${srctrigger} is missing.\) 1>&2
@@ -504,15 +556,18 @@ for host in ${hosts} ; do
 			# Create a .gdbinit file which runs the one in srcdir
 			# and tells GDB to look there for source files.
 
-			case ${srcdir} in
-			.)
-				;;
-			*)
-				echo "dir ." > .gdbinit
-				echo "dir ${srcdir}" >> .gdbinit
-				echo "source ${srcdir}/.gdbinit" >> .gdbinit
-				;;
-			esac
+			if [ -r ${srcdir}/.gdbinit ] ; then
+				case ${srcdir} in
+				.)
+					;;
+				*)
+					echo "# "${NO_EDIT} > .gdbinit
+					echo "dir ." >> .gdbinit
+					echo "dir ${srcdir}" >> .gdbinit
+					echo "source ${srcdir}/.gdbinit" >> .gdbinit
+					;;
+				esac
+			fi
 
 			# Install a makefile, and make it set VPATH
 			# if necessary so that the sources are found.
@@ -525,7 +580,7 @@ for host in ${hosts} ; do
 			# Define macro CROSS_COMPILE in compilation if this is a cross-compiler.
 			if [ "${host}" != "${target}" ] ; then
 				echo "CROSS=-DCROSS_COMPILE" > ${Makefile}
-				echo "ALL=start.encap" >> ${Makefile}
+				echo "ALL=all.cross" >> ${Makefile}
 			else
 				echo "ALL=all.internal" > ${Makefile}
 			fi
@@ -535,21 +590,21 @@ for host in ${hosts} ; do
 			echo "host_cpu = ${host_cpu}" >> ${Makefile}
 			echo "host_vendor = ${host_vendor}" >> ${Makefile}
 			echo "host_os = ${host_os}" >> ${Makefile}
-			echo "version_path = ${version_path}" >> ${Makefile}
+
 			echo "target_alias = ${target_alias}" >> ${Makefile}
 			echo "target_cpu = ${target_cpu}" >> ${Makefile}
 			echo "target_vendor = ${target_vendor}" >> ${Makefile}
 			echo "target_os = ${target_os}" >> ${Makefile}
 
-			if [ -n "${subdirs}" ] ; then
-				(echo "subdir = /${hostsubdir}/${targetsubdir}" ;
-					echo "unsubdir = ../..") >> ${Makefile}
-			else
+#			if [ -n "${subdirs}" ] ; then
+#				(echo "subdir = /${subdirname}" ;
+#					echo "unsubdir = ..") >> ${Makefile}
+#			else
 				(echo "subdir =" ;
 					echo "unsubdir = .") >> ${Makefile}
-			fi
+#			fi
 
-		#	echo "workdir = `pwd`" >> ${Makefile}
+		#	echo "workdir = ${PWD}" >> ${Makefile}
 			echo "VPATH = ${srcdir}" >> ${Makefile}
 
 			# add "Makefile.in" (or whatever it's called)
@@ -590,37 +645,36 @@ for host in ${hosts} ; do
 			mv Makefile.tem ${Makefile}
 
 			# set srcdir
-			sed "s@^srcdir = \.@srcdir = ${srcdir}@" ${Makefile} > Makefile.tem
+			sed "s:^srcdir[ 	]*=.*$:srcdir = ${srcdir}:" ${Makefile} > Makefile.tem
 			mv Makefile.tem ${Makefile}
 
-			# set ddestdir
-			if [ -n "${ddestdir}" ] ; then
-				sed "s:^ddestdir =.*$:ddestdir = ${ddestdir}:" ${Makefile} > Makefile.tem
-				mv Makefile.tem ${Makefile}
-			fi
-			# set versionpath
-			if [ -n "${version_path}" ] ; then
-				sed "s:^version_path =.*$:version_path = ${version_path}:" ${Makefile} > Makefile.tem
+			# set prefix
+			if [ -n "${prefix}" ] ; then
+				sed "s:^prefix[ 	]*=.*$:prefix = ${prefix}:" ${Makefile} > Makefile.tem
 				mv Makefile.tem ${Makefile}
 			fi
 
-
-			# set idestdir
-			if [ -n "${idestdir}" ] ; then
-				sed "s:^idestdir =.*$:idestdir = ${idestdir}:" ${Makefile} > Makefile.tem
+			# set datadir
+			if [ -n "${datadir}" ] ; then
+				sed "s:^datadir[ 	]*=.*$:datadir = ${datadir}:" ${Makefile} > Makefile.tem
 				mv Makefile.tem ${Makefile}
 			fi
 
 			# reset SUBDIRS
-			sed "s:^SUBDIRS =.*$:SUBDIRS = ${configdirs}:" ${Makefile} > Makefile.tem
+			sed "s:^SUBDIRS[ 	]*=.*$:SUBDIRS = ${configdirs}:" ${Makefile} > Makefile.tem
 			mv Makefile.tem ${Makefile}
 
 			# reset NONSUBDIRS
-			sed "s:^NONSUBDIRS =.*$:NONSUBDIRS = ${noconfigdirs}:" ${Makefile} > Makefile.tem
+			sed "s:^NONSUBDIRS[ 	]*=.*$:NONSUBDIRS = ${noconfigdirs}:" ${Makefile} > Makefile.tem
 			mv Makefile.tem ${Makefile}
 
 			# remove any form feeds.
 			sed -e "s///" ${Makefile} > Makefile.tem
+			mv Makefile.tem ${Makefile}
+
+			# prepend warning about editting.
+			echo "# "${NO_EDIT} > ${Makefile}.tem
+			cat ${Makefile} >> ${Makefile}.tem
 			mv Makefile.tem ${Makefile}
 
 			using=
@@ -635,7 +689,7 @@ for host in ${hosts} ; do
 				using="${using} and \"${site_makefile_frag}\""
 			fi
 			using=`echo "${using}" | sed 's/and/using/'`
-			using="Created \"${Makefile}\" in `pwd`${using}."
+			using="Created \"${Makefile}\" in ${PWD}${using}."
 
 			if [ -n "${verbose}" -o -z "${recurring}" ] ; then
 				echo ${using}
@@ -648,80 +702,90 @@ for host in ${hosts} ; do
 			# the same configuration.  Used in Makefiles to rebuild
 			# Makefiles.
 
+			if [ -z "${norecursion}" ] ; then
+				arguments="${arguments} -norecursion"
+			fi
+
 			echo "#!/bin/sh
-# `pwd` was configured as follows:
-(cd ${srcdir} ; ${progname}" ${arguments} `if [ -z "${norecursion}" ] ; then echo +norecursion ; else true ; fi` ")
+# ${NO_EDIT}
+# ${PWD} was configured as follows:
+${progname}" ${arguments}  "
 # ${using}" > config.status
 			chmod a+x config.status
 
-			originaldir=`pwd`
-			cd ${srcdir}
+#			originaldir=${PWD}
+#			cd ${srcdir}
 		fi
 
-		# If there are subdirectories, then recurse. 
+		# If there are subdirectories, then recur. 
 		if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then 
 			for configdir in ${configdirs} ; do
 				if [ -n "${verbose}" ] ; then
 					echo Configuring ${configdir}...
 				fi
 
-				if [ -d ${configdir} ] ; then
-					if [ -n "${objdir}" ] ; then
-						if [ ! -d ${objdir}/${configdir} ] ; then
-							mkdir ${objdir}/${configdir}
+				if [ -d ${srcdir}/${configdir} ] ; then
+					if [ "${srcdir}" != "." ] ; then
+						if [ ! -d ./${configdir} ] ; then
+							mkdir ./${configdir}
 						fi
 					fi
 
-					POPDIR=`pwd`
+					POPDIR=${PWD}
 					cd ${configdir} 
 
-					if (${progname} +recurring ${host_alias} +target=${target_alias} \
-						${verbose} ${subdirs} ${removing} +ddestdir=${ddestdir} +idestdir=${idestdir} \
-						`if [ -n "${objdir}" ] ; then echo +objdir=${objdir}/${configdir} ; fi` \
-						${tmpdiroption}) ; then
+### figure out what to do with srcdir
+					case "${srcdir}" in
+					".") ;; # do nothing.  We're building in place.
+					/*) srcdiroption="-srcdir=${srcdir}/${configdir}" ;; # absolute path
+					*) srcdiroption="-srcdir=../${srcdir}/${configdir}" ;; # otherwise relative
+					esac
+
+### The recursion line is here.
+					if [ -f configure ] ; then
+						recprog=`pwd`/configure
+					else
+						recprog=${progname}
+					fi
+
+					if (${recprog} -recurring ${host_alias} -target=${target_alias} \
+						${verbose} ${subdirs} ${removing} ${prefixoption} \
+						${tmpdiroption} ${namesubdiroption} ${datadiroption} \
+						${srcdiroption}) ; then
 						true
 					else
 						exit 1
 					fi
 
 					cd ${POPDIR}
-
-#					(cd ${configdir} ;
-#						if (${progname} +recurring ${host_alias} +target=${target_alias} \
-#							${verbose} ${subdirs} ${removing} +destdir=${destdir} \
-#							`if [ -n "${objdir}" ] ; then echo +objdir=${objdir}/${configdir} ; fi` \
-#							${tmpdiroption}) ; then true ; else exit 1 ; fi) \
-#						| sed 's/^/	/'
-				else
-					if [ -n "${verbose}" ] ; then
-						echo Warning: directory \"${configdir}\" is missing.
-					fi
+				elif [ -n "${verbose}" ] ; then
+					echo Warning: source directory \"${srcdir}/${configdir}\" is missing.
 				fi
 			done
 		fi
 	done # for each target
 
 	# Now build a Makefile for this host.
-	if [ -n "${subdirs}" -a ! -n "${removing}" ] ; then
-		push=`pwd`
-
-		if [ -n "${objdir}" ] ; then
-			cd ${objdir}
-		fi
-
-		cd ${hostsubdir}
-		cat > GNUmakefile << 'E!O!F'
-# Makefile generated by configure for host ${host_alias}.
-
-ALL := $(shell ls -d T-*)
-
-%:
-	$(foreach subdir,$(ALL),$(MAKE) -C $(subdir) \$@ &&) true
-
-all:
-E!O!F
-		cd ${push}
-	fi
+#	if [ -n "${subdirs}" -a ! -n "${removing}" ] ; then
+#		push=${PWD}
+#
+#		if [ -n "${objdir}" ] ; then
+#			cd ${objdir}
+#		fi
+#
+#		cd ${hostsubdir}
+#		cat > GNUmakefile << 'E!O!F'
+## Makefile generated by configure for host ${host_alias}.
+#
+#ALL := $(shell ls -d T-*)
+#
+#%:
+#	$(foreach subdir,$(ALL),$(MAKE) -C $(subdir) \$@ &&) true
+#
+#all:
+#E!O!F
+#		cd ${push}
+#	fi
 done # for each host
 
 ### clean up.
@@ -730,133 +794,6 @@ done # for each host
 #rm -f ${tmpfile}.com ${tmpfile}.tgt ${tmpfile}.hst ${tmpfile}.pos
 
 exit 0
-
-#
-#
-# $Log: configure,v $
-# Revision 1.74  1991/12/04  10:51:27  gnu
-# Use the "trap" command to remove our files from /tmp even if we exit
-# abnormally.
-#
-# Revision 1.73  1991/11/21  00:34:19  bothner
-# Fix parsing of +version_path flag.
-# Also, improve checking for existing subdirs by using
-# echo instead of ls|grep.  In addition to being (presumably)
-# faster, it also now only matches H-*, instead of *H-*.
-#
-# Revision 1.72  1991/11/14  03:11:15  sac
-# Made no version path the default.
-# This is only temporary. I'll fix it all when the release is done.
-#
-#
-# Steve
-#
-# Revision 1.71  1991/11/13  20:56:11  sac
-# Passes down version_path for things which install themselves into
-# libsubdir.
-#
-# Revision 1.70  1991/11/13  19:49:17  sac
-# The +noversion flag will make an installation happen to the machine/..
-# directory rather than the machine/version/.. directory.
-#
-# Steve
-#
-# Revision 1.69  1991/11/12  04:41:21  rich
-# allow +foo bar options.  stolen from texinfo configure
-#
-# Revision 1.68  1991/11/09  11:34:52  rich
-# correct a comment
-#
-# Revision 1.67  1991/11/06  22:28:08  rich
-# pass +idestdir and +ddestdir
-#
-# Revision 1.66  1991/11/05  04:02:14  rich
-# don't allow +recurring to reach config.status
-#
-# Revision 1.65  1991/11/01  00:25:28  rich
-# new install theme
-#
-# Revision 1.64  1991/10/30  06:55:25  rich
-# suck in site makefile frags first
-#
-# Revision 1.63  1991/10/25  02:07:18  steve
-# More name changing
-#
-# Revision 1.62  1991/10/24  11:59:03  rich
-# add null definitions for makefile_frag_foo
-#
-# Revision 1.61  1991/10/24  00:23:59  hgs
-# Allow for using tmake-sun4
-#
-# Revision 1.60  1991/10/23  21:48:28  rich
-# Makefiles should include the makefile frag names even if the makefile
-# frag doesn't exist in *this* directory.  Otherwise we inherit the
-# variable setting from our parent Makefile.
-#
-# Revision 1.59  1991/10/16  19:53:31  gnu
-# Update for SCO problems.
-#
-# * Fix "Larry Wall kludge" line so it works.  If this script is run by csh,
-# it will complain, feed itself to sh, and complain some more.  But will work.
-#
-# * Use <14 char file names in /tmp.
-#
-# Revision 1.58  1991/10/16  06:12:52  rich
-# Two small bugs.  First, single quoted sed line doesn't need to quote
-# '$'.  Second, use quotes around the hereis document trigger in order
-# to quote the entire contents of the hereis document.
-#
-# Revision 1.57  1991/10/11  05:31:05  gnu
-# Simplify "Using" message code.  Put the message that configure prints
-# (or suppresses) into the config.status file as a comment.
-#
-# Revision 1.56  1991/10/10  05:01:47  rich
-# Remove the set -e but protect the recusion call.
-#
-# Revision 1.55  1991/10/10  04:57:23  rich
-# * Die when sub-configure's do.
-# * get the makefile building message line correct.
-# * set -e
-#
-# Revision 1.54  1991/10/10  01:04:42  rich
-# Backed out the "/bin/sh config.sub" change.  Fails when config.sub was
-# on PATH.
-#
-# Revision 1.53  1991/10/10  00:38:08  rich
-# Call config.sub as "/bin/sh config.sub" instead of directly.  This
-# protects us from the case where config.sub isn't executable.
-#
-# Revision 1.52  1991/10/09  00:48:26  rich
-# Another patch from jim.
-#
-# Revision 1.51  1991/10/08  06:07:58  wilson
-# Fix bug in smake- file code.
-#
-# Revision 1.50  1991/10/04  23:49:37  rich
-# Per's patch for my config.sub botch.
-#
-# Revision 1.49  1991/10/04  22:52:09  rich
-# Use john's heuristic for finding ourselves.  kinda like hare krishna.
-#
-# Revision 1.48  1991/10/02  13:17:28  rich
-# take out the set -e for now
-#
-# Revision 1.47  1991/10/02  10:02:23  rich
-# * temporary files in TMPDIR
-# * +objdir
-#
-# Revision 1.46  1991/10/02  06:29:53  rich
-# Added +site=foo option for naming site specific Makefile fragments.
-#
-# Revision 1.45  1991/10/02  06:15:13  rich
-# Removed +f option.  Used to stand for +forcesubdirs which is now
-# called +subdirs.
-#
-# Revision 1.44  1991/10/02  06:02:35  rich
-# Added rcs log line.
-#
-#
-#
 
 #
 # Local Variables:

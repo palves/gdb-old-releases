@@ -1,6 +1,20 @@
 \input texinfo.tex
 @setfilename bfd.info
-@c $Id: bfd.texinfo,v 1.10 1991/12/03 22:44:32 sac Exp $
+@c $Id: bfd.texinfo,v 1.12 1991/12/20 00:48:42 pesch Exp $
+@tex
+% NOTE LOCAL KLUGE TO AVOID TOO MUCH WHITESPACE
+\global\long\def\example{%
+\begingroup
+\let\aboveenvbreak=\par
+\let\afterenvbreak=\par
+\parskip=0pt
+\lisp}
+\global\long\def\Eexample{%
+\Elisp
+\endgroup
+\vskip -\parskip% to cancel out effect of following \par
+}
+@end tex
 @synindex fn cp
 
 @ifinfo
@@ -53,10 +67,10 @@ into another language, under the above conditions for modified versions.
 
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.10 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.12 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
-\hfill steve\@cygnus.com\par
+\hfill sac\@cygnus.com\par
 \hfill {\it BFD}, \manvers\par
 \hfill \TeX{}info \texinfoversion\par
 }
@@ -134,10 +148,12 @@ At the same time, Ready Systems wanted much the same thing, but for
 different object file formats: IEEE-695, Oasys, Srecords, a.out and 68k
 coff.
 
-BFD was first implemented by Steve Chamberlain (steve@@cygnus.com),
-John Gilmore (gnu@@cygnus.com),  K. Richard Pixley (rich@@cygnus.com) and
-David Wallace (gumby@@cygnus.com) at Cygnus Support in Palo Alto,
-California.
+BFD was first implemented by members of Cygnus Support; Steve
+Chamberlain (sac@@cygnus.com), John Gilmore (gnu@@cygnus.com), K.
+Richard Pixley (rich@@cygnus.com) and David Henkel-Wallace
+(gumby@@cygnus.com).
+
+
 
 @node How It Works, What BFD Version 1 Can Do, History, Overview
 @section How It Works

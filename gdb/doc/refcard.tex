@@ -1,6 +1,8 @@
+%%%%%%%%%%%%%%%% gdb-refcard.tex %%%%%%%%%%%%%%%%
+
 %This file is TeX source for a reference card describing GDB, the GNU debugger.
-%$Id: refcard.tex,v 1.9 1991/10/16 22:08:40 pesch Exp $
-%Copyright (C) 1991 Free Software Foundation, Inc.
+%$Id: refcard.tex,v 1.95 1992/01/15 23:51:05 pesch Exp $
+%Copyright (C) 1991, 1992 Free Software Foundation, Inc.
 %Permission is granted to make and distribute verbatim copies of
 %this reference provided the copyright notices and permission notices
 %are preserved on all copies.
@@ -31,9 +33,13 @@
 %
 %                                +1 415 322 3811
 %
-%            Cygnus Support is an organization devoted to commercial
-%            support of free software.  For general information
-%            contact ``info@cygnus.com''
+% Uncomment the following `magnification' command if you want to print
+% out in a larger font.  Caution!  You may need larger paper.  You had
+% best avoid using 3-column output if you try this.  See the ``Three
+% column format'' section below if you want to print in three column
+% format.
+%
+%\magnification=\magstep 1
 %
 % NOTE ON INTENTIONAL OMISSIONS: This reference card includes most GDB
 % commands, but due to space constraints there are some things I chose
@@ -48,10 +54,71 @@
 %
 {%
 \def\$#1${{#1}}%   Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.9 $}%
+\xdef\manvers{\$Revision: 1.95 $}%
 }%
-\input threecol
-\input rcfonts
+%-------------------- Three column format -----------------------
+
+%%%% --- To disable three column format, comment out this entire section
+
+% Three-column format for landscape printing on 8.5x11 paper
+
+% We want output .25 inch *from paper edge*; i.e. -.75in from TeX default
+\hoffset=-0.8in \voffset=-0.75in
+\newdimen\fullhsize
+\fullhsize=10.5in \hsize=3.3in
+\def\fulline{\hbox to \fullhsize}
+\let\lcr=L \newbox\leftcolumn\newbox\centercolumn
+\output={\if L\lcr
+            \global\setbox\leftcolumn=\columnbox \global\let\lcr=C
+	 \else
+            \if C\lcr
+               \global\setbox\centercolumn=\columnbox \global\let\lcr=R
+            \else \tripleformat \global\let\lcr=L
+            \fi
+         \fi
+%         \ifnum\outputpenalty>-20000 \else\dosupereject\fi
+      }
+%
+%ALTERNATIVE FOLDING GUIDES:
+%
+%For NO printed folding guide, comment out other \def\vdecor's and uncomment:
+%\def\vdecor{\hskip .2in plus1fil}
+%
+%For SOLID LINE folding guide, comment out other \def\vdecor's and uncomment:
+%\def\vdecor{\hskip .1in plus1fil \vrule width .1pt \hskip .1in plus1fil}
+%
+%For SMALL MARKS NEAR TOP AND BOTTOM as folding guide,
+%comment out other \def\vdecor's and uncomment:
+\def\vdecor{\hskip .1in plus1fil 
+\vbox to \vsize{\hbox to .1pt{\vrule height 2pt width .1pt}\vfill
+\hbox to .1pt{\vrule height 2pt width .1pt}}
+\hskip .1in plus1fil}
+%
+%END OF ALTERNATIVES FOR FOLDING GUIDES
+%
+\def\tripleformat{\shipout\vbox{\fulline{\box\leftcolumn\vdecor
+                                         \box\centercolumn\vdecor
+                                         \columnbox}
+			       }
+                 \advancepageno}
+\def\columnbox{\leftline{\pagebody}}
+\def\bye{\par\vfill
+         \supereject
+         \if R\lcr \null\vfill\eject\fi
+         \end}
+
+%-------------------- end three column format -----------------------
+
+%-------------------- Computer Modern font defs: --------------------
+\font\bbf=cmbx10
+\font\vbbf=cmbx12
+\font\smrm=cmr6
+\font\brm=cmr10
+\font\rm=cmr7
+\font\it=cmti7
+\font\tt=cmtt8
+%-------------------- end font defs ---------------------------------
+
 %
 \vsize=8in
 \hyphenpenalty=5000\tolerance=2000\raggedright\raggedbottom
@@ -79,9 +146,7 @@
 }
 }
 
-{\vbbf GDB QUICK REFERENCE}
-\vskip 5pt
-{\smrm GDB Version 4.2---Cygnus Support 1991}
+{\vbbf GDB QUICK REFERENCE}\hfil{\smrm GDB Version 4}\qquad
 
 \sec Essential Commands;
 gdb {\it program} \opt{{\it core}}&debug {\it program} \opt{using
@@ -96,11 +161,11 @@ s &next line, stepping into function calls\cr
 \endsec
 
 \sec Starting GDB;
-gdb&starts GDB, with no debugging files\cr
+gdb&start GDB, with no debugging files\cr
 gdb {\it program}&begin debugging {\it program}\cr
 gdb {\it program core}&debug coredump {\it core} produced by {\it
 program}\cr
-gdb -help&describe command line options\cr
+gdb --help&describe command line options\cr
 \endsec
 
 \sec Stopping GDB;
@@ -117,7 +182,7 @@ help {\it command}&describe {\it command}\cr
 \sec Executing your Program;
 run {\it arglist}&start your program with {\it arglist}\cr
 run&start your program with current argument list\cr
-run $\ldots$ <{\it inf} >{\it outf}&start program with input, output
+run $\ldots$ <{\it inf} >{\it outf}&start your program with input, output
 redirected\cr
 \cr
 kill&kill running program\cr
@@ -142,7 +207,10 @@ shell {\it cmd}&execute arbitrary shell command string\cr
 \endsec
 
 \vfill
-\centerline{\smrm \copyright 1991 Free Software Foundation, Inc.\qquad Permissions on back}
+\line{\smrm \opt{ } surround optional arguments \hfill $\ldots$ show
+one or more arguments}
+\vskip\baselineskip
+\centerline{\smrm \copyright 1991, 1992 Free Software Foundation, Inc.\qquad Permissions on back}
 \eject
 \sec Breakpoints and Watchpoints;
 break \opt{\it file\tt:}{\it line}\par
@@ -168,23 +236,30 @@ info watch&show defined watchpoints\cr
 clear&delete breakpoints at next instruction\cr
 clear \opt{\it file\tt:}{\it fun}&delete breakpoints at entry to {\it fun}()\cr
 clear \opt{\it file\tt:}{\it line}&delete breakpoints on source line \cr
-delete \opt{{\it n}}&delete breakpoints {\it n};
-\opt{or all breakpoints}\cr
+delete \opt{{\it n}}&delete breakpoints
+\opt{or breakpoint {\it n}}\cr
 \cr
-disable \opt{{\it n}}&disable breakpoints {\it n} \opt{or all}\cr
-enable \opt{{\it n}}&enable breakpoints {\it n} \opt{or all}\cr
-enable once \opt{{\it n}}&enable breakpoints; disable again when
-reached\cr
-enable del \opt{{\it n}}&enable breakpoints; delete when reached\cr
+disable \opt{{\it n}}&disable breakpoints
+\opt{or breakpoint {\it n}}
+\cr
+enable \opt{{\it n}}&enable breakpoints 
+\opt{or breakpoint {\it n}}
+\cr
+enable once \opt{{\it n}}&enable breakpoints \opt{or breakpoint {\it n}}; 
+disable again when reached
+\cr
+enable del \opt{{\it n}}&enable breakpoints \opt{or breakpoint {\it n}}; 
+delete when reached
+\cr
 \cr
 ignore {\it n} {\it count}&ignore breakpoint {\it n}, {\it count}
 times\cr
 \cr
 commands {\it n}\par
 \qquad \opt{\tt silent}\par
-\qquad {\it command list}&execute GDB {\it command list} every time breakpoint {\it n} is reached. \opt{{\tt silent} suppresses default
+\qquad {\it command-list}&execute GDB {\it command-list} every time breakpoint {\it n} is reached. \opt{{\tt silent} suppresses default
 display}\cr
-end&end of {\it command list}\cr
+end&end of {\it command-list}\cr
 \endsec
 
 \sec Program Stack;
@@ -318,13 +393,13 @@ source {\it script}&read, execute GDB commands from file {\it
 script}\cr
 \cr
 define {\it cmd}\par
-\qquad {\it command list}&new GDB command {\it cmd}, executes script
-defined by {\it command list} \cr
-end&end of {\it command list}\cr
+\qquad {\it command-list}&create new GDB command {\it cmd}; 
+execute script defined by {\it command-list}\cr
+end&end of {\it command-list}\cr
 document {\it cmd}\par
-\qquad {\it help text}&new online documentation for GDB command {\it
-cmd}\cr
-end&end of {\it help text}\cr
+\qquad {\it help-text}&create online documentation 
+for new GDB command {\it cmd}\cr
+end&end of {\it help-text}\cr
 \endsec
 
 \sec Signals;
@@ -365,14 +440,16 @@ symbols\cr
 \quad write {\it on/off}&Allow or forbid patching binary, core files
 (when reopened with {\tt exec} or {\tt core})
 \cr
-\quad history $\ldots$&({\tt h}) groups the following options:\cr
-\quad h exp {\it off/on}&disable or enable {\tt readline} history expansion\cr
+\quad history $\ldots$\par
+\quad h $\ldots$&groups with the following options:\cr
+\quad h exp {\it off/on}&disable/enable {\tt readline} history expansion\cr
 \quad h file {\it filename}&file for recording GDB command history\cr
 \quad h size {\it size}&number of commands kept in history list\cr
 \quad h save {\it off/on}&control use of external file for
 command history\cr
 \cr
-\quad print $\ldots$&({\tt p}) groups the following options:\cr
+\quad print $\ldots$\par
+\quad p $\ldots$&groups with the following options:\cr
 \quad p address {\it on/off}&print memory addresses in stacks,
 values\cr
 \quad p  array {\it off/on}&compact or attractive format for
@@ -381,8 +458,7 @@ arrays\cr
 symbols\cr
 \quad p asm-dem {\it on/off}&demangle C++ symbols in
 machine-instruction output\cr
-\quad p elements {\it limit}&number of elements to display from an
-array\cr
+\quad p elements {\it limit}&number of array elements to display\cr
 \quad p object {\it on/off}&print C++ derived types for objects\cr
 \quad p pretty {\it off/on}&struct display: compact or indented\cr
 \quad p union {\it on/off}&display of union members\cr
@@ -395,11 +471,11 @@ show commands +&show next 10 commands\cr
 \endsec
 
 \sec Working Files;
-file \opt{\it file}&use {\it file} for both symbols and executable
-\par \opt{or discard both}\cr
-core \opt{\it file}&read {\it file} as coredump \opt{or discard}\cr
-exec \opt{\it file}&use {\it file} as executable only \opt{or discard}\cr
-symbol \opt{\it file}&use symbol table from {\it file} \opt{or discard}\cr
+file \opt{\it file}&use {\it file} for both symbols and executable;
+with no arg, discard both\cr
+core \opt{\it file}&read {\it file} as coredump; or discard\cr
+exec \opt{\it file}&use {\it file} as executable only; or discard\cr
+symbol \opt{\it file}&use symbol table from {\it file}; or discard\cr
 load {\it file}&dynamically link {\it file\/} and add its symbols\cr
 add-sym {\it file} {\it addr}&read additional symbols from {\it file},
 dynamically loaded at {\it addr}\cr
@@ -458,8 +534,8 @@ statement.\cr
 
 \vfill
 {\smrm\parskip=6pt
-\centerline{Copyright \copyright 1991 Free Software Foundation, Inc.}
-\centerline{Roland Pesch (pesch@cygnus.com), October 1991---\manvers}
+\centerline{Copyright \copyright 1991, 1992 Free Software Foundation, Inc.}
+\centerline{Roland Pesch (pesch@cygnus.com), January 1992---\manvers}
 \centerline{The author assumes no responsibility for any errors on this card.}
 
 This card may be freely distributed under the terms of the GNU

@@ -1,29 +1,73 @@
+#
+# Makefile
+#   Copyright (C) 1990, 1991 Cygnus Support
+#
+# This file is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+#
+
 # Makefile for glob source is in -*- text -*- mode.
 
 srcdir = .
 
-ddestdir = /usr/local
-idestdir = $(ddestdir)
+prefix = /usr/local
+
+bindir = $(prefix)/bin
+datadir = $(prefix)/lib
+libdir = $(prefix)/lib
+mandir = $(datadir)/man
+man1dir = $(mandir)/man1
+man2dir = $(mandir)/man2
+man3dir = $(mandir)/man3
+man4dir = $(mandir)/man4
+man5dir = $(mandir)/man5
+man6dir = $(mandir)/man6
+man7dir = $(mandir)/man7
+man8dir = $(mandir)/man8
+man9dir = $(mandir)/man9
+infodir = $(datadir)/info
+includedir = $(prefix)/include
+docdir = $(datadir)/doc
+
+SHELL = /bin/sh
+
+INSTALL = install -c
+INSTALL_PROGRAM = $(INSTALL)
+INSTALL_DATA = $(INSTALL)
 
 AR = ar
-AR_FLAGS = clq
+AR_FLAGS = lq
+BISON = bison
+MAKEINFO = makeinfo
 RANLIB = ranlib
 
-#### host, target, and site specific Makefile frags come in here.
+#### Host, target, and site specific Makefile fragments come in here.
 ###
 
-CFLAGS = $(H_CFLAGS) -g
+CFLAGS = $(H_CFLAGS) -g -I.
 RM = rm -f
 
 #all:	libglob.a
 all:
-	@echo "Glob doesn't get built yet."
-	@echo "It is here because readline uses a piece of its source."
+	@echo "Glob doesn't work yet, but readline uses a piece of its src"
 
+install:
+info install-info clean-info:
 libglob.a: glob.o tilde.o
 	$(RM) -f $@
 	$(AR) $(AR_FLAGS) $@ glob.o tilde.o
-	-if [ -f "$(RANLIB)" ]; then $(RANLIB) libglob.a; fi
+	$(RANLIB) libglob.a
 
 glob.o:	glob.c
 tilde.o:	tilde.c

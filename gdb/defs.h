@@ -75,6 +75,7 @@ extern struct cleanup *make_cleanup ();
 extern struct cleanup *save_cleanups ();
 extern void restore_cleanups ();
 extern void free_current_contents ();
+extern void null_cleanup ();
 extern int myread ();
 extern int query ();
 extern void wrap_here (
@@ -141,7 +142,7 @@ enum language
    language_auto,		/* Placeholder for automatic setting */
    language_c, 			/* C */
    language_cplus, 		/* C++ */
-   language_m2,			/* Modula-2 */
+   language_m2			/* Modula-2 */
 };
 
 /* Return a format string for printf that will print a number in the local
