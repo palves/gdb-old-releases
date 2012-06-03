@@ -469,7 +469,9 @@ static reloc_howto_type v850_elf_howto_table[] =
 
 struct v850_elf_reloc_map
 {
-  unsigned char bfd_reloc_val;
+  /* BFD_RELOC_V850_CALLT_16_16_OFFSET is 258, which will not fix in an
+     unsigned char.  */
+  bfd_reloc_code_real_type bfd_reloc_val;
   unsigned char elf_reloc_val;
 };
 

@@ -184,7 +184,9 @@ coff_arm_reloc (abfd, reloc_entry, symbol, data, input_section, output_bfd,
 /* If USER_LABEL_PREFIX is defined as "_" (see coff_arm_is_local_label_name()
    in this file), then TARGET_UNDERSCORE should be defined, otherwise it
    should not.  */
-/* #define TARGET_UNDERSCORE '_' */
+#ifndef TARGET_UNDERSCORE
+#define TARGET_UNDERSCORE '_'
+#endif
 
 #ifndef PCRELOFFSET
 #define PCRELOFFSET true
@@ -433,36 +435,6 @@ coff_arm_rtype_to_howto (abfd, sec, rel, h, sym, addendp)
   if (rel->r_type == ARM_RVA32)
     {
       *addendp -= pe_data(sec->output_section->owner)->pe_opthdr.ImageBase;
-    }
-
-  /* The relocation_section function will skip pcrel_offset relocs
-     when doing a relocateable link.  However, we want to convert
-     ARM26 to ARM26D relocs if possible.  We return a fake howto in
-     this case without pcrel_offset set, and adjust the addend to
-     compensate.  */
-  if (rel->r_type == ARM_26
-      && h != NULL
-      && (h->root.type == bfd_link_hash_defined
-	  || h->root.type == bfd_link_hash_defweak)
-      && h->root.u.def.section->output_section == sec->output_section)
-    {
-      static reloc_howto_type fake_arm26_reloc = 
-	HOWTO (ARM_26,
-	       2,
-	       2,
-	       24,
-	       true,
-	       0,
-	       complain_overflow_signed,
-	       aoutarm_fix_pcrel_26 ,
-	       "ARM_26",
-	       false,
-	       0x00ffffff,
-	       0x00ffffff, 
-	       false);
-
-      *addendp -= rel->r_vaddr - sec->vma;
-      return & fake_arm26_reloc;
     }
 
   return howto;
@@ -811,6 +783,23 @@ coff_arm_link_hash_table_create (abfd)
   return & ret->root.root;
 }
 
+static
+arm_emit_base_file_entry (info, output_bfd, input_section, reloc_offset)
+      struct bfd_link_info *info;
+      bfd *output_bfd;
+      asection *input_section;
+      bfd_vma reloc_offset;
+{
+  bfd_vma addr = reloc_offset
+                - input_section->vma
+                + input_section->output_offset
+                  + input_section->output_section->vma;
+
+  if (coff_data(output_bfd)->pe)
+     addr -= pe_data(output_bfd)->pe_opthdr.ImageBase;
+  fwrite (&addr, 1, sizeof (addr), (FILE *) info->base_file);
+
+}
 
 /* The thumb form of a long branch is a bit finicky, because the offset
    encoding is split over two fields, each in it's own instruction. They
@@ -945,6 +934,8 @@ static const insn32 a2t1_ldr_insn       = 0xe59fc000;
 static const insn32 a2t2_bx_r12_insn    = 0xe12fff1c;
 static const insn32 a2t3_func_addr_insn = 0x00000001;
 
+#define A2T3_OFFSET 8
+
 /*
    Thumb->ARM:				Thumb->(non-interworking aware) ARM
 
@@ -967,6 +958,8 @@ static const insn32 a2t3_func_addr_insn = 0x00000001;
 static const insn16 t2a1_bx_pc_insn = 0x4778;
 static const insn16 t2a2_noop_insn  = 0x46c0;
 static const insn32 t2a3_b_insn     = 0xea000000;
+
+#define T2A3_OFFSET 8
 
 static const insn16 t2a1_push_insn  = 0xb540;
 static const insn16 t2a2_ldr_insn   = 0x4e03;
@@ -1070,10 +1063,41 @@ coff_arm_relocate_section (output_bfd, info, input_bfd, input_section,
 	addend = 0;
 
 
-      howto = bfd_coff_rtype_to_howto (input_bfd, input_section, rel, h,
+      howto = coff_rtype_to_howto (input_bfd, input_section, rel, h,
 				       sym, &addend);
       if (howto == NULL)
 	return false;
+
+      /* The relocation_section function will skip pcrel_offset relocs
+         when doing a relocateable link.  However, we want to convert
+         ARM26 to ARM26D relocs if possible.  We return a fake howto in
+         this case without pcrel_offset set, and adjust the addend to
+         compensate.  */
+      if (rel->r_type == ARM_26
+          && h != NULL
+          && info->relocateable
+          && (h->root.type == bfd_link_hash_defined
+	      || h->root.type == bfd_link_hash_defweak)
+          && h->root.u.def.section->output_section == input_section->output_section)
+        {
+          static reloc_howto_type fake_arm26_reloc = 
+	    HOWTO (ARM_26,
+    	       2,
+    	       2,
+    	       24,
+    	       true,
+    	       0,
+    	       complain_overflow_signed,
+    	       aoutarm_fix_pcrel_26 ,
+    	       "ARM_26",
+    	       false,
+    	       0x00ffffff,
+    	       0x00ffffff, 
+    	       false);
+
+          addend -= rel->r_vaddr - input_section->vma;
+          howto = &fake_arm26_reloc;
+        }
 
       /* If we are doing a relocateable link, then we can just ignore
          a PC relative reloc that is pcrel_offset.  It will already
@@ -1185,6 +1209,10 @@ coff_arm_relocate_section (output_bfd, info, input_bfd, input_section,
 			  /* It's a thumb address.  Add the low order bit.  */
 			  bfd_put_32 (output_bfd, h_val | a2t3_func_addr_insn,
 				      s->contents + my_offset + 8);
+
+                          if (info->base_file)
+                            arm_emit_base_file_entry (info, output_bfd, s, A2T3_OFFSET);
+
 			}
 
 		      BFD_ASSERT (my_offset <= globals->arm_glue_size);
@@ -1312,6 +1340,9 @@ coff_arm_relocate_section (output_bfd, info, input_bfd, input_section,
 			      bfd_put_32 (output_bfd,
 					  t2a3_b_insn | ((ret_offset >> 2) & 0x00FFFFFF),
 					  s->contents + my_offset + 4);
+
+                              if (info->base_file)
+                                arm_emit_base_file_entry (info, output_bfd, s, T2A3_OFFSET);
 			    }
 			}
 
@@ -1334,6 +1365,9 @@ coff_arm_relocate_section (output_bfd, info, input_bfd, input_section,
 				  contents + rel->r_vaddr
 				  - input_section->vma);
 		      
+                      if (info->base_file)
+                        arm_emit_base_file_entry (info, output_bfd, input_section, rel->r_vaddr);
+
 		      done = 1;
                     }
                 }
@@ -1371,19 +1405,7 @@ coff_arm_relocate_section (output_bfd, info, input_bfd, input_section,
 	{
 	  /* Emit a reloc if the backend thinks it needs it. */
 	  if (sym && pe_data(output_bfd)->in_reloc_p(output_bfd, howto))
-	    {
-	      /* relocation to a symbol in a section which
-		 isn't absolute - we output the address here 
-		 to a file */
-	      bfd_vma addr = rel->r_vaddr 
-		- input_section->vma 
-		+ input_section->output_offset 
-		  + input_section->output_section->vma;
-	      if (coff_data(output_bfd)->pe)
-		addr -= pe_data(output_bfd)->pe_opthdr.ImageBase;
-	      /* FIXME: Shouldn't 4 be sizeof (addr)?  */
-	      fwrite (&addr, 1,4, (FILE *) info->base_file);
-	    }
+            arm_emit_base_file_entry (info, output_bfd, input_section, rel->r_vaddr);
 	}
   
 #if 1 /* THUMBEXTENSION */
@@ -2261,9 +2283,11 @@ coff_arm_copy_private_bfd_data (src, dest)
 }
 
 /* Note:  the definitions here of LOCAL_LABEL_PREFIX and USER_LABEL_PREIFX
- *must* match the definitions on gcc/config/arm/semi.h or coff.h  */
+ *must* match the definitions in gcc/config/arm/coff.h and semi.h */
 #define LOCAL_LABEL_PREFIX "."
-#define USER_LABEL_PREFIX ""
+#ifndef USER_LABEL_PREFIX
+#define USER_LABEL_PREFIX "_"
+#endif
 
 static boolean
 coff_arm_is_local_label_name (abfd, name)

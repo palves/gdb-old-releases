@@ -53,6 +53,7 @@ struct internal_filehdr
   long f_nsyms;			/* number of symtab entries	*/
   unsigned short f_opthdr;	/* sizeof(optional hdr)		*/
   unsigned short f_flags;	/* flags			*/
+  unsigned short f_target_id;	/* (TIc80 specific)		*/
 };
 
 
@@ -216,6 +217,12 @@ struct internal_aouthdr
 #define C_HIDDEN	106	/* ext symbol in dmert public lib */
 
 #define C_WEAKEXT	127	/* weak symbol -- GNU extension */
+
+/* New storage classes for TIc80 */
+#define C_UEXT		19	/* Tentative external definition */
+#define C_STATLAB	20	/* Static load time label */
+#define C_EXTLAB	21	/* External load time label */
+#define C_SYSTEM	23	/* System Wide variable */
 
 /* New storage classes for WINDOWS_NT   */
 #define C_SECTION       104     /* section name */

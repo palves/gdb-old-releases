@@ -104,6 +104,7 @@ RANLIB = @RANLIB@
 TDEFINES = @TDEFINES@
 USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
 USE_NLS = @USE_NLS@
+USE_SYMBOL_UNDERSCORE = @USE_SYMBOL_UNDERSCORE@
 VERSION = @VERSION@
 WIN32LDFLAGS = @WIN32LDFLAGS@
 WIN32LIBADD = @WIN32LIBADD@
@@ -116,10 +117,18 @@ wordsize = @wordsize@
 
 AUTOMAKE_OPTIONS = cygnus
 
-DOCFILES = aoutx.texi  archive.texi archures.texi 	bfdt.texi  cache.texi coffcode.texi 	core.texi elf.texi elfcode.texi  format.texi  libbfd.texi  	opncls.texi  reloc.texi  section.texi  	syms.texi  targets.texi init.texi hash.texi linker.texi
+DOCFILES = aoutx.texi  archive.texi archures.texi \
+	bfdt.texi  cache.texi coffcode.texi \
+	core.texi elf.texi elfcode.texi  format.texi  libbfd.texi  \
+	opncls.texi  reloc.texi  section.texi  \
+	syms.texi  targets.texi init.texi hash.texi linker.texi
 
 
-PROTOS = archive.p archures.p bfd.p 	 core.p format.p 	libbfd.p opncls.p reloc.p 	section.p syms.p targets.p  	format.p  core.p init.p
+PROTOS = archive.p archures.p bfd.p \
+	 core.p format.p \
+	libbfd.p opncls.p reloc.p \
+	section.p syms.p targets.p  \
+	format.p  core.p init.p
 
 
 IPROTOS = cache.ip libbfd.ip reloc.ip init.ip archures.ip coffcode.ip
@@ -127,13 +136,29 @@ IPROTOS = cache.ip libbfd.ip reloc.ip init.ip archures.ip coffcode.ip
 # SRCDOC, SRCPROT, SRCIPROT only used to sidestep Sun Make bug in interaction 
 # between VPATH and suffix rules.  If you use GNU Make, perhaps other Makes,
 # you don't need these three:
-SRCDOC = $(srcdir)/../aoutx.h  $(srcdir)/../archive.c 	$(srcdir)/../archures.c $(srcdir)/../bfd.c 	$(srcdir)/../cache.c $(srcdir)/../coffcode.h 	$(srcdir)/../corefile.c $(srcdir)/../elf.c 	$(srcdir)/../elfcode.h  $(srcdir)/../format.c 	$(srcdir)/../libbfd.c $(srcdir)/../opncls.c 	$(srcdir)/../reloc.c  $(srcdir)/../section.c 	$(srcdir)/../syms.c  $(srcdir)/../targets.c 	$(srcdir)/../hash.c $(srcdir)/../linker.c
+SRCDOC = $(srcdir)/../aoutx.h  $(srcdir)/../archive.c \
+	$(srcdir)/../archures.c $(srcdir)/../bfd.c \
+	$(srcdir)/../cache.c $(srcdir)/../coffcode.h \
+	$(srcdir)/../corefile.c $(srcdir)/../elf.c \
+	$(srcdir)/../elfcode.h  $(srcdir)/../format.c \
+	$(srcdir)/../libbfd.c $(srcdir)/../opncls.c \
+	$(srcdir)/../reloc.c  $(srcdir)/../section.c \
+	$(srcdir)/../syms.c  $(srcdir)/../targets.c \
+	$(srcdir)/../hash.c $(srcdir)/../linker.c
 
 
-SRCPROT = $(srcdir)/../archive.c $(srcdir)/../archures.c 	$(srcdir)/../bfd.c $(srcdir)/../coffcode.h $(srcdir)/../corefile.c 	$(srcdir)/../format.c $(srcdir)/../libbfd.c 	$(srcdir)/../opncls.c $(srcdir)/../reloc.c 	$(srcdir)/../section.c $(srcdir)/../syms.c 	$(srcdir)/../targets.c $(srcdir)/../init.c
+SRCPROT = $(srcdir)/../archive.c $(srcdir)/../archures.c \
+	$(srcdir)/../bfd.c $(srcdir)/../coffcode.h $(srcdir)/../corefile.c \
+	$(srcdir)/../format.c $(srcdir)/../libbfd.c \
+	$(srcdir)/../opncls.c $(srcdir)/../reloc.c \
+	$(srcdir)/../section.c $(srcdir)/../syms.c \
+	$(srcdir)/../targets.c $(srcdir)/../init.c
 
 
-SRCIPROT = $(srcdir)/../cache.c $(srcdir)/../libbfd.c 	$(srcdir)/../reloc.c $(srcdir)/../cpu-h8300.c 	$(srcdir)/../cpu-i960.c $(srcdir)/../archures.c 	$(srcdir)/../init.c
+SRCIPROT = $(srcdir)/../cache.c $(srcdir)/../libbfd.c \
+	$(srcdir)/../reloc.c $(srcdir)/../cpu-h8300.c \
+	$(srcdir)/../cpu-i960.c $(srcdir)/../archures.c \
+	$(srcdir)/../init.c
 
 
 TEXIDIR = $(srcdir)/../../texinfo/fsf

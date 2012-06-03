@@ -181,29 +181,11 @@ fr30_cgen_parse_operand (cd, opindex, strp, fields)
 
   switch (opindex)
     {
-    case FR30_OPERAND_RI :
-      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_h_gr, & fields->f_Ri);
-      break;
-    case FR30_OPERAND_RJ :
-      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_h_gr, & fields->f_Rj);
-      break;
-    case FR30_OPERAND_RIC :
-      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_h_gr, & fields->f_Ric);
-      break;
-    case FR30_OPERAND_RJC :
-      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_h_gr, & fields->f_Rjc);
-      break;
     case FR30_OPERAND_CRI :
-      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_h_cr, & fields->f_CRi);
+      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_cr_names, & fields->f_CRi);
       break;
     case FR30_OPERAND_CRJ :
-      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_h_cr, & fields->f_CRj);
-      break;
-    case FR30_OPERAND_RS1 :
-      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_h_dr, & fields->f_Rs1);
-      break;
-    case FR30_OPERAND_RS2 :
-      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_h_dr, & fields->f_Rs2);
+      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_cr_names, & fields->f_CRj);
       break;
     case FR30_OPERAND_R13 :
       errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_h_r13, & fields->f_nil);
@@ -214,8 +196,94 @@ fr30_cgen_parse_operand (cd, opindex, strp, fields)
     case FR30_OPERAND_R15 :
       errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_h_r15, & fields->f_nil);
       break;
+    case FR30_OPERAND_RI :
+      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_gr_names, & fields->f_Ri);
+      break;
+    case FR30_OPERAND_RIC :
+      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_gr_names, & fields->f_Ric);
+      break;
+    case FR30_OPERAND_RJ :
+      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_gr_names, & fields->f_Rj);
+      break;
+    case FR30_OPERAND_RJC :
+      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_gr_names, & fields->f_Rjc);
+      break;
+    case FR30_OPERAND_RS1 :
+      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_dr_names, & fields->f_Rs1);
+      break;
+    case FR30_OPERAND_RS2 :
+      errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_dr_names, & fields->f_Rs2);
+      break;
+    case FR30_OPERAND_CC :
+      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_CC, &fields->f_cc);
+      break;
+    case FR30_OPERAND_CCC :
+      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_CCC, &fields->f_ccc);
+      break;
+    case FR30_OPERAND_DIR10 :
+      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_DIR10, &fields->f_dir10);
+      break;
+    case FR30_OPERAND_DIR8 :
+      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_DIR8, &fields->f_dir8);
+      break;
+    case FR30_OPERAND_DIR9 :
+      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_DIR9, &fields->f_dir9);
+      break;
+    case FR30_OPERAND_DISP10 :
+      errmsg = cgen_parse_signed_integer (cd, strp, FR30_OPERAND_DISP10, &fields->f_disp10);
+      break;
+    case FR30_OPERAND_DISP8 :
+      errmsg = cgen_parse_signed_integer (cd, strp, FR30_OPERAND_DISP8, &fields->f_disp8);
+      break;
+    case FR30_OPERAND_DISP9 :
+      errmsg = cgen_parse_signed_integer (cd, strp, FR30_OPERAND_DISP9, &fields->f_disp9);
+      break;
+    case FR30_OPERAND_I20 :
+      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_I20, &fields->f_i20);
+      break;
+    case FR30_OPERAND_I32 :
+      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_I32, &fields->f_i32);
+      break;
+    case FR30_OPERAND_I8 :
+      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_I8, &fields->f_i8);
+      break;
+    case FR30_OPERAND_LABEL12 :
+      {
+        bfd_vma value;
+        errmsg = cgen_parse_address (cd, strp, FR30_OPERAND_LABEL12, 0, NULL,  & value);
+        fields->f_rel12 = value;
+      }
+      break;
+    case FR30_OPERAND_LABEL9 :
+      {
+        bfd_vma value;
+        errmsg = cgen_parse_address (cd, strp, FR30_OPERAND_LABEL9, 0, NULL,  & value);
+        fields->f_rel9 = value;
+      }
+      break;
+    case FR30_OPERAND_M4 :
+      errmsg = cgen_parse_signed_integer (cd, strp, FR30_OPERAND_M4, &fields->f_m4);
+      break;
     case FR30_OPERAND_PS :
       errmsg = cgen_parse_keyword (cd, strp, & fr30_cgen_opval_h_ps, & fields->f_nil);
+      break;
+    case FR30_OPERAND_REGLIST_HI_LD :
+      errmsg = parse_hi_register_list_ld (cd, strp, FR30_OPERAND_REGLIST_HI_LD, &fields->f_reglist_hi_ld);
+      break;
+    case FR30_OPERAND_REGLIST_HI_ST :
+      errmsg = parse_hi_register_list_st (cd, strp, FR30_OPERAND_REGLIST_HI_ST, &fields->f_reglist_hi_st);
+      break;
+    case FR30_OPERAND_REGLIST_LOW_LD :
+      errmsg = parse_low_register_list_ld (cd, strp, FR30_OPERAND_REGLIST_LOW_LD, &fields->f_reglist_low_ld);
+      break;
+    case FR30_OPERAND_REGLIST_LOW_ST :
+      errmsg = parse_low_register_list_st (cd, strp, FR30_OPERAND_REGLIST_LOW_ST, &fields->f_reglist_low_st);
+      break;
+    case FR30_OPERAND_S10 :
+      errmsg = cgen_parse_signed_integer (cd, strp, FR30_OPERAND_S10, &fields->f_s10);
+      break;
+    case FR30_OPERAND_U10 :
+      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_U10, &fields->f_u10);
       break;
     case FR30_OPERAND_U4 :
       errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_U4, &fields->f_u4);
@@ -226,76 +294,8 @@ fr30_cgen_parse_operand (cd, opindex, strp, fields)
     case FR30_OPERAND_U8 :
       errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_U8, &fields->f_u8);
       break;
-    case FR30_OPERAND_I8 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_I8, &fields->f_i8);
-      break;
     case FR30_OPERAND_UDISP6 :
       errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_UDISP6, &fields->f_udisp6);
-      break;
-    case FR30_OPERAND_DISP8 :
-      errmsg = cgen_parse_signed_integer (cd, strp, FR30_OPERAND_DISP8, &fields->f_disp8);
-      break;
-    case FR30_OPERAND_DISP9 :
-      errmsg = cgen_parse_signed_integer (cd, strp, FR30_OPERAND_DISP9, &fields->f_disp9);
-      break;
-    case FR30_OPERAND_DISP10 :
-      errmsg = cgen_parse_signed_integer (cd, strp, FR30_OPERAND_DISP10, &fields->f_disp10);
-      break;
-    case FR30_OPERAND_S10 :
-      errmsg = cgen_parse_signed_integer (cd, strp, FR30_OPERAND_S10, &fields->f_s10);
-      break;
-    case FR30_OPERAND_U10 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_U10, &fields->f_u10);
-      break;
-    case FR30_OPERAND_I32 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_I32, &fields->f_i32);
-      break;
-    case FR30_OPERAND_M4 :
-      errmsg = cgen_parse_signed_integer (cd, strp, FR30_OPERAND_M4, &fields->f_m4);
-      break;
-    case FR30_OPERAND_I20 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_I20, &fields->f_i20);
-      break;
-    case FR30_OPERAND_DIR8 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_DIR8, &fields->f_dir8);
-      break;
-    case FR30_OPERAND_DIR9 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_DIR9, &fields->f_dir9);
-      break;
-    case FR30_OPERAND_DIR10 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_DIR10, &fields->f_dir10);
-      break;
-    case FR30_OPERAND_LABEL9 :
-      {
-        bfd_vma value;
-        errmsg = cgen_parse_address (cd, strp, FR30_OPERAND_LABEL9, 0, NULL,  & value);
-        fields->f_rel9 = value;
-      }
-      break;
-    case FR30_OPERAND_LABEL12 :
-      {
-        bfd_vma value;
-        errmsg = cgen_parse_address (cd, strp, FR30_OPERAND_LABEL12, 0, NULL,  & value);
-        fields->f_rel12 = value;
-      }
-      break;
-    case FR30_OPERAND_REGLIST_LOW_LD :
-      errmsg = parse_low_register_list_ld (cd, strp, FR30_OPERAND_REGLIST_LOW_LD, &fields->f_reglist_low_ld);
-      break;
-    case FR30_OPERAND_REGLIST_HI_LD :
-      errmsg = parse_hi_register_list_ld (cd, strp, FR30_OPERAND_REGLIST_HI_LD, &fields->f_reglist_hi_ld);
-      break;
-    case FR30_OPERAND_REGLIST_LOW_ST :
-      errmsg = parse_low_register_list_st (cd, strp, FR30_OPERAND_REGLIST_LOW_ST, &fields->f_reglist_low_st);
-      break;
-    case FR30_OPERAND_REGLIST_HI_ST :
-      errmsg = parse_hi_register_list_st (cd, strp, FR30_OPERAND_REGLIST_HI_ST, &fields->f_reglist_hi_st);
-      break;
-    case FR30_OPERAND_CC :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_CC, &fields->f_cc);
-      break;
-    case FR30_OPERAND_CCC :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, FR30_OPERAND_CCC, &fields->f_ccc);
       break;
 
     default :

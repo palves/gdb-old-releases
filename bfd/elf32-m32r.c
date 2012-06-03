@@ -591,7 +591,7 @@ m32r_elf_sda16_reloc (abfd, reloc_entry, symbol, data,
 
 struct m32r_reloc_map
 {
-  unsigned char bfd_reloc_val;
+  bfd_reloc_code_real_type bfd_reloc_val;
   unsigned char elf_reloc_val;
 };
 

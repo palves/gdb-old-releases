@@ -1,5 +1,5 @@
 /* Main header file for the bfd library -- portable access to object files.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 98, 1999
    Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
@@ -1202,6 +1202,10 @@ bfd_copy_private_section_data PARAMS ((bfd *ibfd, asection *isec, bfd *obfd, ase
 #define bfd_copy_private_section_data(ibfd, isection, obfd, osection) \
      BFD_SEND (obfd, _bfd_copy_private_section_data, \
                (ibfd, isection, obfd, osection))
+void 
+_bfd_strip_section_from_output
+ PARAMS ((asection *section));
+
 enum bfd_architecture 
 {
   bfd_arch_unknown,    /* File arch not known */
@@ -1254,6 +1258,7 @@ enum bfd_architecture
 #define bfd_mach_mips4000              4000
 #define bfd_mach_mips4010              4010
 #define bfd_mach_mips4100              4100
+#define bfd_mach_mips4111              4111
 #define bfd_mach_mips4300              4300
 #define bfd_mach_mips4400              4400
 #define bfd_mach_mips4600              4600
@@ -1306,6 +1311,7 @@ enum bfd_architecture
   bfd_arch_ns32k,      /* National Semiconductors ns32000 */
   bfd_arch_w65,        /* WDC 65816 */
   bfd_arch_tic30,      /* Texas Instruments TMS320C30 */
+  bfd_arch_tic80,      /* TI TMS320c80 (MVP) */
   bfd_arch_v850,       /* NEC V850 */
 #define bfd_mach_v850          0
 #define bfd_mach_v850e         'E'
@@ -1319,6 +1325,7 @@ enum bfd_architecture
 #define bfd_mach_mn10300               300
   bfd_arch_fr30,
 #define bfd_mach_fr30          0x46523330
+  bfd_arch_mcore,
   bfd_arch_last
   };
 
@@ -1558,6 +1565,7 @@ bfd_check_overflow
  PARAMS ((enum complain_overflow how,
     unsigned int bitsize,
     unsigned int rightshift,
+    unsigned int addrsize,
     bfd_vma relocation));
 
 bfd_reloc_status_type
@@ -1905,6 +1913,15 @@ not stored in the instruction. */
   BFD_RELOC_ARM_THUMB_IMM,
   BFD_RELOC_ARM_THUMB_SHIFT,
   BFD_RELOC_ARM_THUMB_OFFSET,
+  BFD_RELOC_ARM_GOT12,
+  BFD_RELOC_ARM_GOT32,
+  BFD_RELOC_ARM_JUMP_SLOT,
+  BFD_RELOC_ARM_COPY,
+  BFD_RELOC_ARM_GLOB_DAT,
+  BFD_RELOC_ARM_PLT32,
+  BFD_RELOC_ARM_RELATIVE,
+  BFD_RELOC_ARM_GOTOFF,
+  BFD_RELOC_ARM_GOTPC,
 
 /* Hitachi SH relocs.  Not all of these appear in object files. */
   BFD_RELOC_SH_PCDISP8BY2,
@@ -2138,6 +2155,13 @@ short offset into 8 bits. */
 /* This is a 16 bit reloc for the FR30 that stores a 12 bit pc relative
 short offset into 11 bits. */
   BFD_RELOC_FR30_12_PCREL,
+
+/* Motorola Mcore relocations. */
+  BFD_RELOC_MCORE_PCREL_IMM8BY4,
+  BFD_RELOC_MCORE_PCREL_IMM11BY2,
+  BFD_RELOC_MCORE_PCREL_IMM4BY2,
+  BFD_RELOC_MCORE_PCREL_32,
+  BFD_RELOC_MCORE_PCREL_JSR_IMM11BY2,
 
 /* These two relocations are used by the linker to determine which of 
 the entries in a C++ virtual function table are actually used.  When

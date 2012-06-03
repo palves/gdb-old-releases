@@ -112,8 +112,6 @@ typedef int CGEN_ATTR_VALUE_TYPE;
 
 typedef struct
 {
-  /* Number of non-boolean attributes.  */
-  unsigned int num_nonbools;
   /* Boolean attributes.  */
   unsigned int bool;
   /* Non-boolean integer attributes.  */
@@ -121,27 +119,25 @@ typedef struct
 } CGEN_ATTR;
 
 /* Define a structure member for attributes with N non-boolean entries.
-   The attributes are sorted so that the non-boolean ones come first.
    There is no maximum number of non-boolean attributes.
    There is a maximum of 32 boolean attributes (since they are all recorded
    in one host int).  */
 
 #define CGEN_ATTR_TYPE(n) \
-struct { unsigned int num_nonbools; \
-	 unsigned int bool; \
+struct { unsigned int bool; \
 	 CGEN_ATTR_VALUE_TYPE nonbool[(n) ? (n) : 1]; }
 
 /* Return the boolean attributes.  */
 
 #define CGEN_ATTR_BOOLS(a) ((a)->bool)
 
-/* Boolean attribute numbers are offset by this much.  */
+/* Non-boolean attribute numbers are offset by this much.  */
 
-#define CGEN_ATTR_BOOL_OFFSET 32
+#define CGEN_ATTR_NBOOL_OFFSET 32
 
 /* Given a boolean attribute number, return its mask.  */
 
-#define CGEN_ATTR_MASK(attr) (1 << ((attr) - CGEN_ATTR_BOOL_OFFSET))
+#define CGEN_ATTR_MASK(attr) (1 << (attr))
 
 /* Return the value of boolean attribute ATTR in ATTRS.  */
 
@@ -154,9 +150,9 @@ struct { unsigned int num_nonbools; \
    them lazily at runtime, not sure of the details yet).  */
 
 #define CGEN_ATTR_VALUE(obj, attr_table, attr) \
-((unsigned int) (attr) < CGEN_ATTR_BOOL_OFFSET \
- ? ((attr_table)->nonbool[attr]) \
- : ((CGEN_ATTR_BOOLS (attr_table) & CGEN_ATTR_MASK (attr)) != 0))
+((unsigned int) (attr) < CGEN_ATTR_NBOOL_OFFSET \
+ ? ((CGEN_ATTR_BOOLS (attr_table) & CGEN_ATTR_MASK (attr)) != 0) \
+ : ((attr_table)->nonbool[(attr) - CGEN_ATTR_NBOOL_OFFSET]))
 
 /* Attribute name/value tables.
    These are used to assist parsing of descriptions at run-time.  */
@@ -175,6 +171,35 @@ typedef struct
   const CGEN_ATTR_ENTRY * dfault;
   const CGEN_ATTR_ENTRY * vals;
 } CGEN_ATTR_TABLE;
+
+/* Instruction set variants.  */
+
+typedef struct {
+  const char *name;
+
+  /* Default instruction size (in bits).
+     This is used by the assembler when it encounters an unknown insn.  */
+  unsigned int default_insn_bitsize;
+
+  /* Base instruction size (in bits).
+     For non-LIW cpus this is generally the length of the smallest insn.
+     For LIW cpus its wip (work-in-progress).  For the m32r its 32.  */
+  unsigned int base_insn_bitsize;
+
+  /* Minimum/maximum instruction size (in bits).  */
+  unsigned int min_insn_bitsize;
+  unsigned int max_insn_bitsize;
+} CGEN_ISA;
+
+/* Machine variants.  */
+
+typedef struct {
+  const char *name;
+  /* The argument to bfd_arch_info->scan.  */
+  const char *bfd_name;
+  /* one of enum mach_attr */
+  int num;
+} CGEN_MACH;
 
 /* Parse result (also extraction result).
 
@@ -378,18 +403,21 @@ extern void cgen_init_parse_operand PARAMS ((CGEN_CPU_DESC));
 
 enum cgen_asm_type
 {
-  CGEN_ASM_KEYWORD, CGEN_ASM_MAX
+  CGEN_ASM_NONE, CGEN_ASM_KEYWORD, CGEN_ASM_MAX
 };
+
+#ifndef CGEN_ARCH
+enum cgen_hw_type { CGEN_HW_MAX };
+#endif
 
 /* List of hardware elements.  */
 
-typedef struct cgen_hw_entry
+typedef struct
 {
-  /* The type of this entry, one of `enum hw_type'.
-     This is an int and not the enum as the latter may not be declared yet.  */
-  int type;
-  const struct cgen_hw_entry * next;
-  char * name;
+  char *name;
+  enum cgen_hw_type type;
+  /* There is currently no example where both index specs and value specs
+     are required, so for now both are clumped under "asm_data".  */
   enum cgen_asm_type asm_type;
   PTR asm_data;
 #ifndef CGEN_HW_NBOOL_ATTRS
@@ -404,13 +432,27 @@ typedef struct cgen_hw_entry
 #define CGEN_HW_ATTR_VALUE(hw, attr) \
 CGEN_ATTR_VALUE ((hw), CGEN_HW_ATTRS (hw), (attr))
 
+/* Table of hardware elements for selected mach, computed at runtime.
+   enum cgen_hw_type is an index into this table (specifically `entries').  */
+
+typedef struct {
+  /* Pointer to null terminated table of all compiled in entries.  */
+  const CGEN_HW_ENTRY *init_entries;
+  unsigned int entry_size; /* since the attribute member is variable sized */
+  /* Array of all entries, initial and run-time added.  */
+  const CGEN_HW_ENTRY **entries;
+  /* Number of elements in `entries'.  */
+  unsigned int num_entries;
+  /* For now, xrealloc is called each time a new entry is added at runtime.
+     ??? May wish to keep track of some slop to reduce the number of calls to
+     xrealloc, except that there's unlikely to be many and not expected to be
+     in speed critical code.  */
+} CGEN_HW_TABLE;
+
 extern const CGEN_HW_ENTRY * cgen_hw_lookup_by_name
      PARAMS ((CGEN_CPU_DESC, const char *));
 extern const CGEN_HW_ENTRY * cgen_hw_lookup_by_num
      PARAMS ((CGEN_CPU_DESC, int));
-
-/* The operand instance table refers to this directly.  */
-extern const CGEN_HW_ENTRY CGEN_SYM (hw_table)[];
 
 /* This struct is used to describe things like register names, etc.  */
 
@@ -439,6 +481,8 @@ typedef struct cgen_keyword_entry
 #endif
   CGEN_ATTR_TYPE (CGEN_KEYWORD_NBOOL_ATTRS) attrs;
 
+  /* ??? Putting these here means compiled in entries can't be const.
+     Not a really big deal, but something to consider.  */
   /* Next name hash table entry.  */
   struct cgen_keyword_entry *next_name;
   /* Next value hash table entry.  */
@@ -549,23 +593,32 @@ enum cgen_mode {
 
 #define CGEN_MODE_VM CGEN_MODE_VOID
 
+/* Operands.  */
+
+#ifndef CGEN_ARCH
+enum cgen_operand_type { CGEN_OPERAND_MAX };
+#endif
+
+/* "nil" indicator for the operand instance table */
+#define CGEN_OPERAND_NIL CGEN_OPERAND_MAX
+
 /* This struct defines each entry in the operand table.  */
 
-typedef struct cgen_operand
+typedef struct
 {
   /* Name as it appears in the syntax string.  */
   char *name;
 
+  /* Operand type.  */
+  enum cgen_operand_type type;
+
   /* The hardware element associated with this operand.  */
-  const CGEN_HW_ENTRY *hw;
+  enum cgen_hw_type hw_type;
 
   /* FIXME: We don't yet record ifield definitions, which we should.
      When we do it might make sense to delete start/length (since they will
      be duplicated in the ifield's definition) and replace them with a
-     pointer to the ifield entry.  Note that as more complicated situations
-     need to be handled, going more and more with an OOP paradigm will help
-     keep the complication under control.  Of course, this was the goal from
-     the start, but getting there in one step was too much too soon.  */
+     pointer to the ifield entry.  */
 
   /* Bit position.
      This is just a hint, and may be unused in more complex operands.
@@ -602,16 +655,28 @@ typedef struct cgen_operand
 #define CGEN_OPERAND_ATTR_VALUE(operand, attr) \
 CGEN_ATTR_VALUE ((operand), CGEN_OPERAND_ATTRS (operand), (attr))
 
-/* The operand instance table refers to this directly.  */
-extern const CGEN_OPERAND CGEN_SYM (operand_table)[];
+/* Table of operands for selected mach/isa, computed at runtime.
+   enum cgen_operand_type is an index into this table (specifically
+   `entries').  */
 
-enum cgen_operand_type;
+typedef struct {
+  /* Pointer to null terminated table of all compiled in entries.  */
+  const CGEN_OPERAND *init_entries;
+  unsigned int entry_size; /* since the attribute member is variable sized */
+  /* Array of all entries, initial and run-time added.  */
+  const CGEN_OPERAND **entries;
+  /* Number of elements in `entries'.  */
+  unsigned int num_entries;
+  /* For now, xrealloc is called each time a new entry is added at runtime.
+     ??? May wish to keep track of some slop to reduce the number of calls to
+     xrealloc, except that there's unlikely to be many and not expected to be
+     in speed critical code.  */
+} CGEN_OPERAND_TABLE;
 
-#define CGEN_OPERAND_INDEX(cd, operand) ((operand) - (cd)->operand_table)
-/* FIXME: Rename, arch-desc.h defines this as the typedef of the enum.  */
-#define CGEN_OPERAND_TYPE(cd, operand) \
-  ((enum cgen_operand_type) CGEN_OPERAND_INDEX ((cd), (operand)))
-#define CGEN_OPERAND_ENTRY(cd, n) (& (cd)->operand_table[n])
+extern const CGEN_OPERAND * cgen_operand_lookup_by_name
+     PARAMS ((CGEN_CPU_DESC, const char *));
+extern const CGEN_OPERAND * cgen_operand_lookup_by_num
+     PARAMS ((CGEN_CPU_DESC, int));
 
 /* Instruction operand instances.
 
@@ -628,23 +693,23 @@ enum cgen_opinst_type {
 
 typedef struct
 {
-  /* The type of this operand.  */
+  /* Input or output indicator.  */
   enum cgen_opinst_type type;
 
   /* Name of operand.  */
   const char *name;
 
   /* The hardware element referenced.  */
-  const CGEN_HW_ENTRY *hw;
+  enum cgen_hw_type hw_type;
 
   /* The mode in which the operand is being used.  */
   enum cgen_mode mode;
 
-  /* The operand table entry or NULL if there is none (i.e. an explicit
-     hardware reference).  */
-  const CGEN_OPERAND *operand;
+  /* The operand table entry CGEN_OPERAND_NIL if there is none
+     (i.e. an explicit hardware reference).  */
+  enum cgen_operand_type op_type;
 
-  /* If `operand' is NULL, the index (e.g. into array of registers).  */
+  /* If `operand' is "nil", the index (e.g. into array of registers).  */
   int index;
 
   /* Attributes.
@@ -767,9 +832,9 @@ typedef struct
 {
   /* Length that MASK and VALUE have been calculated to
      [VALUE is recorded elsewhere].
-     Normally it is CGEN_BASE_INSN_BITSIZE.  On [V]LIW architectures where
-     the base insn size may be larger than the size of an insn, this field is
-     less than CGEN_BASE_INSN_BITSIZE.  */
+     Normally it is base_insn_bitsize.  On [V]LIW architectures where the base
+     insn size may be larger than the size of an insn, this field is less than
+     base_insn_bitsize.  */
   unsigned char mask_length;
 #define CGEN_IFMT_MASK_LENGTH(ifmt) ((ifmt)->mask_length)
 
@@ -849,7 +914,7 @@ typedef CGEN_ATTR_TYPE (CGEN_INSN_NBOOL_ATTRS) CGEN_INSN_ATTR_TYPE;
 #ifndef CGEN_ARCH
 /* ??? Numbers here are recorded in two places.  */
 typedef enum cgen_insn_attr {
-  CGEN_INSN_ALIAS = CGEN_ATTR_BOOL_OFFSET
+  CGEN_INSN_ALIAS = 0
 } CGEN_INSN_ATTR;
 #endif
 
@@ -1050,8 +1115,13 @@ extern CGEN_INSN_LIST * cgen_dis_lookup_insn
 
 typedef struct cgen_cpu_desc
 {
-  /* Current machine (a la BFD machine number).  */
-  int mach;
+  /* Bitmap of selected machine(s) (a la BFD machine number).  */
+  int machs;
+
+  /* Bitmap of selected isa(s).
+     ??? Simultaneous multiple isas might not make sense, but it's not (yet)
+     precluded.  */
+  int isas;
 
   /* Current endian.  */
   enum cgen_endian endian;
@@ -1061,15 +1131,45 @@ typedef struct cgen_cpu_desc
   enum cgen_endian insn_endian;
 #define CGEN_CPU_INSN_ENDIAN(cd) ((cd)->insn_endian)
 
+  /* Word size (in bits).  */
+  /* ??? Or maybe maximum word size - might we ever need to allow a cpu table
+     to be opened for both sparc32/sparc64?
+     ??? Another alternative is to create a table of selected machs and
+     lazily fetch the data from there.  */
+  unsigned int word_bitsize;
+
+  /* Indicator if sizes are unknown.
+     This is used by default_insn_bitsize,base_insn_bitsize if there is a
+     difference between the selected isa's.  */
+#define CGEN_SIZE_UNKNOWN 65535
+
+  /* Default instruction size (in bits).
+     This is used by the assembler when it encounters an unknown insn.  */
+  unsigned int default_insn_bitsize;
+
+  /* Base instruction size (in bits).
+     For non-LIW cpus this is generally the length of the smallest insn.
+     For LIW cpus its wip (work-in-progress).  For the m32r its 32.  */
+  unsigned int base_insn_bitsize;
+
+  /* Minimum/maximum instruction size (in bits).  */
+  unsigned int min_insn_bitsize;
+  unsigned int max_insn_bitsize;
+
+  /* Instruction set variants.  */
+  const CGEN_ISA *isa_table;
+
+  /* Machine variants.  */
+  const CGEN_MACH *mach_table;
+
   /* Hardware elements.  */
-  const CGEN_HW_ENTRY *hw_list;
+  CGEN_HW_TABLE hw_table;
 
   /* Instruction fields.  */
   const CGEN_IFLD *ifld_table;
 
   /* Operands.  */
-  const CGEN_OPERAND *operand_table;
-#define CGEN_CPU_OPERAND_TABLE(cd) ((cd)->operand_table)
+  CGEN_OPERAND_TABLE operand_table;
 
   /* Main instruction table.  */
   CGEN_INSN_TABLE insn_table;
@@ -1082,8 +1182,8 @@ typedef struct cgen_cpu_desc
   /* Copy of CGEN_INT_INSN_P.  */
   int int_insn_p;
 
-  /* Maximum length of any insn, in bytes.  */
-  unsigned int max_insn_size;
+  /* Called to rebuild the tables after something has changed.  */
+  void (*rebuild_tables) PARAMS ((CGEN_CPU_DESC));
 
   /* Operand parser callback.  */
   cgen_parse_operand_fn * parse_operand_fn;
@@ -1122,14 +1222,14 @@ typedef struct cgen_cpu_desc
 
   /* CGEN_FIELDS accessors.  */
   int (*get_int_operand)
-       PARAMS ((int opindex_, const CGEN_FIELDS *fields_));
+       PARAMS ((CGEN_CPU_DESC, int opindex_, const CGEN_FIELDS *fields_));
   void (*set_int_operand)
-       PARAMS ((int opindex_, CGEN_FIELDS *fields_, int value_));
+       PARAMS ((CGEN_CPU_DESC, int opindex_, CGEN_FIELDS *fields_, int value_));
 #ifdef BFD_VERSION
   bfd_vma (*get_vma_operand)
-       PARAMS ((int opindex_, const CGEN_FIELDS *fields_));
+       PARAMS ((CGEN_CPU_DESC, int opindex_, const CGEN_FIELDS *fields_));
   void (*set_vma_operand)
-       PARAMS ((int opindex_, CGEN_FIELDS *fields_, bfd_vma value_));
+       PARAMS ((CGEN_CPU_DESC, int opindex_, CGEN_FIELDS *fields_, bfd_vma value_));
 #else
   long (*get_vma_operand) ();
   void (*set_vma_operand) ();
@@ -1187,12 +1287,35 @@ typedef struct cgen_cpu_desc
 
 /* Prototypes of major functions.  */
 /* FIXME: Move more CGEN_SYM-defined functions into CGEN_CPU_DESC.
-   Note the init fns though, as that would drag in things that mightn't be
+   Not the init fns though, as that would drag in things that mightn't be
    used and might not even exist.  */
 
-/* Open an ISA table for use.  */
+/* Argument types to cpu_open.  */
 
-extern CGEN_CPU_DESC CGEN_SYM (cpu_open) PARAMS ((int, enum cgen_endian));
+enum cgen_cpu_open_arg {
+  CGEN_CPU_OPEN_END,
+  /* Select instruction set(s), arg is bitmap or 0 meaning "unspecified".  */
+  CGEN_CPU_OPEN_ISAS,
+  /* Select machine(s), arg is bitmap or 0 meaning "unspecified".  */
+  CGEN_CPU_OPEN_MACHS,
+  /* Select machine, arg is mach's bfd name.
+     Multiple machines can be specified by repeated use.  */
+  CGEN_CPU_OPEN_BFDMACH,
+  /* Select endian, arg is CGEN_ENDIAN_*.  */
+  CGEN_CPU_OPEN_ENDIAN
+};
+
+/* Open a cpu descriptor table for use.
+   ??? We only support ISO C stdargs here, not K&R.
+   Laziness, plus experiment to see if anything requires K&R - eventually
+   K&R will no longer be supported - e.g. GDB is currently trying this.  */
+
+extern CGEN_CPU_DESC CGEN_SYM (cpu_open) (enum cgen_cpu_open_arg, ...);
+
+/* Cover fn to handle simple case.  */
+
+extern CGEN_CPU_DESC CGEN_SYM (cpu_open_1) PARAMS ((const char *mach_name_,
+						    enum cgen_endian endian_));
 
 /* Close it.  */
 
@@ -1218,9 +1341,7 @@ extern void CGEN_SYM (init_dis) PARAMS ((CGEN_CPU_DESC));
 
 extern void CGEN_SYM (init_opinst_table) PARAMS ((CGEN_CPU_DESC cd_));
 
-/* Change the mach and/or endianness.  */
-
-extern void cgen_set_cpu PARAMS ((CGEN_CPU_DESC, int, enum cgen_endian));
+/* Assemble an instruction.  */
 
 extern const CGEN_INSN * CGEN_SYM (assemble_insn)
      PARAMS ((CGEN_CPU_DESC, const char *, CGEN_FIELDS *,
@@ -1241,38 +1362,6 @@ extern const CGEN_INSN * cgen_lookup_get_insn_operands
      PARAMS ((CGEN_CPU_DESC, const CGEN_INSN *insn_,
 	      CGEN_INSN_INT int_value_, unsigned char *bytes_value_,
 	      int length_, int *indices_, CGEN_FIELDS *fields_));
-
-/* Get/set fields in the CGEN_FIELDS struct.  */
-
-extern int CGEN_SYM (get_int_operand)
-     PARAMS ((int opindex_, const CGEN_FIELDS *fields_));
-extern void CGEN_SYM (set_int_operand)
-     PARAMS ((int opindex_, CGEN_FIELDS *fields_, int value_));
-#ifdef BFD_VERSION /* Don't require bfd.h unnecessarily.  */
-extern bfd_vma CGEN_SYM (get_vma_operand)
-     PARAMS ((int opindex_, const CGEN_FIELDS *fields_));
-extern void CGEN_SYM (set_vma_operand)
-     PARAMS ((int opindex_, CGEN_FIELDS *fields_, bfd_vma value_));
-#endif
-
-extern const char * CGEN_SYM (parse_operand)
-     PARAMS ((CGEN_CPU_DESC, int, const char **, CGEN_FIELDS *));
-
-#ifdef BFD_VERSION /* Don't require bfd.h unnecessarily.  */
-extern const char * CGEN_SYM (insert_operand)
-     PARAMS ((CGEN_CPU_DESC, int, CGEN_FIELDS *, CGEN_INSN_BYTES_PTR,
-	      bfd_vma));
-extern int CGEN_SYM (extract_operand)
-     PARAMS ((CGEN_CPU_DESC, int, CGEN_EXTRACT_INFO *, CGEN_INSN_INT,
-	      CGEN_FIELDS *, bfd_vma));
-extern void CGEN_SYM (print_operand)
-     PARAMS ((CGEN_CPU_DESC, int opindex_, PTR info_, CGEN_FIELDS * fields_,
-	      void const *attrs_, bfd_vma pc_, int length_));
-#else
-extern const char * CGEN_SYM (insert_operand) ();
-extern int CGEN_SYM (extract_operand) ();
-extern void CGEN_SYM (print_operand) ();
-#endif
 
 /* Cover fns to bfd_get/set.  */
 

@@ -109,6 +109,18 @@ struct cgen_fields
   long f_disp24;
 };
 
+#define CGEN_INIT_PARSE(od) \
+{\
+}
+#define CGEN_INIT_INSERT(od) \
+{\
+}
+#define CGEN_INIT_EXTRACT(od) \
+{\
+}
+#define CGEN_INIT_PRINT(od) \
+{\
+}
 
 
 #endif /* M32R_OPC_H */

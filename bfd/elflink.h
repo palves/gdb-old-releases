@@ -1,5 +1,5 @@
 /* ELF linker support.
-   Copyright 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -1126,7 +1126,7 @@ elf_link_add_object_symbols (abfd, info)
 			{
 			  (*_bfd_error_handler)
 			    (_("%s: %s: invalid version %u (max %d)"),
-			     abfd->filename, name, vernum,
+			     bfd_get_filename (abfd), name, vernum,
 			     elf_tdata (abfd)->dynverdef_hdr.sh_info);
 			  bfd_set_error (bfd_error_bad_value);
 			  goto error_return;
@@ -1167,7 +1167,7 @@ elf_link_add_object_symbols (abfd, info)
 			{
 			  (*_bfd_error_handler)
 			    (_("%s: %s: invalid needed version %d"),
-			     abfd->filename, name, vernum);
+			     bfd_get_filename (abfd), name, vernum);
 			  bfd_set_error (bfd_error_bad_value);
 			  goto error_return;
 			}
@@ -1322,7 +1322,11 @@ elf_link_add_object_symbols (abfd, info)
 	  if (! dynamic)
 	    {
 	      if (! definition)
-		new_flag = ELF_LINK_HASH_REF_REGULAR;
+		{
+		  new_flag = ELF_LINK_HASH_REF_REGULAR;
+		  if (bind != STB_WEAK)
+		    new_flag |= ELF_LINK_HASH_REF_REGULAR_NONWEAK;
+		}
 	      else
 		new_flag = ELF_LINK_HASH_DEF_REGULAR;
 	      if (info->shared
@@ -1464,7 +1468,8 @@ elf_link_add_object_symbols (abfd, info)
 		      ht->elf_link_hash_flags |=
 			(hi->elf_link_hash_flags
 			 & (ELF_LINK_HASH_REF_DYNAMIC
-			    | ELF_LINK_HASH_REF_REGULAR));
+			    | ELF_LINK_HASH_REF_REGULAR
+			    | ELF_LINK_HASH_REF_REGULAR_NONWEAK));
 
 		      /* Copy over the global and procedure linkage table
 			 offset entries.  These may have been already set
@@ -1572,7 +1577,8 @@ elf_link_add_object_symbols (abfd, info)
 			  h->elf_link_hash_flags |=
 			    (hi->elf_link_hash_flags
 			     & (ELF_LINK_HASH_REF_DYNAMIC
-				| ELF_LINK_HASH_REF_REGULAR));
+				| ELF_LINK_HASH_REF_REGULAR
+				| ELF_LINK_HASH_REF_REGULAR_NONWEAK));
 
 			  /* Copy over the global and procedure linkage
                              table offset entries.  These may have been
@@ -2541,7 +2547,6 @@ NAME(bfd_elf,size_dynamic_sections) (output_bfd, soname, rpath,
     {
       size_t dynsymcount;
       asection *s;
-      size_t i;
       size_t bucketcount = 0;
       Elf_Internal_Sym isym;
 
@@ -2961,13 +2966,15 @@ elf_fix_symbol_flags (h, eif)
     {
       if (h->root.type != bfd_link_hash_defined
 	  && h->root.type != bfd_link_hash_defweak)
-	h->elf_link_hash_flags |= ELF_LINK_HASH_REF_REGULAR;
+	h->elf_link_hash_flags |= (ELF_LINK_HASH_REF_REGULAR
+				   | ELF_LINK_HASH_REF_REGULAR_NONWEAK);
       else
 	{
 	  if (h->root.u.def.section->owner != NULL
 	      && (bfd_get_flavour (h->root.u.def.section->owner)
 		  == bfd_target_elf_flavour))
-	    h->elf_link_hash_flags |= ELF_LINK_HASH_REF_REGULAR;
+	    h->elf_link_hash_flags |= (ELF_LINK_HASH_REF_REGULAR
+				       | ELF_LINK_HASH_REF_REGULAR_NONWEAK);
 	  else
 	    h->elf_link_hash_flags |= ELF_LINK_HASH_DEF_REGULAR;
 	}
@@ -3130,6 +3137,9 @@ elf_adjust_dynamic_symbol (h, data)
 	  /* There is an implicit reference by a regular object file
 	     via the weak symbol.  */
 	  weakdef->elf_link_hash_flags |= ELF_LINK_HASH_REF_REGULAR;
+	  if (h->weakdef->elf_link_hash_flags
+	      & ELF_LINK_HASH_REF_REGULAR_NONWEAK)
+	    weakdef->elf_link_hash_flags |= ELF_LINK_HASH_REF_REGULAR_NONWEAK;
 	  if (! elf_adjust_dynamic_symbol (weakdef, (PTR) eif))
 	    return false;
 	}
@@ -3339,11 +3349,8 @@ elf_link_assign_sym_version (h, data)
 	      if (t->globals != NULL)
 		{
 		  for (d = t->globals; d != NULL; d = d->next)
-		    {
-		      if ((d->match[0] == '*' && d->match[1] == '\0')
-			  || fnmatch (d->match, alc, 0) == 0)
-			break;
-		    }
+		    if ((*d->match) (d, alc))
+		      break;
 		}
 
 	      /* See if there is anything to force this symbol to
@@ -3352,8 +3359,7 @@ elf_link_assign_sym_version (h, data)
 		{
 		  for (d = t->locals; d != NULL; d = d->next)
 		    {
-		      if ((d->match[0] == '*' && d->match[1] == '\0')
-			  || fnmatch (d->match, alc, 0) == 0)
+		      if ((*d->match) (d, alc))
 			{
 			  if (h->dynindx != -1
 			      && info->shared
@@ -3451,7 +3457,7 @@ elf_link_assign_sym_version (h, data)
 	    {
 	      for (d = t->globals; d != NULL; d = d->next)
 		{
-		  if (fnmatch (d->match, h->root.root.string, 0) == 0)
+		  if ((*d->match) (d, h->root.root.string))
 		    {
 		      h->verinfo.vertree = t;
 		      break;
@@ -3466,9 +3472,9 @@ elf_link_assign_sym_version (h, data)
 	    {
 	      for (d = t->locals; d != NULL; d = d->next)
 		{
-		  if (d->match[0] == '*' && d->match[1] == '\0')
+		  if (d->pattern[0] == '*' && d->pattern[1] == '\0')
 		    deflt = t;
-		  else if (fnmatch (d->match, h->root.root.string, 0) == 0)
+		  else if ((*d->match) (d, h->root.root.string))
 		    {
 		      h->verinfo.vertree = t;
 		      if (h->dynindx != -1
@@ -3750,7 +3756,7 @@ elf_bfd_final_link (abfd, info)
   /* Figure out the file positions for everything but the symbol table
      and the relocs.  We set symcount to force assign_section_numbers
      to create a symbol table.  */
-  abfd->symcount = info->strip == strip_all ? 0 : 1;
+  bfd_get_symcount (abfd) = info->strip == strip_all ? 0 : 1;
   BFD_ASSERT (! abfd->output_has_begun);
   if (! _bfd_elf_compute_section_file_positions (abfd, info))
     goto error_return;
@@ -3796,7 +3802,7 @@ elf_bfd_final_link (abfd, info)
      .symtab and .strtab.  We start the .symtab section at the current
      file position, and write directly to it.  We build the .strtab
      section in memory.  */
-  abfd->symcount = 0;
+  bfd_get_symcount (abfd) = 0;
   symtab_hdr = &elf_tdata (abfd)->symtab_hdr;
   /* sh_name is set in prep_headers.  */
   symtab_hdr->sh_type = SHT_SYMTAB;
@@ -3871,7 +3877,7 @@ elf_bfd_final_link (abfd, info)
 	{
 	  o = section_from_elf_index (abfd, i);
 	  if (o != NULL)
-	    o->target_index = abfd->symcount;
+	    o->target_index = bfd_get_symcount (abfd);
 	  elfsym.st_shndx = i;
 	  if (info->relocateable || o == NULL)
 	    elfsym.st_value = 0;
@@ -3982,7 +3988,7 @@ elf_bfd_final_link (abfd, info)
 
   /* The sh_info field records the index of the first non local
      symbol.  */
-  symtab_hdr->sh_info = abfd->symcount;
+  symtab_hdr->sh_info = bfd_get_symcount (abfd);
   if (dynamic)
     elf_section_data (finfo.dynsym_sec->output_section)->this_hdr.sh_info = 1;
 
@@ -4019,7 +4025,7 @@ elf_bfd_final_link (abfd, info)
   off = _bfd_elf_assign_file_position_for_section (symstrtab_hdr, off, true);
   elf_tdata (abfd)->next_file_pos = off;
 
-  if (abfd->symcount > 0)
+  if (bfd_get_symcount (abfd) > 0)
     {
       if (bfd_seek (abfd, symstrtab_hdr->sh_offset, SEEK_SET) != 0
 	  || ! _bfd_stringtab_emit (abfd, finfo.symstrtab))
@@ -4346,7 +4352,7 @@ elf_link_output_sym (finfo, name, elfsym, input_sec)
 		       (PTR) (finfo->symbuf + finfo->symbuf_count));
   ++finfo->symbuf_count;
 
-  ++finfo->output_bfd->symcount;
+  ++ bfd_get_symcount (finfo->output_bfd);
 
   return true;
 }
@@ -4416,7 +4422,9 @@ elf_link_output_extsym (h, data)
      referenced by regular files, because we will already have issued
      warnings for them.  */
   if (! finfo->info->relocateable
-      && ! finfo->info->shared
+      && ! (finfo->info->shared
+	    && !finfo->info->symbolic
+	    && !finfo->info->no_undefined)
       && h->root.type == bfd_link_hash_undefined
       && (h->elf_link_hash_flags & ELF_LINK_HASH_REF_DYNAMIC) != 0
       && (h->elf_link_hash_flags & ELF_LINK_HASH_REF_REGULAR) == 0)
@@ -4567,6 +4575,17 @@ elf_link_output_extsym (h, data)
 	}
     }
 
+  /* If we are marking the symbol as undefined, and there are no
+     non-weak references to this symbol from a regular object, then
+     mark the symbol as weak undefined.  We can't do this earlier,
+     because it might not be marked as undefined until the
+     finish_dynamic_symbol routine gets through with it.  */
+  if (sym.st_shndx == SHN_UNDEF
+      && sym.st_info == ELF_ST_INFO (STB_GLOBAL, h->type)
+      && (h->elf_link_hash_flags & ELF_LINK_HASH_REF_REGULAR) != 0
+      && (h->elf_link_hash_flags & ELF_LINK_HASH_REF_REGULAR_NONWEAK) == 0)
+    sym.st_info = ELF_ST_INFO (STB_WEAK, h->type);
+
   /* If this symbol should be put in the .dynsym section, then put it
      there now.  We have already know the symbol index.  We also fill
      in the entry in the .hash section.  */
@@ -4629,7 +4648,7 @@ elf_link_output_extsym (h, data)
   if (strip)
     return true;
 
-  h->indx = finfo->output_bfd->symcount;
+  h->indx = bfd_get_symcount (finfo->output_bfd);
 
   if (! elf_link_output_sym (finfo, h->root.root.string, &sym, input_sec))
     {
@@ -4803,7 +4822,7 @@ elf_link_input_bfd (finfo, input_bfd)
       if (osym.st_shndx == (unsigned short) -1)
 	return false;
 
-      *pindex = output_bfd->symcount;
+      *pindex = bfd_get_symcount (output_bfd);
 
       /* ELF symbols in relocateable files are section relative, but
 	 in executable files they are virtual addresses.  Note that
@@ -5017,7 +5036,7 @@ elf_link_input_bfd (finfo, input_bfd)
 			  if (! finfo->info->relocateable)
 			    isym->st_value += osec->vma;
 
-			  finfo->indices[r_symndx] = output_bfd->symcount;
+			  finfo->indices[r_symndx] = bfd_get_symcount (output_bfd);
 
 			  if (! elf_link_output_sym (finfo, name, isym, sec))
 			    return false;

@@ -260,9 +260,9 @@ const struct m68k_opcode m68k_opcodes[] =
 {"cmpaw",	one(0130300),	one(0170700), "*wAd", m68000up },
 {"cmpal",	one(0130700),	one(0170700), "*lAd", m68000up | mcf5200 },
 
-{"cmpib",	one(0006000),	one(0177700), "#b;s", m68000up },
-{"cmpiw",	one(0006100),	one(0177700), "#w;s", m68000up },
-{"cmpil",	one(0006200),	one(0177700), "#l;s", m68000up },
+{"cmpib",	one(0006000),	one(0177700), "#b@s", m68000up },
+{"cmpiw",	one(0006100),	one(0177700), "#w@s", m68000up },
+{"cmpil",	one(0006200),	one(0177700), "#l@s", m68000up },
 {"cmpil",	one(0006200),	one(0177700), "#lDs", mcf5200 },
 
 {"cmpmb",	one(0130410),	one(0170770), "+s+d", m68000up },
@@ -270,15 +270,15 @@ const struct m68k_opcode m68k_opcodes[] =
 {"cmpml",	one(0130610),	one(0170770), "+s+d", m68000up },
 
 /* The cmp opcode can generate the cmpa, cmpm, and cmpi instructions.  */
-{"cmpb",	one(0006000),	one(0177700), "#b;s", m68000up },
+{"cmpb",	one(0006000),	one(0177700), "#b@s", m68000up },
 {"cmpb",	one(0130410),	one(0170770), "+s+d", m68000up },
 {"cmpb",	one(0130000),	one(0170700), ";bDd", m68000up },
 {"cmpw",	one(0130300),	one(0170700), "*wAd", m68000up },
-{"cmpw",	one(0006100),	one(0177700), "#w;s", m68000up },
+{"cmpw",	one(0006100),	one(0177700), "#w@s", m68000up },
 {"cmpw",	one(0130510),	one(0170770), "+s+d", m68000up },
 {"cmpw",	one(0130100),	one(0170700), "*wDd", m68000up },
 {"cmpl",	one(0130700),	one(0170700), "*lAd", m68000up | mcf5200 },
-{"cmpl",	one(0006200),	one(0177700), "#l;s", m68000up },
+{"cmpl",	one(0006200),	one(0177700), "#l@s", m68000up },
 {"cmpl",	one(0006200),	one(0177700), "#lDs", mcf5200 },
 {"cmpl",	one(0130610),	one(0170770), "+s+d", m68000up },
 {"cmpl",	one(0130200),	one(0170700), "*lDd", m68000up | mcf5200 },

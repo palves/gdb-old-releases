@@ -192,7 +192,7 @@ static reloc_howto_type elf_d10v_howto_table[] =
 
 struct d10v_reloc_map
 {
-  unsigned char bfd_reloc_val;
+  bfd_reloc_code_real_type bfd_reloc_val;
   unsigned char elf_reloc_val;
 };
 

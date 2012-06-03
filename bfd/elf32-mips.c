@@ -1,5 +1,5 @@
 /* MIPS-specific support for 32-bit ELF
-   Copyright 1993, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright 1993, 94, 95, 96, 97, 98, 1999 Free Software Foundation, Inc.
 
    Most of the information added by Ian Lance Taylor, Cygnus Support,
    <ian@cygnus.com>.
@@ -1528,6 +1528,9 @@ elf_mips_mach (flags)
     case E_MIPS_MACH_4100:
       return bfd_mach_mips4100;
 
+    case E_MIPS_MACH_4111:
+      return bfd_mach_mips4111;
+
     case E_MIPS_MACH_4650:
       return bfd_mach_mips4650;
 
@@ -1940,6 +1943,10 @@ _bfd_mips_elf_final_write_processing (abfd, linker)
       val = E_MIPS_ARCH_3 | E_MIPS_MACH_4100;
       break;
 
+    case bfd_mach_mips4111:
+      val = E_MIPS_ARCH_3 | E_MIPS_MACH_4111;
+      break;
+
     case bfd_mach_mips4650:
       val = E_MIPS_ARCH_3 | E_MIPS_MACH_4650;
       break;
@@ -2143,17 +2150,22 @@ _bfd_mips_elf_merge_private_bfd_data (ibfd, obfd)
   if ((new_flags & (EF_MIPS_ARCH | EF_MIPS_MACH))
       != (old_flags & (EF_MIPS_ARCH | EF_MIPS_MACH)))
     {
-      /* If either has no machine specified, just compare the general isa's. */
-      if ( !(new_flags & EF_MIPS_MACH) || !(old_flags & EF_MIPS_MACH))
-	{
-	  int new_isa, old_isa;
+      int new_mach = new_flags & EF_MIPS_MACH;
+      int old_mach = old_flags & EF_MIPS_MACH;
+      int new_isa = elf_mips_isa (new_flags);
+      int old_isa = elf_mips_isa (old_flags);
 
+      /* If either has no machine specified, just compare the general isa's.
+	 Some combinations of machines are ok, if the isa's match. */
+      if (! new_mach 
+	  || ! old_mach
+	  || new_mach == old_mach
+	  )
+	{
 	  /* Don't warn about mixing -mips1 and -mips2 code, or mixing -mips3
 	     and -mips4 code.  They will normally use the same data sizes and
 	     calling conventions.  */
 
-	  new_isa = elf_mips_isa (new_flags);
-	  old_isa = elf_mips_isa (old_flags);
 	  if ((new_isa == 1 || new_isa == 2)
 	      ? (old_isa != 1 && old_isa != 2)
 	      : (old_isa == 1 || old_isa == 2))
@@ -2216,6 +2228,55 @@ _bfd_mips_elf_merge_private_bfd_data (ibfd, obfd)
   return true;
 }
 
+static boolean
+_bfd_mips_elf_print_private_bfd_data (abfd, ptr)
+     bfd *abfd;
+     PTR ptr;
+{
+  FILE *file = (FILE *) ptr;
+
+  BFD_ASSERT (abfd != NULL && ptr != NULL);
+
+  /* Print normal ELF private data.  */
+  _bfd_elf_print_private_bfd_data (abfd, ptr);
+
+  /* xgettext:c-format */
+  fprintf (file, _ ("private flags = %lx:"), elf_elfheader (abfd)->e_flags);
+
+  if ((elf_elfheader (abfd)->e_flags & EF_MIPS_ABI) == E_MIPS_ABI_O32)
+    fprintf (file, _ (" [abi=O32]"));
+  else if ((elf_elfheader (abfd)->e_flags & EF_MIPS_ABI) == E_MIPS_ABI_O64)
+    fprintf (file, _ (" [abi=O64]"));
+  else if ((elf_elfheader (abfd)->e_flags & EF_MIPS_ABI) == E_MIPS_ABI_EABI32)
+    fprintf (file, _ (" [abi=EABI32]"));
+  else if ((elf_elfheader (abfd)->e_flags & EF_MIPS_ABI) == E_MIPS_ABI_EABI64)
+    fprintf (file, _ (" [abi=EABI64]"));
+  else if ((elf_elfheader (abfd)->e_flags & EF_MIPS_ABI))
+    fprintf (file, _ (" [abi unknown]"));
+  else
+    fprintf (file, _ (" [no abi set]"));
+
+  if ((elf_elfheader (abfd)->e_flags & EF_MIPS_ARCH) == E_MIPS_ARCH_1)
+    fprintf (file, _ (" [mips1]"));
+  else if ((elf_elfheader (abfd)->e_flags & EF_MIPS_ARCH) == E_MIPS_ARCH_2)
+    fprintf (file, _ (" [mips2]"));
+  else if ((elf_elfheader (abfd)->e_flags & EF_MIPS_ARCH) == E_MIPS_ARCH_3)
+    fprintf (file, _ (" [mips3]"));
+  else if ((elf_elfheader (abfd)->e_flags & EF_MIPS_ARCH) == E_MIPS_ARCH_4)
+    fprintf (file, _ (" [mips4]"));
+  else
+    fprintf (file, _ (" [unknown ISA]"));
+
+  if (elf_elfheader (abfd)->e_flags & EF_MIPS_32BITMODE)
+    fprintf (file, _ (" [32bitmode]"));
+  else
+    fprintf (file, _ (" [not 32bitmode]"));
+
+  fputc ('\n', file);
+
+  return true;
+}
+
 /* Handle a MIPS specific section when reading an object file.  This
    is called when elfcode.h finds a section with an unknown type.
    This routine supports both the 32-bit and 64-bit ELF ABI.
@@ -2229,6 +2290,8 @@ _bfd_mips_elf_section_from_shdr (abfd, hdr, name)
      Elf_Internal_Shdr *hdr;
      const char *name;
 {
+  flagword flags = 0;
+
   /* There ought to be a place to keep ELF backend specific flags, but
      at the moment there isn't one.  We just keep track of the
      sections by their name, instead.  Fortunately, the ABI gives
@@ -2259,11 +2322,13 @@ _bfd_mips_elf_section_from_shdr (abfd, hdr, name)
     case SHT_MIPS_DEBUG:
       if (strcmp (name, ".mdebug") != 0)
 	return false;
+      flags = SEC_DEBUGGING;
       break;
     case SHT_MIPS_REGINFO:
       if (strcmp (name, ".reginfo") != 0
 	  || hdr->sh_size != sizeof (Elf32_External_RegInfo))
 	return false;
+      flags = (SEC_LINK_ONCE | SEC_LINK_DUPLICATES_SAME_SIZE);
       break;
     case SHT_MIPS_IFACE:
       if (strcmp (name, ".MIPS.interfaces") != 0)
@@ -2299,12 +2364,12 @@ _bfd_mips_elf_section_from_shdr (abfd, hdr, name)
   if (! _bfd_elf_make_section_from_shdr (abfd, hdr, name))
     return false;
 
-  if (hdr->sh_type == SHT_MIPS_DEBUG)
+  if (flags)
     {
       if (! bfd_set_section_flags (abfd, hdr->bfd_section,
 				   (bfd_get_section_flags (abfd,
 							   hdr->bfd_section)
-				    | SEC_DEBUGGING)))
+				    | flags)))
 	return false;
     }
 
@@ -2439,11 +2504,6 @@ _bfd_mips_elf_fake_sections (abfd, hdr, sec)
 	hdr->sh_entsize = sizeof (Elf32_External_RegInfo);
       else
 	hdr->sh_entsize = 1;
-
-      /* Force the section size to the correct value, even if the
-	 linker thinks it is larger.  The link routine below will only
-	 write out this much data for .reginfo.  */
-      hdr->sh_size = sec->_raw_size = sizeof (Elf32_External_RegInfo);
     }
   else if (SGI_COMPAT (abfd)
 	   && (strcmp (name, ".hash") == 0
@@ -3043,6 +3103,7 @@ _bfd_mips_elf_read_ecoff_info (abfd, section, debug)
   char *ext_hdr = NULL;
 
   swap = get_elf_backend_data (abfd)->elf_backend_ecoff_debug_swap;
+  memset (debug, 0, sizeof(*debug));
 
   ext_hdr = (char *) bfd_malloc ((size_t) swap->external_hdr_size);
   if (ext_hdr == NULL && swap->external_hdr_size != 0)
@@ -4051,8 +4112,8 @@ mips_elf_final_link (abfd, info)
 	      input_section->flags &=~ SEC_HAS_CONTENTS;
 	    }
 
-	  /* Force the section size to the value we want.  */
-	  o->_raw_size = sizeof (Elf32_External_RegInfo);
+	  /* Size has been set in mips_elf_always_size_sections  */
+	  BFD_ASSERT(o->_raw_size == sizeof (Elf32_External_RegInfo));
 
 	  /* Skip this section later on (I don't think this currently
 	     matters, but someday it might).  */
@@ -4996,7 +5057,7 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 		}
 	      else if (h->root.type == bfd_link_hash_undefweak)
 		relocation = 0;
-	      else if (info->shared && ! info->symbolic)
+	      else if (info->shared && !info->symbolic && !info->no_undefined)
 		relocation = 0;
 	      else if (strcmp (h->root.root.string, "_DYNAMIC_LINK") == 0)
 		{
@@ -6509,6 +6570,13 @@ mips_elf_always_size_sections (output_bfd, info)
      bfd *output_bfd;
      struct bfd_link_info *info;
 {
+  asection *ri;
+
+  /* The .reginfo section has a fixed size.  */
+  ri = bfd_get_section_by_name (output_bfd, ".reginfo");
+  if (ri != NULL)
+    bfd_set_section_size (output_bfd, ri, sizeof (Elf32_External_RegInfo));
+
   if (info->relocateable
       || ! mips_elf_hash_table (info)->mips16_stubs_seen)
     return true;
@@ -6729,15 +6797,7 @@ mips_elf_size_dynamic_sections (output_bfd, info)
 
       if (strip)
 	{
-	  asection **spp;
-
-	  for (spp = &s->output_section->owner->sections;
-	       *spp != s->output_section;
-	       spp = &(*spp)->next)
-	    ;
-	  *spp = s->output_section->next;
-	  --s->output_section->owner->section_count;
-
+	  _bfd_strip_section_from_output (s);
 	  continue;
 	}
 
@@ -7712,6 +7772,8 @@ static const struct ecoff_debug_swap mips_elf32_ecoff_debug_swap =
 #define bfd_elf32_bfd_merge_private_bfd_data \
 					_bfd_mips_elf_merge_private_bfd_data
 #define bfd_elf32_bfd_set_private_flags	_bfd_mips_elf_set_private_flags
+#define bfd_elf32_bfd_print_private_bfd_data \
+					_bfd_mips_elf_print_private_bfd_data
 #define elf_backend_add_symbol_hook	mips_elf_add_symbol_hook
 #define elf_backend_create_dynamic_sections \
 					mips_elf_create_dynamic_sections

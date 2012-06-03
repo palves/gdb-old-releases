@@ -693,7 +693,7 @@ static boolean
 generic_link_read_symbols (abfd)
      bfd *abfd;
 {
-  if (abfd->outsymbols == (asymbol **) NULL)
+  if (bfd_get_outsymbols (abfd) == (asymbol **) NULL)
     {
       long symsize;
       long symcount;
@@ -701,13 +701,13 @@ generic_link_read_symbols (abfd)
       symsize = bfd_get_symtab_upper_bound (abfd);
       if (symsize < 0)
 	return false;
-      abfd->outsymbols = (asymbol **) bfd_alloc (abfd, symsize);
-      if (abfd->outsymbols == NULL && symsize != 0)
+      bfd_get_outsymbols (abfd) = (asymbol **) bfd_alloc (abfd, symsize);
+      if (bfd_get_outsymbols (abfd) == NULL && symsize != 0)
 	return false;
-      symcount = bfd_canonicalize_symtab (abfd, abfd->outsymbols);
+      symcount = bfd_canonicalize_symtab (abfd, bfd_get_outsymbols (abfd));
       if (symcount < 0)
 	return false;
-      abfd->symcount = symcount;
+      bfd_get_symcount (abfd) = symcount;
     }
 
   return true;
@@ -1935,8 +1935,8 @@ _bfd_generic_final_link (abfd, info)
   size_t outsymalloc;
   struct generic_write_global_symbol_info wginfo;
 
-  abfd->outsymbols = (asymbol **) NULL;
-  abfd->symcount = 0;
+  bfd_get_outsymbols (abfd) = (asymbol **) NULL;
+  bfd_get_symcount (abfd) = 0;
   outsymalloc = 0;
 
   /* Mark all sections which will be included in the output file.  */
@@ -2065,7 +2065,7 @@ generic_add_output_symbol (output_bfd, psymalloc, sym)
      size_t *psymalloc;
      asymbol *sym;
 {
-  if (output_bfd->symcount >= *psymalloc)
+  if (bfd_get_symcount (output_bfd) >= *psymalloc)
     {
       asymbol **newsyms;
 
@@ -2073,16 +2073,16 @@ generic_add_output_symbol (output_bfd, psymalloc, sym)
 	*psymalloc = 124;
       else
 	*psymalloc *= 2;
-      newsyms = (asymbol **) bfd_realloc (output_bfd->outsymbols,
+      newsyms = (asymbol **) bfd_realloc (bfd_get_outsymbols (output_bfd),
 					  *psymalloc * sizeof (asymbol *));
       if (newsyms == (asymbol **) NULL)
 	return false;
-      output_bfd->outsymbols = newsyms;
+      bfd_get_outsymbols (output_bfd) = newsyms;
     }
 
-  output_bfd->outsymbols[output_bfd->symcount] = sym;
+  bfd_get_outsymbols (output_bfd) [bfd_get_symcount (output_bfd)] = sym;
   if (sym != NULL)
-    ++output_bfd->symcount;
+    ++ bfd_get_symcount (output_bfd);
 
   return true;
 }

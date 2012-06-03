@@ -270,7 +270,7 @@ static reloc_howto_type elf_mn10300_howto_table[] =
 
 struct mn10300_reloc_map
 {
-  unsigned char bfd_reloc_val;
+  bfd_reloc_code_real_type bfd_reloc_val;
   unsigned char elf_reloc_val;
 };
 

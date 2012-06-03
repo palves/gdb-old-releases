@@ -486,6 +486,10 @@ extern const bfd_target armpe_little_vec;
 extern const bfd_target armpe_big_vec;
 extern const bfd_target armpei_little_vec;
 extern const bfd_target armpei_big_vec;
+extern const bfd_target arm_epoc_pe_little_vec;
+extern const bfd_target arm_epoc_pe_big_vec;
+extern const bfd_target arm_epoc_pei_little_vec;
+extern const bfd_target arm_epoc_pei_big_vec;
 extern const bfd_target b_out_vec_big_host;
 extern const bfd_target b_out_vec_little_host;
 extern const bfd_target bfd_elf64_alpha_vec;
@@ -518,6 +522,8 @@ extern const bfd_target bfd_elf32_shl_vec;
 extern const bfd_target bfd_elf32_sparc_vec;
 extern const bfd_target bfd_elf32_v850_vec;
 extern const bfd_target bfd_elf32_fr30_vec;
+extern const bfd_target bfd_elf32_mcore_big_vec;
+extern const bfd_target bfd_elf32_mcore_little_vec;
 extern const bfd_target bfd_elf64_big_generic_vec;
 extern const bfd_target bfd_elf64_little_generic_vec;
 extern const bfd_target bfd_elf64_sparc_vec;
@@ -567,6 +573,10 @@ extern const bfd_target m68ksysvcoff_vec;
 extern const bfd_target m68k4knetbsd_vec;
 extern const bfd_target m88kbcs_vec;
 extern const bfd_target m88kmach3_vec;
+extern const bfd_target mcore_pe_big_vec;
+extern const bfd_target mcore_pe_little_vec;
+extern const bfd_target mcore_pei_big_vec;
+extern const bfd_target mcore_pei_little_vec;
 extern const bfd_target newsos3_vec;
 extern const bfd_target nlm32_i386_vec;
 extern const bfd_target nlm32_sparc_vec;
@@ -593,6 +603,7 @@ extern const bfd_target sunos_big_vec;
 extern const bfd_target tekhex_vec;
 extern const bfd_target tic30_aout_vec;
 extern const bfd_target tic30_coff_vec;
+extern const bfd_target tic80coff_vec;
 extern const bfd_target vaxnetbsd_vec;
 extern const bfd_target versados_vec;
 extern const bfd_target vms_alpha_vec;
@@ -687,6 +698,8 @@ const bfd_target * const bfd_target_vector[] = {
 	&bfd_elf32_powerpcle_vec,
 	&bfd_elf32_v850_vec,
 	&bfd_elf32_fr30_vec,
+	&bfd_elf32_mcore_big_vec,
+	&bfd_elf32_mcore_little_vec,
 #ifdef BFD64			/* No one seems to use this.  */
 	&bfd_elf64_big_generic_vec,
 	&bfd_elf64_little_generic_vec,
@@ -753,6 +766,10 @@ const bfd_target * const bfd_target_vector[] = {
 	&armpe_big_vec,
 	&armpei_little_vec,
 	&armpei_big_vec,
+	&arm_epoc_pe_little_vec,
+	&arm_epoc_pe_big_vec,
+	&arm_epoc_pei_little_vec,
+	&arm_epoc_pei_big_vec,
 	&icoff_big_vec,
 	&icoff_little_vec,
 	&ieee_vec,
@@ -769,6 +786,10 @@ const bfd_target * const bfd_target_vector[] = {
 	&m68ksysvcoff_vec,
 	&m88kbcs_vec,
 	&m88kmach3_vec,
+	&mcore_pe_big_vec,
+	&mcore_pe_little_vec,
+	&mcore_pei_big_vec,
+	&mcore_pei_little_vec,
 	&newsos3_vec,
 	&nlm32_i386_vec,
 	&nlm32_sparc_vec,
@@ -810,6 +831,7 @@ const bfd_target * const bfd_target_vector[] = {
 	&aout0_big_vec,
 	&tic30_aout_vec,
 	&tic30_coff_vec,
+	&tic80coff_vec,
 	&vaxnetbsd_vec,
 	&versados_vec,
 #ifdef BFD64

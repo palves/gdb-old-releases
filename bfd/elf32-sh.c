@@ -514,7 +514,7 @@ sh_elf_ignore_reloc (abfd, reloc_entry, symbol, data, input_section,
 
 struct elf_reloc_map
 {
-  unsigned char bfd_reloc_val;
+  bfd_reloc_code_real_type bfd_reloc_val;
   unsigned char elf_reloc_val;
 };
 
@@ -1648,6 +1648,7 @@ sh_elf_relocate_section (output_bfd, info, input_bfd, input_section,
       asection *sec;
       struct elf_link_hash_entry *h;
       bfd_vma relocation;
+      bfd_vma addend = (bfd_vma)0;
       bfd_reloc_status_type r;
 
       r_symndx = ELF32_R_SYM (rel->r_info);
@@ -1740,11 +1741,18 @@ sh_elf_relocate_section (output_bfd, info, input_bfd, input_section,
       if (r_type == (int) R_SH_IND12W)
 	relocation -= 4;
 
-      /* FIXME: We should use the addend, but the COFF relocations
-         don't.  */
+      switch ((int)r_type)
+	{
+	case (int)R_SH_DIR32:
+	  addend = rel->r_addend;
+	  break;
+	}
+
+      /* COFF relocs don't use the addend. The addend is used for R_SH_DIR32 
+	 to be compatible with other compilers. */
       r = _bfd_final_link_relocate (howto, input_bfd, input_section,
 				    contents, rel->r_offset,
-				    relocation, 0);
+				    relocation, addend);
 
       if (r != bfd_reloc_ok)
 	{

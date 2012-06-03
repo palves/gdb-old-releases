@@ -1,5 +1,5 @@
 /* Table of opcodes for the PA-RISC.
-   Copyright (C) 1990, 1991, 1993, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1993, 1995, 1999 Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
    University of Utah (pa-gdb-bugs@cs.utah.edu).
@@ -44,6 +44,7 @@ struct pa_opcode
     char *args;
     enum pa_arch arch;
 };
+
 
 /*
    All hppa opcodes are 32 bits.
@@ -177,6 +178,7 @@ static const char *const completer_chars = ",CcY<>?!@+&U~FfGHINnOoZMadu|/=0123%e
 static const struct pa_opcode pa_opcodes[] =
 {
 
+
 /* pseudo-instructions */
 
 { "b",		0xe8000000, 0xffe0e000, "nW", pa10}, /* bl foo,r0 */
@@ -257,8 +259,8 @@ static const struct pa_opcode pa_opcodes[] =
 { "addbf",	0xa8000000, 0xfc000000, "!nx,b,w", pa10},
 { "addibt",	0xa4000000, 0xfc000000, "!n5,b,w", pa10},
 { "addibf",	0xac000000, 0xfc000000, "!n5,b,w", pa10},
-{ "bvb",	0xc0000000, 0xffe00000, "~nx,w", pa10},
-{ "bb",		0xc4000000, 0xfc000000, "~nx,Q,w", pa10}, 
+{ "bb",		0xc4004000, 0xfc004000, "~nx,Q,w", pa10}, 
+{ "bvb",	0xc0004000, 0xffe04000, "~nx,w", pa10},
 
 /* Computation Instructions */
 
@@ -431,6 +433,12 @@ static const struct pa_opcode pa_opcodes[] =
 { "fcnvfx",     0x38010200, 0xfc1f8720, "FGJ,v", pa10},
 { "fcnvfxt",    0x30018200, 0xfc1f87e0, "FGE,v", pa10},
 { "fcnvfxt",    0x38018200, 0xfc1f8720, "FGJ,v", pa10},
+{ "fmpyfadd",   0xb8000000, 0xfc000020, "FE,X,3,v", pa20},
+{ "fmpynfadd",  0xb8000020, 0xfc000020, "FE,X,3,v", pa20},
+{ "fneg",       0x3000c000, 0xfc1fe7e0, "FE,v", pa20},
+{ "fneg",       0x3800c000, 0xfc1fe720, "FJ,v", pa20},
+{ "fnegabs",    0x3000e000, 0xfc1fe7e0, "FE,v", pa20},
+{ "fnegabs",    0x3800e000, 0xfc1fe720, "FJ,v", pa20},
 { "fcmp",       0x30000400, 0xfc00e7e0, "FME,X", pa10},
 { "fcmp",       0x38000400, 0xfc00e720, "IMJ,K", pa10},
 { "xmpyu",	0x38004700, 0xfc00e720, "E,X,v", pa11},

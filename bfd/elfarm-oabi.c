@@ -29,6 +29,7 @@
 #define TARGET_LITTLE_NAME              "elf32-littlearm-oabi"
 #define TARGET_BIG_SYM                  bfd_elf32_bigarm_oabi_vec
 #define TARGET_BIG_NAME                 "elf32-bigarm-oabi"
+
 #define elf_info_to_howto               elf32_arm_info_to_howto
 #define elf_info_to_howto_rel           0
 
@@ -139,8 +140,8 @@ static reloc_howto_type elf32_arm_howto_table[] =
 	 false),		/* pcrel_offset */
 
   HOWTO (R_ARM_THM_ABS5,	/* type */
-	 0,			/* rightshift */
-	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+	 6,			/* rightshift */
+	 1,			/* size (0 = byte, 1 = short, 2 = long) */
 	 5,			/* bitsize */
 	 false,			/* pc_relative */
 	 0,			/* bitpos */
@@ -155,7 +156,7 @@ static reloc_howto_type elf32_arm_howto_table[] =
   HOWTO (R_ARM_THM_PC22,	/* type */
 	 1,			/* rightshift */
 	 2,			/* size (0 = byte, 1 = short, 2 = long) */
-	 22,			/* bitsize */
+	 23,			/* bitsize */
 	 true,			/* pc_relative */
 	 0,			/* bitpos */
 	 complain_overflow_signed,	/* complain_on_overflow */
@@ -329,7 +330,7 @@ elf32_arm_info_to_howto (abfd, bfd_reloc, elf_reloc)
 
 struct elf32_arm_reloc_map
   {
-    unsigned char bfd_reloc_val;
+    bfd_reloc_code_real_type bfd_reloc_val;
     unsigned char elf_reloc_val;
   };
 
@@ -354,7 +355,7 @@ static const struct elf32_arm_reloc_map elf32_arm_reloc_map[] =
 
 static reloc_howto_type *
 elf32_arm_reloc_type_lookup (abfd, code)
-     bfd *abfd;
+     bfd * abfd;
      bfd_reloc_code_real_type code;
 {
   unsigned int i;
@@ -364,9 +365,17 @@ elf32_arm_reloc_type_lookup (abfd, code)
        i++)
     {
       if (elf32_arm_reloc_map[i].bfd_reloc_val == code)
-	return &elf32_arm_howto_table[elf32_arm_reloc_map[i].elf_reloc_val];
+	return & elf32_arm_howto_table[elf32_arm_reloc_map[i].elf_reloc_val];
     }
 
   return NULL;
 }
+
+#define bfd_elf32_arm_allocate_interworking_sections \
+	bfd_elf32_arm_oabi_allocate_interworking_sections
+#define bfd_elf32_arm_get_bfd_for_interworking \
+	bfd_elf32_arm_oabi_get_bfd_for_interworking
+#define bfd_elf32_arm_process_before_allocation \
+	bfd_elf32_arm_oabi_process_before_allocation
+
 #include "elf32-arm.h"

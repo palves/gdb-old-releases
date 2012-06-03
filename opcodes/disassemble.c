@@ -34,6 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define ARCH_m32r
 #define ARCH_m68k
 #define ARCH_m88k
+#define ARCH_mcore
 #define ARCH_mips
 #define ARCH_mn10200
 #define ARCH_mn10300
@@ -43,6 +44,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define ARCH_sh
 #define ARCH_sparc
 #define ARCH_tic30
+#define ARCH_tic80
 #define ARCH_v850
 #define ARCH_vax
 #define ARCH_w65
@@ -156,6 +158,11 @@ disassembler (abfd)
       disassemble = print_insn_ns32k;
       break;
 #endif
+#ifdef ARCH_mcore
+    case bfd_arch_mcore:
+      disassemble = print_insn_mcore;
+      break;
+#endif
 #ifdef ARCH_mips
     case bfd_arch_mips:
       if (bfd_big_endian (abfd))
@@ -203,6 +210,11 @@ disassembler (abfd)
 #ifdef ARCH_tic30
     case bfd_arch_tic30:
       disassemble = print_insn_tic30;
+      break;
+#endif
+#ifdef ARCH_tic80
+    case bfd_arch_tic80:
+      disassemble = print_insn_tic80;
       break;
 #endif
 #ifdef ARCH_v850

@@ -736,6 +736,9 @@ elf_i386_gc_mark_hook (abfd, info, rel, h, sym)
 
 	    case bfd_link_hash_common:
 	      return h->root.u.c.p->section;
+
+	    default:
+	      break;
 	    }
 	}
     }
@@ -1074,15 +1077,7 @@ elf_i386_size_dynamic_sections (output_bfd, info)
 
       if (strip)
 	{
-	  asection **spp;
-
-	  for (spp = &s->output_section->owner->sections;
-	       *spp != s->output_section;
-	       spp = &(*spp)->next)
-	    ;
-	  *spp = s->output_section->next;
-	  --s->output_section->owner->section_count;
-
+	  _bfd_strip_section_from_output (s);
 	  continue;
 	}
 
@@ -1307,7 +1302,7 @@ elf_i386_relocate_section (output_bfd, info, input_bfd, input_section,
 	    }
 	  else if (h->root.type == bfd_link_hash_undefweak)
 	    relocation = 0;
-	  else if (info->shared && !info->symbolic)
+	  else if (info->shared && !info->symbolic && !info->no_undefined)
 	    relocation = 0;
 	  else
 	    {
@@ -1808,8 +1803,7 @@ elf_i386_finish_dynamic_sections (output_bfd, info)
       asection *splt;
       Elf32_External_Dyn *dyncon, *dynconend;
 
-      splt = bfd_get_section_by_name (dynobj, ".plt");
-      BFD_ASSERT (splt != NULL && sdyn != NULL);
+      BFD_ASSERT (sdyn != NULL);
 
       dyncon = (Elf32_External_Dyn *) sdyn->contents;
       dynconend = (Elf32_External_Dyn *) (sdyn->contents + sdyn->_raw_size);
@@ -1872,7 +1866,8 @@ elf_i386_finish_dynamic_sections (output_bfd, info)
 	}
 
       /* Fill in the first entry in the procedure linkage table.  */
-      if (splt->_raw_size > 0)
+      splt = bfd_get_section_by_name (dynobj, ".plt");
+      if (splt && splt->_raw_size > 0)
 	{
 	  if (info->shared)
 	    memcpy (splt->contents, elf_i386_pic_plt0_entry, PLT_ENTRY_SIZE);
@@ -1886,11 +1881,11 @@ elf_i386_finish_dynamic_sections (output_bfd, info)
 			  sgot->output_section->vma + sgot->output_offset + 8,
 			  splt->contents + 8);
 	    }
-	}
 
-      /* UnixWare sets the entsize of .plt to 4, although that doesn't
-	 really seem like the right value.  */
-      elf_section_data (splt->output_section)->this_hdr.sh_entsize = 4;
+	  /* UnixWare sets the entsize of .plt to 4, although that doesn't
+	     really seem like the right value.  */
+	  elf_section_data (splt->output_section)->this_hdr.sh_entsize = 4;
+	}
     }
 
   /* Fill in the first three entries in the global offset table.  */

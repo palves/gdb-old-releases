@@ -164,62 +164,62 @@ m32r_cgen_print_operand (cd, opindex, xinfo, fields, attrs, pc, length)
 
   switch (opindex)
     {
-    case M32R_OPERAND_SR :
-      print_keyword (cd, info, & m32r_cgen_opval_h_gr, fields->f_r2, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)));
-      break;
-    case M32R_OPERAND_DR :
-      print_keyword (cd, info, & m32r_cgen_opval_h_gr, fields->f_r1, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)));
-      break;
-    case M32R_OPERAND_SRC1 :
-      print_keyword (cd, info, & m32r_cgen_opval_h_gr, fields->f_r1, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)));
-      break;
-    case M32R_OPERAND_SRC2 :
-      print_keyword (cd, info, & m32r_cgen_opval_h_gr, fields->f_r2, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)));
-      break;
-    case M32R_OPERAND_SCR :
-      print_keyword (cd, info, & m32r_cgen_opval_h_cr, fields->f_r2, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)));
-      break;
     case M32R_OPERAND_DCR :
-      print_keyword (cd, info, & m32r_cgen_opval_h_cr, fields->f_r1, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)));
-      break;
-    case M32R_OPERAND_SIMM8 :
-      print_normal (cd, info, fields->f_simm8, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), pc, length);
-      break;
-    case M32R_OPERAND_SIMM16 :
-      print_normal (cd, info, fields->f_simm16, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), pc, length);
-      break;
-    case M32R_OPERAND_UIMM4 :
-      print_normal (cd, info, fields->f_uimm4, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), pc, length);
-      break;
-    case M32R_OPERAND_UIMM5 :
-      print_normal (cd, info, fields->f_uimm5, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), pc, length);
-      break;
-    case M32R_OPERAND_UIMM16 :
-      print_normal (cd, info, fields->f_uimm16, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), pc, length);
-      break;
-    case M32R_OPERAND_HASH :
-      print_hash (cd, info, fields->f_nil, 0, pc, length);
-      break;
-    case M32R_OPERAND_HI16 :
-      print_normal (cd, info, fields->f_hi16, 0|(1<<(CGEN_OPERAND_SIGN_OPT-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), pc, length);
-      break;
-    case M32R_OPERAND_SLO16 :
-      print_normal (cd, info, fields->f_simm16, 0, pc, length);
-      break;
-    case M32R_OPERAND_ULO16 :
-      print_normal (cd, info, fields->f_uimm16, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), pc, length);
-      break;
-    case M32R_OPERAND_UIMM24 :
-      print_address (cd, info, fields->f_uimm24, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_RELOC-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_ABS_ADDR-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), pc, length);
-      break;
-    case M32R_OPERAND_DISP8 :
-      print_address (cd, info, fields->f_disp8, 0|(1<<(CGEN_OPERAND_RELAX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_RELOC-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), pc, length);
+      print_keyword (cd, info, & m32r_cgen_opval_cr_names, fields->f_r1, 0);
       break;
     case M32R_OPERAND_DISP16 :
-      print_address (cd, info, fields->f_disp16, 0|(1<<(CGEN_OPERAND_RELOC-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), pc, length);
+      print_address (cd, info, fields->f_disp16, 0|(1<<CGEN_OPERAND_RELOC)|(1<<CGEN_OPERAND_PCREL_ADDR), pc, length);
       break;
     case M32R_OPERAND_DISP24 :
-      print_address (cd, info, fields->f_disp24, 0|(1<<(CGEN_OPERAND_RELAX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_RELOC-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), pc, length);
+      print_address (cd, info, fields->f_disp24, 0|(1<<CGEN_OPERAND_RELAX)|(1<<CGEN_OPERAND_RELOC)|(1<<CGEN_OPERAND_PCREL_ADDR), pc, length);
+      break;
+    case M32R_OPERAND_DISP8 :
+      print_address (cd, info, fields->f_disp8, 0|(1<<CGEN_OPERAND_RELAX)|(1<<CGEN_OPERAND_RELOC)|(1<<CGEN_OPERAND_PCREL_ADDR), pc, length);
+      break;
+    case M32R_OPERAND_DR :
+      print_keyword (cd, info, & m32r_cgen_opval_gr_names, fields->f_r1, 0);
+      break;
+    case M32R_OPERAND_HASH :
+      print_hash (cd, info, fields->f_nil, 0|(1<<CGEN_OPERAND_SIGNED), pc, length);
+      break;
+    case M32R_OPERAND_HI16 :
+      print_normal (cd, info, fields->f_hi16, 0|(1<<CGEN_OPERAND_SIGN_OPT), pc, length);
+      break;
+    case M32R_OPERAND_SCR :
+      print_keyword (cd, info, & m32r_cgen_opval_cr_names, fields->f_r2, 0);
+      break;
+    case M32R_OPERAND_SIMM16 :
+      print_normal (cd, info, fields->f_simm16, 0|(1<<CGEN_OPERAND_SIGNED)|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
+      break;
+    case M32R_OPERAND_SIMM8 :
+      print_normal (cd, info, fields->f_simm8, 0|(1<<CGEN_OPERAND_SIGNED)|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
+      break;
+    case M32R_OPERAND_SLO16 :
+      print_normal (cd, info, fields->f_simm16, 0|(1<<CGEN_OPERAND_SIGNED), pc, length);
+      break;
+    case M32R_OPERAND_SR :
+      print_keyword (cd, info, & m32r_cgen_opval_gr_names, fields->f_r2, 0);
+      break;
+    case M32R_OPERAND_SRC1 :
+      print_keyword (cd, info, & m32r_cgen_opval_gr_names, fields->f_r1, 0);
+      break;
+    case M32R_OPERAND_SRC2 :
+      print_keyword (cd, info, & m32r_cgen_opval_gr_names, fields->f_r2, 0);
+      break;
+    case M32R_OPERAND_UIMM16 :
+      print_normal (cd, info, fields->f_uimm16, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
+      break;
+    case M32R_OPERAND_UIMM24 :
+      print_address (cd, info, fields->f_uimm24, 0|(1<<CGEN_OPERAND_HASH_PREFIX)|(1<<CGEN_OPERAND_RELOC)|(1<<CGEN_OPERAND_ABS_ADDR), pc, length);
+      break;
+    case M32R_OPERAND_UIMM4 :
+      print_normal (cd, info, fields->f_uimm4, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
+      break;
+    case M32R_OPERAND_UIMM5 :
+      print_normal (cd, info, fields->f_uimm5, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
+      break;
+    case M32R_OPERAND_ULO16 :
+      print_normal (cd, info, fields->f_uimm16, 0, pc, length);
       break;
 
     default :
@@ -267,10 +267,10 @@ print_normal (cd, dis_info, value, attrs, pc, length)
   /* Print the operand as directed by the attributes.  */
   if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_SEM_ONLY))
     ; /* nothing to do */
-  else if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_UNSIGNED))
-    (*info->fprintf_func) (info->stream, "0x%lx", value);
-  else
+  else if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_SIGNED))
     (*info->fprintf_func) (info->stream, "%ld", value);
+  else
+    (*info->fprintf_func) (info->stream, "0x%lx", value);
 }
 
 /* Default address handler.  */
@@ -297,10 +297,10 @@ print_address (cd, dis_info, value, attrs, pc, length)
     (*info->print_address_func) (value, info);
   else if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_ABS_ADDR))
     (*info->print_address_func) (value, info);
-  else if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_UNSIGNED))
-    (*info->fprintf_func) (info->stream, "0x%lx", (long) value);
-  else
+  else if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_SIGNED))
     (*info->fprintf_func) (info->stream, "%ld", (long) value);
+  else
+    (*info->fprintf_func) (info->stream, "0x%lx", (long) value);
 }
 
 /* Keyword print handler.  */
@@ -381,7 +381,7 @@ print_insn (cd, pc, info, buf, buflen)
   CGEN_EXTRACT_INFO ex_info;
 
   ex_info.dis_info = info;
-  ex_info.valid = (1 << CGEN_BASE_INSN_SIZE) - 1;
+  ex_info.valid = (1 << (cd->base_insn_bitsize / 8)) - 1;
   ex_info.insn_bytes = buf;
 
   switch (buflen)
@@ -463,14 +463,14 @@ default_print_insn (cd, pc, info)
 
   /* Read the base part of the insn.  */
 
-  status = (*info->read_memory_func) (pc, buf, CGEN_BASE_INSN_SIZE, info);
+  status = (*info->read_memory_func) (pc, buf, cd->base_insn_bitsize / 8, info);
   if (status != 0)
     {
       (*info->memory_error_func) (status, pc, info);
       return -1;
     }
 
-  return print_insn (cd, pc, info, buf, CGEN_BASE_INSN_SIZE);
+  return print_insn (cd, pc, info, buf, cd->base_insn_bitsize / 8);
 }
 
 /* Main entry point.
@@ -482,27 +482,63 @@ print_insn_m32r (pc, info)
      bfd_vma pc;
      disassemble_info *info;
 {
-  int length;
   static CGEN_CPU_DESC cd = 0;
-  int mach = info->mach;
-  int big_p = info->endian == BFD_ENDIAN_BIG;
+  static prev_isa,prev_mach,prev_endian;
+  int length;
+  int isa,mach;
+  int endian = (info->endian == BFD_ENDIAN_BIG
+		? CGEN_ENDIAN_BIG
+		: CGEN_ENDIAN_LITTLE);
+  enum bfd_architecture arch;
+
+  /* ??? gdb will set mach but leave the architecture as "unknown" */
+#ifndef CGEN_BFD_ARCH
+#define CGEN_BFD_ARCH bfd_arch_m32r
+#endif
+  arch = info->arch;
+  if (arch == bfd_arch_unknown)
+    arch = CGEN_BFD_ARCH;
+      
+  /* There's no standard way to compute the isa number (e.g. for arm thumb)
+     so we leave it to the target.  */
+#ifdef CGEN_COMPUTE_ISA
+  isa = CGEN_COMPUTE_ISA (info);
+#else
+  isa = 0;
+#endif
+
+  mach = info->mach;
+
+  /* If we've switched cpu's, close the current table and open a new one.  */
+  if (cd
+      && (isa != prev_isa
+	  || mach != prev_mach
+	  || endian != prev_endian))
+    {
+      m32r_cgen_cpu_close (cd);
+      cd = 0;
+    }
 
   /* If we haven't initialized yet, initialize the opcode table.  */
   if (! cd)
     {
-      cd = m32r_cgen_cpu_open (mach,
-				 big_p ?
-				 CGEN_ENDIAN_BIG
-				 : CGEN_ENDIAN_LITTLE);
+      const bfd_arch_info_type *arch_type = bfd_lookup_arch (arch, mach);
+      const char *mach_name;
+
+      if (!arch_type)
+	abort ();
+      mach_name = arch_type->printable_name;
+
+      prev_isa = isa;
+      prev_mach = mach;
+      prev_endian = endian;
+      cd = m32r_cgen_cpu_open (CGEN_CPU_OPEN_ISAS, prev_isa,
+				 CGEN_CPU_OPEN_BFDMACH, mach_name,
+				 CGEN_CPU_OPEN_ENDIAN, prev_endian,
+				 CGEN_CPU_OPEN_END);
+      if (!cd)
+	abort ();
       m32r_cgen_init_dis (cd);
-    }
-  /* If we've switched cpu's, re-initialize.  */
-  /* ??? Perhaps we should use BFD_ENDIAN.  */
-  else if (mach != cd->mach
-	   || (cd->endian
-	       != (big_p ? CGEN_ENDIAN_BIG : CGEN_ENDIAN_LITTLE)))
-    {
-      cgen_set_cpu (cd, mach, big_p ? CGEN_ENDIAN_BIG : CGEN_ENDIAN_LITTLE);
     }
 
   /* We try to have as much common code as possible.
@@ -517,5 +553,5 @@ print_insn_m32r (pc, info)
     return -1;
 
   (*info->fprintf_func) (info->stream, UNKNOWN_INSN_MSG);
-  return CGEN_DEFAULT_INSN_SIZE;
+  return cd->default_insn_bitsize / 8;
 }

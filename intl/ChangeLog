@@ -1,12 +1,3 @@
-1999-04-02  Jim Blandy  <jimb@zwingli.cygnus.com>
-
-	Contributed from net:
-	
-	Wed Mar 31 00:11:56 1999  Philippe De Muyter  <phdm@macqel.be>
-
-	* explodename.c (stdlib.h, string.h): Include those files only if
-	they were found by configure.
-
 1997-09-06 02:10  Ulrich Drepper  <drepper@cygnus.com>
 
 	* intlh.inst.in: Reformat copyright.

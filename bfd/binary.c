@@ -280,11 +280,11 @@ binary_set_section_contents (abfd, sec, data, offset, size)
 	{
 	  s->filepos = s->lma - low;
 
-	  /* Skip following warning check for non-loadable sections. */ 
-
+	  /* Skip following warning check for sections that will not
+	     occupy file space.  */ 
 	  if ((s->flags
-	       & (SEC_HAS_CONTENTS | SEC_LOAD | SEC_ALLOC | SEC_NEVER_LOAD))
-	      != (SEC_HAS_CONTENTS | SEC_LOAD | SEC_ALLOC))
+	       & (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_NEVER_LOAD))
+	      != (SEC_HAS_CONTENTS | SEC_ALLOC))
 	    continue;
 
 	  /* If attempting to generate a binary file from a bfd with
@@ -295,7 +295,7 @@ binary_set_section_contents (abfd, sec, data, offset, size)
 
 	  if (s->filepos < 0)
 	    (*_bfd_error_handler)
-	      (_("Warning: Writing section `%s' to huge offset %lu."),
+	      (_("Warning: Writing section `%s' to huge (ie negative) file offset 0x%lx."),
 	       bfd_get_section_name (abfd, s),
 	       (unsigned long) s->filepos);
 	}

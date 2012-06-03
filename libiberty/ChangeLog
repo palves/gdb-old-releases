@@ -1,3 +1,27 @@
+1999-04-20  Jim Blandy  <jimb@zwingli.cygnus.com>
+
+	Fix from Dale Hawkins:
+	* cplus-dem.c (mop_up): Set typevec_size to zero, so it'll be 
+	reallocated properly if we use it again.
+
+	* cplus-dem.c (demangle_fund_type): Check for buffer overrun.  Be
+	stricter about syntax.  Always null-terminate string.
+
+	Fix from Marcus Daniels:
+	* cplus-dem.c (demangle_fund_type): Don't run off the end of the
+	identifier looking for another underscore.
+
+1999-04-11  Richard Henderson  <rth@cygnus.com>
+
+	* alloca-conf.h (alloca) [C_ALLOCA]: Don't use Gcc builtin
+	or <alloca.h>.
+	* clock.c (GNU_HZ): New definition.
+	(clock): Use it.
+	* getruntime.c: Likewise.
+
+	* config.table: Use mh-beos.
+	* config/mh-beos: New file.
+
 1999-04-01  Jim Blandy  <jimb@zwingli.cygnus.com>
 
 	* cplus-dem.c: Attempt to handle overflows in counts with some
@@ -7,17 +31,86 @@
 	(demangle_template_value_parm, demangle_template): Handle change
 	to consume_count's return convention.
 
+Thu Apr  8 14:43:28 1999  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* xmalloc.c, pexecute.c: Define __CYGWIN__ when being compiled
+ 	with old __CYGWIN32__ compiler.
+
+1999-04-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* splay-tree.h (splay_tree_compare_pointers): Define.
+
+1999-03-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* splay-tree.c (splay_tree_compare_ints): Define.
+
+1999-03-30  Tom Tromey  <tromey@cygnus.com>
+
+	* cplus-dem.c (consume_count): If `count' wraps, return 0 and
+	don't advance input pointer.
+	(demangle_class_name): If consume_count didn't find a count, do
+	nothing.  Don't bother with `strlen' sanity check; consume_count
+	does it for us.
+
 1999-03-16  Stan Shebs  <shebs@andros.cygnus.com>
 
 	From Art Haas  <ahaas@neosoft.com>:
 	* cplus-dem.c (demangle_prefix): Don't grab all the '__' strings
 	when doing arm or hp style.
 	(demangle_nested_args): Decr forgetting_types field when done.
+	
+Thu Mar 11 01:22:58 1999  Mumit Khan  <khan@xraylith.wisc.edu>
+
+	* pexecute.c (__CYGWIN32__): Rename to
+	(__CYGWIN__): this.
+	* xmalloc.c: Likewise.
+
+	Changes to support i386-pc-uwin.
+	* configure.in (*-*-uwin*): Workaround for vfork bug.
+	* configure: Regenerate.
+	* pexecute.c (pexecute): Be like standard Unix.
+	(pwait): Likewise.
+	* xmalloc.c (first_break): Define.
+	(xmalloc_set_program_name): Use.
+	(xmalloc): Use.
+
+Thu Mar 11 01:07:55 1999  Franz Sirl <Franz.Sirl-kernel@lauterbach.com>
+
+	* config.table: Cleanup and add mh-*pic handling for alpha, arm, powerpc
+
+Sun Feb 28 22:30:44 1999  Geoffrey Noer  <noer@cygnus.com>
+
+	* config.table: Check cygwin*, not cygwin32*.
+
+Tue Feb  9 16:39:01 1999  Dave Brolley  <brolley@cygnus.com>
+
+	* Makefile.in: Change mkstemp -> mkstemps.
+
+Tue Feb  9 01:12:27 1999  Marc Espie <Marc.Espie@liafa.jussieu.fr>
+
+	* Makefile.in (REQUIRED_OFILES): remove mkstemp.o
+	* configure.in (funcs): Check for and conditionally add mkstemps to
+	the list of functions libiberty will provide.
+	* configure: Rebuilt.
+	
+Wed Feb  3 00:01:15 1999  Mumit Khan  <khan@xraylith.wisc.edu>
+
+	* clock.c (HZ): Define in terms of (ISO C) CLOCKS_PER_SEC on 
+	platforms that don't have HZ.
+	* getruntime.c (HZ): Likewise.
+
+Sat Jan 30 13:28:04 1999  Richard Henderson  <rth@cygnus.com>
+
+	* Makefile.in (xstrdup.o): Depend on config.h.
 
 Wed Jan 13 07:26:44 1999  H.J. Lu  (hjl@gnu.org)
 
 	* cplus-dem.c (mop_up): Set work->previous_argument to NULL after
 	freeing it.
+
+Wed Jan 13 14:16:36 1999  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* xstrdup.c (xstrdup): Switch from strcpy to memcpy for speed.
 
 Tue Jan  5 15:58:29 1999  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
 
@@ -37,7 +130,7 @@ Tue Dec 22 09:43:35 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 	* argv.c (buildargv): Cast the result of alloca in assignment.
 
 	* choose-temp.c: Include stdlib.h.
-	
+
 	* cplus-dem.c (demangle_arm_pt): Remove unused prototype.
   	(snarf_numeric_literal): Constify first parameter.
   	(code_for_qualifier): Avoid a gcc extension, make the parameter an
@@ -55,7 +148,7 @@ Tue Dec 22 09:43:35 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* floatformat.c (floatformat_to_double): Add explicit braces to
  	avoid ambiguous `else'.
-	
+
 	* fnmatch.c (fnmatch): Change type of variables `c', `c1',
  	`cstart' and `cend' to unsigned char.  Cast the argument of macro
  	`FOLD', which uses ctype functions, to unsigned char.
@@ -85,17 +178,19 @@ Fri Dec 18 16:11:43 EST 1998  Andrew MacLeod  <amacleod@cygnus.com>
 	(snarf_numeric_literal): Make first arg 'const char **' in order
 	to match usage.
 
+Mon Dec 14 09:55:50 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
 	* choose-temp.c: Don't check IN_GCC anymore.
 
 	* floatformat.c (floatformat_from_double): Use `const', not `CONST'.
 	* memchr.c (memchr): Likewise.
 	* memcpy.c (memcpy): Likewise.
 	* memmove.c (memmove): Likewise.
-	
+
 	* mkstemp.c: Don't check IN_GCC anymore.
 	* pexecute.c: Likewise.
 	* splay-tree.c: Likewise.
-	
+
 	* strchr.c (strchr): Use `const', not `CONST'.
 	* strrchr.c (strrchr): Likewise.
 	* strtol.c (strtol): Likewise.

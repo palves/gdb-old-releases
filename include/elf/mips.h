@@ -95,6 +95,10 @@ END_RELOC_NUMBERS
 /* Code in file uses new ABI (-n32 on Irix 6).  */
 #define EF_MIPS_ABI2		0x00000020
 
+/* Indicates code compiled for a 64-bit machine in 32-bit mode. 
+   (regs are 32-bits wide.) */
+#define EF_MIPS_32BITMODE       0x00000100
+
 /* Four bit MIPS architecture field.  */
 #define EF_MIPS_ARCH		0xf0000000
 
@@ -141,6 +145,7 @@ END_RELOC_NUMBERS
 #define E_MIPS_MACH_4010	0x00820000
 #define E_MIPS_MACH_4100	0x00830000
 #define E_MIPS_MACH_4650	0x00850000
+#define E_MIPS_MACH_4111	0x00880000
 
 
 /* Processor specific section indices.  These sections do not actually

@@ -53,15 +53,17 @@ ALL_MACHINES = \
 	cpu-m32r.lo \
 	cpu-m68k.lo \
 	cpu-m88k.lo \
-	cpu-mips.lo \
 	cpu-m10200.lo \
 	cpu-m10300.lo \
+	cpu-mcore.lo \
+	cpu-mips.lo \
 	cpu-ns32k.lo \
 	cpu-powerpc.lo \
 	cpu-rs6000.lo \
 	cpu-sh.lo \
 	cpu-sparc.lo \
 	cpu-tic30.lo \
+	cpu-tic80.lo \
 	cpu-v850.lo \
 	cpu-vax.lo \
 	cpu-we32k.lo \
@@ -85,15 +87,17 @@ ALL_MACHINES_CFILES = \
 	cpu-m32r.c \
 	cpu-m68k.c \
 	cpu-m88k.c \
-	cpu-mips.c \
 	cpu-m10200.c \
 	cpu-m10300.c \
+	cpu-mcore.c \
+	cpu-mips.c \
 	cpu-ns32k.c \
 	cpu-powerpc.c \
 	cpu-rs6000.c \
 	cpu-sh.c \
 	cpu-sparc.c \
 	cpu-tic30.c \
+	cpu-tic80.c \
 	cpu-v850.c \
 	cpu-vax.c \
 	cpu-we32k.c \
@@ -134,6 +138,7 @@ BFD32_BACKENDS = \
 	coff-stgo32.lo \
 	coff-svm68k.lo \
 	coff-tic30.lo \
+	coff-tic80.lo \
 	coff-u68k.lo \
 	coff-we32k.lo \
 	coff-w65.lo \
@@ -156,9 +161,10 @@ BFD32_BACKENDS = \
 	elf32-m32r.lo \
 	elf32-m68k.lo \
 	elf32-m88k.lo \
-	elf32-mips.lo \
 	elf-m10200.lo \
 	elf-m10300.lo \
+	elf32-mcore.lo \
+	elf32-mips.lo \
 	elf32-ppc.lo \
 	elf32-sh.lo \
 	elf32-sparc.lo \
@@ -198,6 +204,8 @@ BFD32_BACKENDS = \
 	pei-arm.lo \
 	pe-i386.lo \
 	pei-i386.lo \
+	pe-mcore.lo \
+	pei-mcore.lo \
 	pe-ppc.lo \
 	pei-ppc.lo \
 	ppcboot.lo \
@@ -248,6 +256,7 @@ BFD32_BACKENDS_CFILES = \
 	coff-stgo32.c \
 	coff-svm68k.c \
 	coff-tic30.c \
+	coff-tic80.c \
 	coff-u68k.c \
 	coff-we32k.c \
 	coff-w65.c \
@@ -270,9 +279,10 @@ BFD32_BACKENDS_CFILES = \
 	elf32-m32r.c \
 	elf32-m68k.c \
 	elf32-m88k.c \
-	elf32-mips.c \
 	elf-m10200.c \
 	elf-m10300.c \
+	elf32-mcore.c \
+	elf32-mips.c \
 	elf32-ppc.c \
 	elf32-sh.c \
 	elf32-sparc.c \
@@ -312,6 +322,8 @@ BFD32_BACKENDS_CFILES = \
 	pei-arm.c \
 	pe-i386.c \
 	pei-i386.c \
+	pe-mcore.c \
+	pei-mcore.c \
 	pe-ppc.c \
 	pei-ppc.c \
 	ppcboot.c \
@@ -637,7 +649,7 @@ init.lo: init.c
 libbfd.lo: libbfd.c
 opncls.lo: opncls.c $(INCDIR)/objalloc.h
 reloc.lo: reloc.c $(INCDIR)/bfdlink.h
-section.lo: section.c
+section.lo: section.c $(INCDIR)/bfdlink.h
 syms.lo: syms.c $(INCDIR)/bfdlink.h $(INCDIR)/aout/stab_gnu.h \
   $(INCDIR)/aout/stab.def
 targets.lo: targets.c $(INCDIR)/fnmatch.h targmatch.h
@@ -666,15 +678,17 @@ cpu-i960.lo: cpu-i960.c
 cpu-m32r.lo: cpu-m32r.c
 cpu-m68k.lo: cpu-m68k.c
 cpu-m88k.lo: cpu-m88k.c
-cpu-mips.lo: cpu-mips.c
 cpu-m10200.lo: cpu-m10200.c
 cpu-m10300.lo: cpu-m10300.c
+cpu-mcore.lo: cpu-mcore.c
+cpu-mips.lo: cpu-mips.c
 cpu-ns32k.lo: cpu-ns32k.c ns32k.h
 cpu-powerpc.lo: cpu-powerpc.c
 cpu-rs6000.lo: cpu-rs6000.c
 cpu-sh.lo: cpu-sh.c
 cpu-sparc.lo: cpu-sparc.c
 cpu-tic30.lo: cpu-tic30.c
+cpu-tic80.lo: cpu-tic80.c
 cpu-v850.lo: cpu-v850.c
 cpu-vax.lo: cpu-vax.c
 cpu-we32k.lo: cpu-we32k.c
@@ -764,6 +778,8 @@ coff-svm68k.lo: coff-svm68k.c coff-m68k.c $(INCDIR)/coff/m68k.h \
   coffcode.h coffswap.h
 coff-tic30.lo: coff-tic30.c $(INCDIR)/bfdlink.h $(INCDIR)/coff/tic30.h \
   $(INCDIR)/coff/internal.h libcoff.h coffcode.h coffswap.h
+coff-tic80.lo: coff-tic80.c $(INCDIR)/bfdlink.h $(INCDIR)/coff/tic80.h \
+  $(INCDIR)/coff/internal.h libcoff.h coffcode.h coffswap.h
 coff-u68k.lo: coff-u68k.c coff-m68k.c $(INCDIR)/coff/m68k.h \
   $(INCDIR)/coff/internal.h libcoff.h $(INCDIR)/bfdlink.h \
   coffcode.h coffswap.h
@@ -832,18 +848,22 @@ elf32-m68k.lo: elf32-m68k.c $(INCDIR)/bfdlink.h elf-bfd.h \
 elf32-m88k.lo: elf32-m88k.c elf-bfd.h $(INCDIR)/elf/common.h \
   $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h $(INCDIR)/bfdlink.h \
   elf32-target.h
-elf32-mips.lo: elf32-mips.c $(INCDIR)/bfdlink.h genlink.h \
-  elf-bfd.h $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h \
-  $(INCDIR)/elf/external.h $(INCDIR)/elf/mips.h $(INCDIR)/elf/reloc-macros.h \
-  $(INCDIR)/coff/sym.h $(INCDIR)/coff/symconst.h $(INCDIR)/coff/internal.h \
-  $(INCDIR)/coff/ecoff.h $(INCDIR)/coff/mips.h ecoffswap.h \
-  elf32-target.h
 elf-m10200.lo: elf-m10200.c elf-bfd.h $(INCDIR)/elf/common.h \
   $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h $(INCDIR)/bfdlink.h \
   elf32-target.h
 elf-m10300.lo: elf-m10300.c elf-bfd.h $(INCDIR)/elf/common.h \
   $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h $(INCDIR)/bfdlink.h \
   $(INCDIR)/elf/mn10300.h $(INCDIR)/elf/reloc-macros.h \
+  elf32-target.h
+elf32-mcore.lo: elf32-mcore.c $(INCDIR)/bfdlink.h elf-bfd.h \
+  $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h \
+  $(INCDIR)/elf/mcore.h $(INCDIR)/elf/reloc-macros.h \
+  elf32-target.h
+elf32-mips.lo: elf32-mips.c $(INCDIR)/bfdlink.h genlink.h \
+  elf-bfd.h $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h \
+  $(INCDIR)/elf/external.h $(INCDIR)/elf/mips.h $(INCDIR)/elf/reloc-macros.h \
+  $(INCDIR)/coff/sym.h $(INCDIR)/coff/symconst.h $(INCDIR)/coff/internal.h \
+  $(INCDIR)/coff/ecoff.h $(INCDIR)/coff/mips.h ecoffswap.h \
   elf32-target.h
 elf32-ppc.lo: elf32-ppc.c $(INCDIR)/bfdlink.h elf-bfd.h \
   $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h \
@@ -860,7 +880,7 @@ elf32-v850.lo: elf32-v850.c $(INCDIR)/bfdlink.h elf-bfd.h \
   $(INCDIR)/elf/v850.h $(INCDIR)/elf/reloc-macros.h elf32-target.h
 elf32.lo: elf32.c elfcode.h $(INCDIR)/bfdlink.h elf-bfd.h \
   $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h \
-  $(INCDIR)/fnmatch.h elfcore.h elflink.h
+  elfcore.h elflink.h
 elflink.lo: elflink.c $(INCDIR)/bfdlink.h elf-bfd.h \
   $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h
 hp300bsd.lo: hp300bsd.c libaout.h $(INCDIR)/bfdlink.h \
@@ -953,6 +973,12 @@ pe-i386.lo: pe-i386.c coff-i386.c $(INCDIR)/coff/i386.h \
 pei-i386.lo: pei-i386.c coff-i386.c $(INCDIR)/coff/i386.h \
   $(INCDIR)/coff/internal.h $(INCDIR)/coff/pe.h libcoff.h \
   $(INCDIR)/bfdlink.h coffcode.h peicode.h
+pe-mcore.lo: pe-mcore.c coff-mcore.c $(INCDIR)/coff/mcore.h \
+  $(INCDIR)/coff/internal.h $(INCDIR)/coff/pe.h libcoff.h \
+  $(INCDIR)/bfdlink.h coffcode.h peicode.h
+pei-mcore.lo: pei-mcore.c coff-mcore.c $(INCDIR)/coff/mcore.h \
+  $(INCDIR)/coff/internal.h $(INCDIR)/coff/pe.h libcoff.h \
+  $(INCDIR)/bfdlink.h coffcode.h peicode.h
 pe-ppc.lo: pe-ppc.c coff-ppc.c $(INCDIR)/coff/powerpc.h \
   $(INCDIR)/coff/internal.h $(INCDIR)/coff/pe.h libcoff.h \
   $(INCDIR)/bfdlink.h coffcode.h peicode.h
@@ -1020,7 +1046,7 @@ elf64-sparc.lo: elf64-sparc.c elf-bfd.h $(INCDIR)/elf/common.h \
   elf64-target.h
 elf64.lo: elf64.c elfcode.h $(INCDIR)/bfdlink.h elf-bfd.h \
   $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h \
-  $(INCDIR)/fnmatch.h elfcore.h elflink.h
+  elfcore.h elflink.h
 nlm32-alpha.lo: nlm32-alpha.c $(INCDIR)/nlm/alpha-ext.h \
   libnlm.h $(INCDIR)/nlm/common.h $(INCDIR)/nlm/internal.h \
   $(INCDIR)/nlm/external.h nlmswap.h nlm-target.h
@@ -1033,5 +1059,7 @@ irix-core.lo: irix-core.c
 lynx-core.lo: lynx-core.c
 osf-core.lo: osf-core.c
 sco5-core.lo: sco5-core.c libaout.h $(INCDIR)/bfdlink.h
+trad-core.lo: trad-core.c libaout.h $(INCDIR)/bfdlink.h \
+  hosts/i386linux.h
 cisco-core.lo: cisco-core.c
 # IF YOU PUT ANYTHING HERE IT WILL GO AWAY

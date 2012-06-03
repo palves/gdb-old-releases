@@ -539,6 +539,17 @@ print_insn_hppa (memaddr, info)
 		case 'o':
 		  fput_const (GET_FIELD (insn, 6, 20), info);
 		  break;
+		case '3':
+		  {
+		    int reg = GET_FIELD (insn, 21, 22);
+		    reg |= GET_FIELD (insn, 16, 18) << 2;
+		    if (GET_FIELD (insn, 23, 23) != 0)
+		      fput_fp_reg_r (reg, info);
+		    else
+		      fput_fp_reg (reg, info);
+		    break;
+		  }
+
 		case '2':
 		  fput_const ((GET_FIELD (insn, 6, 22) << 5 |
 			       GET_FIELD (insn, 27, 31)), info);

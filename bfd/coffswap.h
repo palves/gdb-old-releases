@@ -288,6 +288,9 @@ coff_swap_filehdr_in (abfd, src, dst)
   filehdr_dst->f_nsyms = bfd_h_get_32(abfd, (bfd_byte *)filehdr_src-> f_nsyms);
   filehdr_dst->f_opthdr = bfd_h_get_16(abfd, (bfd_byte *)filehdr_src-> f_opthdr);
   filehdr_dst->f_flags = bfd_h_get_16(abfd, (bfd_byte *)filehdr_src-> f_flags);
+#ifdef TIC80_TARGET_ID
+  filehdr_dst->f_target_id = bfd_h_get_16(abfd, (bfd_byte *)filehdr_src-> f_target_id);
+#endif
 
 #ifdef COFF_ADJUST_FILEHDR_IN_POST
   COFF_ADJUST_FILEHDR_IN_POST (abfd, src, dst);
@@ -314,6 +317,9 @@ coff_swap_filehdr_out (abfd, in, out)
   bfd_h_put_32(abfd, filehdr_in->f_nsyms, (bfd_byte *) filehdr_out->f_nsyms);
   bfd_h_put_16(abfd, filehdr_in->f_opthdr, (bfd_byte *) filehdr_out->f_opthdr);
   bfd_h_put_16(abfd, filehdr_in->f_flags, (bfd_byte *) filehdr_out->f_flags);
+#ifdef TIC80_TARGET_ID
+  bfd_h_put_16(abfd, filehdr_in->f_target_id, (bfd_byte *) filehdr_out->f_target_id);
+#endif
 
 #ifdef COFF_ADJUST_FILEHDR_OUT_POST
   COFF_ADJUST_FILEHDR_OUT_POST (abfd, in, out);

@@ -77,6 +77,7 @@ Mon Dec 15 16:11:22 1997  Fred Fish  <fnf@cygnus.com>
 	* coffcode.h (ALIGN_SECTIONS_IN_FILE): Define if I960 not defined.
 	(coff_compute_section_file_positions): Use ALIGN_SECTIONS_IN_FILE
 	to decide when to align the file sections for paging.
+	* coffcode.h (ALIGN_SECTIONS_IN_FILE): Undefine for TIC80COFF.
 
 Mon Dec 15 15:01:15 1997  Nick Clifton  <nickc@cygnus.com>
 
@@ -816,6 +817,12 @@ Mon Aug 25 12:08:13 1997  Ian Lance Taylor  <ian@cygnus.com>
 	* mipsbsd.c (aout_mips_little_vec): Likewise.
 	(aout_mips_big_vec): Likewise.
 
+Tue Aug 19 10:09:10 1997  Fred Fish  <fnf@cygnus.com>
+
+	* coff-tic80.c (COFF_ALIGN_IN_SFLAGS): Define to 1.
+	* coffcode.h (styp_to_sec_flags): Ignore incoming STYP_INFO
+	bit in s_flags if COFF_ALIGN_IN_S_FLAGS is defined.
+
 Tue Aug 19 08:47:17 1997  Fred Fish  <fnf@cygnus.com>
 
 	* coff-i960.c (COFF_ALIGN_IN_SECTION_HEADER): Define to 1.
@@ -830,6 +837,11 @@ Tue Aug 19 08:47:17 1997  Fred Fish  <fnf@cygnus.com>
 	(coff_swap_scnhdr_in): Use GET_SCNHDR_FLAGS, GET_SCNHDR_NRELOC,
 	GET_SCNHDR_NLNNO, and GET_SCNHDR_ALIGN.
 	(coff_swap_scnhdr_out): Use PUT_SCNHDR_FLAGS, PUT_SCNHDR_ALIGN.
+	* Makefile.in (coff-tic80.o): Depends upon coffswap.h.
+	* coff-tic80.c (COFF_ALIGN_IN_SECTION_HEADER): Define to 1.
+	(GET_SCNHDR_FLAGS, PUT_SCNHDR_FLAGS): Define
+	* coffcode.h (coff_write_object_contents): Set alignment field in
+ 	section header for TIC80COFF files.
 
 Mon Aug 18 11:36:19 1997  Nick Clifton  <nickc@cygnus.com>
 
@@ -1098,6 +1110,14 @@ Mon Jul 14 15:33:55 1997  Ian Lance Taylor  <ian@cygnus.com>
 	including a section in a segment would force us to skip a page,
 	align the address of the next segment to avoid wraparound
 	problems.
+
+Tue Jul  8 12:11:29 1997  Fred Fish  <fnf@cygnus.com>
+
+	* coffcode.h (coff_write_object_contents): Initialize
+ 	target id field to TIC80_TARGET_ID.
+	* coffswap.h (coff_swap_filehdr_out): Swap out target id field
+ 	if used.
+	(coff_swap_filehdr_in): Swap in target id field if used.
 
 Mon Jul  7 16:41:20 1997  Ian Lance Taylor  <ian@cygnus.com>
 
@@ -1421,6 +1441,31 @@ Fri May 23 15:14:58 1997  Fred Fish  <fnf@cygnus.com>
 	(_bfd_coff_write_global_sym): If doing task linking, convert
 	global variables to static.
 	(_bfd_coff_write_task_globals): New function.
+	* coff-tic80.c (TIC80COFF): Define this instead of just TIC80.
+	(C_AUTOARG): #undef since it clashes with C_UEXT.
+	(C_LASTENT): #undef since it clashes with C_STATLAB.
+	* coffcode.h (coff_write_object_contents): Use TIC80COFF
+	rather than TIC80.
+	(coff_slurp_symbol_table): Use C_SYSTEM.  Hide C_AUTOARG use
+	when TIC80COFF defined (clashes with C_UEXT).  Explicitly
+	recognize C_UEXT, C_STATLAB, and C_EXTLAB as unsupported.
+
+Fri May 23 12:38:24 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* coff-tic80.c (tic80_howto_table): Change overflow check for most
+	PP relocations to complain_overflow_dont.
+
+Thu May 22 20:22:14 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* coff-tic80.c (tic80_howto_table): Add PP relocations.  Change
+	name of R_RELLONG to "RELLONG".  Set rightshift and complain for
+	M_PPCR.
+	(ppbase_reloc, glob15_reloc): New static functions.
+	(glob16_reloc, local16_reloc): New static functions.
+	(rtype2howto): Handle all relocation types.
+	(coff_tic80_relocate_section): New static function.
+	(coff_relocate_section): Define to coff_tic80_relocate_section.
+	* Makefile.in (coff-tic80.o): Depends upon include/coff/tic80.h.
 
 Wed May 21 17:15:50 1997  Ian Lance Taylor  <ian@cygnus.com>
 
@@ -1448,6 +1493,16 @@ Tue May 20 18:45:26 1997  Ian Lance Taylor  <ian@cygnus.com>
 
 	* coff-sh.c (sh_merge_private_data): New static function.
 	(coff_bfd_merge_private_bfd_data): Define.
+
+Mon May 19 14:46:00 1997  Mark Alexander  <marka@cygnus.com>
+
+	* coff-tic80.c: Remove unnecessary #ifdefs.
+	* config.bfd: Set targ_underscore to yes for tic80.
+
+Mon May 19 14:26:36 1997  Mark Alexander  <marka@cygnus.com>
+
+	* coff-tic80.c (NAMES_HAVE_UNDERSCORE): Define (fixes problem
+	with unresolved external symbols in GDB).
 
 Fri May 16 10:23:03 1997  Jeffrey A Law  (law@cygnus.com)
 
@@ -1903,6 +1958,12 @@ Tue Mar 25 14:35:37 1997  Ian Lance Taylor  <ian@cygnus.com>
 	* libbfd-in.h (_bfd_write_section_stabs): Update declaration.
 	* libbfd.h: Rebuild.
 
+Mon Mar 24 20:07:29 1997  Fred Fish  <fnf@cygnus.com>
+
+	* coff-tic80.c (tic80_howto_table): Add R_ABS entry.
+	(rtype2howto): Handle R_ABS reloc type.  Also abort on unhandled
+	reloc types, rather than silently failing to generate an output file.
+
 Mon Mar 24 13:41:00 1997  Ian Lance Taylor  <ian@cygnus.com>
 
 	* targmatch.sed: Use the hold space to put the #ifdef around the
@@ -2070,6 +2131,12 @@ Fri Mar 14 16:43:22 1997  Ian Lance Taylor  <ian@cygnus.com>
 	* elfcode.h (elf_slurp_symbol_table): Don't try to read the
 	version symbols if there aren't any.
 
+Thu Mar 13 16:38:30 1997  Fred Fish  <fnf@cygnus.com>
+
+	* coff-tic80.c (coff_rtype_to_howto): Define
+	(coff_tic80_rtype_to_howto): Clone generic coff version and
+	add code to handle the funky TI "internal relocations".
+
 Thu Mar 13 14:08:53 1997  Ian Lance Taylor  <ian@cygnus.com>
 
 	* elflink.h (elf_link_add_object_symbols): Don't warn about type
@@ -2188,6 +2255,9 @@ Thu Mar  6 13:51:51 1997  Jeffrey A Law  (law@cygnus.com)
 
 Thu Mar  6 12:19:59 1997  Fred Fish  <fnf@cygnus.com>
 
+	* coff-tic80.c (rtype2howto): If passed a relocation type we don't
+	understand, just set the howto field to NULL, and the caller will
+	print an appropriate error message.
 	* coffcode.h (coff_slurp_reloc_table): Pull duplicate declarations and
 	code fragment out of both legs of #ifdef RELOC_PROCESSING ... #endif
 	block.  Use NULL for initializations of "ptr" rather than bare 0.
@@ -2209,11 +2279,20 @@ Mon Mar  3 13:27:09 1997  Ulrich Drepper  <drepper@rtl.cygnus.com>
 	Use correct braces for computing increments of extverdaux and
 	exteverdef record pointers.
 
+Sun Mar  2 22:47:54 1997  Fred Fish  <fnf@cygnus.com>
+
+	* coff-tic80.c (COFF_DEFAULT_SECTION_ALIGNMENT_POWER): Set this to 2
+	instead of 4.
+
 Sun Mar  2 16:25:35 1997  Ian Lance Taylor  <ian@cygnus.com>
 
 	* elflink.h (elf_link_find_version_dependencies): Check that
 	DEF_REGULAR is not set as well as checking that DEF_DYNAMIC is
 	set.
+
+Fri Feb 28 16:52:40 1997  Fred Fish  <fnf@cygnus.com>
+
+	* coffcode.h (coff_set_flags): Add case for TIC80_ARCH_MAGIC.
 
 Fri Feb 28 15:06:45 1997  Ian Lance Taylor  <ian@cygnus.com>
 
@@ -2427,6 +2506,9 @@ Tue Feb 18 15:31:48 1997  Fred Fish  <fnf@cygnus.com>
 
 	* reloc.c (struct reloc_howto_struct): Fix typo in comment.
 	* bfd-in2.h: Regenerated.
+	* coff-tic80.c (RTYPE2HOWTO): Replace abort with real function.
+	(rtype2howto): Add function.
+	(tic80_howto_table): Add.
 
 Tue Feb 18 11:41:00 1997  Dawn Perchik  <dawn@cygnus.com>
 
@@ -2586,6 +2668,18 @@ Mon Jan 27 12:25:02 1997  Ian Lance Taylor  <ian@cygnus.com>
 	* elf32-sparc.c (elf32_sparc_size_dynamic_sections): Likewise.
 	* elf64-alpha.c (elf64_alpha_size_dynamic_sections): Likewise.
 
+Wed Jan 22 15:40:28 1997  Fred Fish  <fnf@cygnus.com>
+
+	* coff-tic80.c (tic80coff_vec): Use correct data put/get
+	routines for little endian data.
+	* coffcode.h (coff_write_object_contents): Set magic to
+ 	TIC80_ARCH_MAGIC for TIc80.
+
+Tue Jan 21 12:32:43 1997  Fred Fish  <fnf@cygnus.com>
+
+	* coff-tic80.c (tic80coff_vec): Change to little endian data
+	as the default.
+
 Thu Jan 16 17:45:57 1997  Ian Lance Taylor  <ian@cygnus.com>
 
 	* elflink.h (NAME(bfd_elf,size_dynamic_sections)): Change type of
@@ -2607,6 +2701,10 @@ Tue Jan 14 08:46:33 1997  Doug Evans  <dje@canuck.cygnus.com>
 
 	* libaout.h (machine_type): Reserve several values for sparclet.
 
+Mon Jan 13 22:39:08 1997  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* config.bfd (tic80-*-*): Don't require 'coff'.
+
 Mon Jan 13 19:36:25 1997  Michael Meissner  <meissner@tiktok.cygnus.com>
 
 	* elf32-v850.c (v850_elf_howto_table): Set the special_function
@@ -2625,6 +2723,15 @@ Mon Jan  6 13:28:35 1997  Jeffrey A Law  (law@cygnus.com)
 
 	* elf32-mn10200.c (elf_mn10200_howto): Set pcrel_offset for
 	24bit pc-relative reloc.
+
+Fri Jan  3 16:33:00 1997  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (coff-tic80.o): Add coffcode.h to dependency list.
+	* coff-tic80.c (tic80coff_vec): Data byte order is big endian and
+	header byte order is little endian.  Use correct bfd_get and
+	bfd_put routines for little endian headers.
+	* coffcode.h (coff_set_arch_mach_hook): Set arch to
+	bfd_arch_tic80 for TIC80_ARCH_MAGIC number.
 
 Fri Jan  3 16:54:08 1997  Jeffrey A Law  (law@cygnus.com)
 
@@ -2716,14 +2823,46 @@ Mon Dec 30 18:48:52 1996  Ian Lance Taylor  <ian@cygnus.com>
 	symbols, don't export a symbol which is defined by an object in an
 	archive which contains shared objects.
 
+Mon Dec 30 16:12:58 1996  Fred Fish  <fnf@cygnus.com>
+
+	* archures.c (enum bfd_architecture): Add bfd_arch_tic80
+	for TI TMS320c80 (MVP).
+	(bfd_archures_list): Add bfd_tic80_arch.
+	* bfd-in2.h: Regenerate by running "make headers".
+
+Sun Dec 29 16:18:52 1996  Fred Fish  <fnf@cygnus.com>
+
+	* cpu-tic80.c (bfd_tic80_arch): Add struct.
+	* configure.in (case $vec): Correct typo, "tb" not "tp".
+	Also add cofflink.o for tic80coff_vec.
+	* configure: Regenerate with autoconf.
+
 Mon Dec 30 11:54:56 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* libbfd.c: Patch up the mmap code so that it is only built if BFD
 	is configured with --with-mmap.
 
+Sun Dec 29 10:48:57 1996  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (BFD32_BACKENDS): Add coff-tic80.o
+	(ALL_MACHINES): Add cpu-tic80.o
+	(cpu-tic80.o, coff-tic80.o): Add dependencies.
+	* coff-tic80.c: Add skeleton, cloned from another coff config.
+	* coffcode.h (coff_write_object_contents): Set magic to TIC80MAGIC
+ 	for TIc80.
+
 Fri Dec 27 20:56:41 1996  Fred Fish  <fnf@cygnus.com>
 
 	* TODO: Correct a misspelling.
+	* coff-tic80.c: New file for TI TMS320C80 (MVP).
+	* cpu-tic80.c: New file for TI TMS320C80 (MVP).
+	* configure.in (case $vec): Add tic80coff_vec entry.
+	* configure: Regenerate with autoconf.
+	* archures.c (bfd_tic80_arch): Declare.
+	* bfd-in2.h (enum bfd_architecture): Add bfd_arch_tic80.
+	* config.bfd (case ${targ}): Add tic80*-*-coff* target.
+	* targets.c (tic80coff_vec): Add decl as extern bfd_target.
+	(bfd_target_vector): Add tic80coff_vec entry.
 
 Fri Dec 27 11:48:12 1996  H.J. Lu  <hjl@lucon.org>
 

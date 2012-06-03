@@ -115,7 +115,7 @@ CFILES = asprintf.c alloca.c argv.c atexit.c basename.c bcmp.c bcopy.c \
 	bzero.c choose-temp.c clock.c concat.c cplus-dem.c fdmatch.c \
 	fnmatch.c getcwd.c getopt.c getopt1.c getpagesize.c \
 	getruntime.c floatformat.c hex.c index.c insque.c memchr.c \
-	memcmp.c memcpy.c memmove.c memset.c mkstemp.c objalloc.c obstack.c \
+	memcmp.c memcpy.c memmove.c memset.c mkstemps.c objalloc.c obstack.c \
 	pexecute.c random.c rename.c rindex.c sigsetmask.c spaces.c \
 	splay-tree.c strcasecmp.c strncasecmp.c strchr.c strdup.c strerror.c \
 	strrchr.c strsignal.c strstr.c strtod.c strtol.c strtoul.c \
@@ -125,7 +125,7 @@ CFILES = asprintf.c alloca.c argv.c atexit.c basename.c bcmp.c bcopy.c \
 # These are always included in the library.
 REQUIRED_OFILES = argv.o choose-temp.o concat.o cplus-dem.o \
   fdmatch.o fnmatch.o getopt.o getopt1.o getruntime.o hex.o \
-  floatformat.o mkstemp.o objalloc.o obstack.o pexecute.o spaces.o \
+  floatformat.o objalloc.o obstack.o pexecute.o spaces.o \
   splay-tree.o strerror.o strsignal.o xatexit.o xexit.o xmalloc.o \
   xstrdup.o xstrerror.o
 
@@ -232,7 +232,7 @@ getpagesize.o: config.h
 getruntime.o: config.h $(INCDIR)/libiberty.h
 hex.o: $(INCDIR)/libiberty.h
 floatformat.o: $(INCDIR)/floatformat.h
-mkstemp.o: config.h
+mkstemps.o: config.h
 objalloc.o: $(INCDIR)/objalloc.h
 obstack.o: config.h $(INCDIR)/obstack.h
 pexecute.o: config.h $(INCDIR)/libiberty.h
@@ -243,5 +243,5 @@ strsignal.o: config.h $(INCDIR)/libiberty.h
 xatexit.o: $(INCDIR)/libiberty.h
 xexit.o: $(INCDIR)/libiberty.h
 xmalloc.o: $(INCDIR)/libiberty.h
-xstrdup.o: $(INCDIR)/libiberty.h
+xstrdup.o: config.h $(INCDIR)/libiberty.h
 xstrerror.o: config.h $(INCDIR)/libiberty.h

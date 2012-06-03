@@ -1,5 +1,5 @@
 /* SPARC-specific support for 64-bit ELF
-   Copyright (C) 1993, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1993, 95, 96, 97, 98, 1999 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -137,7 +137,7 @@ static reloc_howto_type sparc64_elf_howto_table[] =
 };
 
 struct elf_reloc_map {
-  unsigned char bfd_reloc_val;
+  bfd_reloc_code_real_type bfd_reloc_val;
   unsigned char elf_reloc_val;
 };
 
@@ -1097,15 +1097,7 @@ sparc64_elf_size_dynamic_sections (output_bfd, info)
 
       if (strip)
 	{
-	  asection **spp;
-
-	  for (spp = &s->output_section->owner->sections;
-	       *spp != s->output_section;
-	       spp = &(*spp)->next)
-	    ;
-	  *spp = s->output_section->next;
-	  --s->output_section->owner->section_count;
-
+	  _bfd_strip_section_from_output (s);
 	  continue;
 	}
 
@@ -1397,7 +1389,7 @@ sparc64_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 	    }
 	  else if (h->root.type == bfd_link_hash_undefweak)
 	    relocation = 0;
-	  else if (info->shared && !info->symbolic)
+	  else if (info->shared && !info->symbolic && !info->no_undefined)
 	    relocation = 0;
 	  else
 	    {
@@ -1755,6 +1747,7 @@ sparc64_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 
 	    r = bfd_check_overflow (howto->complain_on_overflow,
 				    howto->bitsize, howto->rightshift,
+				    bfd_arch_bits_per_address (input_bfd),
 				    relocation);
 	  }
 	  break;
@@ -1776,6 +1769,7 @@ sparc64_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 
 	    r = bfd_check_overflow (howto->complain_on_overflow,
 				    howto->bitsize, howto->rightshift,
+				    bfd_arch_bits_per_address (input_bfd),
 				    relocation);
 	  }
 	  break;
@@ -1793,6 +1787,7 @@ sparc64_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 
 	    r = bfd_check_overflow (howto->complain_on_overflow,
 				    howto->bitsize, howto->rightshift,
+				    bfd_arch_bits_per_address (input_bfd),
 				    relocation);
 	  }
 	  break;

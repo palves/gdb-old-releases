@@ -14,8 +14,7 @@
 ## For more information on these two systems, check out the documentation
 ## for 'Autoconf' (autoconf.texi) and 'Configure' (configure.texi).  
 
-#   Copyright (C) 1992, 93, 94, 95, 96, 97, 98, 1999
-#   Free Software Foundation, Inc.
+#   Copyright (C) 1992, 93, 94, 95, 96, 97, 1998, 1999 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -51,7 +50,7 @@ fi
 # these tools are built for the host environment
 # Note, the powerpc-eabi build depends on sim occurring before gdb in order to
 # know that we are building the simulator.
-host_tools="byacc flex bison binutils ld gas gcc sim gdb make patch prms send-pr gprof gdbtest tgas etc expect dejagnu ash bash bzip2 m4 autoconf automake libtool ispell grep diff rcs cvssrc fileutils shellutils time textutils wdiff find emacs emacs19 uudecode hello tar gzip indent recode release sed utils guile perl apache inet gawk findutils snavigator libtool gettext zip"
+host_tools="texinfo byacc flex bison binutils ld gas gcc sim gdb make patch prms send-pr gprof gdbtest tgas etc expect dejagnu ash bash bzip2 m4 autoconf automake libtool ispell grep diff rcs cvssrc fileutils shellutils time textutils wdiff find emacs emacs19 uudecode hello tar gzip indent recode release sed utils guile perl apache inet gawk findutils snavigator libtool gettext zip"
 
 # these libraries are built for the target environment, and are built after
 # the host libraries and the host tools (which may be a cross compiler)
@@ -185,17 +184,17 @@ case "${host}" in
   i[3456]86-*-aix*)
     host_makefile_frag="${host_makefile_frag} config/mh-aix386"
     ;;
-  i[3456]86-*-go32*)
-    host_makefile_frag="${host_makefile_frag} config/mh-go32"
-    ;;
   i[3456]86-*-msdosdjgpp*)
-    host_makefile_frag="${host_makefile_frag} config/mh-go32"
+    host_makefile_frag="${host_makefile_frag} config/mh-djgpp"
     ;;
   *-cygwin*)
     host_makefile_frag="${host_makefile_frag} config/mh-cygwin"
     ;;
   *-mingw32*)
     host_makefile_frag="${host_makefile_frag} config/mh-mingw32"
+    ;;
+  *-interix*)
+    host_makefile_frag="${host_makefile_frag} config/mh-interix"
     ;;
   *-windows*)
     host_makefile_frag="${host_makefile_frag} config/mh-windows"
@@ -277,25 +276,31 @@ esac
 
 if [ x${shared} = xyes ]; then
   case "${host}" in
-    hppa*)
+    alpha*-*-linux*)
+      host_makefile_frag="${host_makefile_frag} config/mh-elfalphapic"
+      ;;
+    arm*-*-*)
+      host_makefile_frag="${host_makefile_frag} config/mh-armpic"
+      ;;
+    hppa*-*-*)
       host_makefile_frag="${host_makefile_frag} config/mh-papic"
       ;;
     i[3456]86-*-cygwin*)
       # We don't want -fPIC on Cygwin.
       ;;
-    i[3456]86-*)
+    i[3456]86-*-*)
       host_makefile_frag="${host_makefile_frag} config/mh-x86pic"
       ;;
-    sparc64-*)
+    sparc64-*-*)
       host_makefile_frag="${host_makefile_frag} config/mh-sparcpic"
       ;;
-    powerpc*-*)
+    powerpc*-*-aix*)
+      # We don't want -fPIC on AIX.
+      ;;
+    powerpc*-*-*)
       host_makefile_frag="${host_makefile_frag} config/mh-ppcpic"
       ;;
-    alpha*-*-linux*)
-      host_makefile_frag="${host_makefile_frag} config/mh-elfalphapic"
-      ;;
-    *)
+    *-*-*)
       if test -f ${srcdir}/config/mh-${host_cpu}pic; then
         host_makefile_frag="${host_makefile_frag} config/mh-${host_cpu}pic"
       fi
@@ -337,7 +342,10 @@ case "${enable_target_optspace}:${target}" in
     target_makefile_frag="${target_makefile_frag} config/mt-ospace"
     ;;
   # CYGNUS LOCAL d10v, d30v, fr30
-  :m32r-* | :d10v-* | :d30v-* | :fr30-*)
+  :d30v-*)
+    target_makefile_frag="${target_makefile_frag} config/mt-d30v"
+    ;;
+  :m32r-* | :d10v-* | :fr30-*)
     target_makefile_frag="${target_makefile_frag} config/mt-ospace"
     ;;
   no:* | :*)
@@ -517,14 +525,11 @@ case "${host}" in
     # noconfigdirs="tcl tk expect dejagnu make texinfo bison patch flex byacc send-pr uudecode dejagnu diff guile perl apache inet itcl tix db snavigator gnuserv"
      noconfigdirs="expect dejagnu cvs autoconf automake send-pr gprof rcs guile perl texinfo apache inet libtool"
 	;;
+  i[3456]86-*-beos*)
+     noconfigdirs="$noconfigdirs tk itcl tix libgui gdb"
+     ;;
   *-*-cygwin*)
      noconfigdirs="autoconf automake send-pr gprof rcs guile perl texinfo apache inet"
-    ;;
-  *-*-windows*)
-# This is only used to build WinGDB...
-# note that powerpc-eabi depends on sim configured before gdb.
-     configdirs="bfd libiberty opcodes readline sim gdb"
-     target_configdirs=
     ;;
   *-*-netbsd*)
     noconfigdirs="rcs"
@@ -572,18 +577,18 @@ case "${target}" in
     ;;
   arm-*-coff*)
     noconfigdirs="$noconfigdirs target-libgloss"
+    if [ x${is_cross_compiler} != xno ] ; then
+	   target_configdirs="${target_configdirs} target-bsp target-cygmon"
+    fi
     ;;
   arm-*-elf*)
     noconfigdirs="$noconfigdirs target-libgloss"
     if [ x${is_cross_compiler} != xno ] ; then
-	   target_configdirs="${target_configdirs} target-bsp target-libstub target-cygmon"
+	   target_configdirs="${target_configdirs} target-bsp target-cygmon"
     fi
     ;;
   arm-*-oabi*)
     noconfigdirs="$noconfigdirs target-libgloss"
-    if [ x${is_cross_compiler} != xno ] ; then
-	   target_configdirs="${target_configdirs} target-bsp target-libstub target-cygmon"
-    fi
     ;;
   c4x-*-*)
     noconfigdirs="$noconfigdirs target-libg++ target-libstdc++ target-libio target-librx target-libgloss"
@@ -603,11 +608,14 @@ case "${target}" in
   strongarm-*-elf)
     noconfigdirs="$noconfigdirs target-libgloss"
     if [ x${is_cross_compiler} != xno ] ; then
-	   target_configdirs="${target_configdirs} target-bsp target-libstub target-cygmon"
+	   target_configdirs="${target_configdirs} target-bsp target-cygmon"
     fi
     ;;
   strongarm-*-coff)
     noconfigdirs="$noconfigdirs target-libgloss"
+    if [ x${is_cross_compiler} != xno ] ; then
+	   target_configdirs="${target_configdirs} target-bsp target-cygmon"
+    fi
     ;;
 # END CYGNUS LOCAL
   thumb-*-pe) # CYGNUS LOCAL nickc/thumb
@@ -617,7 +625,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs ld target-libgloss"
     ;;
   d10v-*-*)
-    noconfigdirs="$noconfigdirs target-librx target-libg++ target-libstdc++ target-libio target-libgloss"
+    noconfigdirs="$noconfigdirs target-librx target-libg++ target-libstdc++ target-libio"
     ;;
 # CYGNUS LOCAL d30v
   d30v-*-*)
@@ -708,9 +716,17 @@ case "${target}" in
     # but that's okay since emacs doesn't work anyway
     noconfigdirs="$noconfigdirs emacs emacs19 target-libgloss"
     ;;
-  m68k-*-*)
+  i[3456]86-*-beos*)
+     noconfigdirs="$noconfigdirs gdb target-newlib target-libgloss"
+     ;;
+  m68k-*-elf*)
     if [ x${is_cross_compiler} != xno ] ; then
-	   target_configdirs="${target_configdirs} target-bsp target-libstub target-cygmon"
+	   target_configdirs="${target_configdirs} target-bsp target-cygmon"
+    fi
+    ;;
+  m68k-*-coff*)
+    if [ x${is_cross_compiler} != xno ] ; then
+	   target_configdirs="${target_configdirs} target-bsp target-cygmon"
     fi
     ;;
   mn10200-*-*)
@@ -809,7 +825,7 @@ case "${target}" in
     ;;
   sparclite-*-*)
     if [ x${is_cross_compiler} != xno ] ; then
-	   target_configdirs="${target_configdirs} target-libstub target-cygmon"
+	   target_configdirs="${target_configdirs} target-bsp target-libstub target-cygmon"
     fi
     ;;
   sparc-*-sunos4*)
@@ -1123,10 +1139,40 @@ if [ x${with_newlib} != xno ] && echo " ${target_configdirs} " | grep " newlib "
   targargs="--with-newlib ${targargs}"
 fi
 
+# provide a proper gxx_include_dir.
+# Note, if you change the default, make sure to fix both here and in
+# the gcc, libio, libstdc++ and libg++ subdirectories.
+# Check whether --with-gxx-include-dir or --without-gxx-include-dir was given.
+gxx_include_dir=
+if test -n "${with_gxx_include_dir}"; then
+  case "${with_gxx_include_dir}" in
+    yes )
+      echo "configure.in: error: bad value ${withval} given for g++ include directory" 1>&2
+      exit 1
+      ;;
+    no )
+      ;;
+    * )
+      gxx_include_dir=${with_gxx_include_dir}
+      ;;
+  esac
+fi
+if test x${gxx_include_dir} = x; then
+  if test x${enable_version_specific_runtime_libs} = xyes; then
+    gxx_include_dir='${libsubdir}/include/g++'
+  else
+    . ${topsrcdir}/config.if
+    gxx_include_dir='${prefix}/include/g++'-${libstdcxx_interface}
+  fi
+else
+  gxx_include_dir=${gxx_include_dir}
+fi
+
 targargs="--host=${target_alias} --build=${build_alias} ${targargs}"
 sed -e "s:^TARGET_CONFIGDIRS[ 	]*=.*$:TARGET_CONFIGDIRS = ${target_configdirs}:" \
     -e "s%^CONFIG_ARGUMENTS[ 	]*=.*$%CONFIG_ARGUMENTS = ${targargs}%" \
     -e "s%^TARGET_SUBDIR[ 	]*=.*$%TARGET_SUBDIR = ${target_subdir}%" \
+    -e "s%^gxx_include_dir[ 	]*=.*$%gxx_include_dir=${gxx_include_dir}%" \
        Makefile > Makefile.tem
 rm -f Makefile
 mv -f Makefile.tem Makefile

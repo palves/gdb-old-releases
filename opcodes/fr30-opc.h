@@ -133,6 +133,18 @@ struct cgen_fields
   long f_reglist_low_ld;
 };
 
+#define CGEN_INIT_PARSE(od) \
+{\
+}
+#define CGEN_INIT_INSERT(od) \
+{\
+}
+#define CGEN_INIT_EXTRACT(od) \
+{\
+}
+#define CGEN_INIT_PRINT(od) \
+{\
+}
 
 
 #endif /* FR30_OPC_H */

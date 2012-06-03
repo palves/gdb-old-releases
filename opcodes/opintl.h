@@ -1,5 +1,5 @@
 /* opintl.h - opcodes specific header for gettext code.
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
 
    Written by Tom Tromey <tromey@cygnus.com>
 
@@ -27,8 +27,4 @@
 # define bindtextdomain(Domain,Directory) (Domain)
 # define _(String) (String)
 # define N_(String) (String)
-/* In this case we don't care about the value.  */
-# ifndef LC_MESSAGES
-#  define LC_MESSAGES 0
-# endif
 #endif

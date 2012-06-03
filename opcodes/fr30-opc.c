@@ -175,7 +175,7 @@ static const CGEN_OPCODE fr30_cgen_insn_opcode_table[MAX_INSNS] =
   /* Special null first entry.
      A `num' value of zero is thus invalid.
      Also, the special `invalid' insn resides here.  */
-  { { 0 }, 0 },
+  { { 0 } },
 /* add $Rj,$Ri */
   {
     { 0, 0, 0, 0 },
@@ -1193,7 +1193,7 @@ static const CGEN_IFMT ifmt_ldi32m = {
 
 /* Each non-simple macro entry points to an array of expansion possibilities.  */
 
-#define A(a) (1 << (CONCAT2 (CGEN_INSN_,a) - CGEN_ATTR_BOOL_OFFSET))
+#define A(a) (1 << CONCAT2 (CGEN_INSN_,a))
 #define MNEM CGEN_SYNTAX_MNEMONIC /* syntax value for mnemonic */
 #define OPERAND(op) CONCAT2 (FR30_OPERAND_,op)
 #define OP(field) CGEN_SYNTAX_MAKE_FIELD (OPERAND (field))
@@ -1205,17 +1205,17 @@ static const CGEN_IBASE fr30_cgen_macro_insn_table[] =
 /* ldi8 $i8,$Ri */
   {
     -1, "ldi8m", "ldi8", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* ldi20 $i20,$Ri */
   {
     -1, "ldi20m", "ldi20", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* ldi32 $i32,$Ri */
   {
     -1, "ldi32m", "ldi32", 48,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 };
 
@@ -1288,12 +1288,12 @@ dis_hash_insn_p (insn)
 
 /* It doesn't make much sense to provide a default here,
    but while this is under development we do.
-   BUFFER is a pointer to the bytes of the insn.
-   VALUE is the first CGEN_BASE_INSN_SIZE bytes as an int in host order.  */
+   BUFFER is a pointer to the bytes of the insn, target order.
+   VALUE is the first base_insn_bitsize bits as an int in host order.  */
 
 #ifndef CGEN_DIS_HASH
 #define CGEN_DIS_HASH_SIZE 256
-#define CGEN_DIS_HASH(buffer, value) (*(unsigned char *) (buffer))
+#define CGEN_DIS_HASH(buf, value) (*(unsigned char *) (buf))
 #endif
 
 /* The result is the hash value of the insn.
@@ -1306,9 +1306,8 @@ asm_hash_insn (mnem)
   return CGEN_ASM_HASH (mnem);
 }
 
-/* BUF is a pointer to the insn's bytes in target order.
-   VALUE is an integer of the first CGEN_BASE_INSN_BITSIZE bits,
-   host order.  */
+/* BUF is a pointer to the bytes of the insn, target order.
+   VALUE is the first base_insn_bitsize bits as an int in host order.  */
 
 static unsigned int
 dis_hash_insn (buf, value)

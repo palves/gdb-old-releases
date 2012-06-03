@@ -129,6 +129,7 @@ funcs="$funcs memcmp"
 funcs="$funcs memcpy"
 funcs="$funcs memmove"
 funcs="$funcs memset"
+funcs="$funcs mkstemps"
 funcs="$funcs random"
 funcs="$funcs rename"
 funcs="$funcs rindex"
@@ -159,7 +160,7 @@ checkfuncs="getrusage on_exit psignal strerror strsignal sysconf times"
 # autoheader happy without adding a bunch of text to acconfig.h.
 if test "x" = "y"; then
   AC_CHECK_FUNCS(asprintf atexit basename bcmp bcopy bzero calloc clock getcwd)
-  AC_CHECK_FUNCS(getpagesize index insque memchr memcmp memcpy memmove)
+  AC_CHECK_FUNCS(getpagesize index insque mkstemps memchr memcmp memcpy memmove)
   AC_CHECK_FUNCS(memset random rename rindex sigsetmask strcasecmp)
   AC_CHECK_FUNCS(strchr strdup strncasecmp strrchr strstr strtod strtol)
   AC_CHECK_FUNCS(strtoul tmpnam vasprintf vfprintf vprintf vsprintf waitpid)
@@ -273,6 +274,13 @@ if test -z "${setobjs}"; then
     vars="`echo $vars | sed -e 's/sys_nerr//' -e 's/sys_errlist//'`"
     AC_DEFINE(HAVE_SYS_NERR)
     AC_DEFINE(HAVE_SYS_ERRLIST)
+    ;;
+
+  *-*-uwin*)
+    # Under some versions of uwin, vfork is notoriously buggy and the test 
+    # can hang configure; on other versions, vfork exists just as a stub.
+    # FIXME: This should be removed once vfork in uwin's runtime is fixed.
+    ac_cv_func_vfork_works=no
     ;;
 
   esac

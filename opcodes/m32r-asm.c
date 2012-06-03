@@ -220,64 +220,8 @@ m32r_cgen_parse_operand (cd, opindex, strp, fields)
 
   switch (opindex)
     {
-    case M32R_OPERAND_SR :
-      errmsg = cgen_parse_keyword (cd, strp, & m32r_cgen_opval_h_gr, & fields->f_r2);
-      break;
-    case M32R_OPERAND_DR :
-      errmsg = cgen_parse_keyword (cd, strp, & m32r_cgen_opval_h_gr, & fields->f_r1);
-      break;
-    case M32R_OPERAND_SRC1 :
-      errmsg = cgen_parse_keyword (cd, strp, & m32r_cgen_opval_h_gr, & fields->f_r1);
-      break;
-    case M32R_OPERAND_SRC2 :
-      errmsg = cgen_parse_keyword (cd, strp, & m32r_cgen_opval_h_gr, & fields->f_r2);
-      break;
-    case M32R_OPERAND_SCR :
-      errmsg = cgen_parse_keyword (cd, strp, & m32r_cgen_opval_h_cr, & fields->f_r2);
-      break;
     case M32R_OPERAND_DCR :
-      errmsg = cgen_parse_keyword (cd, strp, & m32r_cgen_opval_h_cr, & fields->f_r1);
-      break;
-    case M32R_OPERAND_SIMM8 :
-      errmsg = cgen_parse_signed_integer (cd, strp, M32R_OPERAND_SIMM8, &fields->f_simm8);
-      break;
-    case M32R_OPERAND_SIMM16 :
-      errmsg = cgen_parse_signed_integer (cd, strp, M32R_OPERAND_SIMM16, &fields->f_simm16);
-      break;
-    case M32R_OPERAND_UIMM4 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, M32R_OPERAND_UIMM4, &fields->f_uimm4);
-      break;
-    case M32R_OPERAND_UIMM5 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, M32R_OPERAND_UIMM5, &fields->f_uimm5);
-      break;
-    case M32R_OPERAND_UIMM16 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, M32R_OPERAND_UIMM16, &fields->f_uimm16);
-      break;
-    case M32R_OPERAND_HASH :
-      errmsg = parse_hash (cd, strp, M32R_OPERAND_HASH, &fields->f_nil);
-      break;
-    case M32R_OPERAND_HI16 :
-      errmsg = parse_hi16 (cd, strp, M32R_OPERAND_HI16, &fields->f_hi16);
-      break;
-    case M32R_OPERAND_SLO16 :
-      errmsg = parse_slo16 (cd, strp, M32R_OPERAND_SLO16, &fields->f_simm16);
-      break;
-    case M32R_OPERAND_ULO16 :
-      errmsg = parse_ulo16 (cd, strp, M32R_OPERAND_ULO16, &fields->f_uimm16);
-      break;
-    case M32R_OPERAND_UIMM24 :
-      {
-        bfd_vma value;
-        errmsg = cgen_parse_address (cd, strp, M32R_OPERAND_UIMM24, 0, NULL,  & value);
-        fields->f_uimm24 = value;
-      }
-      break;
-    case M32R_OPERAND_DISP8 :
-      {
-        bfd_vma value;
-        errmsg = cgen_parse_address (cd, strp, M32R_OPERAND_DISP8, 0, NULL,  & value);
-        fields->f_disp8 = value;
-      }
+      errmsg = cgen_parse_keyword (cd, strp, & m32r_cgen_opval_cr_names, & fields->f_r1);
       break;
     case M32R_OPERAND_DISP16 :
       {
@@ -292,6 +236,62 @@ m32r_cgen_parse_operand (cd, opindex, strp, fields)
         errmsg = cgen_parse_address (cd, strp, M32R_OPERAND_DISP24, 0, NULL,  & value);
         fields->f_disp24 = value;
       }
+      break;
+    case M32R_OPERAND_DISP8 :
+      {
+        bfd_vma value;
+        errmsg = cgen_parse_address (cd, strp, M32R_OPERAND_DISP8, 0, NULL,  & value);
+        fields->f_disp8 = value;
+      }
+      break;
+    case M32R_OPERAND_DR :
+      errmsg = cgen_parse_keyword (cd, strp, & m32r_cgen_opval_gr_names, & fields->f_r1);
+      break;
+    case M32R_OPERAND_HASH :
+      errmsg = parse_hash (cd, strp, M32R_OPERAND_HASH, &fields->f_nil);
+      break;
+    case M32R_OPERAND_HI16 :
+      errmsg = parse_hi16 (cd, strp, M32R_OPERAND_HI16, &fields->f_hi16);
+      break;
+    case M32R_OPERAND_SCR :
+      errmsg = cgen_parse_keyword (cd, strp, & m32r_cgen_opval_cr_names, & fields->f_r2);
+      break;
+    case M32R_OPERAND_SIMM16 :
+      errmsg = cgen_parse_signed_integer (cd, strp, M32R_OPERAND_SIMM16, &fields->f_simm16);
+      break;
+    case M32R_OPERAND_SIMM8 :
+      errmsg = cgen_parse_signed_integer (cd, strp, M32R_OPERAND_SIMM8, &fields->f_simm8);
+      break;
+    case M32R_OPERAND_SLO16 :
+      errmsg = parse_slo16 (cd, strp, M32R_OPERAND_SLO16, &fields->f_simm16);
+      break;
+    case M32R_OPERAND_SR :
+      errmsg = cgen_parse_keyword (cd, strp, & m32r_cgen_opval_gr_names, & fields->f_r2);
+      break;
+    case M32R_OPERAND_SRC1 :
+      errmsg = cgen_parse_keyword (cd, strp, & m32r_cgen_opval_gr_names, & fields->f_r1);
+      break;
+    case M32R_OPERAND_SRC2 :
+      errmsg = cgen_parse_keyword (cd, strp, & m32r_cgen_opval_gr_names, & fields->f_r2);
+      break;
+    case M32R_OPERAND_UIMM16 :
+      errmsg = cgen_parse_unsigned_integer (cd, strp, M32R_OPERAND_UIMM16, &fields->f_uimm16);
+      break;
+    case M32R_OPERAND_UIMM24 :
+      {
+        bfd_vma value;
+        errmsg = cgen_parse_address (cd, strp, M32R_OPERAND_UIMM24, 0, NULL,  & value);
+        fields->f_uimm24 = value;
+      }
+      break;
+    case M32R_OPERAND_UIMM4 :
+      errmsg = cgen_parse_unsigned_integer (cd, strp, M32R_OPERAND_UIMM4, &fields->f_uimm4);
+      break;
+    case M32R_OPERAND_UIMM5 :
+      errmsg = cgen_parse_unsigned_integer (cd, strp, M32R_OPERAND_UIMM5, &fields->f_uimm5);
+      break;
+    case M32R_OPERAND_ULO16 :
+      errmsg = parse_ulo16 (cd, strp, M32R_OPERAND_ULO16, &fields->f_uimm16);
       break;
 
     default :

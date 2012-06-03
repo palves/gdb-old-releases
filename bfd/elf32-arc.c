@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "elf/arc.h"
 
 static reloc_howto_type *bfd_elf32_bfd_reloc_type_lookup
-  PARAMS ((bfd *abfd, bfd_reloc_code_real_type code));
+ PARAMS ((bfd *abfd, bfd_reloc_code_real_type code));
 static void arc_info_to_howto_rel
   PARAMS ((bfd *, arelent *, Elf32_Internal_Rel *));
 static boolean arc_elf_object_p PARAMS ((bfd *));
@@ -103,7 +103,7 @@ static reloc_howto_type elf_arc_howto_table[] =
 
 struct arc_reloc_map
 {
-  unsigned char bfd_reloc_val;
+  bfd_reloc_code_real_type bfd_reloc_val;
   unsigned char elf_reloc_val;
 };
 

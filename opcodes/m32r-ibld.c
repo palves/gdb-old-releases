@@ -190,16 +190,17 @@ insert_normal (cd, value, attrs, word_offset, start, length, word_length,
   if (word_length > 32)
     abort ();
 
-  /* For architectures with insns smaller than the insn-base-bitsize,
+  /* For architectures with insns smaller than the base-insn-bitsize,
      word_length may be too big.  */
-#if CGEN_MIN_INSN_BITSIZE < CGEN_BASE_INSN_BITSIZE
-  if (word_offset == 0
-      && word_length > total_length)
-    word_length = total_length;
-#endif
+  if (cd->min_insn_bitsize < cd->base_insn_bitsize)
+    {
+      if (word_offset == 0
+	  && word_length > total_length)
+	word_length = total_length;
+    }
 
   /* Ensure VALUE will fit.  */
-  if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_UNSIGNED))
+  if (! CGEN_BOOL_ATTR (attrs, CGEN_IFLD_SIGNED))
     {
       unsigned long maxval = mask;
       if ((unsigned long) value > maxval)
@@ -281,7 +282,7 @@ insert_insn_normal (cd, insn, fields, buffer, pc)
 
 #else
 
-  cgen_put_insn_value (cd, buffer, min (CGEN_BASE_INSN_BITSIZE,
+  cgen_put_insn_value (cd, buffer, min (cd->base_insn_bitsize,
 					CGEN_FIELDS_BITSIZE (fields)),
 		       value);
 
@@ -299,8 +300,8 @@ insert_insn_normal (cd, insn, fields, buffer, pc)
       if (CGEN_SYNTAX_CHAR_P (* syn))
 	continue;
 
-      errmsg = m32r_cgen_insert_operand (cd, CGEN_SYNTAX_FIELD (*syn),
-					   fields, buffer, pc);
+      errmsg = (* cd->insert_operand) (cd, CGEN_SYNTAX_FIELD (*syn),
+				       fields, buffer, pc);
       if (errmsg)
 	return errmsg;
     }
@@ -416,10 +417,10 @@ extract_1 (cd, ex_info, start, length, word_length, bufp, pc)
 
 /* Default extraction routine.
 
-   INSN_VALUE is the first CGEN_BASE_INSN_SIZE bits of the insn in host order,
+   INSN_VALUE is the first base_insn_bitsize bits of the insn in host order,
    or sometimes less for cases like the m32r where the base insn size is 32
    but some insns are 16 bits.
-   ATTRS is a mask of the boolean attributes.  We only need `UNSIGNED',
+   ATTRS is a mask of the boolean attributes.  We only need `SIGNED',
    but for generality we take a bitmask of all of them.
    WORD_OFFSET is the offset in bits from the start of the insn of the value.
    WORD_LENGTH is the length of the word in bits in which the value resides.
@@ -464,11 +465,12 @@ extract_normal (cd, ex_info, insn_value, attrs, word_offset, start, length,
 
   /* For architectures with insns smaller than the insn-base-bitsize,
      word_length may be too big.  */
-#if CGEN_MIN_INSN_BITSIZE < CGEN_BASE_INSN_BITSIZE
-  if (word_offset == 0
-      && word_length > total_length)
-    word_length = total_length;
-#endif
+  if (cd->min_insn_bitsize < cd->base_insn_bitsize)
+    {
+      if (word_offset == 0
+	  && word_length > total_length)
+	word_length = total_length;
+    }
 
   /* Does the value reside in INSN_VALUE?  */
 
@@ -483,7 +485,7 @@ extract_normal (cd, ex_info, insn_value, attrs, word_offset, start, length,
 	value = insn_value >> (word_length - (start + length));
       value &= mask;
       /* sign extend? */
-      if (! CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_UNSIGNED)
+      if (CGEN_BOOL_ATTR (attrs, CGEN_IFLD_SIGNED)
 	  && (value & (1L << (length - 1))))
 	value |= ~mask;
     }
@@ -512,7 +514,7 @@ extract_normal (cd, ex_info, insn_value, attrs, word_offset, start, length,
 
 /* Default insn extractor.
 
-   INSN_VALUE is the first CGEN_BASE_INSN_SIZE bytes, translated to host order.
+   INSN_VALUE is the first base_insn_bitsize bits, translated to host order.
    The extracted fields are stored in FIELDS.
    EX_INFO is used to handle reading variable length insns.
    Return the length of the insn in bits, or 0 if no match,
@@ -542,8 +544,8 @@ extract_insn_normal (cd, insn, ex_info, insn_value, fields, pc)
       if (CGEN_SYNTAX_CHAR_P (*syn))
 	continue;
 
-      length = m32r_cgen_extract_operand (cd, CGEN_SYNTAX_FIELD (*syn),
-					    ex_info, insn_value, fields, pc);
+      length = (* cd->extract_operand) (cd, CGEN_SYNTAX_FIELD (*syn),
+					ex_info, insn_value, fields, pc);
       if (length <= 0)
 	return length;
     }
@@ -582,74 +584,74 @@ m32r_cgen_insert_operand (cd, opindex, fields, buffer, pc)
 
   switch (opindex)
     {
-    case M32R_OPERAND_SR :
-      errmsg = insert_normal (cd, fields->f_r2, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_DR :
-      errmsg = insert_normal (cd, fields->f_r1, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 4, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_SRC1 :
-      errmsg = insert_normal (cd, fields->f_r1, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 4, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_SRC2 :
-      errmsg = insert_normal (cd, fields->f_r2, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_SCR :
-      errmsg = insert_normal (cd, fields->f_r2, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 32, total_length, buffer);
-      break;
     case M32R_OPERAND_DCR :
-      errmsg = insert_normal (cd, fields->f_r1, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 4, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_SIMM8 :
-      errmsg = insert_normal (cd, fields->f_simm8, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_SIMM16 :
-      errmsg = insert_normal (cd, fields->f_simm16, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), 0, 16, 16, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_UIMM4 :
-      errmsg = insert_normal (cd, fields->f_uimm4, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_UIMM5 :
-      errmsg = insert_normal (cd, fields->f_uimm5, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 11, 5, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_UIMM16 :
-      errmsg = insert_normal (cd, fields->f_uimm16, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 16, 16, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_HASH :
-      errmsg = insert_normal (cd, fields->f_nil, 0, 0, 0, 0, 0, total_length, buffer);
-      break;
-    case M32R_OPERAND_HI16 :
-      errmsg = insert_normal (cd, fields->f_hi16, 0|(1<<(CGEN_OPERAND_SIGN_OPT-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 16, 16, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_SLO16 :
-      errmsg = insert_normal (cd, fields->f_simm16, 0, 0, 16, 16, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_ULO16 :
-      errmsg = insert_normal (cd, fields->f_uimm16, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 16, 16, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_UIMM24 :
-      errmsg = insert_normal (cd, fields->f_uimm24, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_RELOC-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_ABS_ADDR-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 24, 32, total_length, buffer);
-      break;
-    case M32R_OPERAND_DISP8 :
-      {
-        long value = fields->f_disp8;
-        value = ((int) (((value) - (((pc) & (-4))))) >> (2));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_RELAX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_RELOC-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 32, total_length, buffer);
-      }
+      errmsg = insert_normal (cd, fields->f_r1, 0, 0, 4, 4, 32, total_length, buffer);
       break;
     case M32R_OPERAND_DISP16 :
       {
         long value = fields->f_disp16;
         value = ((int) (((value) - (pc))) >> (2));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_RELOC-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), 0, 16, 16, 32, total_length, buffer);
+        errmsg = insert_normal (cd, value, 0|(1<<CGEN_IFLD_SIGNED)|(1<<CGEN_IFLD_RELOC)|(1<<CGEN_IFLD_PCREL_ADDR), 0, 16, 16, 32, total_length, buffer);
       }
       break;
     case M32R_OPERAND_DISP24 :
       {
         long value = fields->f_disp24;
         value = ((int) (((value) - (pc))) >> (2));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_RELAX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_RELOC-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 24, 32, total_length, buffer);
+        errmsg = insert_normal (cd, value, 0|(1<<CGEN_IFLD_SIGNED)|(1<<CGEN_IFLD_RELOC)|(1<<CGEN_IFLD_PCREL_ADDR), 0, 8, 24, 32, total_length, buffer);
       }
+      break;
+    case M32R_OPERAND_DISP8 :
+      {
+        long value = fields->f_disp8;
+        value = ((int) (((value) - (((pc) & (-4))))) >> (2));
+        errmsg = insert_normal (cd, value, 0|(1<<CGEN_IFLD_SIGNED)|(1<<CGEN_IFLD_RELOC)|(1<<CGEN_IFLD_PCREL_ADDR), 0, 8, 8, 32, total_length, buffer);
+      }
+      break;
+    case M32R_OPERAND_DR :
+      errmsg = insert_normal (cd, fields->f_r1, 0, 0, 4, 4, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_HASH :
+      errmsg = insert_normal (cd, fields->f_nil, 0, 0, 0, 0, 0, total_length, buffer);
+      break;
+    case M32R_OPERAND_HI16 :
+      errmsg = insert_normal (cd, fields->f_hi16, 0|(1<<CGEN_IFLD_SIGN_OPT), 0, 16, 16, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_SCR :
+      errmsg = insert_normal (cd, fields->f_r2, 0, 0, 12, 4, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_SIMM16 :
+      errmsg = insert_normal (cd, fields->f_simm16, 0|(1<<CGEN_IFLD_SIGNED), 0, 16, 16, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_SIMM8 :
+      errmsg = insert_normal (cd, fields->f_simm8, 0|(1<<CGEN_IFLD_SIGNED), 0, 8, 8, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_SLO16 :
+      errmsg = insert_normal (cd, fields->f_simm16, 0|(1<<CGEN_IFLD_SIGNED), 0, 16, 16, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_SR :
+      errmsg = insert_normal (cd, fields->f_r2, 0, 0, 12, 4, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_SRC1 :
+      errmsg = insert_normal (cd, fields->f_r1, 0, 0, 4, 4, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_SRC2 :
+      errmsg = insert_normal (cd, fields->f_r2, 0, 0, 12, 4, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_UIMM16 :
+      errmsg = insert_normal (cd, fields->f_uimm16, 0, 0, 16, 16, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_UIMM24 :
+      errmsg = insert_normal (cd, fields->f_uimm24, 0|(1<<CGEN_IFLD_RELOC)|(1<<CGEN_IFLD_ABS_ADDR), 0, 8, 24, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_UIMM4 :
+      errmsg = insert_normal (cd, fields->f_uimm4, 0, 0, 12, 4, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_UIMM5 :
+      errmsg = insert_normal (cd, fields->f_uimm5, 0, 0, 11, 5, 32, total_length, buffer);
+      break;
+    case M32R_OPERAND_ULO16 :
+      errmsg = insert_normal (cd, fields->f_uimm16, 0, 0, 16, 16, 32, total_length, buffer);
       break;
 
     default :
@@ -690,66 +692,13 @@ m32r_cgen_extract_operand (cd, opindex, ex_info, insn_value, fields, pc)
 
   switch (opindex)
     {
-    case M32R_OPERAND_SR :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 32, total_length, pc, & fields->f_r2);
-      break;
-    case M32R_OPERAND_DR :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 4, 32, total_length, pc, & fields->f_r1);
-      break;
-    case M32R_OPERAND_SRC1 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 4, 32, total_length, pc, & fields->f_r1);
-      break;
-    case M32R_OPERAND_SRC2 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 32, total_length, pc, & fields->f_r2);
-      break;
-    case M32R_OPERAND_SCR :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 32, total_length, pc, & fields->f_r2);
-      break;
     case M32R_OPERAND_DCR :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 4, 32, total_length, pc, & fields->f_r1);
-      break;
-    case M32R_OPERAND_SIMM8 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 32, total_length, pc, & fields->f_simm8);
-      break;
-    case M32R_OPERAND_SIMM16 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), 0, 16, 16, 32, total_length, pc, & fields->f_simm16);
-      break;
-    case M32R_OPERAND_UIMM4 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 32, total_length, pc, & fields->f_uimm4);
-      break;
-    case M32R_OPERAND_UIMM5 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 11, 5, 32, total_length, pc, & fields->f_uimm5);
-      break;
-    case M32R_OPERAND_UIMM16 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 16, 16, 32, total_length, pc, & fields->f_uimm16);
-      break;
-    case M32R_OPERAND_HASH :
-      length = extract_normal (cd, ex_info, insn_value, 0, 0, 0, 0, 0, total_length, pc, & fields->f_nil);
-      break;
-    case M32R_OPERAND_HI16 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_SIGN_OPT-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 16, 16, 32, total_length, pc, & fields->f_hi16);
-      break;
-    case M32R_OPERAND_SLO16 :
-      length = extract_normal (cd, ex_info, insn_value, 0, 0, 16, 16, 32, total_length, pc, & fields->f_simm16);
-      break;
-    case M32R_OPERAND_ULO16 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 16, 16, 32, total_length, pc, & fields->f_uimm16);
-      break;
-    case M32R_OPERAND_UIMM24 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_RELOC-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_ABS_ADDR-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 24, 32, total_length, pc, & fields->f_uimm24);
-      break;
-    case M32R_OPERAND_DISP8 :
-      {
-        long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_RELAX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_RELOC-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 32, total_length, pc, & value);
-        value = ((((value) << (2))) + (((pc) & (-4))));
-        fields->f_disp8 = value;
-      }
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 4, 4, 32, total_length, pc, & fields->f_r1);
       break;
     case M32R_OPERAND_DISP16 :
       {
         long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_RELOC-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), 0, 16, 16, 32, total_length, pc, & value);
+        length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGNED)|(1<<CGEN_IFLD_RELOC)|(1<<CGEN_IFLD_PCREL_ADDR), 0, 16, 16, 32, total_length, pc, & value);
         value = ((((value) << (2))) + (pc));
         fields->f_disp16 = value;
       }
@@ -757,10 +706,63 @@ m32r_cgen_extract_operand (cd, opindex, ex_info, insn_value, fields, pc)
     case M32R_OPERAND_DISP24 :
       {
         long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_RELAX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_RELOC-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 24, 32, total_length, pc, & value);
+        length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGNED)|(1<<CGEN_IFLD_RELOC)|(1<<CGEN_IFLD_PCREL_ADDR), 0, 8, 24, 32, total_length, pc, & value);
         value = ((((value) << (2))) + (pc));
         fields->f_disp24 = value;
       }
+      break;
+    case M32R_OPERAND_DISP8 :
+      {
+        long value;
+        length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGNED)|(1<<CGEN_IFLD_RELOC)|(1<<CGEN_IFLD_PCREL_ADDR), 0, 8, 8, 32, total_length, pc, & value);
+        value = ((((value) << (2))) + (((pc) & (-4))));
+        fields->f_disp8 = value;
+      }
+      break;
+    case M32R_OPERAND_DR :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 4, 4, 32, total_length, pc, & fields->f_r1);
+      break;
+    case M32R_OPERAND_HASH :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 0, 0, 0, total_length, pc, & fields->f_nil);
+      break;
+    case M32R_OPERAND_HI16 :
+      length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGN_OPT), 0, 16, 16, 32, total_length, pc, & fields->f_hi16);
+      break;
+    case M32R_OPERAND_SCR :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 12, 4, 32, total_length, pc, & fields->f_r2);
+      break;
+    case M32R_OPERAND_SIMM16 :
+      length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGNED), 0, 16, 16, 32, total_length, pc, & fields->f_simm16);
+      break;
+    case M32R_OPERAND_SIMM8 :
+      length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGNED), 0, 8, 8, 32, total_length, pc, & fields->f_simm8);
+      break;
+    case M32R_OPERAND_SLO16 :
+      length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGNED), 0, 16, 16, 32, total_length, pc, & fields->f_simm16);
+      break;
+    case M32R_OPERAND_SR :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 12, 4, 32, total_length, pc, & fields->f_r2);
+      break;
+    case M32R_OPERAND_SRC1 :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 4, 4, 32, total_length, pc, & fields->f_r1);
+      break;
+    case M32R_OPERAND_SRC2 :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 12, 4, 32, total_length, pc, & fields->f_r2);
+      break;
+    case M32R_OPERAND_UIMM16 :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 16, 16, 32, total_length, pc, & fields->f_uimm16);
+      break;
+    case M32R_OPERAND_UIMM24 :
+      length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_RELOC)|(1<<CGEN_IFLD_ABS_ADDR), 0, 8, 24, 32, total_length, pc, & fields->f_uimm24);
+      break;
+    case M32R_OPERAND_UIMM4 :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 12, 4, 32, total_length, pc, & fields->f_uimm4);
+      break;
+    case M32R_OPERAND_UIMM5 :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 11, 5, 32, total_length, pc, & fields->f_uimm5);
+      break;
+    case M32R_OPERAND_ULO16 :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 16, 16, 32, total_length, pc, & fields->f_uimm16);
       break;
 
     default :
@@ -789,7 +791,8 @@ cgen_extract_fn * const m32r_cgen_extract_handlers[] =
    not appropriate.  */
 
 int
-m32r_cgen_get_int_operand (opindex, fields)
+m32r_cgen_get_int_operand (cd, opindex, fields)
+     CGEN_CPU_DESC cd;
      int opindex;
      const CGEN_FIELDS * fields;
 {
@@ -797,38 +800,20 @@ m32r_cgen_get_int_operand (opindex, fields)
 
   switch (opindex)
     {
-    case M32R_OPERAND_SR :
-      value = fields->f_r2;
-      break;
-    case M32R_OPERAND_DR :
-      value = fields->f_r1;
-      break;
-    case M32R_OPERAND_SRC1 :
-      value = fields->f_r1;
-      break;
-    case M32R_OPERAND_SRC2 :
-      value = fields->f_r2;
-      break;
-    case M32R_OPERAND_SCR :
-      value = fields->f_r2;
-      break;
     case M32R_OPERAND_DCR :
       value = fields->f_r1;
       break;
-    case M32R_OPERAND_SIMM8 :
-      value = fields->f_simm8;
+    case M32R_OPERAND_DISP16 :
+      value = fields->f_disp16;
       break;
-    case M32R_OPERAND_SIMM16 :
-      value = fields->f_simm16;
+    case M32R_OPERAND_DISP24 :
+      value = fields->f_disp24;
       break;
-    case M32R_OPERAND_UIMM4 :
-      value = fields->f_uimm4;
+    case M32R_OPERAND_DISP8 :
+      value = fields->f_disp8;
       break;
-    case M32R_OPERAND_UIMM5 :
-      value = fields->f_uimm5;
-      break;
-    case M32R_OPERAND_UIMM16 :
-      value = fields->f_uimm16;
+    case M32R_OPERAND_DR :
+      value = fields->f_r1;
       break;
     case M32R_OPERAND_HASH :
       value = fields->f_nil;
@@ -836,23 +821,41 @@ m32r_cgen_get_int_operand (opindex, fields)
     case M32R_OPERAND_HI16 :
       value = fields->f_hi16;
       break;
+    case M32R_OPERAND_SCR :
+      value = fields->f_r2;
+      break;
+    case M32R_OPERAND_SIMM16 :
+      value = fields->f_simm16;
+      break;
+    case M32R_OPERAND_SIMM8 :
+      value = fields->f_simm8;
+      break;
     case M32R_OPERAND_SLO16 :
       value = fields->f_simm16;
       break;
-    case M32R_OPERAND_ULO16 :
+    case M32R_OPERAND_SR :
+      value = fields->f_r2;
+      break;
+    case M32R_OPERAND_SRC1 :
+      value = fields->f_r1;
+      break;
+    case M32R_OPERAND_SRC2 :
+      value = fields->f_r2;
+      break;
+    case M32R_OPERAND_UIMM16 :
       value = fields->f_uimm16;
       break;
     case M32R_OPERAND_UIMM24 :
       value = fields->f_uimm24;
       break;
-    case M32R_OPERAND_DISP8 :
-      value = fields->f_disp8;
+    case M32R_OPERAND_UIMM4 :
+      value = fields->f_uimm4;
       break;
-    case M32R_OPERAND_DISP16 :
-      value = fields->f_disp16;
+    case M32R_OPERAND_UIMM5 :
+      value = fields->f_uimm5;
       break;
-    case M32R_OPERAND_DISP24 :
-      value = fields->f_disp24;
+    case M32R_OPERAND_ULO16 :
+      value = fields->f_uimm16;
       break;
 
     default :
@@ -866,7 +869,8 @@ m32r_cgen_get_int_operand (opindex, fields)
 }
 
 bfd_vma
-m32r_cgen_get_vma_operand (opindex, fields)
+m32r_cgen_get_vma_operand (cd, opindex, fields)
+     CGEN_CPU_DESC cd;
      int opindex;
      const CGEN_FIELDS * fields;
 {
@@ -874,38 +878,20 @@ m32r_cgen_get_vma_operand (opindex, fields)
 
   switch (opindex)
     {
-    case M32R_OPERAND_SR :
-      value = fields->f_r2;
-      break;
-    case M32R_OPERAND_DR :
-      value = fields->f_r1;
-      break;
-    case M32R_OPERAND_SRC1 :
-      value = fields->f_r1;
-      break;
-    case M32R_OPERAND_SRC2 :
-      value = fields->f_r2;
-      break;
-    case M32R_OPERAND_SCR :
-      value = fields->f_r2;
-      break;
     case M32R_OPERAND_DCR :
       value = fields->f_r1;
       break;
-    case M32R_OPERAND_SIMM8 :
-      value = fields->f_simm8;
+    case M32R_OPERAND_DISP16 :
+      value = fields->f_disp16;
       break;
-    case M32R_OPERAND_SIMM16 :
-      value = fields->f_simm16;
+    case M32R_OPERAND_DISP24 :
+      value = fields->f_disp24;
       break;
-    case M32R_OPERAND_UIMM4 :
-      value = fields->f_uimm4;
+    case M32R_OPERAND_DISP8 :
+      value = fields->f_disp8;
       break;
-    case M32R_OPERAND_UIMM5 :
-      value = fields->f_uimm5;
-      break;
-    case M32R_OPERAND_UIMM16 :
-      value = fields->f_uimm16;
+    case M32R_OPERAND_DR :
+      value = fields->f_r1;
       break;
     case M32R_OPERAND_HASH :
       value = fields->f_nil;
@@ -913,23 +899,41 @@ m32r_cgen_get_vma_operand (opindex, fields)
     case M32R_OPERAND_HI16 :
       value = fields->f_hi16;
       break;
+    case M32R_OPERAND_SCR :
+      value = fields->f_r2;
+      break;
+    case M32R_OPERAND_SIMM16 :
+      value = fields->f_simm16;
+      break;
+    case M32R_OPERAND_SIMM8 :
+      value = fields->f_simm8;
+      break;
     case M32R_OPERAND_SLO16 :
       value = fields->f_simm16;
       break;
-    case M32R_OPERAND_ULO16 :
+    case M32R_OPERAND_SR :
+      value = fields->f_r2;
+      break;
+    case M32R_OPERAND_SRC1 :
+      value = fields->f_r1;
+      break;
+    case M32R_OPERAND_SRC2 :
+      value = fields->f_r2;
+      break;
+    case M32R_OPERAND_UIMM16 :
       value = fields->f_uimm16;
       break;
     case M32R_OPERAND_UIMM24 :
       value = fields->f_uimm24;
       break;
-    case M32R_OPERAND_DISP8 :
-      value = fields->f_disp8;
+    case M32R_OPERAND_UIMM4 :
+      value = fields->f_uimm4;
       break;
-    case M32R_OPERAND_DISP16 :
-      value = fields->f_disp16;
+    case M32R_OPERAND_UIMM5 :
+      value = fields->f_uimm5;
       break;
-    case M32R_OPERAND_DISP24 :
-      value = fields->f_disp24;
+    case M32R_OPERAND_ULO16 :
+      value = fields->f_uimm16;
       break;
 
     default :
@@ -948,45 +952,28 @@ m32r_cgen_get_vma_operand (opindex, fields)
    not appropriate.  */
 
 void
-m32r_cgen_set_int_operand (opindex, fields, value)
+m32r_cgen_set_int_operand (cd, opindex, fields, value)
+     CGEN_CPU_DESC cd;
      int opindex;
      CGEN_FIELDS * fields;
      int value;
 {
   switch (opindex)
     {
-    case M32R_OPERAND_SR :
-      fields->f_r2 = value;
-      break;
-    case M32R_OPERAND_DR :
-      fields->f_r1 = value;
-      break;
-    case M32R_OPERAND_SRC1 :
-      fields->f_r1 = value;
-      break;
-    case M32R_OPERAND_SRC2 :
-      fields->f_r2 = value;
-      break;
-    case M32R_OPERAND_SCR :
-      fields->f_r2 = value;
-      break;
     case M32R_OPERAND_DCR :
       fields->f_r1 = value;
       break;
-    case M32R_OPERAND_SIMM8 :
-      fields->f_simm8 = value;
+    case M32R_OPERAND_DISP16 :
+      fields->f_disp16 = value;
       break;
-    case M32R_OPERAND_SIMM16 :
-      fields->f_simm16 = value;
+    case M32R_OPERAND_DISP24 :
+      fields->f_disp24 = value;
       break;
-    case M32R_OPERAND_UIMM4 :
-      fields->f_uimm4 = value;
+    case M32R_OPERAND_DISP8 :
+      fields->f_disp8 = value;
       break;
-    case M32R_OPERAND_UIMM5 :
-      fields->f_uimm5 = value;
-      break;
-    case M32R_OPERAND_UIMM16 :
-      fields->f_uimm16 = value;
+    case M32R_OPERAND_DR :
+      fields->f_r1 = value;
       break;
     case M32R_OPERAND_HASH :
       fields->f_nil = value;
@@ -994,23 +981,41 @@ m32r_cgen_set_int_operand (opindex, fields, value)
     case M32R_OPERAND_HI16 :
       fields->f_hi16 = value;
       break;
+    case M32R_OPERAND_SCR :
+      fields->f_r2 = value;
+      break;
+    case M32R_OPERAND_SIMM16 :
+      fields->f_simm16 = value;
+      break;
+    case M32R_OPERAND_SIMM8 :
+      fields->f_simm8 = value;
+      break;
     case M32R_OPERAND_SLO16 :
       fields->f_simm16 = value;
       break;
-    case M32R_OPERAND_ULO16 :
+    case M32R_OPERAND_SR :
+      fields->f_r2 = value;
+      break;
+    case M32R_OPERAND_SRC1 :
+      fields->f_r1 = value;
+      break;
+    case M32R_OPERAND_SRC2 :
+      fields->f_r2 = value;
+      break;
+    case M32R_OPERAND_UIMM16 :
       fields->f_uimm16 = value;
       break;
     case M32R_OPERAND_UIMM24 :
       fields->f_uimm24 = value;
       break;
-    case M32R_OPERAND_DISP8 :
-      fields->f_disp8 = value;
+    case M32R_OPERAND_UIMM4 :
+      fields->f_uimm4 = value;
       break;
-    case M32R_OPERAND_DISP16 :
-      fields->f_disp16 = value;
+    case M32R_OPERAND_UIMM5 :
+      fields->f_uimm5 = value;
       break;
-    case M32R_OPERAND_DISP24 :
-      fields->f_disp24 = value;
+    case M32R_OPERAND_ULO16 :
+      fields->f_uimm16 = value;
       break;
 
     default :
@@ -1022,45 +1027,28 @@ m32r_cgen_set_int_operand (opindex, fields, value)
 }
 
 void
-m32r_cgen_set_vma_operand (opindex, fields, value)
+m32r_cgen_set_vma_operand (cd, opindex, fields, value)
+     CGEN_CPU_DESC cd;
      int opindex;
      CGEN_FIELDS * fields;
      bfd_vma value;
 {
   switch (opindex)
     {
-    case M32R_OPERAND_SR :
-      fields->f_r2 = value;
-      break;
-    case M32R_OPERAND_DR :
-      fields->f_r1 = value;
-      break;
-    case M32R_OPERAND_SRC1 :
-      fields->f_r1 = value;
-      break;
-    case M32R_OPERAND_SRC2 :
-      fields->f_r2 = value;
-      break;
-    case M32R_OPERAND_SCR :
-      fields->f_r2 = value;
-      break;
     case M32R_OPERAND_DCR :
       fields->f_r1 = value;
       break;
-    case M32R_OPERAND_SIMM8 :
-      fields->f_simm8 = value;
+    case M32R_OPERAND_DISP16 :
+      fields->f_disp16 = value;
       break;
-    case M32R_OPERAND_SIMM16 :
-      fields->f_simm16 = value;
+    case M32R_OPERAND_DISP24 :
+      fields->f_disp24 = value;
       break;
-    case M32R_OPERAND_UIMM4 :
-      fields->f_uimm4 = value;
+    case M32R_OPERAND_DISP8 :
+      fields->f_disp8 = value;
       break;
-    case M32R_OPERAND_UIMM5 :
-      fields->f_uimm5 = value;
-      break;
-    case M32R_OPERAND_UIMM16 :
-      fields->f_uimm16 = value;
+    case M32R_OPERAND_DR :
+      fields->f_r1 = value;
       break;
     case M32R_OPERAND_HASH :
       fields->f_nil = value;
@@ -1068,23 +1056,41 @@ m32r_cgen_set_vma_operand (opindex, fields, value)
     case M32R_OPERAND_HI16 :
       fields->f_hi16 = value;
       break;
+    case M32R_OPERAND_SCR :
+      fields->f_r2 = value;
+      break;
+    case M32R_OPERAND_SIMM16 :
+      fields->f_simm16 = value;
+      break;
+    case M32R_OPERAND_SIMM8 :
+      fields->f_simm8 = value;
+      break;
     case M32R_OPERAND_SLO16 :
       fields->f_simm16 = value;
       break;
-    case M32R_OPERAND_ULO16 :
+    case M32R_OPERAND_SR :
+      fields->f_r2 = value;
+      break;
+    case M32R_OPERAND_SRC1 :
+      fields->f_r1 = value;
+      break;
+    case M32R_OPERAND_SRC2 :
+      fields->f_r2 = value;
+      break;
+    case M32R_OPERAND_UIMM16 :
       fields->f_uimm16 = value;
       break;
     case M32R_OPERAND_UIMM24 :
       fields->f_uimm24 = value;
       break;
-    case M32R_OPERAND_DISP8 :
-      fields->f_disp8 = value;
+    case M32R_OPERAND_UIMM4 :
+      fields->f_uimm4 = value;
       break;
-    case M32R_OPERAND_DISP16 :
-      fields->f_disp16 = value;
+    case M32R_OPERAND_UIMM5 :
+      fields->f_uimm5 = value;
       break;
-    case M32R_OPERAND_DISP24 :
-      fields->f_disp24 = value;
+    case M32R_OPERAND_ULO16 :
+      fields->f_uimm16 = value;
       break;
 
     default :

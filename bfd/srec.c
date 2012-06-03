@@ -1,5 +1,5 @@
 /* BFD back-end for s-record objects.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 98, 1999
    Free Software Foundation, Inc.
    Written by Steve Chamberlain of Cygnus Support <sac@cygnus.com>.
 
@@ -387,7 +387,7 @@ srec_scan (abfd)
 		     && (c == ' ' || c == '\t'))
 		;
 
-	      if (c == '\n')
+	      if (c == '\n' || c == '\r')
 		break;
 
 	      if (c == EOF)
@@ -469,13 +469,13 @@ srec_scan (abfd)
 	    }
 	  while (c == ' ' || c == '\t');
 
-	  if (c != '\n')
+	  if (c == '\n')
+	    ++lineno;
+	  else if (c != '\r')
 	    {
 	      srec_bad_byte (abfd, lineno, c, error);
 	      goto error_return;
 	    }
-
-	  ++lineno;
 
 	  break;
     
@@ -643,6 +643,9 @@ srec_object_p (abfd)
       || ! srec_scan (abfd))
     return NULL;
 
+  if (abfd->symcount > 0)
+    abfd->flags |= HAS_SYMS;
+
   return abfd->xvec;
 }
 
@@ -669,6 +672,9 @@ symbolsrec_object_p (abfd)
   if (! srec_mkobject (abfd)
       || ! srec_scan (abfd))
     return NULL;
+
+  if (abfd->symcount > 0)
+    abfd->flags |= HAS_SYMS;
 
   return abfd->xvec;
 }

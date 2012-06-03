@@ -19,16 +19,8 @@
 # include <config.h>
 #endif
 
-#if STDC_HEADERS
 #include <stdlib.h>
-#endif
-
-#if STDC_HEADERS
 #include <string.h>
-#else
-#include <strings.h>
-#endif
-
 #include <sys/types.h>
 
 #include "loadinfo.h"

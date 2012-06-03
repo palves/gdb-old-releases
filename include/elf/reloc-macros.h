@@ -34,7 +34,9 @@
    Then the following will be produced by default (ie if
    RELOC_MACROS_GEN_FUNC is *not* defined).
 
-   	enum foo {
+   	enum foo
+	{
+	  foo = -1,
    	  R_foo_NONE = 0,
    	  R_foo_32 = 1,
    	  R_foo_illegal = 2,
@@ -85,20 +87,25 @@ name (rtype)							\
 #define FAKE_RELOC(name, number)    
 #define EMPTY_RELOC(name)
 					  
-#define END_RELOC_NUMBERS		default: return NULL;	\
-					}			\
-				    }
+#define END_RELOC_NUMBERS	\
+    default: return NULL;	\
+  }				\
+}
 
 
-#else /* default to generating enum */
+#else /* Default to generating enum.  */
 
 /* Some compilers cannot cope with an enum that ends with a trailing
    comma, so START_RELOC_NUMBERS creates a fake reloc entry, (initialised
    to -1 so that the first real entry will still default to 0).  Further
    entries then prepend a comma to their definitions, creating a list
    of enumerator entries that will satisfy these compilers.  */
+#ifdef __STDC__
+#define START_RELOC_NUMBERS(name)   enum name { _##name = -1
+#else
 #define START_RELOC_NUMBERS(name)   enum name { name = -1
-  
+#endif
+						
 #define RELOC_NUMBER(name, number)  , name = number
 #define FAKE_RELOC(name, number)    , name = number 
 #define EMPTY_RELOC(name)           , name 

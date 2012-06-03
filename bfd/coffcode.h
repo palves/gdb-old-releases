@@ -1104,6 +1104,10 @@ coff_set_alignment_hook (abfd, section, scnhdr)
     if ((1 << i) >= hdr->s_align)
       break;
 #endif
+#ifdef TIC80COFF
+  /* TI tools hijack bits 8-11 for the alignment */
+  i = (hdr->s_flags >> 8) & 0xF ;
+#endif
   section->alignment_power = i;
 }
 
@@ -1618,7 +1622,17 @@ coff_set_arch_mach_hook (abfd, filehdr)
       break;
 #endif
 
+#ifdef TIC80_ARCH_MAGIC
+    case TIC80_ARCH_MAGIC:
+      arch = bfd_arch_tic80;
+      break;
+#endif
 
+#ifdef MCOREMAGIC
+    case MCOREMAGIC:
+      arch = bfd_arch_mcore;
+      break;
+#endif
     default:			/* Unreadable input file type */
       arch = bfd_arch_obscure;
       break;
@@ -1995,6 +2009,11 @@ coff_set_flags (abfd, magicp, flagsp)
       *magicp = TIC30MAGIC;
       return true;
 #endif
+#ifdef TIC80_ARCH_MAGIC
+    case bfd_arch_tic80:
+      *magicp = TIC80_ARCH_MAGIC;
+      return true;
+#endif
 #ifdef ARMMAGIC
     case bfd_arch_arm:
       * magicp = ARMMAGIC;
@@ -2142,6 +2161,12 @@ coff_set_flags (abfd, magicp, flagsp)
       break;
 #endif
 
+#ifdef MCOREMAGIC
+    case bfd_arch_mcore:
+      * magicp = MCOREMAGIC;
+      return true;
+#endif
+      
     default:			/* Unknown architecture */
       /* return false;  -- fall through to "return false" below, to avoid
        "statement never reached" errors on the one below. */
@@ -2176,6 +2201,9 @@ coff_set_arch_mach (abfd, arch, machine)
 
 #ifndef I960
 #define ALIGN_SECTIONS_IN_FILE
+#endif
+#ifdef TIC80COFF
+#undef ALIGN_SECTIONS_IN_FILE
 #endif
 
 static boolean
@@ -2696,6 +2724,10 @@ coff_write_object_contents (abfd)
       section.s_align = (current->alignment_power
 			 ? 1 << current->alignment_power
 			 : 0);
+#else
+#ifdef TIC80COFF
+      section.s_flags |= (current->alignment_power & 0xF) << 8;
+#endif
 #endif
 
 #ifdef COFF_IMAGE_WITH_PE
@@ -2877,6 +2909,9 @@ coff_write_object_contents (abfd)
   else
     internal_f.f_flags |= F_AR32W;
 
+#ifdef TIC80_TARGET_ID
+  internal_f.f_target_id = TIC80_TARGET_ID;
+#endif
 
   /*
      FIXME, should do something about the other byte orders and
@@ -2915,6 +2950,10 @@ coff_write_object_contents (abfd)
       internal_a.magic = NMAGIC; /* Assume separate i/d */
 #define __A_MAGIC_SET__
 #endif /* A29K */
+#ifdef TIC80COFF
+    internal_a.magic = TIC80_ARCH_MAGIC;
+#define __A_MAGIC_SET__
+#endif /* TIC80 */
 #ifdef I860
     /* FIXME: What are the a.out magic numbers for the i860?  */
     internal_a.magic = 0;
@@ -2960,6 +2999,11 @@ coff_write_object_contents (abfd)
 #define __A_MAGIC_SET__
     internal_a.magic = IMAGE_NT_OPTIONAL_HDR_MAGIC;
 #endif
+
+#if defined MCORE_PE
+#define __A_MAGIC_SET__
+    internal_a.magic = IMAGE_NT_OPTIONAL_HDR_MAGIC;
+#endif 
 
 #if defined(I386)
 #define __A_MAGIC_SET__
@@ -3585,8 +3629,10 @@ coff_slurp_symbol_table (abfd)
 #endif
 	    case C_REGPARM:	/* register parameter		 */
 	    case C_REG:	/* register variable		 */
+#ifndef TIC80COFF
 #ifdef C_AUTOARG
 	    case C_AUTOARG:	/* 960-specific storage class */
+#endif
 #endif
 	    case C_TPDEF:	/* type definition		 */
 	    case C_ARG:
@@ -3690,6 +3736,12 @@ coff_slurp_symbol_table (abfd)
 	      /* NT uses 0x67 for a weak symbol, not C_ALIAS.  */
 	    case C_ALIAS:	/* duplicate tag		 */
 #endif
+	      /* New storage classes for TIc80 */
+#ifdef TIC80COFF
+	    case C_UEXT:	/* Tentative external definition */
+#endif
+	    case C_STATLAB:	/* Static load time label */
+	    case C_EXTLAB:	/* External load time label */
 	    case C_HIDDEN:	/* ext symbol in dmert public lib */
 	    default:
 	      (*_bfd_error_handler)

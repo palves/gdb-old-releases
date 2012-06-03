@@ -1,5 +1,5 @@
 /* ELF support for BFD.
-   Copyright (C) 1991, 92, 93, 95, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1991, 92, 93, 95, 97, 98, 1999 Free Software Foundation, Inc.
 
    Written by Fred Fish @ Cygnus Support, from information published
    in "UNIX System V Release 4, Programmers Guide: ANSI C and
@@ -240,7 +240,11 @@ typedef struct {
 
 typedef struct {
   unsigned char		vs_vers[2];
-} Elf_External_Versym;
+}
+#ifdef __GNUC__
+  __attribute__ ((packed))
+#endif
+  Elf_External_Versym;
 
 /* Structure for syminfo section.  */
 typedef struct

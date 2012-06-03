@@ -124,7 +124,7 @@ static reloc_howto_type coff_sparc_howto_table[] =
 };
 
 struct coff_reloc_map {
-  unsigned char bfd_reloc_val;
+  bfd_reloc_code_real_type bfd_reloc_val;
   unsigned char coff_reloc_val;
 };
 

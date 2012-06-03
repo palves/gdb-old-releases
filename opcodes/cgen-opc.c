@@ -37,32 +37,6 @@ static void build_keyword_hash_tables
 /* Return number of hash table entries to use for N elements.  */
 #define KEYWORD_HASH_SIZE(n) ((n) <= 31 ? 17 : 31)
 
-/* Change the selected machine and endianness.  */
-
-void
-cgen_set_cpu (cd, mach, endian)
-     CGEN_CPU_DESC cd;
-     int mach;
-     enum cgen_endian endian;
-{
-  cd->mach = mach;
-  cd->endian = endian;
-
-  if (cd->asm_hash_table)
-    {
-      free (cd->asm_hash_table);
-      free (cd->asm_hash_table_entries);
-      cd->asm_hash_table = NULL;
-      cd->asm_hash_table_entries = NULL;
-    }
-
-  if (cd->dis_hash_table)
-    {
-      free (cd->dis_hash_table);
-      cd->dis_hash_table = NULL;
-    }
-}
-
 /* Look up *NAMEP in the keyword table KT.
    The result is the keyword entry or NULL if not found.  */
 
@@ -280,44 +254,79 @@ build_keyword_hash_tables (kt)
 
 /* Hardware support.  */
 
-/* Lookup a hardware element by its name.  */
+/* Lookup a hardware element by its name.
+   Returns NULL if NAME is not supported by the currently selected
+   mach/isa.  */
 
 const CGEN_HW_ENTRY *
 cgen_hw_lookup_by_name (cd, name)
      CGEN_CPU_DESC cd;
      const char *name;
 {
-  const CGEN_HW_ENTRY *hw = cd->hw_list;
+  int i;
+  const CGEN_HW_ENTRY **hw = cd->hw_table.entries;
 
-  while (hw != NULL)
-    {
-      if (strcmp (name, hw->name) == 0)
-	return hw;
-      hw = hw->next;
-    }
+  for (i = 0; i < cd->hw_table.num_entries; ++i)
+    if (hw[i] && strcmp (name, hw[i]->name) == 0)
+      return hw[i];
 
   return NULL;
 }
 
 /* Lookup a hardware element by its number.
    Hardware elements are enumerated, however it may be possible to add some
-   at runtime, thus HWNUM is not an enum type but rather an int.  */
+   at runtime, thus HWNUM is not an enum type but rather an int.
+   Returns NULL if HWNUM is not supported by the currently selected mach.  */
 
 const CGEN_HW_ENTRY *
 cgen_hw_lookup_by_num (cd, hwnum)
      CGEN_CPU_DESC cd;
      int hwnum;
 {
-  const CGEN_HW_ENTRY *hw = cd->hw_list;
+  int i;
+  const CGEN_HW_ENTRY **hw = cd->hw_table.entries;
 
-  /* ??? This can be speeded up if we first make a guess into
-     the compiled in table.  */
-  while (hw != NULL)
-    {
-      if (hwnum == hw->type)
-	return hw;
-    }
+  /* ??? This can be speeded up.  */
+  for (i = 0; i < cd->hw_table.num_entries; ++i)
+    if (hw[i] && hwnum == hw[i]->type)
+      return hw[i];
+
   return NULL;
+}
+
+/* Operand support.  */
+
+/* Lookup an operand by its name.
+   Returns NULL if NAME is not supported by the currently selected
+   mach/isa.  */
+
+const CGEN_OPERAND *
+cgen_operand_lookup_by_name (cd, name)
+     CGEN_CPU_DESC cd;
+     const char *name;
+{
+  int i;
+  const CGEN_OPERAND **op = cd->operand_table.entries;
+
+  for (i = 0; i < cd->operand_table.num_entries; ++i)
+    if (op[i] && strcmp (name, op[i]->name) == 0)
+      return op[i];
+
+  return NULL;
+}
+
+/* Lookup an operand by its number.
+   Operands are enumerated, however it may be possible to add some
+   at runtime, thus OPNUM is not an enum type but rather an int.
+   Returns NULL if OPNUM is not supported by the currently selected
+   mach/isa.  */
+
+const CGEN_OPERAND *
+cgen_operand_lookup_by_num (cd, opnum)
+     CGEN_CPU_DESC cd;
+     int opnum;
+{
+  return cd->operand_table.entries[opnum];
 }
 
 /* Instruction support.  */
@@ -453,7 +462,7 @@ cgen_lookup_insn (cd, insn, insn_int_value, insn_bytes_value, length, fields,
   if (cd->int_insn_p)
     {
       info = NULL;
-      buf = (unsigned char *) alloca (cd->max_insn_size);
+      buf = (unsigned char *) alloca (cd->max_insn_bitsize / 8);
       cgen_put_insn_value (cd, buf, length, insn_int_value);
       base_insn = insn_int_value;
     }
@@ -546,11 +555,11 @@ cgen_get_insn_operands (cd, insn, fields, indices)
     abort ();
   for (i = 0, opinst = insn->opinst; opinst->type != CGEN_OPINST_END; ++i, ++opinst)
     {
-      const CGEN_OPERAND *op = opinst->operand;
-      if (op == NULL)
+      enum cgen_operand_type op_type = opinst->op_type;
+      if (op_type == CGEN_OPERAND_NIL)
 	indices[i] = opinst->index;
       else
-	indices[i] = (*cd->get_int_operand) (CGEN_OPERAND_INDEX (cd, op), fields);
+	indices[i] = (*cd->get_int_operand) (cd, op_type, fields);
     }
 }
 

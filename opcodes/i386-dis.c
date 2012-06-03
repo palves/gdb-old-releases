@@ -1740,13 +1740,16 @@ static unsigned int start_pc;
  * The function returns the length of this instruction in bytes.
  */
 
-int print_insn_x86 PARAMS ((bfd_vma pc, disassemble_info *info, int sizeflag));
+static int print_insn_x86
+  PARAMS ((bfd_vma pc, disassemble_info *info, int sizeflag));
+static int print_insn_i386
+  PARAMS ((bfd_vma pc, disassemble_info *info));
 
-char intel_syntax;
-char open_char;
-char close_char;
-char separator_char;
-char scale_char;
+static char intel_syntax;
+static char open_char;
+static char close_char;
+static char separator_char;
+static char scale_char;
 
 int
 print_insn_i386_att (pc, info)
@@ -1776,7 +1779,7 @@ print_insn_i386_intel (pc, info)
   return print_insn_i386 (pc, info);
 }
 
-int
+static int
 print_insn_i386 (pc, info)
      bfd_vma pc;
      disassemble_info *info;
@@ -1792,7 +1795,7 @@ print_insn_i386 (pc, info)
   return print_insn_x86 (pc, info, flags);
 }
 
-int
+static int
 print_insn_x86 (pc, info, sizeflag)
      bfd_vma pc;
      disassemble_info *info;

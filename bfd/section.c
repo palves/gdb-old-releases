@@ -137,7 +137,7 @@ SUBSECTION
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
-
+#include "bfdlink.h"
 
 /*
 DOCDD
@@ -1026,3 +1026,50 @@ DESCRIPTION
 .     BFD_SEND (obfd, _bfd_copy_private_section_data, \
 .		(ibfd, isection, obfd, osection))
 */
+
+/*
+FUNCTION
+	_bfd_strip_section_from_output
+
+SYNOPSIS
+	void _bfd_strip_section_from_output
+	(asection *section);
+
+DESCRIPTION
+	Remove @var{section} from the output.  If the output section becomes
+	empty, remove it from the output bfd.
+*/
+void
+_bfd_strip_section_from_output (s)
+     asection *s;
+{
+  asection **spp, *os;
+  struct bfd_link_order *p, *pp;
+
+  os = s->output_section;
+  for (p = os->link_order_head, pp = NULL; p != NULL; pp = p, p = p->next)
+    if (p->type == bfd_indirect_link_order
+	&& p->u.indirect.section == s)
+      {
+	/* Excise the input section.  */
+	if (pp)
+	  pp->next = p->next;
+	else
+	  os->link_order_head = p->next;
+	if (!p->next)
+	  os->link_order_tail = pp;
+
+	if (!os->link_order_head)
+	  {
+	    /* Excise the output section.  */
+	    for (spp = &os->owner->sections; *spp; spp = &(*spp)->next)
+	      if (*spp == os)
+		{
+		  *spp = os->next;
+		  os->owner->section_count--;
+		  break;
+		}
+	  }
+	break;
+      }
+}

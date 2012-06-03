@@ -117,6 +117,7 @@ DESCRIPTION
 .#define bfd_mach_mips4000		4000
 .#define bfd_mach_mips4010		4010
 .#define bfd_mach_mips4100		4100
+.#define bfd_mach_mips4111		4111
 .#define bfd_mach_mips4300		4300
 .#define bfd_mach_mips4400		4400
 .#define bfd_mach_mips4600		4600
@@ -169,6 +170,7 @@ DESCRIPTION
 .  bfd_arch_ns32k,     {* National Semiconductors ns32000 *}
 .  bfd_arch_w65,       {* WDC 65816 *}
 .  bfd_arch_tic30,     {* Texas Instruments TMS320C30 *}
+.  bfd_arch_tic80,     {* TI TMS320c80 (MVP) *}
 .  bfd_arch_v850,      {* NEC V850 *}
 .#define bfd_mach_v850          0
 .#define bfd_mach_v850e 	'E'
@@ -182,6 +184,7 @@ DESCRIPTION
 .#define bfd_mach_mn10300		300
 .  bfd_arch_fr30,
 .#define bfd_mach_fr30		0x46523330
+.  bfd_arch_mcore,
 .  bfd_arch_last
 .  };
 
@@ -243,6 +246,7 @@ extern const bfd_arch_info_type bfd_rs6000_arch;
 extern const bfd_arch_info_type bfd_sh_arch;
 extern const bfd_arch_info_type bfd_sparc_arch;
 extern const bfd_arch_info_type bfd_tic30_arch;
+extern const bfd_arch_info_type bfd_tic80_arch;
 extern const bfd_arch_info_type bfd_vax_arch;
 extern const bfd_arch_info_type bfd_we32k_arch;
 extern const bfd_arch_info_type bfd_z8k_arch;
@@ -250,6 +254,7 @@ extern const bfd_arch_info_type bfd_ns32k_arch;
 extern const bfd_arch_info_type bfd_w65_arch;
 extern const bfd_arch_info_type bfd_v850_arch;
 extern const bfd_arch_info_type bfd_fr30_arch;
+extern const bfd_arch_info_type bfd_mcore_arch;
 
 static const bfd_arch_info_type * const bfd_archures_list[] =
 {
@@ -279,13 +284,15 @@ static const bfd_arch_info_type * const bfd_archures_list[] =
   &bfd_sh_arch,
   &bfd_sparc_arch,
   &bfd_tic30_arch,
+  &bfd_tic80_arch,
   &bfd_vax_arch,
   &bfd_we32k_arch,
   &bfd_z8k_arch,
   &bfd_ns32k_arch,
   &bfd_w65_arch,
   &bfd_v850_arch,
-  & bfd_fr30_arch,
+  &bfd_fr30_arch,
+  & bfd_mcore_arch,
 #endif
   0
 };

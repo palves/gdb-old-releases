@@ -19,6 +19,7 @@ HFILES = \
 	fr30-desc.h fr30-opc.h \
 	h8500-opc.h \
 	m32r-desc.h m32r-opc.h \
+	mcore-opc.h \
 	sh-opc.h \
 	sysdep.h \
 	w65-opc.h \
@@ -58,6 +59,7 @@ CFILES = \
 	m68k-dis.c \
 	m68k-opc.c \
 	m88k-dis.c \
+	mcore-dis.c \
 	mips-dis.c \
 	mips-opc.c \
 	mips16-opc.c \
@@ -72,6 +74,8 @@ CFILES = \
 	sparc-dis.c \
 	sparc-opc.c \
 	tic30-dis.c \
+	tic80-dis.c \
+	tic80-opc.c \
 	vax-dis.c \
 	w65-dis.c \
 	z8k-dis.c \
@@ -114,6 +118,7 @@ ALL_MACHINES = \
 	m10200-opc.lo \
 	m10300-dis.lo \
 	m10300-opc.lo \
+	mcore-dis.lo \
 	mips-dis.lo \
 	mips-opc.lo \
 	mips16-opc.lo \
@@ -124,6 +129,8 @@ ALL_MACHINES = \
 	sparc-dis.lo \
 	sparc-opc.lo \
 	tic30-dis.lo \
+	tic80-dis.lo \
+	tic80-opc.lo \
 	v850-dis.lo \
 	v850-opc.lo \
 	vax-dis.lo \
@@ -168,9 +175,12 @@ po/POTFILES.in: @MAINT@ Makefile
 config.status: $(srcdir)/configure $(srcdir)/../bfd/configure.in
 	$(SHELL) ./config.status --recheck
 
-CLEANFILES = libopcodes.a stamp-lib dep.sed .dep .dep1
+CLEANFILES = \
+	libopcodes.a stamp-lib dep.sed .dep .dep1
 
 
+
+# The start marker is written this way to pass through automake unscathed.
 
 
 
@@ -248,20 +258,20 @@ dis-buf.lo: dis-buf.c sysdep.h config.h $(INCDIR)/dis-asm.h \
 disassemble.lo: disassemble.c $(INCDIR)/ansidecl.h \
   $(INCDIR)/dis-asm.h $(BFD_H)
 fr30-asm.lo: fr30-asm.c sysdep.h config.h $(BFD_H) \
-  $(INCDIR)/symcat.h fr30-desc.h fr30-opc.h $(INCDIR)/opcode/cgen.h \
-  opintl.h
+  $(INCDIR)/symcat.h fr30-desc.h $(INCDIR)/opcode/cgen.h \
+  fr30-opc.h opintl.h
 fr30-desc.lo: fr30-desc.c sysdep.h config.h $(BFD_H) \
-  $(INCDIR)/symcat.h fr30-desc.h fr30-opc.h $(INCDIR)/opcode/cgen.h \
-  opintl.h
+  $(INCDIR)/symcat.h fr30-desc.h $(INCDIR)/opcode/cgen.h \
+  fr30-opc.h opintl.h
 fr30-dis.lo: fr30-dis.c sysdep.h config.h $(INCDIR)/dis-asm.h \
-  $(BFD_H) $(INCDIR)/symcat.h fr30-desc.h fr30-opc.h $(INCDIR)/opcode/cgen.h \
-  opintl.h
-fr30-ibld.lo: fr30-ibld.c sysdep.h config.h $(BFD_H) \
-  $(INCDIR)/symcat.h fr30-desc.h fr30-opc.h $(INCDIR)/opcode/cgen.h \
-  opintl.h
-fr30-opc.lo: fr30-opc.c sysdep.h config.h $(INCDIR)/libiberty.h \
-  $(BFD_H) $(INCDIR)/symcat.h fr30-desc.h fr30-opc.h $(INCDIR)/opcode/cgen.h \
-  opintl.h
+  $(BFD_H) $(INCDIR)/symcat.h fr30-desc.h $(INCDIR)/opcode/cgen.h \
+  fr30-opc.h opintl.h
+fr30-ibld.lo: fr30-ibld.c sysdep.h config.h $(INCDIR)/dis-asm.h \
+  $(BFD_H) $(INCDIR)/symcat.h fr30-desc.h $(INCDIR)/opcode/cgen.h \
+  fr30-opc.h opintl.h
+fr30-opc.lo: fr30-opc.c sysdep.h config.h $(BFD_H) \
+  $(INCDIR)/symcat.h fr30-desc.h $(INCDIR)/opcode/cgen.h \
+  fr30-opc.h
 h8300-dis.lo: h8300-dis.c $(INCDIR)/opcode/h8300.h \
   $(INCDIR)/dis-asm.h $(BFD_H) $(INCDIR)/ansidecl.h opintl.h
 h8500-dis.lo: h8500-dis.c h8500-opc.h $(INCDIR)/dis-asm.h \
@@ -273,29 +283,31 @@ i386-dis.lo: i386-dis.c $(INCDIR)/dis-asm.h $(BFD_H) \
 i960-dis.lo: i960-dis.c $(INCDIR)/dis-asm.h $(BFD_H) \
   $(INCDIR)/ansidecl.h
 m32r-asm.lo: m32r-asm.c sysdep.h config.h $(BFD_H) \
-  $(INCDIR)/symcat.h m32r-desc.h m32r-opc.h $(INCDIR)/opcode/cgen.h \
-  opintl.h
+  $(INCDIR)/symcat.h m32r-desc.h $(INCDIR)/opcode/cgen.h \
+  m32r-opc.h opintl.h
 m32r-desc.lo: m32r-desc.c sysdep.h config.h $(BFD_H) \
-  $(INCDIR)/symcat.h m32r-desc.h m32r-opc.h $(INCDIR)/opcode/cgen.h \
-  opintl.h
+  $(INCDIR)/symcat.h m32r-desc.h $(INCDIR)/opcode/cgen.h \
+  m32r-opc.h opintl.h
 m32r-dis.lo: m32r-dis.c sysdep.h config.h $(INCDIR)/dis-asm.h \
-  $(BFD_H) $(INCDIR)/symcat.h m32r-desc.h m32r-opc.h $(INCDIR)/opcode/cgen.h \
-  opintl.h
-m32r-ibld.lo: m32r-ibld.c sysdep.h config.h $(BFD_H) \
-  $(INCDIR)/symcat.h m32r-desc.h m32r-opc.h $(INCDIR)/opcode/cgen.h \
-  opintl.h
-m32r-opc.lo: m32r-opc.c sysdep.h config.h $(INCDIR)/libiberty.h \
-  $(BFD_H) $(INCDIR)/symcat.h m32r-desc.h m32r-opc.h $(INCDIR)/opcode/cgen.h \
-  opintl.h
-m32r-opinst.lo: m32r-opinst.c sysdep.h config.h $(INCDIR)/libiberty.h \
-  $(BFD_H) $(INCDIR)/symcat.h m32r-desc.h m32r-opc.h $(INCDIR)/opcode/cgen.h \
-  opintl.h
+  $(BFD_H) $(INCDIR)/symcat.h m32r-desc.h $(INCDIR)/opcode/cgen.h \
+  m32r-opc.h opintl.h
+m32r-ibld.lo: m32r-ibld.c sysdep.h config.h $(INCDIR)/dis-asm.h \
+  $(BFD_H) $(INCDIR)/symcat.h m32r-desc.h $(INCDIR)/opcode/cgen.h \
+  m32r-opc.h opintl.h
+m32r-opc.lo: m32r-opc.c sysdep.h config.h $(BFD_H) \
+  $(INCDIR)/symcat.h m32r-desc.h $(INCDIR)/opcode/cgen.h \
+  m32r-opc.h
+m32r-opinst.lo: m32r-opinst.c sysdep.h config.h $(BFD_H) \
+  $(INCDIR)/symcat.h m32r-desc.h $(INCDIR)/opcode/cgen.h \
+  m32r-opc.h
 m68k-dis.lo: m68k-dis.c $(INCDIR)/dis-asm.h $(BFD_H) \
   $(INCDIR)/ansidecl.h $(INCDIR)/floatformat.h opintl.h \
   $(INCDIR)/opcode/m68k.h
 m68k-opc.lo: m68k-opc.c $(INCDIR)/ansidecl.h $(INCDIR)/opcode/m68k.h
 m88k-dis.lo: m88k-dis.c $(INCDIR)/dis-asm.h $(BFD_H) \
   $(INCDIR)/ansidecl.h $(INCDIR)/opcode/m88k.h opintl.h
+mcore-dis.lo: mcore-dis.c mcore-opc.h $(INCDIR)/ansidecl.h \
+  $(INCDIR)/dis-asm.h $(BFD_H)
 mips-dis.lo: mips-dis.c sysdep.h config.h $(INCDIR)/dis-asm.h \
   $(BFD_H) $(INCDIR)/opcode/mips.h opintl.h $(BFDDIR)/elf-bfd.h \
   $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h $(INCDIR)/elf/external.h \
@@ -323,6 +335,9 @@ sparc-dis.lo: sparc-dis.c $(INCDIR)/ansidecl.h sysdep.h \
 sparc-opc.lo: sparc-opc.c $(INCDIR)/ansidecl.h $(INCDIR)/opcode/sparc.h
 tic30-dis.lo: tic30-dis.c $(INCDIR)/dis-asm.h $(BFD_H) \
   $(INCDIR)/ansidecl.h $(INCDIR)/opcode/tic30.h
+tic80-dis.lo: tic80-dis.c $(INCDIR)/ansidecl.h $(INCDIR)/opcode/tic80.h \
+  $(INCDIR)/dis-asm.h $(BFD_H)
+tic80-opc.lo: tic80-opc.c $(INCDIR)/ansidecl.h $(INCDIR)/opcode/tic80.h
 vax-dis.lo: vax-dis.c $(INCDIR)/opcode/vax.h $(INCDIR)/dis-asm.h \
   $(BFD_H) $(INCDIR)/ansidecl.h
 w65-dis.lo: w65-dis.c w65-opc.h $(INCDIR)/dis-asm.h \

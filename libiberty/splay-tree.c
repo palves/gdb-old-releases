@@ -16,7 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 /* For an easily readable description of splay-trees, see:
 
@@ -334,4 +335,34 @@ splay_tree_foreach (sp, fn, data)
      void *data;
 {
   return splay_tree_foreach_helper (sp, sp->root, fn, data);
+}
+
+/* Splay-tree comparison function, treating the keys as ints.  */
+
+int
+splay_tree_compare_ints (k1, k2)
+     splay_tree_key k1;
+     splay_tree_key k2;
+{
+  if ((int) k1 < (int) k2)
+    return -1;
+  else if ((int) k1 > (int) k2)
+    return 1;
+  else 
+    return 0;
+}
+
+/* Splay-tree comparison function, treating the keys as pointers.  */
+
+int
+splay_tree_compare_pointers (k1, k2)
+     splay_tree_key k1;
+     splay_tree_key k2;
+{
+  if ((char*) k1 < (char*) k2)
+    return -1;
+  else if ((char*) k1 > (char*) k2)
+    return 1;
+  else 
+    return 0;
 }

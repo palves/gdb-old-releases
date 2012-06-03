@@ -190,16 +190,17 @@ insert_normal (cd, value, attrs, word_offset, start, length, word_length,
   if (word_length > 32)
     abort ();
 
-  /* For architectures with insns smaller than the insn-base-bitsize,
+  /* For architectures with insns smaller than the base-insn-bitsize,
      word_length may be too big.  */
-#if CGEN_MIN_INSN_BITSIZE < CGEN_BASE_INSN_BITSIZE
-  if (word_offset == 0
-      && word_length > total_length)
-    word_length = total_length;
-#endif
+  if (cd->min_insn_bitsize < cd->base_insn_bitsize)
+    {
+      if (word_offset == 0
+	  && word_length > total_length)
+	word_length = total_length;
+    }
 
   /* Ensure VALUE will fit.  */
-  if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_UNSIGNED))
+  if (! CGEN_BOOL_ATTR (attrs, CGEN_IFLD_SIGNED))
     {
       unsigned long maxval = mask;
       if ((unsigned long) value > maxval)
@@ -281,7 +282,7 @@ insert_insn_normal (cd, insn, fields, buffer, pc)
 
 #else
 
-  cgen_put_insn_value (cd, buffer, min (CGEN_BASE_INSN_BITSIZE,
+  cgen_put_insn_value (cd, buffer, min (cd->base_insn_bitsize,
 					CGEN_FIELDS_BITSIZE (fields)),
 		       value);
 
@@ -299,8 +300,8 @@ insert_insn_normal (cd, insn, fields, buffer, pc)
       if (CGEN_SYNTAX_CHAR_P (* syn))
 	continue;
 
-      errmsg = fr30_cgen_insert_operand (cd, CGEN_SYNTAX_FIELD (*syn),
-					   fields, buffer, pc);
+      errmsg = (* cd->insert_operand) (cd, CGEN_SYNTAX_FIELD (*syn),
+				       fields, buffer, pc);
       if (errmsg)
 	return errmsg;
     }
@@ -416,10 +417,10 @@ extract_1 (cd, ex_info, start, length, word_length, bufp, pc)
 
 /* Default extraction routine.
 
-   INSN_VALUE is the first CGEN_BASE_INSN_SIZE bits of the insn in host order,
+   INSN_VALUE is the first base_insn_bitsize bits of the insn in host order,
    or sometimes less for cases like the m32r where the base insn size is 32
    but some insns are 16 bits.
-   ATTRS is a mask of the boolean attributes.  We only need `UNSIGNED',
+   ATTRS is a mask of the boolean attributes.  We only need `SIGNED',
    but for generality we take a bitmask of all of them.
    WORD_OFFSET is the offset in bits from the start of the insn of the value.
    WORD_LENGTH is the length of the word in bits in which the value resides.
@@ -464,11 +465,12 @@ extract_normal (cd, ex_info, insn_value, attrs, word_offset, start, length,
 
   /* For architectures with insns smaller than the insn-base-bitsize,
      word_length may be too big.  */
-#if CGEN_MIN_INSN_BITSIZE < CGEN_BASE_INSN_BITSIZE
-  if (word_offset == 0
-      && word_length > total_length)
-    word_length = total_length;
-#endif
+  if (cd->min_insn_bitsize < cd->base_insn_bitsize)
+    {
+      if (word_offset == 0
+	  && word_length > total_length)
+	word_length = total_length;
+    }
 
   /* Does the value reside in INSN_VALUE?  */
 
@@ -483,7 +485,7 @@ extract_normal (cd, ex_info, insn_value, attrs, word_offset, start, length,
 	value = insn_value >> (word_length - (start + length));
       value &= mask;
       /* sign extend? */
-      if (! CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_UNSIGNED)
+      if (CGEN_BOOL_ATTR (attrs, CGEN_IFLD_SIGNED)
 	  && (value & (1L << (length - 1))))
 	value |= ~mask;
     }
@@ -512,7 +514,7 @@ extract_normal (cd, ex_info, insn_value, attrs, word_offset, start, length,
 
 /* Default insn extractor.
 
-   INSN_VALUE is the first CGEN_BASE_INSN_SIZE bytes, translated to host order.
+   INSN_VALUE is the first base_insn_bitsize bits, translated to host order.
    The extracted fields are stored in FIELDS.
    EX_INFO is used to handle reading variable length insns.
    Return the length of the insn in bits, or 0 if no match,
@@ -542,8 +544,8 @@ extract_insn_normal (cd, insn, ex_info, insn_value, fields, pc)
       if (CGEN_SYNTAX_CHAR_P (*syn))
 	continue;
 
-      length = fr30_cgen_extract_operand (cd, CGEN_SYNTAX_FIELD (*syn),
-					    ex_info, insn_value, fields, pc);
+      length = (* cd->extract_operand) (cd, CGEN_SYNTAX_FIELD (*syn),
+					ex_info, insn_value, fields, pc);
       if (length <= 0)
 	return length;
     }
@@ -582,29 +584,11 @@ fr30_cgen_insert_operand (cd, opindex, fields, buffer, pc)
 
   switch (opindex)
     {
-    case FR30_OPERAND_RI :
-      errmsg = insert_normal (cd, fields->f_Ri, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 16, total_length, buffer);
-      break;
-    case FR30_OPERAND_RJ :
-      errmsg = insert_normal (cd, fields->f_Rj, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 4, 16, total_length, buffer);
-      break;
-    case FR30_OPERAND_RIC :
-      errmsg = insert_normal (cd, fields->f_Ric, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 16, 12, 4, 16, total_length, buffer);
-      break;
-    case FR30_OPERAND_RJC :
-      errmsg = insert_normal (cd, fields->f_Rjc, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 16, 8, 4, 16, total_length, buffer);
-      break;
     case FR30_OPERAND_CRI :
-      errmsg = insert_normal (cd, fields->f_CRi, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 16, 12, 4, 16, total_length, buffer);
+      errmsg = insert_normal (cd, fields->f_CRi, 0, 16, 12, 4, 16, total_length, buffer);
       break;
     case FR30_OPERAND_CRJ :
-      errmsg = insert_normal (cd, fields->f_CRj, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 16, 8, 4, 16, total_length, buffer);
-      break;
-    case FR30_OPERAND_RS1 :
-      errmsg = insert_normal (cd, fields->f_Rs1, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 4, 16, total_length, buffer);
-      break;
-    case FR30_OPERAND_RS2 :
-      errmsg = insert_normal (cd, fields->f_Rs2, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 16, total_length, buffer);
+      errmsg = insert_normal (cd, fields->f_CRj, 0, 16, 8, 4, 16, total_length, buffer);
       break;
     case FR30_OPERAND_R13 :
       errmsg = insert_normal (cd, fields->f_nil, 0, 0, 0, 0, 0, total_length, buffer);
@@ -615,131 +599,149 @@ fr30_cgen_insert_operand (cd, opindex, fields, buffer, pc)
     case FR30_OPERAND_R15 :
       errmsg = insert_normal (cd, fields->f_nil, 0, 0, 0, 0, 0, total_length, buffer);
       break;
-    case FR30_OPERAND_PS :
-      errmsg = insert_normal (cd, fields->f_nil, 0, 0, 0, 0, 0, total_length, buffer);
+    case FR30_OPERAND_RI :
+      errmsg = insert_normal (cd, fields->f_Ri, 0, 0, 12, 4, 16, total_length, buffer);
       break;
-    case FR30_OPERAND_U4 :
-      errmsg = insert_normal (cd, fields->f_u4, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 4, 16, total_length, buffer);
+    case FR30_OPERAND_RIC :
+      errmsg = insert_normal (cd, fields->f_Ric, 0, 16, 12, 4, 16, total_length, buffer);
       break;
-    case FR30_OPERAND_U4C :
-      errmsg = insert_normal (cd, fields->f_u4c, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 16, total_length, buffer);
+    case FR30_OPERAND_RJ :
+      errmsg = insert_normal (cd, fields->f_Rj, 0, 0, 8, 4, 16, total_length, buffer);
       break;
-    case FR30_OPERAND_U8 :
-      errmsg = insert_normal (cd, fields->f_u8, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, buffer);
+    case FR30_OPERAND_RJC :
+      errmsg = insert_normal (cd, fields->f_Rjc, 0, 16, 8, 4, 16, total_length, buffer);
       break;
-    case FR30_OPERAND_I8 :
-      errmsg = insert_normal (cd, fields->f_i8, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 8, 16, total_length, buffer);
+    case FR30_OPERAND_RS1 :
+      errmsg = insert_normal (cd, fields->f_Rs1, 0, 0, 8, 4, 16, total_length, buffer);
       break;
-    case FR30_OPERAND_UDISP6 :
+    case FR30_OPERAND_RS2 :
+      errmsg = insert_normal (cd, fields->f_Rs2, 0, 0, 12, 4, 16, total_length, buffer);
+      break;
+    case FR30_OPERAND_CC :
+      errmsg = insert_normal (cd, fields->f_cc, 0, 0, 4, 4, 16, total_length, buffer);
+      break;
+    case FR30_OPERAND_CCC :
+      errmsg = insert_normal (cd, fields->f_ccc, 0, 16, 0, 8, 16, total_length, buffer);
+      break;
+    case FR30_OPERAND_DIR10 :
       {
-        long value = fields->f_udisp6;
+        long value = fields->f_dir10;
         value = ((unsigned int) (value) >> (2));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 4, 16, total_length, buffer);
+        errmsg = insert_normal (cd, value, 0, 0, 8, 8, 16, total_length, buffer);
       }
       break;
-    case FR30_OPERAND_DISP8 :
-      errmsg = insert_normal (cd, fields->f_disp8, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 8, 16, total_length, buffer);
+    case FR30_OPERAND_DIR8 :
+      errmsg = insert_normal (cd, fields->f_dir8, 0, 0, 8, 8, 16, total_length, buffer);
       break;
-    case FR30_OPERAND_DISP9 :
+    case FR30_OPERAND_DIR9 :
       {
-        long value = fields->f_disp9;
-        value = ((int) (value) >> (1));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 8, 16, total_length, buffer);
+        long value = fields->f_dir9;
+        value = ((unsigned int) (value) >> (1));
+        errmsg = insert_normal (cd, value, 0, 0, 8, 8, 16, total_length, buffer);
       }
       break;
     case FR30_OPERAND_DISP10 :
       {
         long value = fields->f_disp10;
         value = ((int) (value) >> (2));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 8, 16, total_length, buffer);
+        errmsg = insert_normal (cd, value, 0|(1<<CGEN_IFLD_SIGNED), 0, 4, 8, 16, total_length, buffer);
       }
       break;
-    case FR30_OPERAND_S10 :
-      {
-        long value = fields->f_s10;
-        value = ((int) (value) >> (2));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, buffer);
-      }
+    case FR30_OPERAND_DISP8 :
+      errmsg = insert_normal (cd, fields->f_disp8, 0|(1<<CGEN_IFLD_SIGNED), 0, 4, 8, 16, total_length, buffer);
       break;
-    case FR30_OPERAND_U10 :
+    case FR30_OPERAND_DISP9 :
       {
-        long value = fields->f_u10;
-        value = ((unsigned int) (value) >> (2));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, buffer);
-      }
-      break;
-    case FR30_OPERAND_I32 :
-      errmsg = insert_normal (cd, fields->f_i32, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_SIGN_OPT-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 16, 0, 32, 32, total_length, buffer);
-      break;
-    case FR30_OPERAND_M4 :
-      {
-        long value = fields->f_m4;
-        value = ((value) & (15));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 4, 16, total_length, buffer);
+        long value = fields->f_disp9;
+        value = ((int) (value) >> (1));
+        errmsg = insert_normal (cd, value, 0|(1<<CGEN_IFLD_SIGNED), 0, 4, 8, 16, total_length, buffer);
       }
       break;
     case FR30_OPERAND_I20 :
       {
-do {
+{
   FLD (f_i20_4) = ((unsigned int) (FLD (f_i20)) >> (16));
   FLD (f_i20_16) = ((FLD (f_i20)) & (65535));
-} while (0);
-        errmsg = insert_normal (cd, fields->f_i20_4, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_VIRTUAL-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 4, 16, total_length, buffer);
+}
+        errmsg = insert_normal (cd, fields->f_i20_4, 0, 0, 8, 4, 16, total_length, buffer);
         if (errmsg)
           break;
-        errmsg = insert_normal (cd, fields->f_i20_16, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_VIRTUAL-CGEN_ATTR_BOOL_OFFSET)), 16, 0, 16, 16, total_length, buffer);
+        errmsg = insert_normal (cd, fields->f_i20_16, 0, 16, 0, 16, 16, total_length, buffer);
         if (errmsg)
           break;
       }
       break;
-    case FR30_OPERAND_DIR8 :
-      errmsg = insert_normal (cd, fields->f_dir8, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, buffer);
+    case FR30_OPERAND_I32 :
+      errmsg = insert_normal (cd, fields->f_i32, 0|(1<<CGEN_IFLD_SIGN_OPT), 16, 0, 32, 32, total_length, buffer);
       break;
-    case FR30_OPERAND_DIR9 :
-      {
-        long value = fields->f_dir9;
-        value = ((unsigned int) (value) >> (1));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, buffer);
-      }
+    case FR30_OPERAND_I8 :
+      errmsg = insert_normal (cd, fields->f_i8, 0, 0, 4, 8, 16, total_length, buffer);
       break;
-    case FR30_OPERAND_DIR10 :
+    case FR30_OPERAND_LABEL12 :
       {
-        long value = fields->f_dir10;
-        value = ((unsigned int) (value) >> (2));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, buffer);
+        long value = fields->f_rel12;
+        value = ((int) (((value) - (((pc) + (2))))) >> (1));
+        errmsg = insert_normal (cd, value, 0|(1<<CGEN_IFLD_SIGNED)|(1<<CGEN_IFLD_PCREL_ADDR), 0, 5, 11, 16, total_length, buffer);
       }
       break;
     case FR30_OPERAND_LABEL9 :
       {
         long value = fields->f_rel9;
         value = ((int) (((value) - (((pc) + (2))))) >> (1));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, buffer);
+        errmsg = insert_normal (cd, value, 0|(1<<CGEN_IFLD_SIGNED)|(1<<CGEN_IFLD_PCREL_ADDR), 0, 8, 8, 16, total_length, buffer);
       }
       break;
-    case FR30_OPERAND_LABEL12 :
+    case FR30_OPERAND_M4 :
       {
-        long value = fields->f_rel12;
-        value = ((int) (((value) - (((pc) + (2))))) >> (1));
-        errmsg = insert_normal (cd, value, 0|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), 0, 5, 11, 16, total_length, buffer);
+        long value = fields->f_m4;
+        value = ((value) & (15));
+        errmsg = insert_normal (cd, value, 0, 0, 8, 4, 16, total_length, buffer);
       }
       break;
-    case FR30_OPERAND_REGLIST_LOW_LD :
-      errmsg = insert_normal (cd, fields->f_reglist_low_ld, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, buffer);
+    case FR30_OPERAND_PS :
+      errmsg = insert_normal (cd, fields->f_nil, 0, 0, 0, 0, 0, total_length, buffer);
       break;
     case FR30_OPERAND_REGLIST_HI_LD :
-      errmsg = insert_normal (cd, fields->f_reglist_hi_ld, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, buffer);
-      break;
-    case FR30_OPERAND_REGLIST_LOW_ST :
-      errmsg = insert_normal (cd, fields->f_reglist_low_st, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, buffer);
+      errmsg = insert_normal (cd, fields->f_reglist_hi_ld, 0, 0, 8, 8, 16, total_length, buffer);
       break;
     case FR30_OPERAND_REGLIST_HI_ST :
-      errmsg = insert_normal (cd, fields->f_reglist_hi_st, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, buffer);
+      errmsg = insert_normal (cd, fields->f_reglist_hi_st, 0, 0, 8, 8, 16, total_length, buffer);
       break;
-    case FR30_OPERAND_CC :
-      errmsg = insert_normal (cd, fields->f_cc, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 4, 16, total_length, buffer);
+    case FR30_OPERAND_REGLIST_LOW_LD :
+      errmsg = insert_normal (cd, fields->f_reglist_low_ld, 0, 0, 8, 8, 16, total_length, buffer);
       break;
-    case FR30_OPERAND_CCC :
-      errmsg = insert_normal (cd, fields->f_ccc, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 16, 0, 8, 16, total_length, buffer);
+    case FR30_OPERAND_REGLIST_LOW_ST :
+      errmsg = insert_normal (cd, fields->f_reglist_low_st, 0, 0, 8, 8, 16, total_length, buffer);
+      break;
+    case FR30_OPERAND_S10 :
+      {
+        long value = fields->f_s10;
+        value = ((int) (value) >> (2));
+        errmsg = insert_normal (cd, value, 0|(1<<CGEN_IFLD_SIGNED), 0, 8, 8, 16, total_length, buffer);
+      }
+      break;
+    case FR30_OPERAND_U10 :
+      {
+        long value = fields->f_u10;
+        value = ((unsigned int) (value) >> (2));
+        errmsg = insert_normal (cd, value, 0, 0, 8, 8, 16, total_length, buffer);
+      }
+      break;
+    case FR30_OPERAND_U4 :
+      errmsg = insert_normal (cd, fields->f_u4, 0, 0, 8, 4, 16, total_length, buffer);
+      break;
+    case FR30_OPERAND_U4C :
+      errmsg = insert_normal (cd, fields->f_u4c, 0, 0, 12, 4, 16, total_length, buffer);
+      break;
+    case FR30_OPERAND_U8 :
+      errmsg = insert_normal (cd, fields->f_u8, 0, 0, 8, 8, 16, total_length, buffer);
+      break;
+    case FR30_OPERAND_UDISP6 :
+      {
+        long value = fields->f_udisp6;
+        value = ((unsigned int) (value) >> (2));
+        errmsg = insert_normal (cd, value, 0, 0, 8, 4, 16, total_length, buffer);
+      }
       break;
 
     default :
@@ -780,29 +782,11 @@ fr30_cgen_extract_operand (cd, opindex, ex_info, insn_value, fields, pc)
 
   switch (opindex)
     {
-    case FR30_OPERAND_RI :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 16, total_length, pc, & fields->f_Ri);
-      break;
-    case FR30_OPERAND_RJ :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 4, 16, total_length, pc, & fields->f_Rj);
-      break;
-    case FR30_OPERAND_RIC :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 16, 12, 4, 16, total_length, pc, & fields->f_Ric);
-      break;
-    case FR30_OPERAND_RJC :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 16, 8, 4, 16, total_length, pc, & fields->f_Rjc);
-      break;
     case FR30_OPERAND_CRI :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 16, 12, 4, 16, total_length, pc, & fields->f_CRi);
+      length = extract_normal (cd, ex_info, insn_value, 0, 16, 12, 4, 16, total_length, pc, & fields->f_CRi);
       break;
     case FR30_OPERAND_CRJ :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 16, 8, 4, 16, total_length, pc, & fields->f_CRj);
-      break;
-    case FR30_OPERAND_RS1 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 4, 16, total_length, pc, & fields->f_Rs1);
-      break;
-    case FR30_OPERAND_RS2 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 16, total_length, pc, & fields->f_Rs2);
+      length = extract_normal (cd, ex_info, insn_value, 0, 16, 8, 4, 16, total_length, pc, & fields->f_CRj);
       break;
     case FR30_OPERAND_R13 :
       length = extract_normal (cd, ex_info, insn_value, 0, 0, 0, 0, 0, total_length, pc, & fields->f_nil);
@@ -813,52 +797,126 @@ fr30_cgen_extract_operand (cd, opindex, ex_info, insn_value, fields, pc)
     case FR30_OPERAND_R15 :
       length = extract_normal (cd, ex_info, insn_value, 0, 0, 0, 0, 0, total_length, pc, & fields->f_nil);
       break;
-    case FR30_OPERAND_PS :
-      length = extract_normal (cd, ex_info, insn_value, 0, 0, 0, 0, 0, total_length, pc, & fields->f_nil);
+    case FR30_OPERAND_RI :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 12, 4, 16, total_length, pc, & fields->f_Ri);
       break;
-    case FR30_OPERAND_U4 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 4, 16, total_length, pc, & fields->f_u4);
+    case FR30_OPERAND_RIC :
+      length = extract_normal (cd, ex_info, insn_value, 0, 16, 12, 4, 16, total_length, pc, & fields->f_Ric);
       break;
-    case FR30_OPERAND_U4C :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 12, 4, 16, total_length, pc, & fields->f_u4c);
+    case FR30_OPERAND_RJ :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 4, 16, total_length, pc, & fields->f_Rj);
       break;
-    case FR30_OPERAND_U8 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, pc, & fields->f_u8);
+    case FR30_OPERAND_RJC :
+      length = extract_normal (cd, ex_info, insn_value, 0, 16, 8, 4, 16, total_length, pc, & fields->f_Rjc);
       break;
-    case FR30_OPERAND_I8 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 8, 16, total_length, pc, & fields->f_i8);
+    case FR30_OPERAND_RS1 :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 4, 16, total_length, pc, & fields->f_Rs1);
       break;
-    case FR30_OPERAND_UDISP6 :
+    case FR30_OPERAND_RS2 :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 12, 4, 16, total_length, pc, & fields->f_Rs2);
+      break;
+    case FR30_OPERAND_CC :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 4, 4, 16, total_length, pc, & fields->f_cc);
+      break;
+    case FR30_OPERAND_CCC :
+      length = extract_normal (cd, ex_info, insn_value, 0, 16, 0, 8, 16, total_length, pc, & fields->f_ccc);
+      break;
+    case FR30_OPERAND_DIR10 :
       {
         long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 4, 16, total_length, pc, & value);
+        length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 8, 16, total_length, pc, & value);
         value = ((value) << (2));
-        fields->f_udisp6 = value;
+        fields->f_dir10 = value;
       }
       break;
-    case FR30_OPERAND_DISP8 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 8, 16, total_length, pc, & fields->f_disp8);
+    case FR30_OPERAND_DIR8 :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 8, 16, total_length, pc, & fields->f_dir8);
       break;
-    case FR30_OPERAND_DISP9 :
+    case FR30_OPERAND_DIR9 :
       {
         long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 8, 16, total_length, pc, & value);
+        length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 8, 16, total_length, pc, & value);
         value = ((value) << (1));
-        fields->f_disp9 = value;
+        fields->f_dir9 = value;
       }
       break;
     case FR30_OPERAND_DISP10 :
       {
         long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 8, 16, total_length, pc, & value);
+        length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGNED), 0, 4, 8, 16, total_length, pc, & value);
         value = ((value) << (2));
         fields->f_disp10 = value;
       }
       break;
+    case FR30_OPERAND_DISP8 :
+      length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGNED), 0, 4, 8, 16, total_length, pc, & fields->f_disp8);
+      break;
+    case FR30_OPERAND_DISP9 :
+      {
+        long value;
+        length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGNED), 0, 4, 8, 16, total_length, pc, & value);
+        value = ((value) << (1));
+        fields->f_disp9 = value;
+      }
+      break;
+    case FR30_OPERAND_I20 :
+      {
+        length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 4, 16, total_length, pc, & fields->f_i20_4);
+        length = extract_normal (cd, ex_info, insn_value, 0, 16, 0, 16, 16, total_length, pc, & fields->f_i20_16);
+{
+  FLD (f_i20) = ((((FLD (f_i20_4)) << (16))) | (FLD (f_i20_16)));
+}
+      }
+      break;
+    case FR30_OPERAND_I32 :
+      length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGN_OPT), 16, 0, 32, 32, total_length, pc, & fields->f_i32);
+      break;
+    case FR30_OPERAND_I8 :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 4, 8, 16, total_length, pc, & fields->f_i8);
+      break;
+    case FR30_OPERAND_LABEL12 :
+      {
+        long value;
+        length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGNED)|(1<<CGEN_IFLD_PCREL_ADDR), 0, 5, 11, 16, total_length, pc, & value);
+        value = ((((value) << (1))) + (((pc) + (2))));
+        fields->f_rel12 = value;
+      }
+      break;
+    case FR30_OPERAND_LABEL9 :
+      {
+        long value;
+        length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGNED)|(1<<CGEN_IFLD_PCREL_ADDR), 0, 8, 8, 16, total_length, pc, & value);
+        value = ((((value) << (1))) + (((pc) + (2))));
+        fields->f_rel9 = value;
+      }
+      break;
+    case FR30_OPERAND_M4 :
+      {
+        long value;
+        length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 4, 16, total_length, pc, & value);
+        value = ((value) | (((-1) << (4))));
+        fields->f_m4 = value;
+      }
+      break;
+    case FR30_OPERAND_PS :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 0, 0, 0, total_length, pc, & fields->f_nil);
+      break;
+    case FR30_OPERAND_REGLIST_HI_LD :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 8, 16, total_length, pc, & fields->f_reglist_hi_ld);
+      break;
+    case FR30_OPERAND_REGLIST_HI_ST :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 8, 16, total_length, pc, & fields->f_reglist_hi_st);
+      break;
+    case FR30_OPERAND_REGLIST_LOW_LD :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 8, 16, total_length, pc, & fields->f_reglist_low_ld);
+      break;
+    case FR30_OPERAND_REGLIST_LOW_ST :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 8, 16, total_length, pc, & fields->f_reglist_low_st);
+      break;
     case FR30_OPERAND_S10 :
       {
         long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, pc, & value);
+        length = extract_normal (cd, ex_info, insn_value, 0|(1<<CGEN_IFLD_SIGNED), 0, 8, 8, 16, total_length, pc, & value);
         value = ((value) << (2));
         fields->f_s10 = value;
       }
@@ -866,83 +924,27 @@ fr30_cgen_extract_operand (cd, opindex, ex_info, insn_value, fields, pc)
     case FR30_OPERAND_U10 :
       {
         long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, pc, & value);
+        length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 8, 16, total_length, pc, & value);
         value = ((value) << (2));
         fields->f_u10 = value;
       }
       break;
-    case FR30_OPERAND_I32 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_SIGN_OPT-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 16, 0, 32, 32, total_length, pc, & fields->f_i32);
+    case FR30_OPERAND_U4 :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 4, 16, total_length, pc, & fields->f_u4);
       break;
-    case FR30_OPERAND_M4 :
+    case FR30_OPERAND_U4C :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 12, 4, 16, total_length, pc, & fields->f_u4c);
+      break;
+    case FR30_OPERAND_U8 :
+      length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 8, 16, total_length, pc, & fields->f_u8);
+      break;
+    case FR30_OPERAND_UDISP6 :
       {
         long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 4, 16, total_length, pc, & value);
-        value = ((value) | (((-1) << (4))));
-        fields->f_m4 = value;
-      }
-      break;
-    case FR30_OPERAND_I20 :
-      {
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_VIRTUAL-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 4, 16, total_length, pc, & fields->f_i20_4);
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_VIRTUAL-CGEN_ATTR_BOOL_OFFSET)), 16, 0, 16, 16, total_length, pc, & fields->f_i20_16);
-do {
-  FLD (f_i20) = ((((FLD (f_i20_4)) << (16))) | (FLD (f_i20_16)));
-} while (0);
-      }
-      break;
-    case FR30_OPERAND_DIR8 :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, pc, & fields->f_dir8);
-      break;
-    case FR30_OPERAND_DIR9 :
-      {
-        long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, pc, & value);
-        value = ((value) << (1));
-        fields->f_dir9 = value;
-      }
-      break;
-    case FR30_OPERAND_DIR10 :
-      {
-        long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, pc, & value);
+        length = extract_normal (cd, ex_info, insn_value, 0, 0, 8, 4, 16, total_length, pc, & value);
         value = ((value) << (2));
-        fields->f_dir10 = value;
+        fields->f_udisp6 = value;
       }
-      break;
-    case FR30_OPERAND_LABEL9 :
-      {
-        long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, pc, & value);
-        value = ((((value) << (1))) + (((pc) + (2))));
-        fields->f_rel9 = value;
-      }
-      break;
-    case FR30_OPERAND_LABEL12 :
-      {
-        long value;
-        length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_PCREL_ADDR-CGEN_ATTR_BOOL_OFFSET)), 0, 5, 11, 16, total_length, pc, & value);
-        value = ((((value) << (1))) + (((pc) + (2))));
-        fields->f_rel12 = value;
-      }
-      break;
-    case FR30_OPERAND_REGLIST_LOW_LD :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, pc, & fields->f_reglist_low_ld);
-      break;
-    case FR30_OPERAND_REGLIST_HI_LD :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, pc, & fields->f_reglist_hi_ld);
-      break;
-    case FR30_OPERAND_REGLIST_LOW_ST :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, pc, & fields->f_reglist_low_st);
-      break;
-    case FR30_OPERAND_REGLIST_HI_ST :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 8, 8, 16, total_length, pc, & fields->f_reglist_hi_st);
-      break;
-    case FR30_OPERAND_CC :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 0, 4, 4, 16, total_length, pc, & fields->f_cc);
-      break;
-    case FR30_OPERAND_CCC :
-      length = extract_normal (cd, ex_info, insn_value, 0|(1<<(CGEN_OPERAND_HASH_PREFIX-CGEN_ATTR_BOOL_OFFSET))|(1<<(CGEN_OPERAND_UNSIGNED-CGEN_ATTR_BOOL_OFFSET)), 16, 0, 8, 16, total_length, pc, & fields->f_ccc);
       break;
 
     default :
@@ -971,7 +973,8 @@ cgen_extract_fn * const fr30_cgen_extract_handlers[] =
    not appropriate.  */
 
 int
-fr30_cgen_get_int_operand (opindex, fields)
+fr30_cgen_get_int_operand (cd, opindex, fields)
+     CGEN_CPU_DESC cd;
      int opindex;
      const CGEN_FIELDS * fields;
 {
@@ -979,29 +982,11 @@ fr30_cgen_get_int_operand (opindex, fields)
 
   switch (opindex)
     {
-    case FR30_OPERAND_RI :
-      value = fields->f_Ri;
-      break;
-    case FR30_OPERAND_RJ :
-      value = fields->f_Rj;
-      break;
-    case FR30_OPERAND_RIC :
-      value = fields->f_Ric;
-      break;
-    case FR30_OPERAND_RJC :
-      value = fields->f_Rjc;
-      break;
     case FR30_OPERAND_CRI :
       value = fields->f_CRi;
       break;
     case FR30_OPERAND_CRJ :
       value = fields->f_CRj;
-      break;
-    case FR30_OPERAND_RS1 :
-      value = fields->f_Rs1;
-      break;
-    case FR30_OPERAND_RS2 :
-      value = fields->f_Rs2;
       break;
     case FR30_OPERAND_R13 :
       value = fields->f_nil;
@@ -1012,8 +997,86 @@ fr30_cgen_get_int_operand (opindex, fields)
     case FR30_OPERAND_R15 :
       value = fields->f_nil;
       break;
+    case FR30_OPERAND_RI :
+      value = fields->f_Ri;
+      break;
+    case FR30_OPERAND_RIC :
+      value = fields->f_Ric;
+      break;
+    case FR30_OPERAND_RJ :
+      value = fields->f_Rj;
+      break;
+    case FR30_OPERAND_RJC :
+      value = fields->f_Rjc;
+      break;
+    case FR30_OPERAND_RS1 :
+      value = fields->f_Rs1;
+      break;
+    case FR30_OPERAND_RS2 :
+      value = fields->f_Rs2;
+      break;
+    case FR30_OPERAND_CC :
+      value = fields->f_cc;
+      break;
+    case FR30_OPERAND_CCC :
+      value = fields->f_ccc;
+      break;
+    case FR30_OPERAND_DIR10 :
+      value = fields->f_dir10;
+      break;
+    case FR30_OPERAND_DIR8 :
+      value = fields->f_dir8;
+      break;
+    case FR30_OPERAND_DIR9 :
+      value = fields->f_dir9;
+      break;
+    case FR30_OPERAND_DISP10 :
+      value = fields->f_disp10;
+      break;
+    case FR30_OPERAND_DISP8 :
+      value = fields->f_disp8;
+      break;
+    case FR30_OPERAND_DISP9 :
+      value = fields->f_disp9;
+      break;
+    case FR30_OPERAND_I20 :
+      value = fields->f_i20;
+      break;
+    case FR30_OPERAND_I32 :
+      value = fields->f_i32;
+      break;
+    case FR30_OPERAND_I8 :
+      value = fields->f_i8;
+      break;
+    case FR30_OPERAND_LABEL12 :
+      value = fields->f_rel12;
+      break;
+    case FR30_OPERAND_LABEL9 :
+      value = fields->f_rel9;
+      break;
+    case FR30_OPERAND_M4 :
+      value = fields->f_m4;
+      break;
     case FR30_OPERAND_PS :
       value = fields->f_nil;
+      break;
+    case FR30_OPERAND_REGLIST_HI_LD :
+      value = fields->f_reglist_hi_ld;
+      break;
+    case FR30_OPERAND_REGLIST_HI_ST :
+      value = fields->f_reglist_hi_st;
+      break;
+    case FR30_OPERAND_REGLIST_LOW_LD :
+      value = fields->f_reglist_low_ld;
+      break;
+    case FR30_OPERAND_REGLIST_LOW_ST :
+      value = fields->f_reglist_low_st;
+      break;
+    case FR30_OPERAND_S10 :
+      value = fields->f_s10;
+      break;
+    case FR30_OPERAND_U10 :
+      value = fields->f_u10;
       break;
     case FR30_OPERAND_U4 :
       value = fields->f_u4;
@@ -1024,68 +1087,8 @@ fr30_cgen_get_int_operand (opindex, fields)
     case FR30_OPERAND_U8 :
       value = fields->f_u8;
       break;
-    case FR30_OPERAND_I8 :
-      value = fields->f_i8;
-      break;
     case FR30_OPERAND_UDISP6 :
       value = fields->f_udisp6;
-      break;
-    case FR30_OPERAND_DISP8 :
-      value = fields->f_disp8;
-      break;
-    case FR30_OPERAND_DISP9 :
-      value = fields->f_disp9;
-      break;
-    case FR30_OPERAND_DISP10 :
-      value = fields->f_disp10;
-      break;
-    case FR30_OPERAND_S10 :
-      value = fields->f_s10;
-      break;
-    case FR30_OPERAND_U10 :
-      value = fields->f_u10;
-      break;
-    case FR30_OPERAND_I32 :
-      value = fields->f_i32;
-      break;
-    case FR30_OPERAND_M4 :
-      value = fields->f_m4;
-      break;
-    case FR30_OPERAND_I20 :
-      value = fields->f_i20;
-      break;
-    case FR30_OPERAND_DIR8 :
-      value = fields->f_dir8;
-      break;
-    case FR30_OPERAND_DIR9 :
-      value = fields->f_dir9;
-      break;
-    case FR30_OPERAND_DIR10 :
-      value = fields->f_dir10;
-      break;
-    case FR30_OPERAND_LABEL9 :
-      value = fields->f_rel9;
-      break;
-    case FR30_OPERAND_LABEL12 :
-      value = fields->f_rel12;
-      break;
-    case FR30_OPERAND_REGLIST_LOW_LD :
-      value = fields->f_reglist_low_ld;
-      break;
-    case FR30_OPERAND_REGLIST_HI_LD :
-      value = fields->f_reglist_hi_ld;
-      break;
-    case FR30_OPERAND_REGLIST_LOW_ST :
-      value = fields->f_reglist_low_st;
-      break;
-    case FR30_OPERAND_REGLIST_HI_ST :
-      value = fields->f_reglist_hi_st;
-      break;
-    case FR30_OPERAND_CC :
-      value = fields->f_cc;
-      break;
-    case FR30_OPERAND_CCC :
-      value = fields->f_ccc;
       break;
 
     default :
@@ -1099,7 +1102,8 @@ fr30_cgen_get_int_operand (opindex, fields)
 }
 
 bfd_vma
-fr30_cgen_get_vma_operand (opindex, fields)
+fr30_cgen_get_vma_operand (cd, opindex, fields)
+     CGEN_CPU_DESC cd;
      int opindex;
      const CGEN_FIELDS * fields;
 {
@@ -1107,29 +1111,11 @@ fr30_cgen_get_vma_operand (opindex, fields)
 
   switch (opindex)
     {
-    case FR30_OPERAND_RI :
-      value = fields->f_Ri;
-      break;
-    case FR30_OPERAND_RJ :
-      value = fields->f_Rj;
-      break;
-    case FR30_OPERAND_RIC :
-      value = fields->f_Ric;
-      break;
-    case FR30_OPERAND_RJC :
-      value = fields->f_Rjc;
-      break;
     case FR30_OPERAND_CRI :
       value = fields->f_CRi;
       break;
     case FR30_OPERAND_CRJ :
       value = fields->f_CRj;
-      break;
-    case FR30_OPERAND_RS1 :
-      value = fields->f_Rs1;
-      break;
-    case FR30_OPERAND_RS2 :
-      value = fields->f_Rs2;
       break;
     case FR30_OPERAND_R13 :
       value = fields->f_nil;
@@ -1140,8 +1126,86 @@ fr30_cgen_get_vma_operand (opindex, fields)
     case FR30_OPERAND_R15 :
       value = fields->f_nil;
       break;
+    case FR30_OPERAND_RI :
+      value = fields->f_Ri;
+      break;
+    case FR30_OPERAND_RIC :
+      value = fields->f_Ric;
+      break;
+    case FR30_OPERAND_RJ :
+      value = fields->f_Rj;
+      break;
+    case FR30_OPERAND_RJC :
+      value = fields->f_Rjc;
+      break;
+    case FR30_OPERAND_RS1 :
+      value = fields->f_Rs1;
+      break;
+    case FR30_OPERAND_RS2 :
+      value = fields->f_Rs2;
+      break;
+    case FR30_OPERAND_CC :
+      value = fields->f_cc;
+      break;
+    case FR30_OPERAND_CCC :
+      value = fields->f_ccc;
+      break;
+    case FR30_OPERAND_DIR10 :
+      value = fields->f_dir10;
+      break;
+    case FR30_OPERAND_DIR8 :
+      value = fields->f_dir8;
+      break;
+    case FR30_OPERAND_DIR9 :
+      value = fields->f_dir9;
+      break;
+    case FR30_OPERAND_DISP10 :
+      value = fields->f_disp10;
+      break;
+    case FR30_OPERAND_DISP8 :
+      value = fields->f_disp8;
+      break;
+    case FR30_OPERAND_DISP9 :
+      value = fields->f_disp9;
+      break;
+    case FR30_OPERAND_I20 :
+      value = fields->f_i20;
+      break;
+    case FR30_OPERAND_I32 :
+      value = fields->f_i32;
+      break;
+    case FR30_OPERAND_I8 :
+      value = fields->f_i8;
+      break;
+    case FR30_OPERAND_LABEL12 :
+      value = fields->f_rel12;
+      break;
+    case FR30_OPERAND_LABEL9 :
+      value = fields->f_rel9;
+      break;
+    case FR30_OPERAND_M4 :
+      value = fields->f_m4;
+      break;
     case FR30_OPERAND_PS :
       value = fields->f_nil;
+      break;
+    case FR30_OPERAND_REGLIST_HI_LD :
+      value = fields->f_reglist_hi_ld;
+      break;
+    case FR30_OPERAND_REGLIST_HI_ST :
+      value = fields->f_reglist_hi_st;
+      break;
+    case FR30_OPERAND_REGLIST_LOW_LD :
+      value = fields->f_reglist_low_ld;
+      break;
+    case FR30_OPERAND_REGLIST_LOW_ST :
+      value = fields->f_reglist_low_st;
+      break;
+    case FR30_OPERAND_S10 :
+      value = fields->f_s10;
+      break;
+    case FR30_OPERAND_U10 :
+      value = fields->f_u10;
       break;
     case FR30_OPERAND_U4 :
       value = fields->f_u4;
@@ -1152,68 +1216,8 @@ fr30_cgen_get_vma_operand (opindex, fields)
     case FR30_OPERAND_U8 :
       value = fields->f_u8;
       break;
-    case FR30_OPERAND_I8 :
-      value = fields->f_i8;
-      break;
     case FR30_OPERAND_UDISP6 :
       value = fields->f_udisp6;
-      break;
-    case FR30_OPERAND_DISP8 :
-      value = fields->f_disp8;
-      break;
-    case FR30_OPERAND_DISP9 :
-      value = fields->f_disp9;
-      break;
-    case FR30_OPERAND_DISP10 :
-      value = fields->f_disp10;
-      break;
-    case FR30_OPERAND_S10 :
-      value = fields->f_s10;
-      break;
-    case FR30_OPERAND_U10 :
-      value = fields->f_u10;
-      break;
-    case FR30_OPERAND_I32 :
-      value = fields->f_i32;
-      break;
-    case FR30_OPERAND_M4 :
-      value = fields->f_m4;
-      break;
-    case FR30_OPERAND_I20 :
-      value = fields->f_i20;
-      break;
-    case FR30_OPERAND_DIR8 :
-      value = fields->f_dir8;
-      break;
-    case FR30_OPERAND_DIR9 :
-      value = fields->f_dir9;
-      break;
-    case FR30_OPERAND_DIR10 :
-      value = fields->f_dir10;
-      break;
-    case FR30_OPERAND_LABEL9 :
-      value = fields->f_rel9;
-      break;
-    case FR30_OPERAND_LABEL12 :
-      value = fields->f_rel12;
-      break;
-    case FR30_OPERAND_REGLIST_LOW_LD :
-      value = fields->f_reglist_low_ld;
-      break;
-    case FR30_OPERAND_REGLIST_HI_LD :
-      value = fields->f_reglist_hi_ld;
-      break;
-    case FR30_OPERAND_REGLIST_LOW_ST :
-      value = fields->f_reglist_low_st;
-      break;
-    case FR30_OPERAND_REGLIST_HI_ST :
-      value = fields->f_reglist_hi_st;
-      break;
-    case FR30_OPERAND_CC :
-      value = fields->f_cc;
-      break;
-    case FR30_OPERAND_CCC :
-      value = fields->f_ccc;
       break;
 
     default :
@@ -1232,36 +1236,19 @@ fr30_cgen_get_vma_operand (opindex, fields)
    not appropriate.  */
 
 void
-fr30_cgen_set_int_operand (opindex, fields, value)
+fr30_cgen_set_int_operand (cd, opindex, fields, value)
+     CGEN_CPU_DESC cd;
      int opindex;
      CGEN_FIELDS * fields;
      int value;
 {
   switch (opindex)
     {
-    case FR30_OPERAND_RI :
-      fields->f_Ri = value;
-      break;
-    case FR30_OPERAND_RJ :
-      fields->f_Rj = value;
-      break;
-    case FR30_OPERAND_RIC :
-      fields->f_Ric = value;
-      break;
-    case FR30_OPERAND_RJC :
-      fields->f_Rjc = value;
-      break;
     case FR30_OPERAND_CRI :
       fields->f_CRi = value;
       break;
     case FR30_OPERAND_CRJ :
       fields->f_CRj = value;
-      break;
-    case FR30_OPERAND_RS1 :
-      fields->f_Rs1 = value;
-      break;
-    case FR30_OPERAND_RS2 :
-      fields->f_Rs2 = value;
       break;
     case FR30_OPERAND_R13 :
       fields->f_nil = value;
@@ -1272,8 +1259,86 @@ fr30_cgen_set_int_operand (opindex, fields, value)
     case FR30_OPERAND_R15 :
       fields->f_nil = value;
       break;
+    case FR30_OPERAND_RI :
+      fields->f_Ri = value;
+      break;
+    case FR30_OPERAND_RIC :
+      fields->f_Ric = value;
+      break;
+    case FR30_OPERAND_RJ :
+      fields->f_Rj = value;
+      break;
+    case FR30_OPERAND_RJC :
+      fields->f_Rjc = value;
+      break;
+    case FR30_OPERAND_RS1 :
+      fields->f_Rs1 = value;
+      break;
+    case FR30_OPERAND_RS2 :
+      fields->f_Rs2 = value;
+      break;
+    case FR30_OPERAND_CC :
+      fields->f_cc = value;
+      break;
+    case FR30_OPERAND_CCC :
+      fields->f_ccc = value;
+      break;
+    case FR30_OPERAND_DIR10 :
+      fields->f_dir10 = value;
+      break;
+    case FR30_OPERAND_DIR8 :
+      fields->f_dir8 = value;
+      break;
+    case FR30_OPERAND_DIR9 :
+      fields->f_dir9 = value;
+      break;
+    case FR30_OPERAND_DISP10 :
+      fields->f_disp10 = value;
+      break;
+    case FR30_OPERAND_DISP8 :
+      fields->f_disp8 = value;
+      break;
+    case FR30_OPERAND_DISP9 :
+      fields->f_disp9 = value;
+      break;
+    case FR30_OPERAND_I20 :
+      fields->f_i20 = value;
+      break;
+    case FR30_OPERAND_I32 :
+      fields->f_i32 = value;
+      break;
+    case FR30_OPERAND_I8 :
+      fields->f_i8 = value;
+      break;
+    case FR30_OPERAND_LABEL12 :
+      fields->f_rel12 = value;
+      break;
+    case FR30_OPERAND_LABEL9 :
+      fields->f_rel9 = value;
+      break;
+    case FR30_OPERAND_M4 :
+      fields->f_m4 = value;
+      break;
     case FR30_OPERAND_PS :
       fields->f_nil = value;
+      break;
+    case FR30_OPERAND_REGLIST_HI_LD :
+      fields->f_reglist_hi_ld = value;
+      break;
+    case FR30_OPERAND_REGLIST_HI_ST :
+      fields->f_reglist_hi_st = value;
+      break;
+    case FR30_OPERAND_REGLIST_LOW_LD :
+      fields->f_reglist_low_ld = value;
+      break;
+    case FR30_OPERAND_REGLIST_LOW_ST :
+      fields->f_reglist_low_st = value;
+      break;
+    case FR30_OPERAND_S10 :
+      fields->f_s10 = value;
+      break;
+    case FR30_OPERAND_U10 :
+      fields->f_u10 = value;
       break;
     case FR30_OPERAND_U4 :
       fields->f_u4 = value;
@@ -1284,68 +1349,8 @@ fr30_cgen_set_int_operand (opindex, fields, value)
     case FR30_OPERAND_U8 :
       fields->f_u8 = value;
       break;
-    case FR30_OPERAND_I8 :
-      fields->f_i8 = value;
-      break;
     case FR30_OPERAND_UDISP6 :
       fields->f_udisp6 = value;
-      break;
-    case FR30_OPERAND_DISP8 :
-      fields->f_disp8 = value;
-      break;
-    case FR30_OPERAND_DISP9 :
-      fields->f_disp9 = value;
-      break;
-    case FR30_OPERAND_DISP10 :
-      fields->f_disp10 = value;
-      break;
-    case FR30_OPERAND_S10 :
-      fields->f_s10 = value;
-      break;
-    case FR30_OPERAND_U10 :
-      fields->f_u10 = value;
-      break;
-    case FR30_OPERAND_I32 :
-      fields->f_i32 = value;
-      break;
-    case FR30_OPERAND_M4 :
-      fields->f_m4 = value;
-      break;
-    case FR30_OPERAND_I20 :
-      fields->f_i20 = value;
-      break;
-    case FR30_OPERAND_DIR8 :
-      fields->f_dir8 = value;
-      break;
-    case FR30_OPERAND_DIR9 :
-      fields->f_dir9 = value;
-      break;
-    case FR30_OPERAND_DIR10 :
-      fields->f_dir10 = value;
-      break;
-    case FR30_OPERAND_LABEL9 :
-      fields->f_rel9 = value;
-      break;
-    case FR30_OPERAND_LABEL12 :
-      fields->f_rel12 = value;
-      break;
-    case FR30_OPERAND_REGLIST_LOW_LD :
-      fields->f_reglist_low_ld = value;
-      break;
-    case FR30_OPERAND_REGLIST_HI_LD :
-      fields->f_reglist_hi_ld = value;
-      break;
-    case FR30_OPERAND_REGLIST_LOW_ST :
-      fields->f_reglist_low_st = value;
-      break;
-    case FR30_OPERAND_REGLIST_HI_ST :
-      fields->f_reglist_hi_st = value;
-      break;
-    case FR30_OPERAND_CC :
-      fields->f_cc = value;
-      break;
-    case FR30_OPERAND_CCC :
-      fields->f_ccc = value;
       break;
 
     default :
@@ -1357,36 +1362,19 @@ fr30_cgen_set_int_operand (opindex, fields, value)
 }
 
 void
-fr30_cgen_set_vma_operand (opindex, fields, value)
+fr30_cgen_set_vma_operand (cd, opindex, fields, value)
+     CGEN_CPU_DESC cd;
      int opindex;
      CGEN_FIELDS * fields;
      bfd_vma value;
 {
   switch (opindex)
     {
-    case FR30_OPERAND_RI :
-      fields->f_Ri = value;
-      break;
-    case FR30_OPERAND_RJ :
-      fields->f_Rj = value;
-      break;
-    case FR30_OPERAND_RIC :
-      fields->f_Ric = value;
-      break;
-    case FR30_OPERAND_RJC :
-      fields->f_Rjc = value;
-      break;
     case FR30_OPERAND_CRI :
       fields->f_CRi = value;
       break;
     case FR30_OPERAND_CRJ :
       fields->f_CRj = value;
-      break;
-    case FR30_OPERAND_RS1 :
-      fields->f_Rs1 = value;
-      break;
-    case FR30_OPERAND_RS2 :
-      fields->f_Rs2 = value;
       break;
     case FR30_OPERAND_R13 :
       fields->f_nil = value;
@@ -1397,8 +1385,86 @@ fr30_cgen_set_vma_operand (opindex, fields, value)
     case FR30_OPERAND_R15 :
       fields->f_nil = value;
       break;
+    case FR30_OPERAND_RI :
+      fields->f_Ri = value;
+      break;
+    case FR30_OPERAND_RIC :
+      fields->f_Ric = value;
+      break;
+    case FR30_OPERAND_RJ :
+      fields->f_Rj = value;
+      break;
+    case FR30_OPERAND_RJC :
+      fields->f_Rjc = value;
+      break;
+    case FR30_OPERAND_RS1 :
+      fields->f_Rs1 = value;
+      break;
+    case FR30_OPERAND_RS2 :
+      fields->f_Rs2 = value;
+      break;
+    case FR30_OPERAND_CC :
+      fields->f_cc = value;
+      break;
+    case FR30_OPERAND_CCC :
+      fields->f_ccc = value;
+      break;
+    case FR30_OPERAND_DIR10 :
+      fields->f_dir10 = value;
+      break;
+    case FR30_OPERAND_DIR8 :
+      fields->f_dir8 = value;
+      break;
+    case FR30_OPERAND_DIR9 :
+      fields->f_dir9 = value;
+      break;
+    case FR30_OPERAND_DISP10 :
+      fields->f_disp10 = value;
+      break;
+    case FR30_OPERAND_DISP8 :
+      fields->f_disp8 = value;
+      break;
+    case FR30_OPERAND_DISP9 :
+      fields->f_disp9 = value;
+      break;
+    case FR30_OPERAND_I20 :
+      fields->f_i20 = value;
+      break;
+    case FR30_OPERAND_I32 :
+      fields->f_i32 = value;
+      break;
+    case FR30_OPERAND_I8 :
+      fields->f_i8 = value;
+      break;
+    case FR30_OPERAND_LABEL12 :
+      fields->f_rel12 = value;
+      break;
+    case FR30_OPERAND_LABEL9 :
+      fields->f_rel9 = value;
+      break;
+    case FR30_OPERAND_M4 :
+      fields->f_m4 = value;
+      break;
     case FR30_OPERAND_PS :
       fields->f_nil = value;
+      break;
+    case FR30_OPERAND_REGLIST_HI_LD :
+      fields->f_reglist_hi_ld = value;
+      break;
+    case FR30_OPERAND_REGLIST_HI_ST :
+      fields->f_reglist_hi_st = value;
+      break;
+    case FR30_OPERAND_REGLIST_LOW_LD :
+      fields->f_reglist_low_ld = value;
+      break;
+    case FR30_OPERAND_REGLIST_LOW_ST :
+      fields->f_reglist_low_st = value;
+      break;
+    case FR30_OPERAND_S10 :
+      fields->f_s10 = value;
+      break;
+    case FR30_OPERAND_U10 :
+      fields->f_u10 = value;
       break;
     case FR30_OPERAND_U4 :
       fields->f_u4 = value;
@@ -1409,68 +1475,8 @@ fr30_cgen_set_vma_operand (opindex, fields, value)
     case FR30_OPERAND_U8 :
       fields->f_u8 = value;
       break;
-    case FR30_OPERAND_I8 :
-      fields->f_i8 = value;
-      break;
     case FR30_OPERAND_UDISP6 :
       fields->f_udisp6 = value;
-      break;
-    case FR30_OPERAND_DISP8 :
-      fields->f_disp8 = value;
-      break;
-    case FR30_OPERAND_DISP9 :
-      fields->f_disp9 = value;
-      break;
-    case FR30_OPERAND_DISP10 :
-      fields->f_disp10 = value;
-      break;
-    case FR30_OPERAND_S10 :
-      fields->f_s10 = value;
-      break;
-    case FR30_OPERAND_U10 :
-      fields->f_u10 = value;
-      break;
-    case FR30_OPERAND_I32 :
-      fields->f_i32 = value;
-      break;
-    case FR30_OPERAND_M4 :
-      fields->f_m4 = value;
-      break;
-    case FR30_OPERAND_I20 :
-      fields->f_i20 = value;
-      break;
-    case FR30_OPERAND_DIR8 :
-      fields->f_dir8 = value;
-      break;
-    case FR30_OPERAND_DIR9 :
-      fields->f_dir9 = value;
-      break;
-    case FR30_OPERAND_DIR10 :
-      fields->f_dir10 = value;
-      break;
-    case FR30_OPERAND_LABEL9 :
-      fields->f_rel9 = value;
-      break;
-    case FR30_OPERAND_LABEL12 :
-      fields->f_rel12 = value;
-      break;
-    case FR30_OPERAND_REGLIST_LOW_LD :
-      fields->f_reglist_low_ld = value;
-      break;
-    case FR30_OPERAND_REGLIST_HI_LD :
-      fields->f_reglist_hi_ld = value;
-      break;
-    case FR30_OPERAND_REGLIST_LOW_ST :
-      fields->f_reglist_low_st = value;
-      break;
-    case FR30_OPERAND_REGLIST_HI_ST :
-      fields->f_reglist_hi_st = value;
-      break;
-    case FR30_OPERAND_CC :
-      fields->f_cc = value;
-      break;
-    case FR30_OPERAND_CCC :
-      fields->f_ccc = value;
       break;
 
     default :

@@ -1632,7 +1632,7 @@ assign_section_numbers (abfd)
   elf_elfheader (abfd)->e_shstrndx = t->shstrtab_section;
   t->shstrtab_hdr.sh_size = _bfd_stringtab_size (elf_shstrtab (abfd));
 
-  if (abfd->symcount > 0)
+  if (bfd_get_symcount (abfd) > 0)
     {
       t->symtab_section = section_number++;
       t->strtab_section = section_number++;
@@ -1659,7 +1659,7 @@ assign_section_numbers (abfd)
   elf_elfsections (abfd) = i_shdrp;
 
   i_shdrp[t->shstrtab_section] = &t->shstrtab_hdr;
-  if (abfd->symcount > 0)
+  if (bfd_get_symcount (abfd) > 0)
     {
       i_shdrp[t->symtab_section] = &t->symtab_hdr;
       i_shdrp[t->strtab_section] = &t->strtab_hdr;
@@ -1801,6 +1801,7 @@ elf_map_symbols (abfd)
   int idx;
   asection *asect;
   asymbol **new_syms;
+  asymbol *sym;
 
 #ifdef DEBUG
   fprintf (stderr, "elf_map_symbols\n");
@@ -1823,19 +1824,36 @@ elf_map_symbols (abfd)
 
   for (idx = 0; idx < symcount; idx++)
     {
-      if ((syms[idx]->flags & BSF_SECTION_SYM) != 0
-	  && syms[idx]->value == 0)
+      sym = syms[idx];
+      
+      if ((sym->flags & BSF_SECTION_SYM) != 0
+	  && sym->value == 0)
 	{
 	  asection *sec;
 
-	  sec = syms[idx]->section;
+	  sec = sym->section;
+
 	  if (sec->owner != NULL)
 	    {
 	      if (sec->owner != abfd)
 		{
 		  if (sec->output_offset != 0)
 		    continue;
+		  
 		  sec = sec->output_section;
+
+		  /* Empty sections in the input files may have had a section
+		     symbol created for them.  (See the comment near the end of
+		     _bfd_generic_link_output_symbols in linker.c).  If the linker
+		     script discards such sections then we will reach this point.
+		     Since we know that we cannot avoid this case, we detect it
+		     and skip the abort and the assignment to the sect_syms array.
+		     To reproduce this particular case try running the linker
+		     testsuite test ld-scripts/weak.exp for an ELF port that uses
+		     the generic linker.  */
+		  if (sec->owner == NULL)
+		    continue;
+
 		  BFD_ASSERT (sec->owner == abfd);
 		}
 	      sect_syms[sec->index] = syms[idx];
@@ -1845,8 +1863,6 @@ elf_map_symbols (abfd)
 
   for (asect = abfd->sections; asect; asect = asect->next)
     {
-      asymbol *sym;
-
       if (sect_syms[asect->index] != NULL)
 	continue;
 
@@ -2004,7 +2020,7 @@ _bfd_elf_compute_section_file_positions (abfd, link_info)
     return false;
 
   /* The backend linker builds symbol table information itself.  */
-  if (link_info == NULL && abfd->symcount > 0)
+  if (link_info == NULL && bfd_get_symcount (abfd) > 0)
     {
       /* Non-zero if doing a relocatable link.  */
       int relocatable_p = ! (abfd->flags & (EXEC_P | DYNAMIC));
@@ -2028,7 +2044,7 @@ _bfd_elf_compute_section_file_positions (abfd, link_info)
   if (!assign_file_positions_except_relocs (abfd))
     return false;
 
-  if (link_info == NULL && abfd->symcount > 0)
+  if (link_info == NULL && bfd_get_symcount (abfd) > 0)
     {
       file_ptr off;
       Elf_Internal_Shdr *hdr;
@@ -2621,7 +2637,7 @@ assign_file_positions_for_segments (abfd)
 	}
 
       if (p->p_type == PT_LOAD
-	  || (p->p_type == PT_NOTE && abfd->format == bfd_core))
+	  || (p->p_type == PT_NOTE && bfd_get_format (abfd) == bfd_core))
 	{
 	  if (! m->includes_filehdr && ! m->includes_phdrs)
 	    p->p_offset = off;
@@ -2720,7 +2736,7 @@ assign_file_positions_for_segments (abfd)
 		voff += sec->_raw_size;
 	    }
 
-	  if (p->p_type == PT_NOTE && abfd->format == bfd_core)
+	  if (p->p_type == PT_NOTE && bfd_get_format (abfd) == bfd_core)
 	    {
 	      if (i == 0)	/* the actual "note" segment */
 		{		/* this one actually contains everything. */
@@ -2909,7 +2925,7 @@ assign_file_positions_except_relocs (abfd)
   struct elf_backend_data *bed = get_elf_backend_data (abfd);
 
   if ((abfd->flags & (EXEC_P | DYNAMIC)) == 0
-      && abfd->format != bfd_core)
+      && bfd_get_format (abfd) != bfd_core)
     {
       Elf_Internal_Shdr **hdrpp;
       unsigned int i;
@@ -3084,6 +3100,9 @@ prep_headers (abfd)
       break;
     case bfd_arch_fr30:
       i_ehdrp->e_machine = EM_CYGNUS_FR30;
+      break;
+    case bfd_arch_mcore:
+      i_ehdrp->e_machine = EM_MCORE;
       break;
     case bfd_arch_v850:
       switch (bfd_get_mach (abfd))
@@ -3386,7 +3405,7 @@ copy_private_bfd_data (ibfd, obfd)
 
 #define IS_COREFILE_NOTE(p, s)                                          \
 	    (p->p_type == PT_NOTE                                       \
-	     && ibfd->format == bfd_core                                \
+	     && bfd_get_format (ibfd) == bfd_core                       \
 	     && s->vma == 0 && s->lma == 0                              \
 	     && (bfd_vma) s->filepos >= p->p_offset                     \
 	     && (bfd_vma) s->filepos + s->_raw_size                     \
@@ -4940,6 +4959,16 @@ elfcore_grok_prfpreg (abfd, note)
   return true;
 }
 
+#if defined (HAVE_PRPSINFO_T)
+# define elfcore_psinfo_t prpsinfo_t
+#endif
+
+#if defined (HAVE_PSINFO_T)
+# define elfcore_psinfo_t psinfo_t
+#endif
+
+
+#if defined (HAVE_PRPSINFO_T) || defined (HAVE_PSINFO_T)
 
 /* return a malloc'ed copy of a string at START which is at
    most MAX bytes long, possibly without a terminating '\0'.
@@ -4970,17 +4999,6 @@ elfcore_strndup (abfd, start, max)
   return dup;
 }
 
-
-#if defined (HAVE_PRPSINFO_T)
-# define elfcore_psinfo_t prpsinfo_t
-#endif
-
-#if defined (HAVE_PSINFO_T)
-# define elfcore_psinfo_t psinfo_t
-#endif
-
-
-#if defined (HAVE_PRPSINFO_T) || defined (HAVE_PSINFO_T)
 static boolean
 elfcore_grok_psinfo (abfd, note)
      bfd* abfd;

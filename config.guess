@@ -1,6 +1,6 @@
 #! /bin/sh
 # Attempt to guess a canonical system name.
-#   Copyright (C) 1992, 93, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+#   Copyright (C) 1992, 93, 94, 95, 96, 97, 1998, 1999 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -458,6 +458,9 @@ EOF
     parisc*:Lites*:*:*)
 	echo hppa1.1-hp-lites
 	exit 0 ;;
+    hppa*:OpenBSD:*:*)
+	echo hppa-unknown-openbsd
+	exit 0 ;;
     C1*:ConvexOS:*:* | convex:ConvexOS:C1*:*)
 	echo c1-convex-bsd
         exit 0 ;;
@@ -513,7 +516,7 @@ EOF
     *:FreeBSD:*:*)
 	if test -x /usr/bin/objformat; then
 	    if test "elf" = "`/usr/bin/objformat`"; then
-		echo ${UNAME_MACHINE}-unknown-freebsdelf`echo${UNAME_RELEASE}|sed -e 's/[-_].*//'`
+		echo ${UNAME_MACHINE}-unknown-freebsdelf`echo ${UNAME_RELEASE}|sed -e 's/[-_].*//'`
 		exit 0
 	    fi
 	fi
@@ -531,6 +534,16 @@ EOF
     i*:MINGW*:*)
 	echo ${UNAME_MACHINE}-pc-mingw32
 	exit 0 ;;
+    i*:Windows_NT*:* | Pentium*:Windows_NT*:*)
+        # How do we know it's Interix rather than generic posix subsystem?
+	# It also conflicts with pre-2.0 versions of AT&T UWIN. Should we
+	# change UNAME_MACHINE based on the output of uname instead of
+	# i386?
+	echo i386-pc-interix
+	exit 0 ;;
+    i*:UWIN*:*)
+	echo ${UNAME_MACHINE}-pc-uwin
+	exit 0 ;;
     p*:CYGWIN*:*)
 	echo powerpcle-unknown-cygwin32
 	exit 0 ;;
@@ -544,6 +557,7 @@ EOF
 	# uname on the ARM produces all sorts of strangeness, and we need to
 	# filter it out.
 	case "$UNAME_MACHINE" in
+	  armv*)		      UNAME_MACHINE=$UNAME_MACHINE ;;
 	  arm* | sa110*)	      UNAME_MACHINE="arm" ;;
 	esac
 
@@ -722,7 +736,7 @@ EOF
 		echo ${UNAME_MACHINE}-pc-sysv${UNAME_RELEASE}
 	fi
 	exit 0 ;;
-    i?86:*:5:7*)
+    i?86:*:5:7)
        UNAME_REL=`(/bin/uname -X|egrep Release|sed -e 's/.*= //')`
        (/bin/uname -X|egrep i80486 >/dev/null) && UNAME_MACHINE=i486
        (/bin/uname -X|egrep '^Machine.*Pentium' >/dev/null) \

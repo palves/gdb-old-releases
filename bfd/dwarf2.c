@@ -851,7 +851,6 @@ decode_line_info (unit)
 		  break;
 		case DW_LNE_set_address:
 		  address = read_address (unit, line_ptr);
-		  address &= 0xffffffff;
 		  line_ptr += unit->addr_size;
 		  break;
 		case DW_LNE_define_file:
@@ -1005,8 +1004,7 @@ lookup_address_in_function_table (table,
        each_func;
        each_func = each_func->prev_func)
     {
-      if (addr >= (each_func->low & 0xffffffff)
-	  && addr < (each_func->high & 0xffffffff))
+      if (addr >= each_func->low && addr < each_func->high)
 	{
 	  *functionname_ptr = each_func->name;
 	  return true;
@@ -1274,8 +1272,7 @@ comp_unit_contains_address (unit, addr)
      bfd_vma addr;
 {
   return ! unit->error
-    && ( addr >= (unit->low & 0xffffffff)
-	&& addr <= (unit->high & 0xffffffff));
+    && (addr >= unit->low && addr <= unit->high);
 }
 
 

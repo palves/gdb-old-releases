@@ -159,7 +159,7 @@ static const CGEN_OPCODE m32r_cgen_insn_opcode_table[MAX_INSNS] =
   /* Special null first entry.
      A `num' value of zero is thus invalid.
      Also, the special `invalid' insn resides here.  */
-  { { 0 }, 0 },
+  { { 0 } },
 /* add $dr,$sr */
   {
     { 0, 0, 0, 0 },
@@ -881,7 +881,7 @@ static const CGEN_IFMT ifmt_push = {
 
 /* Each non-simple macro entry points to an array of expansion possibilities.  */
 
-#define A(a) (1 << (CONCAT2 (CGEN_INSN_,a) - CGEN_ATTR_BOOL_OFFSET))
+#define A(a) (1 << CONCAT2 (CGEN_INSN_,a))
 #define MNEM CGEN_SYNTAX_MNEMONIC /* syntax value for mnemonic */
 #define OPERAND(op) CONCAT2 (M32R_OPERAND_,op)
 #define OP(field) CGEN_SYNTAX_MAKE_FIELD (OPERAND (field))
@@ -893,142 +893,142 @@ static const CGEN_IBASE m32r_cgen_macro_insn_table[] =
 /* bc $disp8 */
   {
     -1, "bc8r", "bc", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(RELAXABLE)|A(COND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(RELAXABLE)|A(COND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* bc $disp24 */
   {
     -1, "bc24r", "bc", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(RELAX)|A(COND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(RELAX)|A(COND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* bl $disp8 */
   {
     -1, "bl8r", "bl", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(RELAXABLE)|A(FILL_SLOT)|A(UNCOND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(RELAXABLE)|A(FILL_SLOT)|A(UNCOND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* bl $disp24 */
   {
     -1, "bl24r", "bl", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(RELAX)|A(UNCOND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(RELAX)|A(UNCOND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* bnc $disp8 */
   {
     -1, "bnc8r", "bnc", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(RELAXABLE)|A(COND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(RELAXABLE)|A(COND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* bnc $disp24 */
   {
     -1, "bnc24r", "bnc", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(RELAX)|A(COND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(RELAX)|A(COND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* bra $disp8 */
   {
     -1, "bra8r", "bra", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(RELAXABLE)|A(FILL_SLOT)|A(UNCOND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(RELAXABLE)|A(FILL_SLOT)|A(UNCOND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* bra $disp24 */
   {
     -1, "bra24r", "bra", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(RELAX)|A(UNCOND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(RELAX)|A(UNCOND_CTI)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* ld $dr,@($sr) */
   {
     -1, "ld-2", "ld", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* ld $dr,@($sr,$slo16) */
   {
     -1, "ld-d2", "ld", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* ldb $dr,@($sr) */
   {
     -1, "ldb-2", "ldb", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* ldb $dr,@($sr,$slo16) */
   {
     -1, "ldb-d2", "ldb", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* ldh $dr,@($sr) */
   {
     -1, "ldh-2", "ldh", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* ldh $dr,@($sr,$slo16) */
   {
     -1, "ldh-d2", "ldh", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* ldub $dr,@($sr) */
   {
     -1, "ldub-2", "ldub", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* ldub $dr,@($sr,$slo16) */
   {
     -1, "ldub-d2", "ldub", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* lduh $dr,@($sr) */
   {
     -1, "lduh-2", "lduh", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* lduh $dr,@($sr,$slo16) */
   {
     -1, "lduh-d2", "lduh", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* pop $dr */
   {
     -1, "pop", "pop", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* ldi $dr,$simm8 */
   {
     -1, "ldi8a", "ldi", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* ldi $dr,$hash$slo16 */
   {
     -1, "ldi16a", "ldi", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* st $src1,@($src2) */
   {
     -1, "st-2", "st", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* st $src1,@($src2,$slo16) */
   {
     -1, "st-d2", "st", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* stb $src1,@($src2) */
   {
     -1, "stb-2", "stb", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* stb $src1,@($src2,$slo16) */
   {
     -1, "stb-d2", "stb", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* sth $src1,@($src2) */
   {
     -1, "sth-2", "sth", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* sth $src1,@($src2,$slo16) */
   {
     -1, "sth-d2", "sth", 32,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_BASE) } }
   },
 /* push $src1 */
   {
     -1, "push", "push", 16,
-    { CGEN_INSN_NBOOL_ATTRS, 0|A(ALIAS), { (1<<MACH_BASE) } }
+    { 0|A(ALIAS), { (1<<MACH_BASE) } }
   },
 };
 
@@ -1251,12 +1251,12 @@ dis_hash_insn_p (insn)
 
 /* It doesn't make much sense to provide a default here,
    but while this is under development we do.
-   BUFFER is a pointer to the bytes of the insn.
-   VALUE is the first CGEN_BASE_INSN_SIZE bytes as an int in host order.  */
+   BUFFER is a pointer to the bytes of the insn, target order.
+   VALUE is the first base_insn_bitsize bits as an int in host order.  */
 
 #ifndef CGEN_DIS_HASH
 #define CGEN_DIS_HASH_SIZE 256
-#define CGEN_DIS_HASH(buffer, value) (*(unsigned char *) (buffer))
+#define CGEN_DIS_HASH(buf, value) (*(unsigned char *) (buf))
 #endif
 
 /* The result is the hash value of the insn.
@@ -1269,9 +1269,8 @@ asm_hash_insn (mnem)
   return CGEN_ASM_HASH (mnem);
 }
 
-/* BUF is a pointer to the insn's bytes in target order.
-   VALUE is an integer of the first CGEN_BASE_INSN_BITSIZE bits,
-   host order.  */
+/* BUF is a pointer to the bytes of the insn, target order.
+   VALUE is the first base_insn_bitsize bits as an int in host order.  */
 
 static unsigned int
 dis_hash_insn (buf, value)

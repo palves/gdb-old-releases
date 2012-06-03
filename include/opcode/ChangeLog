@@ -1,3 +1,65 @@
+1999-04-14  Doug Evans  <devans@casey.cygnus.com>
+
+	* cgen.h (CGEN_ATTR): Delete member num_nonbools.
+	(CGEN_ATTR_TYPE): Update.
+	(CGEN_ATTR_MASK): Number booleans starting at 0.
+	(CGEN_ATTR_VALUE): Update.
+	(CGEN_INSN_ATTR): Update.
+
+Mon Apr 12 23:43:27 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* hppa.h (fmpyfadd, fmpynfadd, fneg, fnegabs): New PA2.0
+	instructions.
+
+Tue Mar 23 11:24:38 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* hppa.h (bb, bvb): Tweak opcode/mask.
+
+
+1999-03-22  Doug Evans  <devans@casey.cygnus.com>
+
+	* cgen.h (CGEN_ISA,CGEN_MACH): New typedefs.
+	(struct cgen_cpu_desc): Rename member mach to machs.  New member isas.
+	New members word_bitsize,default_insn_bitsize,base_insn-bitsize,
+	min_insn_bitsize,max_insn_bitsize,isa_table,mach_table,rebuild_tables.
+	Delete member max_insn_size.
+	(enum cgen_cpu_open_arg): New enum.
+	(cpu_open): Update prototype.
+	(cpu_open_1): Declare.
+	(cgen_set_cpu): Delete.
+
+1999-03-11  Doug Evans  <devans@casey.cygnus.com>
+
+	* cgen.h (CGEN_HW_TABLE): Delete `num_init_entries' member.
+	(CGEN_OPERAND_NIL): New macro.
+	(CGEN_OPERAND): New member `type'.
+	(@arch@_cgen_operand_table): Delete decl.
+	(CGEN_OPERAND_INDEX,CGEN_OPERAND_TYPE,CGEN_OPERAND_ENTRY): Delete.
+	(CGEN_OPERAND_TABLE): New struct.
+	(cgen_operand_lookup_by_name,cgen_operand_lookup_by_num): Declare.
+	(CGEN_OPINST): Pointer to operand table entry replaced with enum.
+	(CGEN_CPU_TABLE): New member `isa'.  Change member `operand_table',
+	now a CGEN_OPERAND_TABLE.  Add CGEN_CPU_DESC arg to
+	{get,set}_{int,vma}_operand.
+	(@arch@_cgen_cpu_open): New arg `isa'.
+	(cgen_set_cpu): Ditto.
+
+Fri Feb 26 02:36:45 1999  Richard Henderson  <rth@cygnus.com>
+
+	* i386.h: Fill in cmov and fcmov alternates.  Add fcomi short forms.
+
+1999-02-25  Doug Evans  <devans@casey.cygnus.com>
+
+	* cgen.h (enum cgen_asm_type): Add CGEN_ASM_NONE.
+	(CGEN_HW_ENTRY): Delete member `next'.  Change type of `type' to
+	enum cgen_hw_type.
+	(CGEN_HW_TABLE): New struct.
+	(hw_table): Delete declaration.
+	(CGEN_OPERAND): Change member hw to hw_type, change type from pointer
+	to table entry to enum.
+	(CGEN_OPINST): Ditto.
+	(CGEN_CPU_TABLE): Change member hw_list to hw_table.
+
 Sat Feb 13 14:13:44 1999  Richard Henderson  <rth@cygnus.com>
 
 	* alpha.h (AXP_OPCODE_EV6): New.
@@ -660,14 +722,97 @@ Tue Feb 18 17:37:20 1997  Martin M. Hunt  <hunt@pizza.cygnus.com>
 
 	* d30v.h: New file.
 
+Fri Feb 14 13:16:15 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h (PDS_NAME): Macro to access name field of predefined symbols.
+	(PDS_VALUE): Macro to access value field of predefined symbols.
+	(tic80_next_predefined_symbol): Add prototype.
+
+Mon Feb 10 10:32:17 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h (tic80_symbol_to_value): Change prototype to match
+	change in function, added class parameter.
+
+Thu Feb  6 17:30:15 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h (TIC80_OPERAND_ENDMASK): Add for flagging TIc80
+	endmask fields, which are somewhat weird in that 0 and 32 are
+	treated exactly the same.
+
+Thu Jan 30 13:46:18 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h: Change all the OPERAND defines to use the form (1 << X)
+	rather than a constant that is 2**X.  Reorder them to put bits for
+	operands that have symbolic names in the upper bits, so they can
+	be packed into an int where the lower bits contain the value that
+	corresponds to that symbolic name.
+	(predefined_symbo): Add struct.
+	(tic80_predefined_symbols): Declare array of translations.
+	(tic80_num_predefined_symbols): Declare size of that array.
+	(tic80_value_to_symbol): Declare function.
+	(tic80_symbol_to_value): Declare function.
+
 Wed Jan 29 09:37:25 1997  Jeffrey A Law  (law@cygnus.com)
 
 	* mn10200.h (MN10200_OPERAND_RELAX): Define.
+
+Sat Jan 18 15:18:59 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h (TIC80_NO_R0_DEST): Add for opcodes where r0 cannot
+	be the destination register.
+
+Thu Jan 16 20:48:55 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h (struct tic80_opcode): Change "format" field to "flags".
+	(FMT_UNUSED, FMT_SI, FMT_LI, FMT_REG): Delete.
+	(TIC80_VECTOR): Define a flag bit for the flags.  This one means
+	that the opcode can have two vector instructions in a single
+	32 bit word and we have to encode/decode both.
+
+Tue Jan 14 19:37:09 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h (TIC80_OPERAND_PCREL): Renamed from
+	TIC80_OPERAND_RELATIVE for PC relative.
+	(TIC80_OPERAND_BASEREL): New flag bit for register
+	base relative.
+
+Mon Jan 13 15:56:38 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h (TIC80_OPERAND_FLOAT): Add for floating point operands.
+
+Mon Jan  6 10:51:15 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h (TIC80_OPERAND_SCALED): Operand may have optional
+	":s" modifier for scaling.
+
+Sun Jan  5 12:12:19 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h (TIC80_OPERAND_M_SI): Add operand modifier for ":m".
+	(TIC80_OPERAND_M_LI): Ditto
+
+Sat Jan  4 19:02:44 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h (TIC80_OPERAND_BITNUM): Renamed from TIC80_OPERAND_CC_SZ.
+	(TIC80_OPERAND_CC): New define for condition code operand.
+	(TIC80_OPERAND_CR): New define for control register operand.
+
+Fri Jan  3 16:22:23 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h (struct tic80_opcode): Name changed.
+	(struct tic80_opcode): Remove format field.
+	(struct tic80_operand): Add insertion and extraction functions.
+	(TIC80_OPERAND_*): Remove old bogus values, start adding new
+	correct ones.
+	(FMT_*): Ditto.
 
 Tue Dec 31 15:05:41 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
 
 	* v850.h (V850_OPERAND_ADJUST_SHORT_MEMORY): New flag to adjust
 	type IV instruction offsets.
+
+Fri Dec 27 22:23:10 1996  Fred Fish  <fnf@cygnus.com>
+
+	* tic80.h: New file.
 
 Wed Dec 18 10:06:31 1996  Jeffrey A Law  (law@cygnus.com)
 

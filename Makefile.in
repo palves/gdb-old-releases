@@ -35,6 +35,7 @@ includedir=${prefix}/include
 oldincludedir=/usr/include
 infodir=${prefix}/info
 mandir=${prefix}/man
+gxx_include_dir=${includedir}/g++
 
 tooldir = $(exec_prefix)/$(target)
 
@@ -95,9 +96,9 @@ CHILL_LIB = -lchill
 CXX = c++
 
 # Use -O2 to stress test the compiler.
-LIBCXXFLAGS = $(CXXFLAGS) -fno-implicit-templates
+LIBCXXFLAGS = $(CXXFLAGS) -fno-implicit-templates -fexceptions
 CXXFLAGS_FOR_TARGET = $(CXXFLAGS)
-LIBCXXFLAGS_FOR_TARGET = $(CXXFLAGS_FOR_TARGET) -fno-implicit-templates
+LIBCXXFLAGS_FOR_TARGET = $(CXXFLAGS_FOR_TARGET) -fno-implicit-templates -fexceptions
 
 RANLIB = ranlib
 
@@ -187,7 +188,11 @@ RPATH_ENVVAR = LD_LIBRARY_PATH
 
 # configure.in sets SET_LIB_PATH to this if --enable-shared was used.
 REALLY_SET_LIB_PATH = \
-  $(RPATH_ENVVAR)=$$r/bfd:$$r/opcodes:$$$(RPATH_ENVVAR); \
+  if [ x"$$$(RPATH_ENVVAR)" != x ]; then \
+    $(RPATH_ENVVAR)=$$r/bfd:$$r/opcodes:$$$(RPATH_ENVVAR); \
+  else \
+    $(RPATH_ENVVAR)=$$r/bfd:$$r/opcodes; \
+  fi; \
   export $(RPATH_ENVVAR);
 
 ALL = all.normal
@@ -706,6 +711,7 @@ INSTALL_MODULES = \
 	install-shellutils \
 	install-sim \
 	install-tar \
+	install-texinfo \
 	install-textutils \
 	install-tgas \
 	install-time \
@@ -1529,12 +1535,12 @@ all-bfd: all-libiberty all-intl
 all-binutils: all-libiberty all-opcodes all-bfd all-flex all-bison all-byacc all-intl
 all-bison: all-texinfo
 configure-target-bsp: $(ALL_GCC)
-all-target-bsp: configure-target-bsp all-gas all-ld all-gcc
+all-target-bsp: configure-target-bsp all-gcc all-binutils all-target-newlib
 all-byacc:
 all-bzip2:
 all-cvssrc:
 configure-target-cygmon: $(ALL_GCC)
-all-target-cygmon: configure-target-cygmon all-gas all-ld all-gcc all-target-libiberty all-target-newlib all-target-libio all-target-libstub
+all-target-cygmon: configure-target-cygmon all-gas all-ld all-gcc all-target-libiberty all-target-newlib all-target-libio all-target-libstub all-target-bsp
 all-db:
 all-dejagnu: all-tcl all-expect all-tk
 all-diff: all-libiberty

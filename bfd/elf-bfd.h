@@ -162,20 +162,22 @@ struct elf_link_hash_entry
 #define ELF_LINK_HASH_REF_DYNAMIC 04
   /* Symbol is defined by a shared object.  */
 #define ELF_LINK_HASH_DEF_DYNAMIC 010
+  /* Symbol has a non-weak reference from a non-shared object.  */
+#define ELF_LINK_HASH_REF_REGULAR_NONWEAK 020
   /* Dynamic symbol has been adjustd.  */
-#define ELF_LINK_HASH_DYNAMIC_ADJUSTED 020
+#define ELF_LINK_HASH_DYNAMIC_ADJUSTED 040
   /* Symbol needs a copy reloc.  */
-#define ELF_LINK_HASH_NEEDS_COPY 040
+#define ELF_LINK_HASH_NEEDS_COPY 0100
   /* Symbol needs a procedure linkage table entry.  */
-#define ELF_LINK_HASH_NEEDS_PLT 0100
+#define ELF_LINK_HASH_NEEDS_PLT 0200
   /* Symbol appears in a non-ELF input file.  */
-#define ELF_LINK_NON_ELF 0200
+#define ELF_LINK_NON_ELF 0400
   /* Symbol should be marked as hidden in the version information.  */
-#define ELF_LINK_HIDDEN 0400
+#define ELF_LINK_HIDDEN 01000
   /* Symbol was forced to local scope due to a version script file.  */
-#define ELF_LINK_FORCED_LOCAL 01000
+#define ELF_LINK_FORCED_LOCAL 02000
   /* Symbol was marked during garbage collection.  */
-#define ELF_LINK_HASH_MARK 02000
+#define ELF_LINK_HASH_MARK 04000
 };
 
 /* ELF linker hash table.  */
@@ -954,6 +956,9 @@ boolean _bfd_elf_make_linker_section_rela
   PARAMS ((bfd *dynobj,
 	   elf_linker_section_t *lsect,
 	   int alignment));
+
+boolean _bfd_elfcore_section_from_phdr
+  PARAMS ((bfd *, Elf_Internal_Phdr *, int));
 
 extern const bfd_target *bfd_elf32_object_p PARAMS ((bfd *));
 extern const bfd_target *bfd_elf32_core_file_p PARAMS ((bfd *));

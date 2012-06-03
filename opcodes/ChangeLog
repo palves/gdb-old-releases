@@ -1,3 +1,95 @@
+1999-04-26  Tom Tromey  <tromey@cygnus.com>
+
+	* aclocal.m4, configure: Updated for new version of libtool.
+
+1999-04-22  Nick Clifton  <nickc@cygnus.com>
+
+	* mcore-dis.c (print_insn_mcore): Display locaiton of address pool
+	for LRW instructions.
+
+1999-04-18  Nick Clifton  <nickc@cygnus.com>
+
+	* mcore-dis.c (print_insn_mcore): Display location of address pool
+	for JMP instructions.
+	* mcore-opc.h (mcore_table): Add 'nop'.
+
+1999-04-14  Doug Evans  <devans@casey.cygnus.com>
+
+	* fr30-desc.c,fr30-desc.h,fr30-dis.c,fr30-ibld.c,fr30-opc.c: Rebuild.
+	* m32r-desc.c,m32r-desc.h,m32r-dis.c,m32r-ibld.c,m32r-opc.c: Rebuild.
+
+Mon Apr 12 23:46:17 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* hppa-dis.c (print_insn_hppa, case '3'): New case for PA2.0
+	instructions.
+
+1999-04-10  Doug Evans  <devans@casey.cygnus.com>
+
+	* fr30-desc.c,fr30-desc.h,fr30-ibld.c: Rebuild.
+	* m32r-desc.c,m32r-desc.h,m32r-opinst.c: Rebuild.
+
+1999-04-08  Nick Clifton  <nickc@cygnus.com>
+
+	* mcore-dis.c: New file: Disassemble MCore opcodes.
+	* mcore-opc.h: New file: Definitions of MCore opcodes.
+	* Makefile.am: Add Mcore source files.
+	* Makefile.in: Regenerate.
+	* configure.in: Add support for MCore targets.
+	* configure: Regenerate.
+	* disassemble.c: Add support for MCore targets.
+
+1999-04-06  Ian Lance Taylor  <ian@zembu.com>
+
+	* opintl.h (LC_MESSAGES): Never define.
+
+1999-04-04  Ian Lance Taylor  <ian@zembu.com>
+
+	* i386-dis.c (intel_syntax, open_char, close_char): Make static.
+	(separator_char, scale_char): Likewise.
+	(print_insn_x86): Likewise.
+	(print_insn_i386): Likewise.  Add declaration.
+
+1999-03-26  Doug Evans  <devans@casey.cygnus.com>
+
+	* fr30-dis.c: Rebuild.
+	* m32r-dis.c: Rebuild.
+
+1999-03-23  Ian Lance Taylor  <ian@zembu.com>
+
+	* m68k-opc.c: Change compare instructions to use "@s" rather than
+	";s" when used with an immediate operand.
+
+1999-03-22  Doug Evans  <devans@casey.cygnus.com>
+
+	* cgen-opc.c (cgen_set_cpu): Delete.
+	(cgen_lookup_insn): max_insn_size renamed to max_insn_bitsize.
+	* fr30-desc.c,fr30-desc.h,fr30-dis.c,fr30-ibld.c,fr30-opc.c,fr30-opc.h:
+	Rebuild.
+	* m32r-desc.c,m32r-desc.h,m32r-dis.c,m32r-ibld.c,m32r-opc.c,m32r-opc.h:
+	Rebuild.
+	* po/opcodes.pot: Rebuild.
+
+1999-03-16  Martin Hunt  <hunt@cygnus.com>
+
+	* d30v-opc.c (mvtsys): Remove FLAG_LKR.
+
+1999-03-11  Doug Evans  <devans@casey.cygnus.com>
+
+	* cgen-opc.c (cgen_set_cpu): New arg `isa'.  All callers updated.
+	(cgen_operand_lookup_by_name,cgen_operand_lookup_by_num): New fns.
+	(cgen_get_insn_operands): Rewrite test for hardcoded/operand index.
+	* fr30-asm.c,fr30-desc.c,fr30-desc.h,fr30-dis.c,fr30-ibld.c: Rebuild.
+	* m32r-asm.c,m32r-desc.c,m32r-desc.h,m32r-dis.c,m32r-ibld.c: Rebuild.
+	* m32r-opinst.c: Rebuild.
+
+1999-02-25  Doug Evans  <devans@casey.cygnus.com>
+
+	* cgen-opc.c (cgen_hw_lookup_by_name): Rewrite.
+	(cgen_hw_lookup_by_num): Rewrite.
+	* fr30-desc.c,fr30-desc.h,fr30-dis.c,fr30-ibld.c,fr30-opc.c: Rebuild.
+	* m32r-desc.c,m32r-desc.h,m32r-dis.c,m32r-ibld.c,m32r-opc.c: Rebuild.
+	* m32r-opinst.c: Rebuild.
+
 Sat Feb 13 14:06:19 1999  Richard Henderson  <rth@cygnus.com>
 
 	* alpha-opc.c: Add sqrt+flags patterns.  Add EV6 PALcode insns.
@@ -128,6 +220,10 @@ Tue Jan 19 10:51:01 1999  David Taylor  <taylor@texas.cygnus.com>
 Wed Dec 16 16:17:49 1998  Dave Brolley  <brolley@cygnus.com>
 
 	* fr30-opc.c: Regenerated.
+
+1998-12-16  Gavin Romig-Koch  <gavin@cygnus.com>
+
+	* mips-dis.c (set_mips_isa_type): Handle bfd_mach_mips4111.
 
 1998-12-15  Dave Brolley  <brolley@cygnus.com>
 
@@ -894,6 +990,7 @@ Fri Mar 27 18:08:13 1998  Ian Lance Taylor  <ian@cygnus.com>
 	* d10v-dis.c (dis_long, dis_2_short): Likewise.
 	* d30v-dis.c (print_insn_d30v, lookup_opcode): Likewise.
 	* ns32k-dis.c (bit_extract, print_insn_ns32k): Likewise.
+	* tic80-dis.c (print_one_instruction): Likewise.
 	* w65-dis.c (print_operand): Likewise.
 	* z8k-dis.c (fetch_data): Likewise.
 	* a29k-dis.c: Add return type for find_byte_func_type.
@@ -1151,6 +1248,12 @@ Wed Dec 17 11:38:29 1997  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.
 
 	* m68k-opc.c (halt, pulse): Enable them on the 68060.
 
+Tue Dec 16 15:22:53 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (tic80_opcodes): Revert change that put the 32 bit
+	PC relative offset forms before the 15 bit forms.  An assembler command
+	line option now chooses the default.
+
 Tue Dec 16 15:22:51 1997  Michael Meissner  <meissner@cygnus.com>
 
 	* d30v-opc.c (d30v_opcode_table): Set new flags bits
@@ -1164,6 +1267,12 @@ Tue Dec 16 15:22:51 1997  Michael Meissner  <meissner@cygnus.com>
 	* NOTE: this really needs to be fixed in libtool/libtool.m4, the
 	original source of this bit of code.  It's not clear what the best fix
 	would be, though.
+
+Fri Dec 12 11:57:04 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (OFF_SL_PC, OFF_SL_BR): Minor formatting change.
+	(tic80_opcodes): Reorder table entries to put the 32 bit PC relative
+ 	offset forms before the 15 bit forms, to default to the long forms.
 
 Fri Dec 12 01:32:30 1997  Richard Henderson  <rth@cygnus.com>
 
@@ -1886,6 +1995,14 @@ Thu Feb 27 14:04:32 1997  Philippe De Muyter  <phdm@info.ucl.ac.be>
 
 	* m68k-opc.c (m68k_opcodes): Added swbegl pseudo-instruction.
 
+Thu Feb 27 11:36:41 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* tic80-dis.c (print_insn_tic80): Set info->bytes_per_line to 8.
+
+Wed Feb 26 15:34:48 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* tic80-opc.c (tic80_predefined_symbols): Define r25 properly.
+
 Wed Feb 26 13:38:30 1997  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
 
 	* m68k-dis.c (NEXTSINGLE, NEXTDOUBLE, NEXTEXTEND): Use
@@ -1903,6 +2020,14 @@ Mon Feb 24 15:19:01 1997  Martin M. Hunt  <hunt@pizza.cygnus.com>
 	* d10v-dis.c, d10v-opc.c: Change pre_defined_registers to
 	d10v_predefined_registers and reg_name_cnt to d10v_reg_name_cnt.
 
+Mon Feb 24 14:33:26 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (LSI_SCALED): Renamed from this ...
+	(OFF_SL_BR_SCALED): ... to this, and added the flag
+	TIC80_OPERAND_BASEREL to the flags word.
+	(tic80_opcodes): Replace all occurances of LSI_SCALED with
+	OFF_SL_BR_SCALED.
+
 Sat Feb 22 21:25:00 1997  Dawn Perchik  <dawn@cygnus.com>
 
 	* mips-opc.c: Add macros for cop0, cop1 cop2 and cop3.
@@ -1910,6 +2035,14 @@ Sat Feb 22 21:25:00 1997  Dawn Perchik  <dawn@cygnus.com>
 	and change bfd_mips_num_opcodes from const int to int,
 	so that we can increase the size of the mips opcodes table
 	dynamically.
+
+Sat Feb 22 21:03:47 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (tic80_predefined_symbols): Revert change to
+	store BITNUM values in the table in one's complement form
+	to match behavior when assembler is given a raw numeric
+	value for a BITNUM operand.
+	* tic80-dis.c (print_operand_bitnum): Ditto.
 
 Fri Feb 21 16:31:18 1997  Martin M. Hunt  <hunt@pizza.cygnus.com>
 
@@ -1927,6 +2060,23 @@ Tue Feb 18 17:43:43 1997  Martin M. Hunt  <hunt@pizza.cygnus.com>
 	* d30v-dis.c: New file.
 	* d30v-opc.c: New file.
 	* disassemble.c (disassembler) Add entry for d30v.
+
+Tue Feb 18 16:32:08 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (tic80_predefined_symbols): Add symbolic
+	representations for the floating point BITNUM values.
+
+Fri Feb 14 12:14:05 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (tic80_predefined_symbols): Store BITNUM values
+	in the table in one's complement form, as they appear in the
+	actual instruction.
+	(tic80_symbol_to_value): Use macros to access predefined
+	symbol fields.
+	(tic80_value_to_symbol): Ditto.
+	(tic80_next_predefined_symbol): New function.
+	* tic80-dis.c (print_operand_bitnum): Remove code that did
+	one's complement for BITNUM values.
 
 Thu Feb 13 21:56:51 1997  Klaus Kaempf  <kkaempf@progis.de>
 
@@ -1953,11 +2103,35 @@ Wed Feb 12 12:27:40 1997  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.
 	* m68k-dis.c (print_insn_m68k): Set bytes_per_chunk and
 	bytes_per_line.
 
+Tue Feb 11 16:36:31 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (tic80_operands): Fix typo '+' -> '|'.
+	(tic80_opcodes): Sort entries so that long immediate forms
+	come after short immediate forms, making it easier for
+	assembler to select the right one for a given operand.
+
 Tue Feb 11 15:26:47 1997  Ian Lance Taylor  <ian@cygnus.com>
 
 	* mips-dis.c (_print_insn_mips): Set bytes_per_chunk and
 	display_endian.
 	(print_insn_mips16): Likewise.
+
+Mon Feb 10 10:12:41 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (tic80_symbol_to_value): Changed to accept
+	a symbol class that restricts translation to just that
+	class (general register, condition code, etc).
+
+Thu Feb  6 17:34:09 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (tic80_operands): Add REG_0_E, REG_22_E,
+	and REG_DEST_E for register operands that have to be
+	an even numbered register.  Add REG_FPA for operands that
+	are one of the floating point accumulator registers.
+	Add TIC80_OPERAND_MASK to flags for ENDMASK operand.
+	(tic80_opcodes): Change entries that need even numbered
+	register operands to use the new operand table entries.
+	Add "or" entries that are identical to "or.tt" entries.
 
 Wed Feb  5 11:12:44 1997  Ian Lance Taylor  <ian@cygnus.com>
 
@@ -1966,6 +2140,17 @@ Wed Feb  5 11:12:44 1997  Ian Lance Taylor  <ian@cygnus.com>
 	* mips-dis.c (print_mips16_insn_arg): Display floating point
 	registers in operands of exit instruction.  Print `$' before
 	register names in operands of entry and exit instructions.
+
+Thu Jan 30 14:09:03 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (tic80_predefined_symbols): Table of name/value
+	pairs for all predefined symbols recognized by the assembler.
+	Also used by the disassembling routines.
+	(tic80_symbol_to_value): New function.
+	(tic80_value_to_symbol): New function.
+	* tic80-dis.c (print_operand_control_register,
+ 	print_operand_condition_code, print_operand_bitnum):
+	Remove private tables and use tic80_value_to_symbol function.
 
 Thu Jan 30 11:30:45 1997  Martin M. Hunt  <hunt@pizza.cygnus.com>
 
@@ -1994,11 +2179,35 @@ Fri Jan 24 12:08:21 1997  J.T. Conklin  <jtc@cygnus.com>
 	Added a comment explaining the situation.  Thanks to Andreas
 	Schwab for pointing this out to me.
 
+Wed Jan 22 20:13:51 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (tic80_opcodes): Expand comment to note that the
+ 	entries are presorted so that entries with the same mnemonic are
+	adjacent to each other in the table.  Sort the entries for each
+	instruction so that this is true.
+
 Mon Jan 20 12:48:57 1997  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
 
 	* m68k-dis.c: Include <libiberty.h>.
 	(print_insn_m68k): Sort the opcode table on the most significant
 	nibble of the opcode.
+
+Sat Jan 18 15:15:05 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-dis.c (tic80_opcodes): Add "wrcr", "vmpy", "vrnd",
+	"vsub", "vst", "xnor", and "xor" instructions.
+	(V_a1): Renamed from V_a, msb of accumulator reg number.
+	(V_a0): Add macro, lsb of accumulator reg number.
+
+Fri Jan 17 18:24:31 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-dis.c (print_insn_tic80): Broke excessively long
+	function up into several smaller ones and arranged for
+	the instruction printing function to be callable recursively
+	to print vector instructions that have both a load and a
+	math instruction packed into a single opcode.
+	* tic80-opc.c (tic80_opcodes): Expand comment for vld opcode
+	to explain why it comes after the other vector opcodes.
 
 Fri Jan 17 16:19:15 1997  J.T. Conklin  <jtc@beauty.cygnus.com>
 
@@ -2010,16 +2219,111 @@ Thu Jan 17 16:19:00 1997  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.
 	* m68k-opc.c (m68k_opcodes): Delete duplicate entry for "cmpil".
 	fix operand mask in the "moveml" entries for the coldfire.
 
+Thu Jan 16 20:54:40 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (V_a, V_m, V_S, V_Z, V_p, OP_V, MASK_V):
+	New macros for building vector instruction opcodes.
+	(tic80_opcodes): Remove all uses of FMT_SI, FMT_REG, and
+	FMT_LI, which were unused.  The field is now a flags field.
+	Remove some opcodes that are possible, but illegal, such
+	as long immediate instructions with doubles for immediate
+	values.  Add "vadd" and "vld" instructions.
+
+Wed Jan 15 18:59:51 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (tic80_operands): Reorder some table entries to make
+	the order more logical.  Move the shift alias instructions ("rotl",
+	"shl", "ins", "rotr", "extu", "exts", "srl", and "sra" to be
+ 	interspersed with the regular sr.x and sl.x instructions.  Add
+	and test new instruction opcodes for "sl", "sli", "sr", "sri", "st",
+ 	"sub", "subu", "swcr", and "trap".
+
+Tue Jan 14 19:42:50 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-opc.c (OFF_SS_PC): Renamed from OFF_SS.
+	(OFF_SL_PC): Renamed from OFF_SL.
+	(OFF_SS_BR): New operand type for base relative operand.
+	(OFF_SL_BR): New operand type for base relative operand.
+	(REG_BASE): New operand type for base register operand.
+	(tic80_opcodes): Add and test "fmpy", "frndm", "frndn", "frndp",
+	"frndz", "fsqrt", "fsub", "illop0", "illopF", "ins", "jsr",
+	"ld", "ld.u", "lmo", "or", "rdcr", "rmo", "rotl", and "rotr"
+	instructions.
+	* tic80-dis.c (print_insn_tic80): Print opcode name with fixed width
+ 	10 char field, padded with spaces on rhs, rather than a string
+ 	followed by a tab.  Use renamed TIC80_OPERAND_PCREL flag bit rather
+ 	than old TIC80_OPERAND_RELATIVE.  Add support for new
+	TIC80_OPERAND_BASEREL flag bit.
+
+Mon Jan 13 15:58:56 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-dis.c (print_insn_tic80): Print floating point operands
+	as floats.
+	* tic80-opc.c (SPFI): Add single precision floating point
+	immediate operand type.
+	(ROTATE): Add rotate operand type for shifts.
+	(ENDMASK): Add for shifts.
+	(n): Macro for the 'n' bit.
+	(i): Macro for the 'i' bit.
+	(PD): Macro for the 'PD' field.
+	(P2): Macro for the 'P2' field.
+	(P1): Macro for the 'P1' field.
+	(tic80_opcodes): Add entries for "exts", "extu", "fadd",
+	"fcmp", and "fdiv".
+
 Mon Jan  6 15:06:55 1997  Jeffrey A Law  (law@cygnus.com)
 
 	* mn10200-dis.c (disassemble): Mask off unwanted bits after
 	adding in current address for pc-relative operands.
+
+Mon Jan  6 10:56:25 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-dis.c (R_SCALED): Add macro to test for ":s" modifier bit.
+	(print_insn_tic80): If R_SCALED then print ":s" modifier for operand.
+	* tic80-opc.c (REG0, REG22, REG27, SSOFF, LSOFF): Names
+	changed to REG_0, REG_22, REG_DEST, OFF_SS, OFF_SL respectively.
+	(SICR, LICR, REGM_SI, REGM_LI): Names changed to CR_SI, CR_LI,
+	REG_BASE_M_SI, REG_BASE_M_LI respectively.
+	(REG_SCALED, LSI_SCALED): New operand types.
+	(E): New macro for 'E' bit at bit 27.
+	(tic80_opcodes): Add and test dld, dld.u, dst, estop, and etrap
+	opcodes, including the various size flavors (b,h,w,d) for
+	the direct load and store instructions.
+
+Sun Jan  5 12:18:14 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-dis.c (M_SI, M_LI): Add macros to test for ":m" modifier bit
+ 	in an instruction.
+	* tic80-dis.c (print_insn_tic80): Change comma and paren handling.
+  	Use M_SI and M_LI macros to check for ":m" modifier for GPR operands.
+	* tic80-opc.c (tic80_operands): Add REGM_SI and REGM_LI operands.
+	(F, M_REG, M_LI, M_SI, SZ_REG, SZ_LI, SZ_SI, D, S): New	bit-twiddlers.
+	(MASK_LI_M, MASK_SI_M, MASK_REG_M): Remove and replace in opcode
+	masks with "MASK_* & ~M_*" to get the M bit reset.
+	(tic80_opcodes): Add bsr, bsr.a, cmnd, cmp, dcachec, and dcachef.
+
+Sat Jan  4 19:05:05 1997  Fred Fish  <fnf@cygnus.com>
+
+	* tic80-dis.c (print_insn_tic80): Print TIC80_OPERAND_RELATIVE
+	correctly.  Add support for printing TIC80_OPERAND_BITNUM and
+	TIC80_OPERAND_CC, and TIC80_OPERAND_CR operands in symbolic
+	form.
+	* tic80-opc.c (tic80_operands): Add SSOFF, LSOFF, BITNUM,
+	CC, SICR, and LICR table entries.
+	(tic80_opcodes): Add and test "nop", "br", "bbo", "bbz",
+	"bcnd", and "brcr" opcodes.
 
 Fri Jan  3 18:32:11 1997  Fred Fish  <fnf@cygnus.com>
 
 	* ppc-opc.c (powerpc_operands): Make comment match the
 	actual fields (no shift field).
 	* sparc-opc.c (sparc_opcodes): Document why this cannot be "const".
+	* tic80-dis.c (print_insn_tic80): Replace abort stub with a
+	partial implementation, work in progress.
+	* tic80-opc.c (tic80_operands): Begin construction operands table.
+	(tic80_opcodes): Continue populating opcodes table and start
+	filling in the operand indices.
+	(tic80_num_opcodes): Add this.
 
 Fri Jan  3 12:13:52 1997  Ian Lance Taylor  <ian@cygnus.com>
 
@@ -2048,10 +2352,26 @@ Tue Dec 31 15:09:16 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
 Mon Dec 30 17:02:11 1996  Fred Fish  <fnf@cygnus.com>
 
 	* Makefile.in (m68k-opc.o, alpha-opc.o): Remove dis-asm.h dependency.
+	(tic80-dis.o, tic80-opc.o): Add rules per comment in Makefile.in.
 
 Mon Dec 30 11:38:01 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* mips16-opc.c: Add "abs".
+
+Sun Dec 29 10:58:22 1996  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (ALL_MACHINES): Add tic80-dis.o and tic80-opc.o.
+	* disassemble.c (ARCH_tic80): Define if ARCH_all is defined.
+	(disassembler): Add bfd_arch_tic80 support to set disassemble
+ 	to print_insn_tic80.
+	* tic80-dis.c (print_insn_tic80): Add stub.
+
+Fri Dec 27 22:30:57 1996  Fred Fish  <fnf@cygnus.com>
+
+	* configure.in (arch in $selarchs): Add bfd_tic80_arch entry.
+	* configure: Regenerate with autoconf.
+	* tic80-dis.c: Add file.
+	* tic80-opc.c: Add file.
 
 Fri Dec 20 14:30:19 1996  Martin M. Hunt  <hunt@pizza.cygnus.com>
 

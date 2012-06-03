@@ -276,6 +276,10 @@ set_mips_isa_type (mach, isa, cputype)
 	target_processor = 4100;
 	mips_isa = 3;
 	break;
+      case bfd_mach_mips4111:
+	target_processor = 4100;
+	mips_isa = 3;
+	break;
       case bfd_mach_mips4300:
 	target_processor = 4300;
 	mips_isa = 3;

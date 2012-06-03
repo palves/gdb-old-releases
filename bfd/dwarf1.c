@@ -295,8 +295,6 @@ parse_line_table (stash, aUnit)
 
       char* tblend;
       unsigned long base;
-      unsigned long last_pc = -1;
-      unsigned long last_line = 0;
 
       /* First comes the length. */
       tblend = bfd_get_32 (stash->abfd, xptr) + xptr;

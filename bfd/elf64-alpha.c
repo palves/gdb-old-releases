@@ -1,5 +1,5 @@
 /* Alpha specific support for 64-bit ELF
-   Copyright 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright 1996, 97, 98, 1999 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@tamu.edu>.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -99,7 +99,6 @@ static void elf64_alpha_merge_gots
 static boolean elf64_alpha_calc_got_offsets_for_symbol
   PARAMS ((struct alpha_elf_link_hash_entry *, PTR));
 static void elf64_alpha_calc_got_offsets PARAMS ((struct bfd_link_info *));
-static void elf64_alpha_strip_section_from_output PARAMS ((asection *));
 static boolean elf64_alpha_size_got_sections
   PARAMS ((bfd *, struct bfd_link_info *));
 static boolean elf64_alpha_always_size_sections
@@ -1473,7 +1472,6 @@ elf64_alpha_relax_section (abfd, sec, link_info, again)
   for (irel = internal_relocs; irel < irelend; irel++)
     {
       bfd_vma symval;
-      unsigned int insn;
       Elf_Internal_Sym isym;
       struct alpha_elf_got_entry *gotent;
 
@@ -1951,6 +1949,7 @@ elf64_alpha_read_ecoff_info (abfd, section, debug)
   char *ext_hdr = NULL;
 
   swap = get_elf_backend_data (abfd)->elf_backend_ecoff_debug_swap;
+  memset (debug, 0, sizeof(*debug));
 
   ext_hdr = (char *) bfd_malloc ((size_t) swap->external_hdr_size);
   if (ext_hdr == NULL && swap->external_hdr_size != 0)
@@ -2959,44 +2958,6 @@ elf64_alpha_calc_got_offsets (info)
     }
 }
 
-/* Remove a section from the output.  If the output section becomes
-   empty, remove it from the output bfd.  */
-
-static void
-elf64_alpha_strip_section_from_output (s)
-     asection *s;
-{
-  asection **spp, *os;
-  struct bfd_link_order *p, *pp;
-
-  os = s->output_section;
-  for (p = os->link_order_head, pp = NULL; p != NULL; pp = p, p = p->next)
-    if (p->type == bfd_indirect_link_order
-	&& p->u.indirect.section == s)
-      {
-	/* Excise the input section.  */
-	if (pp)
-	  pp->next = p->next;
-	else
-	  os->link_order_head = p->next;
-	if (!p->next)
-	  os->link_order_tail = pp;
-
-	if (!os->link_order_head)
-	  {
-	    /* Excise the output section.  */
-	    for (spp = &os->owner->sections; *spp; spp = &(*spp)->next)
-	      if (*spp == os)
-		{
-		  *spp = os->next;
-		  os->owner->section_count--;
-		  break;
-		}
-	  }
-	break;
-      }
-}
-
 /* Constructs the gots.  */
 
 static boolean
@@ -3293,7 +3254,7 @@ elf64_alpha_size_dynamic_sections (output_bfd, info)
 	}
 
       if (strip)
-	elf64_alpha_strip_section_from_output (s);
+	_bfd_strip_section_from_output (s);
       else
 	{
 	  /* Allocate memory for the section contents.  */
@@ -3538,7 +3499,7 @@ elf64_alpha_relocate_section (output_bfd, info, input_bfd, input_section,
 	    }
 	  else if (h->root.root.type == bfd_link_hash_undefweak)
 	    relocation = 0;
-	  else if (info->shared && !info->symbolic)
+	  else if (info->shared && !info->symbolic && !info->no_undefined)
 	    relocation = 0;
 	  else
 	    {

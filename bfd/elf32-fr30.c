@@ -330,7 +330,7 @@ fr30_elf_i32_reloc (abfd, reloc_entry, symbol, data,
 
 struct fr30_reloc_map
 {
-  unsigned int bfd_reloc_val;
+  bfd_reloc_code_real_type bfd_reloc_val;
   unsigned int fr30_reloc_val;
 };
 

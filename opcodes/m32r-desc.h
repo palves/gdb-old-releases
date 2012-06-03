@@ -34,15 +34,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define HAVE_CPU_M32RBF
 
 #define CGEN_INSN_LSB0_P 0
-#define CGEN_WORD_BITSIZE 32
-#define CGEN_DEFAULT_INSN_BITSIZE 32
-#define CGEN_BASE_INSN_BITSIZE 32
-#define CGEN_MIN_INSN_BITSIZE 16
-#define CGEN_MAX_INSN_BITSIZE 32
-#define CGEN_DEFAULT_INSN_SIZE (CGEN_DEFAULT_INSN_BITSIZE / 8)
-#define CGEN_BASE_INSN_SIZE (CGEN_BASE_INSN_BITSIZE / 8)
-#define CGEN_MIN_INSN_SIZE (CGEN_MIN_INSN_BITSIZE / 8)
-#define CGEN_MAX_INSN_SIZE (CGEN_MAX_INSN_BITSIZE / 8)
+
+/* Maximum size of any insn (in bytes).  */
+#define CGEN_MAX_INSN_SIZE 4
+
 #define CGEN_INT_INSN_P 1
 
 /* FIXME: Need to compute CGEN_MAX_SYNTAX_BYTES.  */
@@ -75,24 +70,24 @@ typedef enum insn_op2 {
  , OP2_12, OP2_13, OP2_14, OP2_15
 } INSN_OP2;
 
-/* Enum declaration for general registers.  */
-typedef enum h_gr {
+/* Enum declaration for .  */
+typedef enum gr_names {
   H_GR_FP = 13, H_GR_LR = 14, H_GR_SP = 15, H_GR_R0 = 0
  , H_GR_R1 = 1, H_GR_R2 = 2, H_GR_R3 = 3, H_GR_R4 = 4
  , H_GR_R5 = 5, H_GR_R6 = 6, H_GR_R7 = 7, H_GR_R8 = 8
  , H_GR_R9 = 9, H_GR_R10 = 10, H_GR_R11 = 11, H_GR_R12 = 12
  , H_GR_R13 = 13, H_GR_R14 = 14, H_GR_R15 = 15
-} H_GR;
+} GR_NAMES;
 
-/* Enum declaration for control registers.  */
-typedef enum h_cr {
+/* Enum declaration for .  */
+typedef enum cr_names {
   H_CR_PSW = 0, H_CR_CBR = 1, H_CR_SPI = 2, H_CR_SPU = 3
  , H_CR_BPC = 6, H_CR_BBPSW = 8, H_CR_BBPC = 14, H_CR_CR0 = 0
  , H_CR_CR1 = 1, H_CR_CR2 = 2, H_CR_CR3 = 3, H_CR_CR4 = 4
  , H_CR_CR5 = 5, H_CR_CR6 = 6, H_CR_CR7 = 7, H_CR_CR8 = 8
  , H_CR_CR9 = 9, H_CR_CR10 = 10, H_CR_CR11 = 11, H_CR_CR12 = 12
  , H_CR_CR13 = 13, H_CR_CR14 = 14, H_CR_CR15 = 15
-} H_CR;
+} CR_NAMES;
 
 /* Attributes.  */
 
@@ -102,7 +97,13 @@ typedef enum mach_attr {
  , MACH_MAX
 } MACH_ATTR;
 
+/* Enum declaration for instruction set selection.  */
+typedef enum isa_attr {
+  ISA_M32R, ISA_MAX
+} ISA_ATTR;
+
 /* Number of architecture variants.  */
+#define MAX_ISAS  1
 #define MAX_MACHS ((int) MACH_MAX)
 
 /* Ifield support.  */
@@ -113,13 +114,13 @@ extern const struct cgen_ifld m32r_cgen_ifld_table[];
 
 /* Enum declaration for cgen_ifld attrs.  */
 typedef enum cgen_ifld_attr {
-  CGEN_IFLD_MACH, CGEN_IFLD_NBOOLS, CGEN_IFLD_START_BOOL = 31, CGEN_IFLD_VIRTUAL
- , CGEN_IFLD_UNSIGNED, CGEN_IFLD_PCREL_ADDR, CGEN_IFLD_ABS_ADDR, CGEN_IFLD_RESERVED
- , CGEN_IFLD_SIGN_OPT, CGEN_IFLD_RELOC
+  CGEN_IFLD_VIRTUAL, CGEN_IFLD_PCREL_ADDR, CGEN_IFLD_ABS_ADDR, CGEN_IFLD_RESERVED
+ , CGEN_IFLD_SIGN_OPT, CGEN_IFLD_SIGNED, CGEN_IFLD_RELOC, CGEN_IFLD_END_BOOLS
+ , CGEN_IFLD_START_NBOOLS = 31, CGEN_IFLD_MACH, CGEN_IFLD_END_NBOOLS
 } CGEN_IFLD_ATTR;
 
-/* Number of non-boolean elements in cgen_ifld.  */
-#define CGEN_IFLD_NBOOL_ATTRS ((int) CGEN_IFLD_NBOOLS)
+/* Number of non-boolean elements in cgen_ifld_attr.  */
+#define CGEN_IFLD_NBOOL_ATTRS (CGEN_IFLD_END_NBOOLS - CGEN_IFLD_START_NBOOLS - 1)
 
 /* Enum declaration for m32r ifield types.  */
 typedef enum ifield_type {
@@ -137,22 +138,21 @@ typedef enum ifield_type {
 
 /* Enum declaration for cgen_hw attrs.  */
 typedef enum cgen_hw_attr {
-  CGEN_HW_MACH, CGEN_HW_NBOOLS, CGEN_HW_START_BOOL = 31, CGEN_HW_VIRTUAL
- , CGEN_HW_UNSIGNED, CGEN_HW_SIGNED, CGEN_HW_CACHE_ADDR, CGEN_HW_FUN_ACCESS
- , CGEN_HW_PC, CGEN_HW_PROFILE
+  CGEN_HW_VIRTUAL, CGEN_HW_CACHE_ADDR, CGEN_HW_PC, CGEN_HW_PROFILE
+ , CGEN_HW_END_BOOLS, CGEN_HW_START_NBOOLS = 31, CGEN_HW_MACH, CGEN_HW_END_NBOOLS
 } CGEN_HW_ATTR;
 
-/* Number of non-boolean elements in cgen_hw.  */
-#define CGEN_HW_NBOOL_ATTRS ((int) CGEN_HW_NBOOLS)
+/* Number of non-boolean elements in cgen_hw_attr.  */
+#define CGEN_HW_NBOOL_ATTRS (CGEN_HW_END_NBOOLS - CGEN_HW_START_NBOOLS - 1)
 
 /* Enum declaration for m32r hardware types.  */
-typedef enum hw_type {
-  HW_H_PC, HW_H_MEMORY, HW_H_SINT, HW_H_UINT
- , HW_H_ADDR, HW_H_IADDR, HW_H_HI16, HW_H_SLO16
+typedef enum cgen_hw_type {
+  HW_H_MEMORY, HW_H_SINT, HW_H_UINT, HW_H_ADDR
+ , HW_H_IADDR, HW_H_PC, HW_H_HI16, HW_H_SLO16
  , HW_H_ULO16, HW_H_GR, HW_H_CR, HW_H_ACCUM
  , HW_H_COND, HW_H_PSW, HW_H_BPSW, HW_H_BBPSW
  , HW_H_LOCK, HW_MAX
-} HW_TYPE;
+} CGEN_HW_TYPE;
 
 #define MAX_HW ((int) HW_MAX)
 
@@ -160,14 +160,14 @@ typedef enum hw_type {
 
 /* Enum declaration for cgen_operand attrs.  */
 typedef enum cgen_operand_attr {
-  CGEN_OPERAND_MACH, CGEN_OPERAND_NBOOLS, CGEN_OPERAND_START_BOOL = 31, CGEN_OPERAND_VIRTUAL
- , CGEN_OPERAND_UNSIGNED, CGEN_OPERAND_PCREL_ADDR, CGEN_OPERAND_ABS_ADDR, CGEN_OPERAND_SIGN_OPT
- , CGEN_OPERAND_NEGATIVE, CGEN_OPERAND_RELAX, CGEN_OPERAND_SEM_ONLY, CGEN_OPERAND_RELOC
- , CGEN_OPERAND_HASH_PREFIX
+  CGEN_OPERAND_VIRTUAL, CGEN_OPERAND_PCREL_ADDR, CGEN_OPERAND_ABS_ADDR, CGEN_OPERAND_SIGN_OPT
+ , CGEN_OPERAND_SIGNED, CGEN_OPERAND_NEGATIVE, CGEN_OPERAND_RELAX, CGEN_OPERAND_SEM_ONLY
+ , CGEN_OPERAND_RELOC, CGEN_OPERAND_HASH_PREFIX, CGEN_OPERAND_END_BOOLS, CGEN_OPERAND_START_NBOOLS = 31
+ , CGEN_OPERAND_MACH, CGEN_OPERAND_END_NBOOLS
 } CGEN_OPERAND_ATTR;
 
-/* Number of non-boolean elements in cgen_operand.  */
-#define CGEN_OPERAND_NBOOL_ATTRS ((int) CGEN_OPERAND_NBOOLS)
+/* Number of non-boolean elements in cgen_operand_attr.  */
+#define CGEN_OPERAND_NBOOL_ATTRS (CGEN_OPERAND_END_NBOOLS - CGEN_OPERAND_START_NBOOLS - 1)
 
 /* Enum declaration for m32r operand types.  */
 typedef enum cgen_operand_type {
@@ -189,41 +189,30 @@ typedef enum cgen_operand_type {
 
 /* Enum declaration for cgen_insn attrs.  */
 typedef enum cgen_insn_attr {
-  CGEN_INSN_MACH
- , CGEN_INSN_NBOOLS, CGEN_INSN_START_BOOL = 31, CGEN_INSN_ALIAS, CGEN_INSN_VIRTUAL
- , CGEN_INSN_UNCOND_CTI, CGEN_INSN_COND_CTI, CGEN_INSN_SKIP_CTI, CGEN_INSN_DELAY_SLOT
- , CGEN_INSN_RELAXABLE, CGEN_INSN_RELAX, CGEN_INSN_NO_DIS, CGEN_INSN_PBB
- , CGEN_INSN_FILL_SLOT
+  CGEN_INSN_ALIAS, CGEN_INSN_VIRTUAL, CGEN_INSN_UNCOND_CTI, CGEN_INSN_COND_CTI
+ , CGEN_INSN_SKIP_CTI, CGEN_INSN_DELAY_SLOT, CGEN_INSN_RELAXABLE, CGEN_INSN_RELAX
+ , CGEN_INSN_NO_DIS, CGEN_INSN_PBB, CGEN_INSN_FILL_SLOT, CGEN_INSN_SPECIAL
+ , CGEN_INSN_END_BOOLS, CGEN_INSN_START_NBOOLS = 31, CGEN_INSN_MACH, CGEN_INSN_PIPE
+ , CGEN_INSN_END_NBOOLS
 } CGEN_INSN_ATTR;
 
-/* Number of non-boolean elements in cgen_insn.  */
-#define CGEN_INSN_NBOOL_ATTRS ((int) CGEN_INSN_NBOOLS)
+/* Number of non-boolean elements in cgen_insn_attr.  */
+#define CGEN_INSN_NBOOL_ATTRS (CGEN_INSN_END_NBOOLS - CGEN_INSN_START_NBOOLS - 1)
 
 /* cgen.h uses things we just defined.  */
 #include "opcode/cgen.h"
 
 /* Attributes.  */
-extern const CGEN_ATTR_TABLE m32r_cgen_hw_attr_table[];
+extern const CGEN_ATTR_TABLE m32r_cgen_hardware_attr_table[];
+extern const CGEN_ATTR_TABLE m32r_cgen_ifield_attr_table[];
 extern const CGEN_ATTR_TABLE m32r_cgen_operand_attr_table[];
 extern const CGEN_ATTR_TABLE m32r_cgen_insn_attr_table[];
 
 /* Hardware decls.  */
 
-extern CGEN_KEYWORD m32r_cgen_opval_h_gr;
-extern CGEN_KEYWORD m32r_cgen_opval_h_cr;
+extern CGEN_KEYWORD m32r_cgen_opval_gr_names;
+extern CGEN_KEYWORD m32r_cgen_opval_cr_names;
 
-#define CGEN_INIT_PARSE(od) \
-{\
-}
-#define CGEN_INIT_INSERT(od) \
-{\
-}
-#define CGEN_INIT_EXTRACT(od) \
-{\
-}
-#define CGEN_INIT_PRINT(od) \
-{\
-}
 
 
 
